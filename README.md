@@ -2,147 +2,150 @@
 
 # 📦 DiBeKho
 
-**Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: chạy ngay trên máy, không cần internet, chi phí 0₫.**
+**English** · [Tiếng Việt](README.vi.md)
 
-[![Tải cho Windows](https://img.shields.io/badge/T%E1%BA%A3i%20cho-Windows%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
-[![Tải cho macOS](https://img.shields.io/badge/T%E1%BA%A3i%20cho-macOS%2013%2B%20%28Apple%20Silicon%29-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
+**Automatic stock tracking from Excel delivery notes: runs on your own computer, no internet needed, zero running cost.**
 
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PySide6](https://img.shields.io/badge/PySide6-Qt%206.10-41CD52?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/)
 [![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 
-<img src="docs/images/ton-kho.png" alt="Màn hình Tồn kho" width="860">
+<img src="docs/images/en/ton-kho.png" alt="Stock screen" width="860">
 
 </div>
 
 ---
 
-## Giới thiệu
+## About
 
-DiBeKho là app desktop dành cho doanh nghiệp nhỏ bán vật liệu chống thấm. Ngày nào doanh nghiệp cũng tạo **phiếu giao hàng bằng Excel**, và trước đây họ phải tự trừ tồn kho bằng tay.
+DiBeKho is a desktop app for a small business that sells waterproofing materials. The business writes **delivery notes in Excel** every day and used to update its stock sheet by hand.
 
-Với DiBeKho, bạn chỉ cần bỏ file phiếu vào một thư mục. App tự đọc phiếu, trừ tồn, ghi lại đơn hàng và khách hàng, rồi lập thống kê. Không cần nhập lại dữ liệu và không cần máy chủ.
+With DiBeKho you just drop the note files into a folder. The app reads them, reduces stock, records orders and customers, and builds the statistics. No retyping and no server.
 
-> **Không lưu giá tiền.** App chỉ quan tâm đến *số lượng*: hàng nào còn bao nhiêu, ai mua gì, bán chạy mặt hàng nào.
+> **No prices are stored.** The app is only about *quantities*: what is left, who bought what, and what sells best.
 
-## Tính năng
+The user interface is available in **Vietnamese** (default) and **English**. The Vietnamese folder names (`phieu-giao-hang`, `input`, …) stay the same in both languages.
+
+## Features
 
 | | |
 |---|---|
-| 📂 **Đọc phiếu giao hàng tự động** | Đọc mọi file `.xlsx` trong thư mục, kể cả thư mục con. Nhận ra nhãn trên phiếu dù vị trí ô bị lệch. Mỗi phiếu chỉ được tính một lần, dù đổi tên hay chuyển chỗ file. |
-| 🧠 **Tự học tên hàng** | Tên trên phiếu khác tên trong danh mục? App gợi ý mặt hàng khớp nhất (dựa vào tên tiếng Trung, mã model, quy cách) và nhớ lựa chọn của bạn cho các phiếu sau. |
-| ✂️ **Bỏ dòng phí** | Phí ship, phí dịch vụ… được nhận ra và bỏ qua chỉ với một cú bấm, không làm sai tồn kho. |
-| ↩️ **Sửa được khi chọn nhầm** | Đọc lại một phiếu, hoặc "quên" một lựa chọn ghép tên rồi chọn lại. Lịch sử cũ vẫn được giữ. |
-| 🛡️ **An toàn với file** | Lỡ xoá file phiếu thì tồn kho không đổi, và app cho chọn *khôi phục*, *huỷ phiếu* hoặc *bỏ qua*. Sửa phiếu thì app hỏi dùng bản mới hay giữ bản cũ. |
-| 📥 **Nhập hàng về** | App tạo sẵn file Excel mẫu, bạn chỉ điền số lượng rồi bỏ vào thư mục `input/`. |
-| 🔢 **Kiểm kê** | Nhập số đếm thực tế, app ghi phần chênh lệch. Lần kiểm kê đầu tiên chính là tồn đầu kỳ. |
-| 🔎 **Tra cứu mọi thứ** | Tìm mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Gõ không dấu hoặc tiếng Trung đều được. |
-| 📊 **Thống kê và xuất Excel** | Theo ngày, tháng, quý, năm hoặc khoảng tự chọn; tất cả hoặc chọn riêng mặt hàng, nhóm hàng, khách. Có tồn đầu, nhập, xuất, tồn cuối, top bán chạy và biểu đồ. |
-| 👥 **Đơn hàng và khách hàng** | Xem chi tiết từng đơn và mở được file gốc. Với mỗi khách, xem họ hay mua những mặt hàng nào. |
-| 🔁 **Chuyển máy** | Xuất toàn bộ dữ liệu thành một file `.dibekho` để máy khác làm tiếp. |
-| 💾 **Sao lưu tự động** | Mỗi ngày một bản, giữ 14 bản gần nhất; khôi phục bằng một cú bấm. |
-| 🌐 **Tiếng Việt và tiếng Anh** | Đổi trong Cài đặt. Gõ được tiếng Trung ở mọi ô nhập. |
+| 📂 **Reads delivery notes automatically** | Reads every `.xlsx` file in the folder and its subfolders. Finds the labels on the note even when cells shift. Each note counts once, even if the file is renamed or moved. |
+| 🧠 **Learns product names** | A name on the note differs from the catalog? The app suggests the closest product (by Chinese name, model code and packing) and remembers your choice for later notes. |
+| ✂️ **Drops fee lines** | Shipping and service fees are recognised and dropped with one click, so stock stays right. |
+| ↩️ **Undo a wrong choice** | Read a note again, or "forget" a name match and choose again. Old history is kept. |
+| 🛡️ **Safe with files** | Deleting a note file never changes stock; the app offers *restore*, *cancel the note* or *ignore*. If a note is edited, the app asks whether to use the new version. |
+| 📥 **Goods in** | The app makes an Excel template; fill in the quantities and drop it into `input/`. |
+| 🔢 **Stock count** | Enter what you counted and the app records the difference. The first count is the opening stock. |
+| 🔎 **Search everything** | Products, customers, phone numbers, note numbers, notes. Works without Vietnamese accents and with Chinese input. |
+| 📊 **Statistics and Excel export** | By day, month, quarter, year or any range; all items or selected products, categories, customers. Opening, in, out, closing stock, best sellers and a chart. |
+| 👥 **Orders and customers** | Open any order and its original file. For each customer, see what they buy most. |
+| 🔁 **Move to another computer** | Export all data to one `.dibekho` file and continue on another machine. |
+| 💾 **Automatic backups** | One per day, last 14 kept; restore with one click. |
+| 🌐 **Vietnamese and English** | Switch in Settings. Chinese can be typed in every field. |
 
-## Ảnh màn hình
+## Screenshots
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/can-xu-ly.png" alt="Cần xử lý"><br><b>Cần xử lý:</b> ghép tên hàng lạ, bỏ dòng phí ship</td>
-    <td width="50%"><img src="docs/images/tra-cuu.png" alt="Tra cứu"><br><b>Tra cứu:</b> tìm không dấu trong mọi thông tin</td>
+    <td width="50%"><img src="docs/images/en/can-xu-ly.png" alt="To do"><br><b>To do:</b> match unknown names, drop shipping fees</td>
+    <td width="50%"><img src="docs/images/en/tra-cuu.png" alt="Search"><br><b>Search:</b> accent-insensitive search across everything</td>
   </tr>
   <tr>
-    <td><img src="docs/images/thong-ke.png" alt="Thống kê"><br><b>Thống kê:</b> nhập, xuất, tồn theo kỳ, xuất ra Excel</td>
-    <td><img src="docs/images/chi-tiet-khach.png" alt="Chi tiết khách"><br><b>Chi tiết khách:</b> mặt hàng hay mua, các đơn đã đặt</td>
+    <td><img src="docs/images/en/thong-ke.png" alt="Statistics"><br><b>Statistics:</b> in, out and stock per period, Excel export</td>
+    <td><img src="docs/images/en/chi-tiet-khach.png" alt="Customer"><br><b>Customer:</b> products bought most, all orders</td>
   </tr>
 </table>
 
-<sub>Ảnh dùng dữ liệu giả lập (<code>scripts/readme_screenshots.py</code>), không phải dữ liệu khách hàng thật.</sub>
+<sub>Screenshots use invented demo data (<code>scripts/readme_screenshots.py</code>), never real customer data.</sub>
 
-## Cách hoạt động
+## How it works
 
 ```mermaid
 flowchart LR
-    A["📄 Phiếu giao hàng .xlsx<br/>phieu-giao-hang/"] -->|quét, đọc theo nhãn| C{DiBeKho}
-    B["📥 File hàng về / gói dữ liệu<br/>input/"] --> C
-    C -->|mỗi thay đổi = 1 dòng biến động| D[("SQLite<br/>data/kho.sqlite")]
-    D --> E["📊 Tồn kho · Tra cứu · Thống kê"]
-    E -->|xuất| F["📁 output/<br/>báo cáo Excel, gói .dibekho"]
+    A["📄 Delivery notes .xlsx<br/>phieu-giao-hang/"] -->|scan, read by labels| C{DiBeKho}
+    B["📥 Goods-in files / data packages<br/>input/"] --> C
+    C -->|every change = 1 movement row| D[("SQLite<br/>data/kho.sqlite")]
+    D --> E["📊 Stock · Search · Statistics"]
+    E -->|export| F["📁 output/<br/>Excel reports, .dibekho packages"]
 ```
 
-Toàn bộ dữ liệu nằm trong **một thư mục làm việc**, mặc định là `Documents/DiBeKho`:
+All data lives in **one working folder**, `Documents/DiBeKho` by default:
 
 ```
 DiBeKho/
-├── phieu-giao-hang/   ← bỏ file phiếu giao hàng vào đây (chia thư mục con tuỳ ý)
-├── input/             ← file hàng về, hoặc gói dữ liệu từ máy khác
-│   └── da-xu-ly/      ← app tự chuyển file đã xử lý vào đây
-├── output/            ← báo cáo Excel, file mẫu hàng về, gói dữ liệu
-├── sao-luu/           ← bản sao lưu tự động
-└── data/              ← database và bản sao file phiếu gốc (không sửa tay)
+├── phieu-giao-hang/   ← delivery notes go here (any subfolders you like)
+├── input/             ← goods-in files, or a data package from another computer
+│   └── da-xu-ly/      ← processed files are moved here by the app
+├── output/            ← Excel reports, goods-in template, data packages
+├── sao-luu/           ← automatic backups
+└── data/              ← database and copies of the original notes (do not edit)
 ```
 
-**Nguyên tắc sổ cái:** app không bao giờ sửa trực tiếp con số tồn kho. Mọi thay đổi (giao hàng, hàng về, kiểm kê, huỷ phiếu) là một dòng *biến động*, và **tồn = tổng các biến động**. Nhờ vậy mọi con số đều truy được nguồn gốc. Huỷ phiếu là ghi thêm biến động ngược, không xoá lịch sử.
+**Ledger rule:** the app never overwrites a stock number. Every change (delivery, goods in, stock count, cancellation) is a *movement* row, and **stock = the sum of movements**. Every figure can be traced back to its source. Cancelling a note adds reverse movements; history is never deleted.
 
-## Cài đặt (người dùng)
+## Install
 
-Bấm nút **Tải cho Windows** / **Tải cho macOS** ở đầu trang (luôn là bản mới nhất), hoặc xem mọi bản ở mục [**Releases**](https://github.com/Friendzoner49/DiBeKho/releases). Repo đang để private nên cần đăng nhập GitHub có quyền xem repo mới tải được.
+Click the **Windows** or **macOS** badge at the top to download the latest version, or see all versions under [**Releases**](https://github.com/Friendzoner49/DiBeKho/releases). The repository is private, so you must be signed in to GitHub with access to it.
 
-| | Cách cài | Lần đầu mở |
+| | How to install | First start |
 |---|---|---|
-| **macOS** (Apple Silicon, macOS 13+) | Mở `DiBeKho-x.y.z-mac-arm64.dmg`, kéo **DiBeKho** vào **Applications** | Bị chặn vì app chưa ký số: *Cài đặt hệ thống → Quyền riêng tư & Bảo mật → **Vẫn mở***. Cho phép truy cập Documents. |
-| **Windows** 10/11 | Chạy `DiBeKho-x.y.z-windows-setup.exe` (hoặc giải nén bản portable) | Nếu SmartScreen cảnh báo: *Thông tin thêm → **Vẫn chạy*** |
+| **macOS** (Apple Silicon, macOS 13+) | Open `DiBeKho-mac-arm64.dmg` and drag **DiBeKho** into **Applications** | Blocked because the app is not notarised: *System Settings → Privacy & Security → **Open Anyway***. Allow access to Documents. |
+| **Windows** 10/11 | Run `DiBeKho-windows-setup.exe` | If SmartScreen warns: *More info → **Run anyway*** |
 
-Cập nhật bản mới: cài đè lên bản cũ. Dữ liệu trong `Documents/DiBeKho` được giữ nguyên.
+To update, install the new version over the old one. Your data in `Documents/DiBeKho` is kept.
 
-**Gỡ cài đặt:**
-- **Windows:** *Settings → Apps → DiBeKho → Uninstall*. Trình gỡ sẽ hỏi có xoá thư mục dữ liệu không.
-- **macOS:** trong app vào *Cài đặt → Gỡ app khỏi máy này*, sau đó kéo app vào Thùng rác.
+**Uninstall:**
+- **Windows:** *Settings → Apps → DiBeKho → Uninstall*. The uninstaller asks whether to delete the data folder too.
+- **macOS:** in the app, *Settings → Uninstall…*, then drag the app to the Trash.
 
-## Phát triển
+## Development
 
-Cần [**uv**](https://docs.astral.sh/uv/). uv tự tải Python 3.13 và mọi thư viện vào `.venv/` của dự án, không đụng tới Python của hệ thống.
+You need [**uv**](https://docs.astral.sh/uv/). It downloads Python 3.13 and every library into the project's `.venv/` and leaves the system Python alone.
 
 ```bash
-uv sync                 # cài môi trường
-uv run dibekho          # chạy app từ mã nguồn
-uv run pytest -q        # chạy test
+uv sync                 # set up the environment
+uv run dibekho          # run the app from source
+uv run pytest -q        # run the tests
 uv run ruff check src tests --select F,E9
 ```
 
 ### Build
 
-| Nền tảng | Lệnh | Kết quả |
+| Platform | Command | Result |
 |---|---|---|
-| Windows | `powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1` | `dist/DiBeKho-x.y.z-windows-setup.exe` (cần [Inno Setup 6](https://jrsoftware.org/isinfo.php)), nếu không có thì ra bản `-portable.zip` |
+| Windows | `powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1` | `dist/DiBeKho-x.y.z-windows-setup.exe` (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)); without it, a `-portable.zip` |
 | macOS | `bash packaging/build_mac.sh` | `dist/DiBeKho-x.y.z-mac-arm64.dmg` |
-| GitHub | Đẩy tag `v*` (vd. `git tag v0.1.1 && git push origin v0.1.1`) | Cả hai bản trên, tự đăng lên **Releases** (nút tải ở đầu README trỏ vào đây) |
+| GitHub | Push a `v*` tag (e.g. `git tag v0.1.1 && git push origin v0.1.1`) | Both of the above, published to **Releases** (the download badges point there) |
 
-PyInstaller không build chéo được: bản Mac phải build trên Mac (hoặc trên máy Mac của GitHub Actions). Mỗi script build đều chạy test trước, sau đó chạy `DiBeKho --self-test` trên bản đã đóng gói. Chi tiết xem [docs/chay-thu-va-build.md](docs/chay-thu-va-build.md).
+PyInstaller cannot cross-compile: the macOS build must run on a Mac (or on GitHub Actions' Mac runners). Every build script runs the tests first, then `DiBeKho --self-test` on the packaged app. Details (in Vietnamese): [docs/chay-thu-va-build.md](docs/chay-thu-va-build.md).
 
-### Cấu trúc mã nguồn
+### Source layout
 
 ```
 src/dibekho/
-├── app.py          # điểm khởi động, màn hình chào lần đầu, --self-test
-├── db/             # kết nối SQLite, migrations/NNN_*.sql
-├── core/           # nghiệp vụ: tồn kho, quét thư mục, danh mục, thống kê, chuyển dữ liệu, sao lưu
-├── excel/          # đọc phiếu giao hàng, danh mục, file hàng về; xuất báo cáo
-├── ui/             # giao diện PySide6, mỗi màn hình một file
+├── app.py          # entry point, first-run dialog, --self-test
+├── db/             # SQLite connection, migrations/NNN_*.sql
+├── core/           # business logic: stock, folder scanning, catalog, statistics, transfer, backups
+├── excel/          # read delivery notes, catalog and goods-in files; write reports
+├── ui/             # PySide6 user interface, one file per screen
 └── i18n/           # vi.json, en.json
-tests/              # pytest: bộ đọc Excel, logic tồn, chuyển dữ liệu, mở mọi màn hình
-packaging/          # PyInstaller spec, script build Windows/macOS, Inno Setup
-scripts/            # công cụ phụ (tạo ảnh cho README)
+tests/              # pytest: Excel readers, stock logic, transfer, every screen opens
+packaging/          # PyInstaller spec, Windows/macOS build scripts, Inno Setup
+scripts/            # helper tools (README screenshots, reference workbook)
 ```
 
-`core/`, `excel/` và `db/` **không import Qt**, nên toàn bộ nghiệp vụ được test bằng pytest mà không cần mở cửa sổ. Quy ước làm việc và mọi quyết định thiết kế nằm trong [CLAUDE.md](CLAUDE.md).
+`core/`, `excel/` and `db/` **do not import Qt**, so all business logic is tested with pytest without opening a window. Project decisions and working rules are in [CLAUDE.md](CLAUDE.md) (Vietnamese).
 
-## Dữ liệu và quyền riêng tư
+## Data and privacy
 
-- Dữ liệu chỉ nằm trên máy người dùng. App không gửi gì lên internet.
-- File Excel thật của khách hàng (có tên, số điện thoại) **không bao giờ được commit**: `samples/` và các file `*.xlsx` ở thư mục gốc đã nằm trong `.gitignore`. Test dùng phiếu giả lập; các test cần file thật sẽ tự bỏ qua khi không có file.
+- Data stays on the user's computer. The app sends nothing to the internet.
+- Real customer Excel files (names, phone numbers) are **never committed**: `samples/` and `*.xlsx` in the repository root are in `.gitignore`. Tests use invented notes; tests that need the real files skip themselves when the files are absent.
 
 ---
 
 <div align="center">
-<sub>Làm bằng Python + PySide6 · dữ liệu nằm trên máy của bạn</sub>
+<sub>Built with Python + PySide6 · your data stays on your computer</sub>
 </div>

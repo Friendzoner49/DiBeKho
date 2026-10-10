@@ -1,6 +1,7 @@
-"""Screenshots for README.md (docs/images), made from invented demo data - never customer data.
+"""Screenshots for README.md (docs/images/en) and README.vi.md (docs/images), from invented demo data - never
+customer data.
 
-Run from the repo root:  PYTHONPATH=. uv run python scripts/readme_screenshots.py
+Run from the repo root:  PYTHONPATH=. uv run python scripts/readme_screenshots.py [vi|en]   (default: both)
 """
 
 import os
@@ -21,7 +22,13 @@ from dibekho.core.stock import Line, insert_document, stock_count  # noqa: E402
 from dibekho.core.workspace import Config, Workspace  # noqa: E402
 from tests.conftest import make_note  # noqa: E402
 
-out, tmp = Path("docs/images"), Path(tempfile.mkdtemp())
+LANG = sys.argv[1] if len(sys.argv) > 1 else None
+if LANG is None:  # one Qt application per process: run once per language
+    import subprocess
+    for lang in ("vi", "en"):
+        subprocess.run([sys.executable, __file__, lang], check=True)
+    sys.exit(0)
+out, tmp = Path("docs/images/en" if LANG == "en" else "docs/images"), Path(tempfile.mkdtemp())
 out.mkdir(parents=True, exist_ok=True)
 root = tmp / "demo"
 shutil.rmtree(root, ignore_errors=True)
@@ -62,13 +69,13 @@ f = app.font()
 f.setPointSize(10)
 f.setFamilies(["Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei"])
 app.setFont(f)
-i18n.set_language("vi")
+i18n.set_language(LANG)
 from dibekho.ui.common import AppContext  # noqa: E402
 from dibekho.ui.details import CustomerDialog, DocumentDialog  # noqa: E402
 from dibekho.ui.main_window import PENDING, SEARCH, MainWindow  # noqa: E402
 from dibekho.ui.search_page import WINDOWS  # noqa: E402
 
-ctx = AppContext(Config(str(root), "vi", "demo", "MAY-VAN-PHONG"), ws)
+ctx = AppContext(Config(str(root), LANG, "demo", "MAY-VAN-PHONG"), ws)
 conn = ctx.conn
 ids = []
 with db.transaction(conn):
