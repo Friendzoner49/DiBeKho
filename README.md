@@ -45,6 +45,7 @@ The user interface is available in **Vietnamese** (default) and **English**. The
 | 📊 **Statistics and Excel export** | By day, month, quarter, year or any range; all items or selected products, categories, customers. Opening, in, out, closing stock, best sellers and a chart. |
 | 👥 **Orders and customers** | Open any order and its original file. For each customer, see what they buy most. |
 | 🔁 **Move to another computer** | Export all data to one `.dibekho` file and continue on another machine. |
+| 📑 **Master data in Excel** | Export the product catalog and customer list to Excel, and import it on another computer with the same codes. |
 | 💾 **Automatic backups** | One per day, last 14 kept; restore with one click. |
 | 🌐 **Vietnamese and English** | Switch in Settings. Chinese can be typed in every field. |
 
@@ -175,6 +176,8 @@ Only one computer works at a time.
 1. On the computer in use: **Settings → Data transfer and backups → Export data**. A `.dibekho` file appears in `output/`.
 2. Send the file (USB, Zalo, e-mail…) and put it into `input/` on the other computer.
 3. There, open **To do → Import data**. The current data on that computer is backed up first and then replaced.
+
+**Master data (Excel):** **Settings → Data transfer and backups → Export master data…** writes the product catalog (codes, names, packing, variant, unit, category, date added, low-stock alert, active) and the customer list (name, phone, contact, address, number of orders) to one Excel file in `output/`. Use it to check the app against your own records, or load it on another computer with **Import master data…**: the same products (same codes) and customers appear there. It holds no stock or orders; to move everything, use **Export data** above.
 
 ### 10. Backups
 

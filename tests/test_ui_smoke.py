@@ -145,3 +145,30 @@ def test_undo_buttons(app, ws, monkeypatch):
     assert settings.learned.rowCount() == 1
     assert "(2)" in win.nav.item(1).text()  # both notes with the forgotten name wait under "Cần xử lý"
     win.close()
+
+
+def test_master_data_buttons(app, ws, tmp_path, monkeypatch):
+    import dibekho.ui.transfer_page as transfer_mod
+
+    seen = []
+    monkeypatch.setattr(transfer_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(transfer_mod, "open_path", lambda p: seen.append(p))
+    monkeypatch.setattr(transfer_mod, "info", lambda parent, text: seen.append(text))
+    i18n.set_language("vi")
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.transfer_page import TransferPanel
+
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    setup_notes(ctx.conn, ws)
+    panel = TransferPanel(ctx, lambda: None)
+    panel.export_master()
+    exported = seen[0]
+    assert exported.exists() and exported.parent == ws.output
+
+    other_ws = type(ws)(tmp_path / "other")
+    other_ws.ensure()
+    other = AppContext(Config(workspace=str(other_ws.root), language="vi", device_id="y", device_name="u"), other_ws)
+    monkeypatch.setattr(transfer_mod.QFileDialog, "getOpenFileName", lambda *a, **k: (str(exported), ""))
+    TransferPanel(other, lambda: None).import_master()
+    assert other.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
+    assert "2 mới" in seen[-1]

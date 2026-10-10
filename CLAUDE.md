@@ -276,6 +276,16 @@ App tự nhận loại file:
 - Gói chứa cả danh sách hash các file đã đọc → máy nhận quét thư mục phiếu của mình sẽ **không trừ trùng** những phiếu đã có.
 - Gói có phiên bản schema cũ hơn → chạy migration sau khi nhập; mới hơn → báo "hãy cập nhật app".
 
+### 9.4b. Dữ liệu gốc (Excel)
+
+- **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc… / Nhập dữ liệu gốc…** (`excel/master_data.py`, `catalog.import_master`).
+- File `output/DiBeKho_DuLieuGoc_<ngày giờ>.xlsx`, 2 trang, bố cục cố định (A1 bắt đầu bằng `DIBEKHO`, tiêu đề ở dòng 4, dữ liệu từ dòng 5; đọc theo **vị trí cột**, không theo tên cột → đọc được dù xuất bằng tiếng Việt hay Anh):
+  - **Mặt hàng:** STT · Mã SP · Tên tiếng Việt · Tên Trung · Quy cách · Loại/màu · Đơn vị · Nhóm hàng · Ngày nhập (= `products.created_at`) · Báo sắp hết khi còn · Đang dùng.
+  - **Khách hàng:** STT · Khách hàng · Điện thoại · Người liên hệ · Địa chỉ · Số đơn (đơn giao hàng đang hiệu lực; chỉ để xem, khi nhập bỏ qua). Theo yêu cầu: **không** có mã đơn, tổng SL, mặt hàng đã mua.
+- Nhập: mã đã có → cập nhật theo file; mã mới → tạo đúng mã đó (giữ ngày nhập); không mã → mã kế tiếp; trùng tên+quy cách+loại với mặt hàng mang mã **không có trong file** → bỏ qua và báo (không tạo trùng). Khách khớp theo SĐT rồi theo tên, nhận giá trị trong file. Sao lưu trước khi nhập; một transaction.
+- Không thay thế gói `.dibekho`: file Excel không có tồn kho, phiếu, tên đã học.
+- Đã thử trên dữ liệu thật: 44 mặt hàng + 3 khách khớp `DiBeKho-du-lieu-goc.xlsx` (khác biệt duy nhất: quy cách của 3 mặt hàng tạo từ phiếu giữ nguyên chữ trên phiếu, vd. `20KG/thùng`).
+
 ### 9.5. Sao lưu
 
 - Tự sao lưu mỗi ngày khi mở app, và trước mọi thao tác nhập gói dữ liệu → `sao-luu/`, giữ 14 bản gần nhất. Dùng `conn.backup()` của `sqlite3` (an toàn khi DB đang mở).
@@ -483,6 +493,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | README (EN + VI) thêm mục **Hướng dẫn sử dụng** sau phần Cài đặt: mở lần đầu, nạp danh mục, tồn đầu, phiếu hằng ngày, hàng về, tra cứu, thống kê, sửa khi nhầm, chuyển máy, sao lưu. Tên nút lấy đúng từ `i18n/*.json`; đổi chữ trên nút thì sửa cả README. Màn hình chào lần đầu dùng `theme_color('hint')` (chế độ tối). |
 | 2026-10-10 | **Đóng giai đoạn 1.** Workflow thêm `concurrency` (tag chuyển sang commit mới huỷ lần build cũ đang chạy); chuyển tag `v0.1.0` sang commit cuối. Giai đoạn 2 bắt đầu sau khi khách dùng thử (xem "Tổng kết giai đoạn 1"). |
 | 2026-10-10 | Dọn máy phát triển để người dùng thử cài từ GitHub Releases: xoá `dist/`, `.venv/`, cache, thư mục làm việc thử. Giữ `samples/` và `DiBeKho-du-lieu-goc.xlsx` (không có trên GitHub). Làm tiếp: `uv sync` tạo lại môi trường. |
+| 2026-10-10 | Thêm **Xuất/Nhập dữ liệu gốc (Excel)** trong Cài đặt (mục 9.4b): mặt hàng + khách hàng (khách chỉ đến cột Số đơn); nhập ở máy khác giữ nguyên mã. 56 test. Không đổi số phiên bản. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)

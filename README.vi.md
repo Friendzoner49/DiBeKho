@@ -43,6 +43,7 @@ Với DiBeKho, bạn chỉ cần bỏ file phiếu vào một thư mục. App t�
 | 📊 **Thống kê và xuất Excel** | Theo ngày, tháng, quý, năm hoặc khoảng tự chọn; tất cả hoặc chọn riêng mặt hàng, nhóm hàng, khách. Có tồn đầu, nhập, xuất, tồn cuối, top bán chạy và biểu đồ. |
 | 👥 **Đơn hàng và khách hàng** | Xem chi tiết từng đơn và mở được file gốc. Với mỗi khách, xem họ hay mua những mặt hàng nào. |
 | 🔁 **Chuyển máy** | Xuất toàn bộ dữ liệu thành một file `.dibekho` để máy khác làm tiếp. |
+| 📑 **Dữ liệu gốc bằng Excel** | Xuất danh mục mặt hàng và danh sách khách ra Excel, nạp sang máy khác với đúng mã cũ. |
 | 💾 **Sao lưu tự động** | Mỗi ngày một bản, giữ 14 bản gần nhất; khôi phục bằng một cú bấm. |
 | 🌐 **Tiếng Việt và tiếng Anh** | Đổi trong Cài đặt. Gõ được tiếng Trung ở mọi ô nhập. |
 
@@ -171,6 +172,8 @@ Mỗi lúc chỉ một máy làm việc.
 1. Ở máy đang dùng: **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu**. File `.dibekho` xuất hiện trong `output/`.
 2. Gửi file (USB, Zalo, email…) và chép vào `input/` của máy kia.
 3. Ở máy kia, vào **Cần xử lý → Nhập dữ liệu**. Dữ liệu hiện có trên máy đó được sao lưu trước, rồi mới bị thay thế.
+
+**Dữ liệu gốc (Excel):** **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc…** ghi danh mục mặt hàng (mã, tên, quy cách, loại/màu, đơn vị, nhóm hàng, ngày nhập, mức báo sắp hết, đang dùng) và danh sách khách hàng (tên, điện thoại, người liên hệ, địa chỉ, số đơn) ra một file Excel trong `output/`. Dùng để đối chiếu với sổ sách, hoặc nạp sang máy khác bằng **Nhập dữ liệu gốc…**: máy đó sẽ có đúng các mặt hàng (giữ nguyên mã) và khách hàng như trong file. File không chứa tồn kho và đơn hàng; muốn chuyển toàn bộ, dùng **Xuất dữ liệu** ở trên.
 
 ### 10. Sao lưu
 

@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from dibekho import db
-from dibekho.core import backup, transfer
+from dibekho.core import backup, catalog, transfer
+from dibekho.excel import master_data
 from dibekho.i18n import t
 from dibekho.ui.common import ask, error, fill_table, hint_label, info, make_table, open_path, selected_id
 
@@ -33,6 +34,20 @@ class TransferPanel(QWidget):
         row.addStretch()
         lay.addLayout(row)
         self.layout_.addWidget(box)
+
+        master = QGroupBox(t("master.title"))
+        lay_m = QVBoxLayout(master)
+        lay_m.addWidget(hint_label(t("master.hint")))
+        row_m = QHBoxLayout()
+        export_master = QPushButton(t("master.export"))
+        export_master.clicked.connect(self.export_master)
+        import_master = QPushButton(t("master.import"))
+        import_master.clicked.connect(self.import_master)
+        row_m.addWidget(export_master)
+        row_m.addWidget(import_master)
+        row_m.addStretch()
+        lay_m.addLayout(row_m)
+        self.layout_.addWidget(master)
 
         box2 = QGroupBox(t("backup.title"))
         lay2 = QVBoxLayout(box2)
@@ -74,6 +89,37 @@ class TransferPanel(QWidget):
         self.refresh()
         if ask(self, t("transfer.exported", path=str(path))):
             open_path(path.parent)
+
+    def export_master(self):
+        path = self.ctx.ws.output / f"DiBeKho_DuLieuGoc_{datetime.now():%Y-%m-%d_%H%M}.xlsx"
+        try:
+            master_data.export(path, self.ctx.conn)
+        except OSError as exc:
+            error(self, t("stats.export_locked") + f"\n{exc}")
+            return
+        if ask(self, t("master.exported", path=str(path))):
+            open_path(path)
+
+    def import_master(self):
+        path, _ = QFileDialog.getOpenFileName(self, t("master.import"), str(self.ctx.ws.root), "Excel (*.xlsx)")
+        if not path:
+            return
+        try:
+            products, customers = master_data.read(path)
+        except master_data.NotMasterData as exc:
+            error(self, t("master.not_master_file", error=str(exc)))
+            return
+        if not ask(self, t("master.confirm_import", products=len(products), customers=len(customers))):
+            return
+        backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-nhap-du-lieu-goc")
+        result = catalog.import_master(self.ctx.conn, products, customers)
+        self.ctx.notify()
+        text = t("master.imported", **{k: v for k, v in result.items() if k != "skipped"})
+        if result["skipped"]:
+            lines = [t("master.skipped_row", row=r, code=code or "—", existing=existing)
+                     for r, code, existing in result["skipped"]]
+            text += "\n\n" + t("master.skipped") + "\n" + "\n".join(lines)
+        info(self, text)
 
     def backup_now(self):
         backup.named_backup(self.ctx.conn, self.ctx.ws, "thu-cong")
