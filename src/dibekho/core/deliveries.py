@@ -113,9 +113,6 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str) -> bool:
         _record(conn, h, rel, "error", str(exc))
         return False
 
-    # The customer is a fact on the note: record them now, even if the note waits for product names.
-    catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
-
     unknown = [ln for ln in goods_lines(conn, note) if catalog.alias_product(conn, ln.key) is None]
     if unknown:
         _record(conn, h, rel, "needs_mapping", f"{len(unknown)} dòng hàng chưa nhận ra")
