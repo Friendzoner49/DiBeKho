@@ -95,18 +95,24 @@ class CatalogImportDialog(QDialog):
         self.accept()
 
 
+def import_catalog_file(ctx, parent, path: Path, items: list[CatalogItem] | None = None) -> bool:
+    """Preview and import the catalog sheet at path. Returns True if the user imported it."""
+    if items is None:
+        try:
+            items = read_catalog(path)
+        except NotCatalogSheet as exc:
+            error(parent, t("catalog.not_sheet", error=str(exc)))
+            return False
+    if not items:
+        error(parent, t("catalog.not_sheet", error="0"))
+        return False
+    return CatalogImportDialog(ctx, Path(path), items, parent).exec() == QDialog.Accepted
+
+
 def start_catalog_import(ctx, parent) -> bool:
     """Ask for the Excel file, show the preview, import. Returns True if something was imported."""
     path, _ = QFileDialog.getOpenFileName(parent, t("catalog.pick_file"), str(ctx.ws.root.parent), "Excel (*.xlsx)")
     if not path:
         return False
-    try:
-        items = read_catalog(path)
-    except NotCatalogSheet as exc:
-        error(parent, t("catalog.not_sheet", error=str(exc)))
-        return False
-    if not items:
-        error(parent, t("catalog.not_sheet", error="0"))
-        return False
-    return CatalogImportDialog(ctx, Path(path), items, parent).exec() == QDialog.Accepted
+    return import_catalog_file(ctx, parent, Path(path))
 

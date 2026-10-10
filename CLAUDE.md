@@ -266,7 +266,10 @@ Mỗi lần nhập một file = **một transaction**: lỗi giữa chừng thì
 App tự nhận loại file:
 - **File hàng về** (`.xlsx` có tiêu đề "PHIẾU HÀNG VỀ / GOODS RECEIPT" theo mẫu): đọc ngày, các dòng mặt hàng + số lượng → hiện bản xem trước → xác nhận → tồn tăng. Mẫu được tạo bằng nút **"Tạo file mẫu hàng về"** (ghi vào `output/`); mẫu có sẵn danh sách mặt hàng, khách chỉ điền số lượng.
 - **Gói dữ liệu** (`.dibekho`): xem 9.4.
+- **File danh mục** (thống kê tháng) bỏ vào `input/` cũng được nhận ra (`inbox.read_item` thử `read_catalog`) → nút "Nhập danh mục từ Excel…" ngay trong Cần xử lý.
 - Xử lý xong → chuyển file vào `input/da-xu-ly/` (thêm ngày giờ vào tên) để không xử lý lại và người dùng thấy rõ.
+- **File không dùng được không bao giờ bị di chuyển:** chỉ có nút **Ẩn** (nhớ theo hash trong `hidden_inputs`, migration 005; nội dung đổi thì hiện lại). Nút **Bỏ** (chuyển vào `da-xu-ly`) chỉ còn cho file dùng được (hàng về, danh mục, gói dữ liệu).
+- **Hàng về → "Chọn file để nhập…"**: chọn file hàng về hoặc file danh mục ở bất kỳ đâu (kể cả `da-xu-ly`); file ngoài `input/` không bị di chuyển (`inbox.done`). Chống nhập trùng hàng về theo hash vẫn giữ.
 
 ### 9.4. Chuyển dữ liệu sang máy khác
 
@@ -495,6 +498,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Dọn máy phát triển để người dùng thử cài từ GitHub Releases: xoá `dist/`, `.venv/`, cache, thư mục làm việc thử. Giữ `samples/` và `DiBeKho-du-lieu-goc.xlsx` (không có trên GitHub). Làm tiếp: `uv sync` tạo lại môi trường. |
 | 2026-10-10 | Thêm **Xuất/Nhập dữ liệu gốc (Excel)** trong Cài đặt (mục 9.4b): mặt hàng + khách hàng (khách chỉ đến cột Số đơn); nhập ở máy khác giữ nguyên mã. 56 test. Không đổi số phiên bản. |
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit có Xuất/Nhập dữ liệu gốc (người dùng chọn cập nhật bản phát hành, giữ số 0.1.0). |
+| 2026-10-10 | **Lỗi nghiêm trọng (người dùng báo):** file danh mục bỏ nhầm vào `input/` bị báo "không dùng được", nút Bỏ chuyển nó vào `da-xu-ly` và không còn cách nhập lại trong app. Sửa: nhận ra file danh mục trong `input/`; file không dùng được chỉ **Ẩn** (không di chuyển, migration 005); nút **Chọn file để nhập…** ở Hàng về (chọn từ bất kỳ đâu, kể cả `da-xu-ly`). 58 test. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)

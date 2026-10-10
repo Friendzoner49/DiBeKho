@@ -144,6 +144,8 @@ Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt r�
 2. Chép file vào `input/` (nút **Mở thư mục input**).
 3. Ở **Cần xử lý**, bấm **Xem và nhập**, kiểm tra danh sách rồi bấm **Xác nhận nhập hàng về**. Tồn tăng và file được chuyển sang `input/da-xu-ly/`.
 
+Thay cho bước 2–3, có thể bấm **Chọn file để nhập…** ở **Hàng về** và chọn thẳng file ở bất kỳ đâu, kể cả trong `input/da-xu-ly/`. Nút này cũng nhận file danh mục (thống kê tháng). File danh mục bỏ vào `input/` cũng được nhận ra (**Nhập danh mục từ Excel…** trong **Cần xử lý**). File app không dùng được sẽ không bao giờ bị di chuyển: **Ẩn** chỉ bỏ nó khỏi danh sách.
+
 ### 6. Tra cứu
 
 - **Tồn kho**: dòng đỏ = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng vàng = bằng hoặc dưới mức **Báo sắp hết khi còn** (đặt cho từng mặt hàng ở **Cài đặt → Danh mục mặt hàng**, nháy đúp vào mặt hàng). Nháy đúp một mặt hàng để xem toàn bộ lịch sử.

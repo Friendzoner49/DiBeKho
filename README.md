@@ -148,6 +148,8 @@ Then click **Apply and read notes again**, check the summary and confirm. The ap
 2. Copy the file into `input/` (**Open input folder**).
 3. In **To do**, click **Review & import**, check the list and click **Confirm goods in**. Stock goes up and the file moves to `input/da-xu-ly/`.
 
+Instead of steps 2–3 you can click **Choose a file to import…** on **Goods in** and pick the file wherever it is, even in `input/da-xu-ly/`. The same button also takes the monthly catalog sheet. A catalog sheet dropped into `input/` is recognised too (**Import catalog from Excel…** in **To do**). A file the app cannot use is never moved: **Hide** only removes it from the list.
+
 ### 6. Looking things up
 
 - **Stock**: red rows = negative stock (a goods-in or a stock count is missing); yellow rows = at or below the **Low-stock alert at** level (set it per product in **Settings → Products**, double-click the product). Double-click a product for its full history.

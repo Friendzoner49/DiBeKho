@@ -129,7 +129,7 @@
   "inbox.receipt_detail": "Ngày về {date} · {lines} mặt hàng · tổng {qty}",
   "inbox.package_detail": "Từ máy {device}, xuất lúc {at} · {deliveries} phiếu giao hàng",
   "inbox.receipt_preview": "Hàng về ngày {date}. Kiểm tra lại trước khi xác nhận:",
-  "inbox.confirm_discard": "Chuyển '{name}' vào input/da-xu-ly mà không nhập?",
+  "inbox.confirm_discard": "Không dùng '{name}' và chuyển nó vào input/da-xu-ly?\n\nSau này vẫn nhập được: Hàng về → 'Chọn file để nhập…' rồi chọn file trong input/da-xu-ly.",
   "doc.title_delivery": "Đơn hàng {code}",
   "doc.read_at": "App đọc lúc",
   "doc.total": "{lines} dòng hàng · tổng số lượng {qty}",
@@ -187,7 +187,7 @@
   "report.period": "Kỳ: {period}",
   "report.scope": "Phạm vi: {scope}",
   "report.exported_at": "Xuất lúc: {at}",
-  "receipts.steps": "Cách nhập hàng về:\n1. Bấm 'Tạo file mẫu hàng về' → mở file, điền ngày về và số lượng.\n2. Lưu file, rồi chép nó vào thư mục input.\n3. Vào 'Cần xử lý', bấm 'Xem và nhập', kiểm tra rồi xác nhận.",
+  "receipts.steps": "Cách nhập hàng về:\n1. Bấm 'Tạo file mẫu hàng về' → mở file, điền ngày về và số lượng.\n2. Lưu file, rồi chép nó vào thư mục input và vào 'Cần xử lý' → 'Xem và nhập';\n   hoặc bấm 'Chọn file để nhập…' và chọn thẳng file đó (ở đâu cũng được).\n3. Kiểm tra rồi xác nhận.",
   "receipts.make_template": "Tạo file mẫu hàng về",
   "receipts.open_input": "Mở thư mục input",
   "receipts.check_input": "Kiểm tra thư mục input",
@@ -309,5 +309,11 @@
   "master.col_no": "STT",
   "master.col_name_vi": "Tên tiếng Việt",
   "master.col_created": "Ngày nhập",
-  "master.col_orders": "Số đơn"
+  "master.col_orders": "Số đơn",
+  "inbox.catalog": "File danh mục",
+  "inbox.catalog_detail": "File thống kê tháng: {count} mặt hàng. Bấm 'Nhập danh mục từ Excel…' để xem trước và nhập.",
+  "inbox.confirm_hide": "Ẩn '{name}' khỏi danh sách?\n\nFile vẫn nằm nguyên trong thư mục input, app chỉ không nhắc lại nữa (trừ khi nội dung file thay đổi).",
+  "receipts.pick_file": "Chọn file để nhập…",
+  "receipts.pick_file_tip": "Chọn file hàng về hoặc file danh mục ở bất kỳ đâu, kể cả trong input/da-xu-ly",
+  "receipts.picked_done": "Đã nhập xong."
 }

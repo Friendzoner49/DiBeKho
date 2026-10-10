@@ -194,7 +194,7 @@ def test_every_translation_key_exists():
         + [f"move.{k}" for k in ("delivery_out", "delivery_reverse", "receipt_in", "receipt_reverse",
                                  "count_adjust", "count_reverse")]
         + [f"file.{k}" for k in ("error", "changed", "missing")]
-        + [f"inbox.{k}" for k in ("receipt", "package", "error")]
+        + [f"inbox.{k}" for k in ("receipt", "catalog", "package", "error")]
         + [f"period.{k}" for k in ("day", "month", "quarter", "year", "range")]
         + [f"split.{k}" for k in ("none", "day", "month")]
         + [f"sheet.{k}" for k in report.SHEETS]
@@ -210,3 +210,41 @@ def test_chinese_input(conn, ws):
     assert [p["name_zh"] for p in queries.search(conn, "背水")["products"]] == ["背水涂"]
     assert queries.search(conn, "固沙剂")["products"][0]["name_zh"] == "固沙剂"
     assert parse_number("１２") == 12 and parse_number("１２，５") == 12.5 and parse_number(" 3,5 ") == 3.5
+
+
+def test_catalog_sheet_dropped_into_input_is_recognised(conn, ws):
+    from tests.test_catalog import make_sheet
+
+    make_sheet(ws.input / "danh-muc.xlsx")
+    [item] = inbox.items(conn, ws)
+    assert item.kind == "catalog" and len(item.catalog) == 6
+
+
+def test_unusable_file_in_input_is_hidden_not_moved(conn, ws):
+    path = ws.input / "ghi-chu.xlsx"
+    openpyxl.Workbook().save(path)
+    [item] = inbox.items(conn, ws)
+    assert item.kind == "error"
+    inbox.hide(conn, item)
+    assert inbox.items(conn, ws) == [] and path.exists()
+    assert not ws.processed.exists() or not any(ws.processed.iterdir())
+
+
+def test_discarded_receipt_can_still_be_imported_from_da_xu_ly(conn, ws):
+    from dibekho.excel.receipt import write_template
+
+    a, _ = setup_notes(conn, ws)
+    path = write_template(ws.input / "hang-ve.xlsx", catalog.products(conn), date(2026, 9, 1)) or ws.input / "hang-ve.xlsx"
+    wb = openpyxl.load_workbook(path)
+    for row in wb.active.iter_rows(min_row=7):
+        if row[0].value == conn.execute("SELECT code FROM products WHERE id=?", (a,)).fetchone()[0]:
+            row[5].value = 7
+    wb.save(path)
+    [item] = inbox.items(conn, ws)
+    inbox.discard(ws, item)  # 'Bỏ' in Cần xử lý
+    [moved] = list(ws.processed.iterdir())
+    again = inbox.read_item(conn, moved)  # 'Chọn file để nhập…' on the goods-in page
+    assert again.kind == "receipt"
+    inbox.apply_receipt(conn, ws, again)
+    assert moved.exists()  # a file picked outside input/ is left where it is
+    assert stock_levels(conn)[a] == 7 - 3 - 5 - 2

@@ -172,3 +172,38 @@ def test_master_data_buttons(app, ws, tmp_path, monkeypatch):
     TransferPanel(other, lambda: None).import_master()
     assert other.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
     assert "2 mới" in seen[-1]
+
+
+def test_catalog_in_input_and_pick_file(app, ws, monkeypatch):
+    """Catalog sheet dropped into input/: shown as a catalog, importable; a file in da-xu-ly can be picked again."""
+    import dibekho.ui.catalog_import as catalog_mod
+    import dibekho.ui.receipt_page as receipt_mod
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import PENDING, MainWindow
+    from tests.test_catalog import make_sheet
+
+    i18n.set_language("vi")
+    monkeypatch.setattr(catalog_mod.CatalogImportDialog, "exec",
+                        lambda self: (self.do_import(), catalog_mod.QDialog.Accepted)[1])
+    monkeypatch.setattr(catalog_mod, "info", lambda *a, **k: None)
+    monkeypatch.setattr(catalog_mod, "error", lambda *a, **k: None)  # 2nd time: every row exists, nothing ticked
+    monkeypatch.setattr(receipt_mod, "info", lambda *a, **k: None)
+    make_sheet(ws.input / "danh-muc.xlsx")
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    win = MainWindow(ctx)
+    win.show()
+    win.rescan()
+    win.nav.setCurrentRow(PENDING)
+    app.processEvents()
+    page = win.pending
+    assert [it.kind for it in page._items] == ["catalog"]
+    page.import_catalog(page._items[0])
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 6
+    [moved] = list(ws.processed.iterdir())
+
+    # picking the same file again from da-xu-ly on the goods-in page works and creates no duplicates
+    monkeypatch.setattr(receipt_mod.QFileDialog, "getOpenFileName", lambda *a, **k: (str(moved), ""))
+    win.stack.widget(3).pick_file()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 6
+    assert moved.exists()
+    win.close()

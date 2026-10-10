@@ -129,7 +129,7 @@
   "inbox.receipt_detail": "Arrived {date} · {lines} products · total {qty}",
   "inbox.package_detail": "From {device}, exported {at} · {deliveries} delivery notes",
   "inbox.receipt_preview": "Goods arrived on {date}. Check before confirming:",
-  "inbox.confirm_discard": "Move '{name}' to input/da-xu-ly without importing?",
+  "inbox.confirm_discard": "Do not use '{name}' and move it to input/da-xu-ly?\n\nYou can still import it later: Goods in → 'Choose a file to import…' and pick it in input/da-xu-ly.",
   "doc.title_delivery": "Order {code}",
   "doc.read_at": "Read by app at",
   "doc.total": "{lines} lines · total quantity {qty}",
@@ -187,7 +187,7 @@
   "report.period": "Period: {period}",
   "report.scope": "Scope: {scope}",
   "report.exported_at": "Exported: {at}",
-  "receipts.steps": "How to record goods in:\n1. Click 'Create goods-in template' → open it, fill the arrival date and quantities.\n2. Save it and copy it into the input folder.\n3. Go to 'To do', click 'Review & import', check and confirm.",
+  "receipts.steps": "How to record goods in:\n1. Click 'Create goods-in template' → open it, fill the arrival date and quantities.\n2. Save it, copy it into the input folder and go to 'To do' → 'Review & import';\n   or click 'Choose a file to import…' and pick the file directly (from anywhere).\n3. Check and confirm.",
   "receipts.make_template": "Create goods-in template",
   "receipts.open_input": "Open input folder",
   "receipts.check_input": "Check input folder",
@@ -309,5 +309,11 @@
   "master.col_no": "No.",
   "master.col_name_vi": "Vietnamese name",
   "master.col_created": "Added on",
-  "master.col_orders": "Orders"
+  "master.col_orders": "Orders",
+  "inbox.catalog": "Catalog file",
+  "inbox.catalog_detail": "Monthly stock sheet: {count} products. Click 'Import catalog from Excel…' to preview and import.",
+  "inbox.confirm_hide": "Hide '{name}' from the list?\n\nThe file stays in the input folder; the app just stops reminding you (unless the file changes).",
+  "receipts.pick_file": "Choose a file to import…",
+  "receipts.pick_file_tip": "Pick a goods-in file or a catalog sheet from anywhere, including input/da-xu-ly",
+  "receipts.picked_done": "Imported."
 }

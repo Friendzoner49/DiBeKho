@@ -4,8 +4,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QCompleter,
-    QDialog,
-    QDialogButtonBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -27,10 +25,11 @@ from dibekho.ui.common import (
     hint_label,
     info,
     make_table,
-    num_item,
     open_path,
 )
+from dibekho.ui.catalog_import import import_catalog_file
 from dibekho.ui.page import Page
+from dibekho.ui.receipt_page import review_receipt
 
 NEW, LATER, SKIP = "new", "later", "skip"
 NAME, NAME_ZH, SPEC, ORDERS, CHOICE, DROP = range(6)
@@ -207,6 +206,8 @@ class PendingPage(Page):
             total = sum(ln.qty for ln, _ in it.resolved)
             return t("inbox.receipt_detail", date=fmt_date(it.receipt.doc_date), lines=len(it.resolved),
                      qty=fmt_qty(total))
+        if it.kind == "catalog":
+            return t("inbox.catalog_detail", count=len(it.catalog))
         if it.kind == "package":
             m = it.manifest
             return t("inbox.package_detail", device=m.device_name, at=m.exported_at.replace("T", " "),
@@ -220,8 +221,12 @@ class PendingPage(Page):
         if it.kind == "package":
             return _buttons((t("btn.import_data"), lambda: self.import_package(it)),
                             (t("btn.discard"), lambda: self.discard(it)))
+        if it.kind == "catalog":
+            return _buttons((t("catalog.import_btn"), lambda: self.import_catalog(it)),
+                            (t("btn.discard"), lambda: self.discard(it)))
+        # unusable file: never moved, only hidden
         return _buttons((t("btn.open_file"), lambda: open_path(it.path)),
-                        (t("btn.discard"), lambda: self.discard(it)))
+                        (t("btn.hide"), lambda: self.hide(it)))
 
     # ---- actions -----------------------------------------------------------
 
@@ -259,32 +264,17 @@ class PendingPage(Page):
             self.refresh()
 
     def import_receipt(self, it):
-        dlg = QDialog(self)
-        dlg.setWindowTitle(t("inbox.receipt"))
-        dlg.resize(720, 480)
-        lay = QVBoxLayout(dlg)
-        lay.addWidget(QLabel(t("inbox.receipt_preview", date=fmt_date(it.receipt.doc_date))))
-        if it.receipt.note:
-            lay.addWidget(QLabel(f"{t('col.note')}: {it.receipt.note}"))
-        table = make_table([t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.qty"),
-                            t("col.unit")])
-        fill_table(table, [[p["code"], p["name_vi"], p["spec"], p["variant"], num_item(ln.qty), p["unit"]]
-                           for ln, p in it.resolved])
-        lay.addWidget(table)
-        for w in it.receipt.warnings:
-            lay.addWidget(hint_label("⚠ " + w))
-        box = QDialogButtonBox()
-        box.addButton(t("btn.confirm_receipt"), QDialogButtonBox.AcceptRole)
-        box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
-        box.accepted.connect(dlg.accept)
-        box.rejected.connect(dlg.reject)
-        lay.addWidget(box)
-        if dlg.exec() == QDialog.Accepted:
-            try:
-                inbox.apply_receipt(self.ctx.conn, self.ctx.ws, it)
-            except Exception as exc:
-                error(self, str(exc))
+        review_receipt(self.ctx, self, it)
+
+    def import_catalog(self, it):
+        if import_catalog_file(self.ctx, self, it.path, it.catalog):
+            inbox.done(self.ctx.ws, it.path)
             self.ctx.notify()
+
+    def hide(self, it):
+        if ask(self, t("inbox.confirm_hide", name=it.path.name)):
+            inbox.hide(self.ctx.conn, it)
+            self.rescan()
 
     def import_package(self, it):
         m = it.manifest
