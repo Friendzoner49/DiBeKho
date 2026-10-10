@@ -42,8 +42,10 @@ Không có code trên Mac? Tải mã nguồn dạng zip, giải nén, mở Termi
 File `.github/workflows/build.yml` build cả bản Mac (máy Apple Silicon của GitHub) và bản Windows có bộ cài.
 
 1. Đẩy code lên một repo GitHub **private**.
-2. Trên GitHub: tab **Actions** → **build** → **Run workflow** (hoặc đẩy tag dạng `v0.1.0`).
-3. Khoảng 5–10 phút sau, mở lần chạy đó → mục **Artifacts** → tải `DiBeKho-mac` (chứa `.dmg`) và `DiBeKho-windows`.
+2. **Phát hành:** đẩy tag phiên bản, ví dụ `git tag -a v0.1.1 -m "DiBeKho 0.1.1" && git push origin v0.1.1`.
+   Khoảng 10 phút sau, bản Mac và bộ cài Windows tự xuất hiện ở mục **Releases** với tên cố định
+   `DiBeKho-mac-arm64.dmg`, `DiBeKho-windows-setup.exe` → hai nút tải ở đầu README luôn trỏ tới bản mới nhất.
+3. **Chỉ build thử** (không phát hành): tab **Actions** → **build** → **Run workflow** → tải ở mục **Artifacts** của lần chạy đó.
 
 Chi phí: repo private có 2.000 phút miễn phí/tháng, phút trên máy Mac tính gấp 10 → khoảng 20–40 lần build Mac/tháng, đủ dùng.
 File tải từ trình duyệt bị macOS đánh dấu "từ internet": mở lần đầu cần "Vẫn mở" như dưới, hoặc chạy

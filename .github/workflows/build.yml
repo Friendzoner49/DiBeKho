@@ -1,6 +1,7 @@
 # Build the macOS .dmg (Apple Silicon) and the Windows installer on GitHub's machines.
-# Run it from the "Actions" tab ("Run workflow"), or push a tag like v0.2.0.
-# The files appear under "Artifacts" at the bottom of the run page.
+# - Push a tag like v0.1.0: builds both and publishes a GitHub Release. The README download buttons
+#   point to releases/latest/download/<fixed file name>, so they always give the newest release.
+# - "Run workflow" in the Actions tab: builds only (files under "Artifacts" on the run page).
 name: build
 
 on:
@@ -33,3 +34,27 @@ jobs:
           path: |
             dist/*.exe
             dist/*.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      # Fixed names for the README links (the version is in the release title).
+      - run: |
+          cp artifacts/*-mac-arm64.dmg DiBeKho-mac-arm64.dmg
+          cp artifacts/*-windows-setup.exe DiBeKho-windows-setup.exe
+          cp artifacts/*-windows-portable.zip DiBeKho-windows-portable.zip 2>/dev/null || true
+          ls -la
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: DiBeKho ${{ github.ref_name }}
+          files: |
+            DiBeKho-mac-arm64.dmg
+            DiBeKho-windows-setup.exe
