@@ -193,7 +193,8 @@ Quy trình: viết code trên Windows → push GitHub → trên Mac `git pull` �
 ```
 dibekho/
 ├── CLAUDE.md
-├── README.md                  # giới thiệu cho GitHub (ảnh trong docs/images/, dữ liệu giả lập)
+├── README.md                  # giới thiệu cho GitHub, TIẾNG ANH (mặc định, ảnh docs/images/en/)
+├── README.vi.md               # bản tiếng Việt (ảnh docs/images/); sửa README thì sửa cả hai
 ├── pyproject.toml / uv.lock
 ├── packaging/
 │   ├── dibekho.spec           # cấu hình PyInstaller (chung Win/Mac)
@@ -211,7 +212,7 @@ dibekho/
 │   ├── ui/                    # main_window, *_page.py (mỗi màn hình một file), details.py (chi tiết đơn/khách/mặt hàng)
 │   └── i18n/                  # vi.json, en.json
 ├── tests/
-├── scripts/readme_screenshots.py  # tạo lại ảnh docs/images/ từ dữ liệu giả lập
+├── scripts/readme_screenshots.py  # tạo lại ảnh docs/images/ (vi) và docs/images/en/ (en) từ dữ liệu giả lập
 ├── scripts/make_reference_excel.py  # tạo DiBeKho-du-lieu-goc.xlsx (gitignored) để đối chiếu app
 ├── samples/                   # file Excel mẫu của khách (cho test, gitignored, KHÔNG commit)
 └── resources/                 # icon (.ico cho Windows, .icns cho macOS)
@@ -382,7 +383,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - **Phiên bản: 0.1.0** (phát hành đầu tiên, người dùng xác nhận app chạy hoàn toàn bình thường, 10/10/2026). Lịch sử git được gộp lại thành một commit `DiBeKho 0.1.0` khi làm sạch thông tin cá nhân.
 - **Đã xong:** toàn bộ chức năng mục 3 + 10a + 11 + 11.1; 37 test (bộ đọc phiếu, quét/chống trùng, phiếu sửa/xoá, hàng về, kiểm kê, chuyển dữ liệu, thống kê, xuất Excel, đủ bản dịch, mở mọi màn hình); build Windows chạy được (`--self-test` OK).
 - **Bổ sung 10/10/2026:** bỏ dòng phí trong Cần xử lý, thanh điều hướng 6 mục, chuyển dữ liệu vào Cài đặt, nhập tiếng Trung, workflow GitHub Actions build Mac + Windows (`.github/workflows/build.yml`). 42 test.
-- **Dọn dẹp 10/10/2026:** xoá `build/`, `dist/` cũ, cache, file Excel trùng ở thư mục gốc (bản giống hệt vẫn ở `samples/`), `config.json` thử nghiệm. Người dùng tự xoá `K:	estapp` (dữ liệu thử bản 0.1.0). Thêm README.md.
+- **Dọn dẹp 10/10/2026:** xoá `build/`, `dist/` cũ, cache, file Excel trùng ở thư mục gốc (bản giống hệt vẫn ở `samples/`), `config.json` thử nghiệm. Thêm README.md.
 - **File dữ liệu gốc để đối chiếu:** `DiBeKho-du-lieu-goc.xlsx` ở thư mục gốc repo (gitignored, có dữ liệu khách). Sheet **Mặt hàng**: 41 dòng danh mục → SP001–SP041 theo thứ tự dòng (đúng mã app gán khi nhập danh mục vào database trống; script tự kiểm tra) + 3 mặt hàng chỉ có trên phiếu (SP042–044 dự kiến). Sheet **Khách hàng**: 3 khách từ 3 phiếu mẫu, kèm mã đơn, ngày, tên hàng và số lượng như trên phiếu. "Ngày nhập" = lúc mặt hàng có trong dữ liệu (T7 không có ngày theo từng ngày; công thức T7 trỏ tới cột I–BP không tồn tại).
 - **Làm lại khi chọn nhầm (10/10/2026):** nút "Đọc lại phiếu" (Chi tiết đơn) và "Tên trên phiếu đã học → Quên và đọc lại" (Cài đặt → Danh mục mặt hàng); xác nhận tóm tắt trước khi Áp dụng. 47 test.
 - **GitHub:** repo private của người dùng (nhánh `main`). Git của repo này đặt riêng `user.name`/`user.email` của người dùng (tài khoản git chung trên máy là người khác, không dùng).
@@ -458,9 +459,10 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Đẩy code lên GitHub private của người dùng; đặt `user.name/email` cục bộ cho repo. Giải thích cho người dùng: `phieu-giao-hang/` = hàng ra, đọc tự động, file giữ nguyên tại chỗ; `input/` = hàng về + gói dữ liệu, cần xác nhận, file chuyển sang `da-xu-ly/`. |
 | 2026-10-10 | Tương thích Mac: bản build arm64, tối thiểu macOS 13 → M3 (Tahoe 26.6.2) đạt yêu cầu; M2 của người dùng chạy được nếu macOS ≥ 13 (chưa biết phiên bản, cần kiểm tra). **Chưa xác minh thực tế:** workflow build Mac chưa chạy lần nào. |
 | 2026-10-10 | Thêm **làm lại khi chọn nhầm**: "Đọc lại phiếu", "Quên và đọc lại" tên đã học, hộp xác nhận trước Áp dụng (migration 004). **Phiên bản:** người dùng yêu cầu bỏ lịch sử phiên bản khỏi README; bản hiện tại là `0.1.0.dev0`, chỉ thành **0.1.0 khi người dùng xác nhận app chạy bình thường**. macOS bundle dùng số `0.1.0` (bỏ `.dev0`). |
-| 2026-10-10 | Lỗi "Quên và đọc lại" báo 0 phiếu: phiếu được đọc bằng bản build cũ (trước migration 004) nên không có `document_skipped_lines` → thêm `backfill_skipped_lines` (đọc bản sao `data/phieu-goc` một lần, cờ meta `skipped_lines_backfilled`). Tắt sắp xếp bảng Cần xử lý (hàng r phải khớp `_unknown[r]`). Xoá dữ liệu thử `K:	estapp` (trừ `kho.sqlite` vì app đang mở) và `config.json`. Tạo file đối chiếu `DiBeKho-du-lieu-goc.xlsx`. |
+| 2026-10-10 | Lỗi "Quên và đọc lại" báo 0 phiếu: phiếu được đọc bằng bản build cũ (trước migration 004) nên không có `document_skipped_lines` → thêm `backfill_skipped_lines` (đọc bản sao `data/phieu-goc` một lần, cờ meta `skipped_lines_backfilled`). Tắt sắp xếp bảng Cần xử lý (hàng r phải khớp `_unknown[r]`). Xoá dữ liệu thử và `config.json`. Tạo file đối chiếu `DiBeKho-du-lieu-goc.xlsx`. |
 | 2026-10-10 | **Phát hành 0.1.0.** Làm sạch thông tin cá nhân/khách khỏi repo (tên file mẫu đổi thành tên chung, bỏ SĐT thật trong chú thích code, tên công ty trong phiếu giả lập, email, link repo cũ, cảnh báo mật khẩu); gộp lịch sử git thành một commit; build Mac qua GitHub Actions (tag `v0.1.0`). Giữ nhãn thương hiệu 瑞德牌 → "Hiệu Thụy Đức" vì là dữ liệu phân loại hàng. |
 | 2026-10-10 | README: 2 nút **Tải cho Windows / Tải cho macOS** trỏ tới `releases/latest/download/DiBeKho-windows-setup.exe` và `DiBeKho-mac-arm64.dmg`; các huy hiệu Python/PySide6/SQLite trỏ về trang chủ. Workflow có job `release` (chỉ khi đẩy tag `v*`) tạo GitHub Release với tên file cố định. Repo private → người tải phải đăng nhập GitHub có quyền xem. |
+| 2026-10-10 | README mặc định **tiếng Anh** (`README.md`, ảnh giao diện tiếng Anh `docs/images/en/`), bản tiếng Việt `README.vi.md`; link chuyển ngôn ngữ ở đầu mỗi file. Hai nút Windows/macOS thu nhỏ (cỡ như các huy hiệu khác), bỏ chữ "Tải cho". |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
