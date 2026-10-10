@@ -1,6 +1,8 @@
 <div align="center">
 
-# 📦 DiBeKho
+<img src="resources/dibekho.png" alt="DiBeKho logo" width="112">
+
+# DiBeKho
 
 **English** · [Tiếng Việt](README.vi.md)
 
@@ -99,7 +101,7 @@ To update, install the new version over the old one. Your data in `Documents/DiB
 
 **Uninstall:**
 - **Windows:** *Settings → Apps → DiBeKho → Uninstall*. The uninstaller asks whether to delete the data folder too.
-- **macOS:** in the app, *Settings → Uninstall…*, then drag the app to the Trash.
+- **macOS:** in the app, *Settings → Uninstall…*. The app removes itself from Applications when it closes.
 
 ## Development
 

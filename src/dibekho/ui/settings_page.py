@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import __version__, db
-from dibekho.core import catalog, deliveries
+from dibekho.core import catalog, deliveries, uninstall
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
@@ -246,6 +246,13 @@ class SettingsPage(Page):
         Config.remove()
         if delete_data:
             shutil.rmtree(root, ignore_errors=True)
-        hint = t("settings.uninstall_done_mac") if sys.platform == "darwin" else t("settings.uninstall_done_win")
+        bundle = uninstall.mac_bundle()
+        if bundle is not None and uninstall.can_remove(bundle):
+            uninstall.schedule_bundle_removal(bundle)  # DiBeKho.app disappears from Applications once we quit
+            hint = t("settings.uninstall_done_mac_auto", path=str(bundle))
+        elif sys.platform == "darwin":
+            hint = t("settings.uninstall_done_mac")
+        else:
+            hint = t("settings.uninstall_done_win")
         info(self, hint)
         QApplication.quit()

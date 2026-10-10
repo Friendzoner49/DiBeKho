@@ -2,8 +2,10 @@
 
 import sys
 import traceback
+from importlib import resources
 from pathlib import Path
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -100,6 +102,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setStyle("Fusion")
+    app.setWindowIcon(QIcon(str(resources.files("dibekho.ui") / "icon.png")))
     font = app.font()
     font.setPointSize(max(font.pointSize(), 10))
     # Chinese product names and input: name a CJK fallback explicitly (macOS falls back to PingFang by itself).

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- DiBeKho app icon: a warehouse with an open roller door and stacked boxes. Drawn for this project. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A8DFF"/>
+      <stop offset="1" stop-color="#1C4FA8"/>
+    </linearGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC857"/>
+      <stop offset="1" stop-color="#F29B30"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background tile (inset like macOS app icons) -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+
+  <!-- warehouse building -->
+  <path d="M200 470 L512 250 L824 470 L824 800 L200 800 Z" fill="#FFFFFF"/>
+  <!-- roof edge -->
+  <path d="M168 478 L512 236 L856 478" fill="none" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- door opening -->
+  <rect x="318" y="512" width="388" height="288" fill="#163E85"/>
+  <!-- rolled-up shutter -->
+  <rect x="300" y="484" width="424" height="56" rx="14" fill="#9EC3FF"/>
+  <rect x="300" y="484" width="424" height="18" rx="9" fill="#C9DDFF"/>
+
+  <!-- boxes -->
+  <g stroke="#B86A12" stroke-width="10" stroke-linejoin="round">
+    <rect x="352" y="664" width="150" height="136" rx="10" fill="url(#box)"/>
+    <rect x="522" y="664" width="150" height="136" rx="10" fill="url(#box)"/>
+    <rect x="437" y="560" width="150" height="104" rx="10" fill="url(#box)"/>
+  </g>
+  <!-- packing tape -->
+  <g fill="#FFE7B0">
+    <rect x="410" y="664" width="34" height="56"/>
+    <rect x="580" y="664" width="34" height="56"/>
+    <rect x="495" y="560" width="34" height="44"/>
+  </g>
+
+  <!-- ground line -->
+  <rect x="168" y="800" width="688" height="28" rx="14" fill="#FFFFFF"/>
+</svg>

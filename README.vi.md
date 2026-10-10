@@ -1,6 +1,8 @@
 <div align="center">
 
-# 📦 DiBeKho
+<img src="resources/dibekho.png" alt="Logo DiBeKho" width="112">
+
+# DiBeKho
 
 [English](README.md) · **Tiếng Việt**
 
@@ -97,7 +99,7 @@ Cập nhật bản mới: cài đè lên bản cũ. Dữ liệu trong `Documents
 
 **Gỡ cài đặt:**
 - **Windows:** *Settings → Apps → DiBeKho → Uninstall*. Trình gỡ sẽ hỏi có xoá thư mục dữ liệu không.
-- **macOS:** trong app vào *Cài đặt → Gỡ app khỏi máy này*, sau đó kéo app vào Thùng rác.
+- **macOS:** trong app vào *Cài đặt → Gỡ app…*. App tự xoá khỏi Applications khi đóng lại.
 
 ## Phát triển
 

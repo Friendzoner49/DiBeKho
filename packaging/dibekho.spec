@@ -14,6 +14,7 @@ from dibekho import __version__  # noqa: E402
 datas = [
     (str(SRC / "db" / "migrations" / "*.sql"), "dibekho/db/migrations"),
     (str(SRC / "i18n" / "*.json"), "dibekho/i18n"),
+    (str(SRC / "ui" / "icon.png"), "dibekho/ui"),
 ]
 
 # Qt modules the app never uses; keeps the bundle small.

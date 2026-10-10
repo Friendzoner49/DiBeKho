@@ -125,7 +125,7 @@ Máy của khách
 
 **Nguyên tắc "gọn và dễ dọn":** mọi dữ liệu nằm trong **một thư mục làm việc** người dùng nhìn thấy được. Ngoài thư mục đó app chỉ để lại chính nó và một file `config.json` vài chục byte.
 - **Gỡ trên Windows:** "Apps & features" → Gỡ. Trình gỡ xoá app + `config.json`, rồi hỏi "Xoá luôn thư mục dữ liệu?" (mặc định: không).
-- **Gỡ trên macOS:** Cài đặt → "Gỡ app khỏi máy này" (xoá `config.json`, tuỳ chọn xoá thư mục dữ liệu) → kéo app vào Thùng rác.
+- **Gỡ trên macOS:** Cài đặt → "Gỡ app…" (xoá `config.json`, tuỳ chọn xoá thư mục dữ liệu) → app **tự xoá `DiBeKho.app`** sau khi đóng (`core/uninstall.py`: tiến trình `/bin/sh` tách riêng chờ PID thoát rồi `rm -rf`). Không tự xoá khi chạy từ `.dmg` (`/Volumes/`) hoặc thư mục không ghi được → nhắc kéo vào Thùng rác.
 - **Không dùng PyInstaller `--onefile`**: chế độ này giải nén vào thư mục tạm mỗi lần chạy và có thể để lại rác khi app bị tắt đột ngột. Dùng `--onedir` (Windows) và `.app` bundle (macOS).
 - **Thư mục làm việc nằm trong OneDrive/iCloud/Google Drive:** app phát hiện và cảnh báo (đồng bộ đám mây có thể làm hỏng file SQLite đang mở); khuyên để `data/` ở thư mục không đồng bộ.
 
@@ -212,10 +212,10 @@ dibekho/
 │   ├── ui/                    # main_window, *_page.py (mỗi màn hình một file), details.py (chi tiết đơn/khách/mặt hàng)
 │   └── i18n/                  # vi.json, en.json
 ├── tests/
+├── resources/                 # dibekho.svg (logo tự vẽ, gốc) → .png/.ico/.icns bằng scripts/make_icons.py
 ├── scripts/readme_screenshots.py  # tạo lại ảnh docs/images/ (vi) và docs/images/en/ (en) từ dữ liệu giả lập
 ├── scripts/make_reference_excel.py  # tạo DiBeKho-du-lieu-goc.xlsx (gitignored) để đối chiếu app
-├── samples/                   # file Excel mẫu của khách (cho test, gitignored, KHÔNG commit)
-└── resources/                 # icon (.ico cho Windows, .icns cho macOS)
+└── samples/                   # file Excel mẫu của khách (cho test, gitignored, KHÔNG commit)
 ```
 
 **Tách lớp như dự án Java cũ:** `db/` ≈ DAO, `core/` ≈ service, `ui/` ≈ View. Giao diện không viết SQL trực tiếp; `core/` và `excel/` không import Qt → test được bằng pytest mà không cần mở cửa sổ.
@@ -464,6 +464,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | README: 2 nút **Tải cho Windows / Tải cho macOS** trỏ tới `releases/latest/download/DiBeKho-windows-setup.exe` và `DiBeKho-mac-arm64.dmg`; các huy hiệu Python/PySide6/SQLite trỏ về trang chủ. Workflow có job `release` (chỉ khi đẩy tag `v*`) tạo GitHub Release với tên file cố định. Repo private → người tải phải đăng nhập GitHub có quyền xem. |
 | 2026-10-10 | README mặc định **tiếng Anh** (`README.md`, ảnh giao diện tiếng Anh `docs/images/en/`), bản tiếng Việt `README.vi.md`; link chuyển ngôn ngữ ở đầu mỗi file. Hai nút Windows/macOS thu nhỏ (cỡ như các huy hiệu khác), bỏ chữ "Tải cho". |
 | 2026-10-10 | **Bản Mac 0.1.0 chạy được trên Mac M2** (người dùng xác nhận). Lỗi: macOS Dark Mode → nền hồng nhạt + chữ trắng, không đọc được. Sửa: màu theo giao diện sáng/tối (`ui.common`: `is_dark`, `sync_theme_colors`, `theme_color`; tối: đỏ `#6e2a2a`, vàng `#5e4c14`); không dùng màu cố định cho nền/chữ nữa. Chưa phát hành bản mới: hỏi người dùng trước khi đổi số phiên bản. |
+| 2026-10-10 | **Icon app**: tự vẽ logo kho hàng (`resources/dibekho.svg`, không vướng bản quyền) → `.ico` (nhiều cỡ), `.icns`, icon cửa sổ `src/dibekho/ui/icon.png`; gắn vào PyInstaller và bộ cài Inno Setup. **Gỡ app trên Mac tự xoá khỏi Applications.** Không đổi số phiên bản (người dùng yêu cầu giữ 0.1.0). |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)

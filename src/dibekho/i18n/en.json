@@ -242,7 +242,7 @@
   "settings.active": "Active",
   "settings.min_stock_hint": "When stock is at or below this number, the product is highlighted yellow on the Stock screen as a reminder to reorder. Example: 10 means highlighted at 10 or less. 0 = no reminder.",
   "settings.uninstall_title": "Remove the app from this computer",
-  "settings.uninstall_hint": "Deletes the app's settings on this computer. You will be asked whether to delete the data folder too.",
+  "settings.uninstall_hint": "Deletes the app's settings on this computer (on a Mac also removes DiBeKho from Applications). You will be asked whether to delete the data folder too.",
   "settings.uninstall": "Uninstall…",
   "settings.confirm_uninstall": "Remove DiBeKho from this computer?",
   "settings.confirm_delete_data": "Also delete the data folder?\n{path}\n\nChoose 'No' to keep it (recommended).",
@@ -288,5 +288,6 @@
   "settings.forget": "Forget and read again…",
   "settings.pick_first": "Select a row first.",
   "settings.confirm_forget": "Forget the choice for:\n“{name}”\n\nThe app will read again {docs} notes containing this line. They will appear under Needs attention for you to choose again (old history is kept).\n\nContinue?",
-  "settings.forgotten": "Forgotten. {docs} notes are waiting for your choice under Needs attention."
+  "settings.forgotten": "Forgotten. {docs} notes are waiting for your choice under Needs attention.",
+  "settings.uninstall_done_mac_auto": "Done. DiBeKho will remove itself ({path}) as soon as you click OK."
 }

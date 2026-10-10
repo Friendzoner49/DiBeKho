@@ -242,7 +242,7 @@
   "settings.active": "Đang dùng",
   "settings.min_stock_hint": "Khi tồn còn bằng hoặc ít hơn số này, mặt hàng được tô vàng trên màn hình Tồn kho để nhắc đặt thêm hàng. Ví dụ đặt 10: còn 10 trở xuống là tô vàng. Để 0 nếu không cần nhắc.",
   "settings.uninstall_title": "Gỡ app khỏi máy này",
-  "settings.uninstall_hint": "Xoá cấu hình của app trên máy này. Bạn sẽ được hỏi có xoá luôn thư mục dữ liệu hay không.",
+  "settings.uninstall_hint": "Xoá cấu hình của app trên máy này (trên Mac: xoá luôn DiBeKho khỏi Applications). Bạn sẽ được hỏi có xoá luôn thư mục dữ liệu hay không.",
   "settings.uninstall": "Gỡ app…",
   "settings.confirm_uninstall": "Gỡ DiBeKho khỏi máy này?",
   "settings.confirm_delete_data": "Xoá luôn thư mục dữ liệu?\n{path}\n\nChọn 'Không' để giữ lại (khuyên dùng).",
@@ -288,5 +288,6 @@
   "settings.forget": "Quên và đọc lại…",
   "settings.pick_first": "Hãy chọn một dòng trước.",
   "settings.confirm_forget": "Quên lựa chọn cho:\n“{name}”\n\nApp sẽ đọc lại {docs} phiếu có dòng này. Các phiếu đó sẽ hiện trong Cần xử lý để bạn chọn lại (lịch sử cũ vẫn được giữ).\n\nTiếp tục?",
-  "settings.forgotten": "Đã quên. {docs} phiếu đang chờ bạn chọn lại ở mục Cần xử lý."
+  "settings.forgotten": "Đã quên. {docs} phiếu đang chờ bạn chọn lại ở mục Cần xử lý.",
+  "settings.uninstall_done_mac_auto": "Đã gỡ xong. DiBeKho sẽ tự xoá khỏi máy ({path}) ngay sau khi bạn bấm OK."
 }
