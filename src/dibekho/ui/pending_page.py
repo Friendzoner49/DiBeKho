@@ -254,7 +254,7 @@ class PendingPage(Page):
                 deliveries.ignore_unknown(conn, u)
             elif choice != LATER:
                 deliveries.map_line(conn, u.key, choice, deliveries.line_label(u))
-        result = self.rescan()
+        result = self.rescan(allow_partial=True)
         if result is not None:
             info(self, t("pending.mapped", mapped=counts["map"], created=counts[NEW], skipped=counts[SKIP],
                          count=len(result.imported)))

@@ -96,10 +96,11 @@ class MainWindow(QMainWindow):
         # e.g. a note read again from its detail window: keep the 'Cần xử lý' counter current
         ctx.changed.connect(lambda: self._update_badge(self._last))
 
-    def rescan(self, quiet: bool = False):
-        """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed."""
+    def rescan(self, quiet: bool = False, allow_partial: bool = False):
+        """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed.
+        allow_partial=True after 'Apply': waiting notes are imported with their approved lines."""
         try:
-            result = deliveries.scan(self.ctx.conn, self.ctx.ws)
+            result = deliveries.scan(self.ctx.conn, self.ctx.ws, allow_partial)
         except Exception as exc:
             error(self, t("main.scan_failed", error=str(exc)))
             return None

@@ -28,6 +28,7 @@ class Line:
     raw_name: str = ""
     raw_spec: str = ""
     note: str = ""
+    line_no: int | None = None  # delivery notes: the Excel row, so lines added later can be told apart
 
 
 def insert_document(conn, kind, doc_date: date, lines: list[Line], code="", code_norm="",
@@ -42,15 +43,28 @@ def insert_document(conn, kind, doc_date: date, lines: list[Line], code="", code
         (kind, code, code_norm, doc_date.isoformat(), customer_id, note, source_file, source_hash),
     )
     doc_id = cur.lastrowid
+    _insert_lines(conn, doc_id, lines, movement_kind, sign, doc_date.isoformat())
+    return doc_id
+
+
+def add_lines(conn, doc_id: int, lines: list[Line]) -> None:
+    """Add lines to an active delivery/receipt (a partly approved note getting its remaining lines)."""
+    doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    if doc is None or doc["status"] != "active" or doc["kind"] not in _FORWARD:
+        raise ValueError("Phiếu không tồn tại hoặc đã huỷ.")
+    movement_kind, sign = _FORWARD[doc["kind"]]
+    _insert_lines(conn, doc_id, lines, movement_kind, sign, doc["doc_date"])
+
+
+def _insert_lines(conn, doc_id, lines, movement_kind, sign, occurred_on) -> None:
     for i, line in enumerate(lines, start=1):
         conn.execute(
             "INSERT INTO document_lines(document_id, line_no, product_id, qty, raw_name, raw_spec, note) "
             "VALUES(?,?,?,?,?,?,?)",
-            (doc_id, i, line.product_id, line.qty, line.raw_name, line.raw_spec, line.note),
+            (doc_id, line.line_no or i, line.product_id, line.qty, line.raw_name, line.raw_spec, line.note),
         )
-        _move(conn, line.product_id, sign * line.qty, doc_id, movement_kind, doc_date.isoformat())
+        _move(conn, line.product_id, sign * line.qty, doc_id, movement_kind, occurred_on)
     db.touch(conn)
-    return doc_id
 
 
 def close_document(conn, doc_id: int, new_status: str = "cancelled") -> None:

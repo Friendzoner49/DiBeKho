@@ -274,7 +274,7 @@
   "settings.tab_general": "Chung",
   "settings.tab_products": "Danh mục mặt hàng",
   "settings.tab_transfer": "Chuyển dữ liệu và sao lưu",
-  "pending.confirm_apply": "Sắp áp dụng:\n• Ghép {mapped} dòng với mặt hàng có sẵn\n• Tạo {created} mặt hàng mới\n• Bỏ {skipped} dòng không phải hàng hoá\n• Để sau {later} dòng\n\nCác phiếu đủ thông tin sẽ được đọc vào kho. Nếu chọn nhầm, sửa lại được ở Cài đặt → Danh mục mặt hàng → 'Tên trên phiếu đã học'.\n\nTiếp tục?",
+  "pending.confirm_apply": "Sắp áp dụng:\n• Ghép {mapped} dòng với mặt hàng có sẵn\n• Tạo {created} mặt hàng mới\n• Bỏ {skipped} dòng không phải hàng hoá\n• Để sau {later} dòng\n\nCác phiếu sẽ được ghi vào kho với những dòng đã duyệt; dòng 'Để sau' chờ ở đây và được thêm vào đúng đơn đó khi bạn duyệt. Nếu chọn nhầm, sửa lại được ở Cài đặt → Danh mục mặt hàng → 'Tên trên phiếu đã học'.\n\nTiếp tục?",
   "pending.skip_short": "✕ Không phải hàng hoá (bỏ dòng)",
   "btn.reread_doc": "Đọc lại phiếu",
   "doc.reread_tip": "Đọc lại file phiếu này theo danh mục và cách ghép tên hiện tại",

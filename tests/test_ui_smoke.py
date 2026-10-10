@@ -207,3 +207,31 @@ def test_catalog_in_input_and_pick_file(app, ws, monkeypatch):
     assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 6
     assert moved.exists()
     win.close()
+
+
+def test_apply_imports_approved_lines_and_keeps_the_rest_waiting(app, ws, monkeypatch):
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    i18n.set_language("vi")
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import PENDING, MainWindow
+    from dibekho.ui.pending_page import CHOICE, LATER
+    from tests.conftest import make_note
+
+    make_note(ws.deliveries / "a.xlsx", code="74", customer="Khách Chờ",
+              lines=[("背水涂\nvữa chống thấm", "10KG/thùng", 3, ""), ("新产品\nHàng chưa duyệt", "5KG/thùng", 4, "")])
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    win = MainWindow(ctx)
+    win.show()
+    win.rescan()
+    win.nav.setCurrentRow(PENDING)
+    app.processEvents()
+    page = win.pending
+    later = [page.unknown.item(r, 0).text() for r in range(page.unknown.rowCount())].index("Hàng chưa duyệt")
+    combo = page.unknown.cellWidget(later, CHOICE)
+    combo.setCurrentIndex(combo.findData(LATER))
+    page.apply_mapping(confirm=False)
+    assert ctx.conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
+    assert ctx.conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 1
+    assert ctx.conn.execute("SELECT name FROM customers").fetchone()[0] == "Khách Chờ"
+    assert [page.unknown.item(r, 0).text() for r in range(page.unknown.rowCount())] == ["Hàng chưa duyệt"]
+    win.close()

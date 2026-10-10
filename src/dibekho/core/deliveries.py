@@ -14,7 +14,7 @@ from pathlib import Path
 
 from dibekho import db
 from dibekho.core import catalog
-from dibekho.core.stock import Line, close_document, insert_document
+from dibekho.core.stock import Line, add_lines, close_document, insert_document
 from dibekho.core.text import fmt_qty, match_key, nfc
 from dibekho.core.workspace import Workspace
 from dibekho.excel.delivery_note import (
@@ -64,7 +64,9 @@ def delivery_files(ws: Workspace) -> list[Path]:
     return sorted(files)
 
 
-def scan(conn, ws: Workspace) -> ScanResult:
+def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
+    """allow_partial=True only right after the user pressed 'Apply': waiting notes are then imported with
+    the lines that are known; the remaining lines are added to the same document once they are decided."""
     result = ScanResult()
     seen: set[str] = set()
     for path in delivery_files(ws):
@@ -76,28 +78,34 @@ def scan(conn, ws: Workspace) -> ScanResult:
         seen.add(h)
         row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
         if row and row["status"] in ("imported", "missing", "missing_ignored", "ignored"):
-            status = "imported" if row["status"] in ("missing", "missing_ignored") else row["status"]
+            status = row["status"]
+            if status in ("missing", "missing_ignored"):  # file is back: resume where it was
+                status = "needs_mapping" if row["message"] == "needs_mapping" else "imported"
             conn.execute(
                 "UPDATE scanned_files SET rel_path = ?, status = ?, last_seen = datetime('now','localtime') "
                 "WHERE hash = ?",
                 (rel, status, h),
             )
-            continue
-        if process_file(conn, ws, path, rel, h):
+            if status != "needs_mapping":  # done, or hidden by the user
+                continue
+        if process_file(conn, ws, path, rel, h, allow_partial):
             result.imported.append(rel)
 
-    # Imported files that disappeared from the folder (their document is still active).
+    # Imported (or partly imported) files that disappeared from the folder; their document is still active.
+    # message keeps the previous status so a restored partial note asks for its remaining lines again.
     for row in conn.execute(
         "SELECT s.hash FROM scanned_files s JOIN documents d ON d.id = s.document_id "
-        "WHERE s.status = 'imported' AND d.status = 'active'"
+        "WHERE s.status IN ('imported', 'needs_mapping') AND d.status = 'active'"
     ).fetchall():
         if row["hash"] not in seen:
-            conn.execute("UPDATE scanned_files SET status = 'missing' WHERE hash = ?", (row["hash"],))
+            conn.execute("UPDATE scanned_files SET message = status, status = 'missing' WHERE hash = ?",
+                         (row["hash"],))
     # Waiting files (unknown names, errors, edited notes) that are not in the folder any more, e.g. rows
     # that came with a data package from another computer: nothing was imported from them, so forget them.
     # If the file is put back, the next scan asks again.
     for row in conn.execute(
-        "SELECT hash FROM scanned_files WHERE status IN ('error', 'needs_mapping', 'changed')"
+        "SELECT hash FROM scanned_files WHERE status IN ('error', 'needs_mapping', 'changed') "
+        "AND document_id IS NULL"
     ).fetchall():
         if row["hash"] not in seen:
             conn.execute("DELETE FROM scanned_files WHERE hash = ?", (row["hash"],))
@@ -105,7 +113,7 @@ def scan(conn, ws: Workspace) -> ScanResult:
     return result
 
 
-def process_file(conn, ws: Workspace, path: Path, rel: str, h: str) -> bool:
+def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partial: bool = False) -> bool:
     """Try to import one file. Returns True when a document was created."""
     try:
         note = read_delivery_note(path)
@@ -113,23 +121,48 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str) -> bool:
         _record(conn, h, rel, "error", str(exc))
         return False
 
-    unknown = [ln for ln in goods_lines(conn, note) if catalog.alias_product(conn, ln.key) is None]
-    if unknown:
-        _record(conn, h, rel, "needs_mapping", f"{len(unknown)} dòng hàng chưa nhận ra")
-        return False
+    goods = goods_lines(conn, note)
+    unknown = [ln for ln in goods if catalog.alias_product(conn, ln.key) is None]
+    waiting = f"{len(unknown)} dòng hàng chưa nhận ra"
 
     existing = _active_delivery(conn, note.code_norm)
     if existing is not None and existing["source_hash"] != h:
         _record(conn, h, rel, "changed",
                 f"Mã đơn {note.code} đã có từ file '{existing['source_file']}'", existing["id"])
         return False
-    if existing is not None:
-        _record(conn, h, rel, "imported", "", existing["id"])
+    if existing is not None:  # this very file was imported before, maybe only partly: add what is known now
+        with db.transaction(conn):
+            _add_known_lines(conn, existing["id"], note)
+            _record(conn, h, rel, "needs_mapping" if unknown else "imported", waiting if unknown else "",
+                    existing["id"])
+        return False
+    if unknown and not (allow_partial and len(unknown) < len(goods)):
+        _record(conn, h, rel, "needs_mapping", waiting)
         return False
 
     with db.transaction(conn):
         doc_id = _import(conn, ws, path, rel, h, note)
+        if unknown:
+            _record(conn, h, rel, "needs_mapping", waiting, doc_id)
     return doc_id is not None
+
+
+def _note_lines(conn, note: DeliveryNote, rows=()) -> list[Line]:
+    """Known goods lines of a note as ledger lines, except the Excel rows already in the document."""
+    lines = []
+    for ln in goods_lines(conn, note):
+        pid = catalog.alias_product(conn, ln.key)
+        if pid is not None and ln.row not in rows:
+            lines.append(Line(pid, ln.qty, ln.raw_name, ln.spec, ln.note, line_no=ln.row))
+    return lines
+
+
+def _add_known_lines(conn, doc_id: int, note: DeliveryNote) -> None:
+    rows = {r[0] for r in conn.execute("SELECT line_no FROM document_lines WHERE document_id = ?", (doc_id,))}
+    new = _note_lines(conn, note, rows)
+    if new:
+        add_lines(conn, doc_id, new)
+        db.log(conn, "delivery_lines_added", f"{note.code}: {len(new)}")
 
 
 def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNote) -> int:
@@ -138,10 +171,7 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
     if not copy.exists():
         shutil.copy2(path, copy)
     customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
-    lines = [
-        Line(catalog.alias_product(conn, ln.key), ln.qty, ln.raw_name, ln.spec, ln.note)
-        for ln in goods_lines(conn, note)
-    ]
+    lines = _note_lines(conn, note)
     doc_id = insert_document(
         conn, "delivery", note.doc_date, lines, code=note.code, code_norm=note.code_norm,
         customer_id=customer_id, source_file=rel, source_hash=h,
@@ -355,13 +385,17 @@ def replace_changed(conn, ws: Workspace, h: str) -> None:
     row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
     path = ws.deliveries / row["rel_path"]
     note = read_delivery_note(path)
-    if any(catalog.alias_product(conn, ln.key) is None for ln in goods_lines(conn, note)):
+    goods = goods_lines(conn, note)
+    unknown = [ln for ln in goods if catalog.alias_product(conn, ln.key) is None]
+    if goods and len(unknown) == len(goods):
         raise ValueError("Phiếu mới có dòng hàng chưa nhận ra.")
     with db.transaction(conn):
         old = _active_delivery(conn, note.code_norm)
         if old is not None:
             close_document(conn, old["id"], "replaced")
-        _import(conn, ws, path, row["rel_path"], h, note)
+        doc_id = _import(conn, ws, path, row["rel_path"], h, note)
+        if unknown:
+            _record(conn, h, row["rel_path"], "needs_mapping", f"{len(unknown)} dòng hàng chưa nhận ra", doc_id)
 
 
 def keep_old(conn, h: str) -> None:
@@ -378,7 +412,8 @@ def restore_missing(conn, ws: Workspace, h: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ws.originals / f"{h}.xlsx", target)
     conn.execute(
-        "UPDATE scanned_files SET status = 'imported', rel_path = ? WHERE hash = ?",
+        "UPDATE scanned_files SET status = CASE WHEN message = 'needs_mapping' THEN 'needs_mapping' "
+        "ELSE 'imported' END, message = '', rel_path = ? WHERE hash = ?",
         (nfc(target.relative_to(ws.deliveries).as_posix()), h),
     )
     return target

@@ -132,7 +132,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế của từng mặ
 | Mặt hàng có trong danh mục | Chọn ở cột **Là mặt hàng**; gõ vài chữ (tiếng Việt hoặc tiếng Trung) để tìm |
 | Mặt hàng chưa có trong danh mục | Để **＋ Tạo mặt hàng mới** |
 | Phí ship, phí dịch vụ | Bấm **✕ Bỏ dòng** (dòng phí thường đã được chọn sẵn) |
-| Chưa chắc | Chọn **⏸ Để sau** |
+| Chưa chắc | Chọn **⏸ Để sau**: các dòng khác của phiếu vẫn được ghi; dòng này chờ và được thêm vào đúng đơn đó khi bạn duyệt |
 
 Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt rồi xác nhận. App nhớ mọi lựa chọn, nên lần sau gặp đúng tên đó sẽ tự nhận ra.
 

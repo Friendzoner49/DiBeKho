@@ -274,7 +274,7 @@
   "settings.tab_general": "General",
   "settings.tab_products": "Products",
   "settings.tab_transfer": "Data transfer and backups",
-  "pending.confirm_apply": "About to apply:\n• Match {mapped} lines to existing products\n• Create {created} new products\n• Drop {skipped} non-goods lines\n• Leave {later} lines for later\n\nNotes with complete information will be read into stock. Wrong choice? Fix it under Settings → Products → 'Learned names on notes'.\n\nContinue?",
+  "pending.confirm_apply": "About to apply:\n• Match {mapped} lines to existing products\n• Create {created} new products\n• Drop {skipped} non-goods lines\n• Leave {later} lines for later\n\nNotes are recorded with the lines you approved; 'Later' lines wait here and are added to the same order once decided. Wrong choice? Fix it under Settings → Products → 'Learned names on notes'.\n\nContinue?",
   "pending.skip_short": "✕ Not goods (line dropped)",
   "btn.reread_doc": "Read note again",
   "doc.reread_tip": "Read this note file again with the current catalog and learned names",

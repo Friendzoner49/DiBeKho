@@ -264,3 +264,60 @@ def test_forget_works_for_notes_read_by_an_older_version(conn, ws):
     [dropped] = [n for n in deliveries.learned_names(conn, ws) if n.product_id is None]
     assert len(dropped.documents) == 1
     assert deliveries.forget_name(conn, ws, dropped.key) == 1
+
+
+LINE_NEW = ("新产品\nHàng chưa duyệt", "5KG/thùng", 4, "")
+
+
+def _decide(conn, ws, keep_waiting):
+    """Map every unknown line except the ones whose Vietnamese name is in keep_waiting."""
+    for u in deliveries.unknown_lines(conn, ws):
+        if u.name_vi not in keep_waiting:
+            deliveries.create_product_for_line(conn, u)
+
+
+def test_partly_approved_note_is_imported_and_completed_later(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="74", customer="Khách Chờ", lines=[LINE_A, LINE_B, LINE_NEW])
+    deliveries.scan(conn, ws)
+    # opening the app / rescanning never imports a waiting note on its own
+    assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0] == 0
+
+    _decide(conn, ws, keep_waiting={"Hàng chưa duyệt"})
+    deliveries.scan(conn, ws)  # a plain rescan still does not import a partly known note
+    assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 0
+
+    deliveries.scan(conn, ws, allow_partial=True)  # 'Apply'
+    doc = conn.execute("SELECT * FROM documents").fetchone()
+    assert doc["code"] == "74" and conn.execute("SELECT name FROM customers").fetchone()[0] == "Khách Chờ"
+    assert conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 2
+    assert stock_of(conn, "vữa") == -3 and stock_of(conn, "cố định") == -2
+    assert deliveries.pending_count(conn) == 1
+    assert [u.name_vi for u in deliveries.unknown_lines(conn, ws)] == ["Hàng chưa duyệt"]
+
+    # rescanning adds nothing twice
+    deliveries.scan(conn, ws, allow_partial=True)
+    assert conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 2
+
+    # the last line decided later goes into the same order
+    _decide(conn, ws, keep_waiting=set())
+    deliveries.scan(conn, ws)
+    assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 3
+    assert stock_of(conn, "chưa duyệt") == -4
+    assert deliveries.pending_count(conn) == 0
+
+
+def test_partly_imported_note_deleted_and_restored_asks_again(conn, ws):
+    path = make_note(ws.deliveries / "a.xlsx", code="74", lines=[LINE_A, LINE_NEW])
+    deliveries.scan(conn, ws)
+    _decide(conn, ws, keep_waiting={"Hàng chưa duyệt"})
+    deliveries.scan(conn, ws, allow_partial=True)
+    path.unlink()
+    deliveries.scan(conn, ws)
+    [row] = deliveries.pending_files(conn)
+    assert row["status"] == "missing"
+    deliveries.restore_missing(conn, ws, row["hash"])
+    deliveries.scan(conn, ws)
+    assert [u.name_vi for u in deliveries.unknown_lines(conn, ws)] == ["Hàng chưa duyệt"]
+    assert stock_of(conn, "vữa") == -3

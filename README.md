@@ -136,7 +136,7 @@ Open **Stock count**, pick the date, type the counted quantity of each product a
 | A product from the catalog | Pick it under **Is product**; type a few letters (Vietnamese or Chinese) to search |
 | A product not in the catalog yet | Keep **＋ Create new product** |
 | A shipping or service fee | Click **✕ Drop line** (fee lines are usually pre-selected) |
-| Not sure | Choose **⏸ Later** |
+| Not sure | Choose **⏸ Later**: the other lines of the note are recorded; this one waits and joins the same order once decided |
 
 Then click **Apply and read notes again**, check the summary and confirm. The app remembers every choice, so the same name is recognised on later notes.
 

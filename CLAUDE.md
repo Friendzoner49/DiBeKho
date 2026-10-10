@@ -257,6 +257,7 @@ Mỗi lần nhập một file = **một transaction**: lỗi giữa chừng thì
 - **Làm lại (chọn nhầm khi Áp dụng):**
   - **Đọc lại phiếu** (Chi tiết đơn): phiếu cũ → `replaced` (đảo biến động, giữ lịch sử), xoá dòng `scanned_files` của hash đó, quét lại → đọc với danh mục/ghép tên hiện tại. File đã bị xoá thì chép lại từ `data/phieu-goc/`.
   - **Quên và đọc lại** (Cài đặt → Danh mục mặt hàng → "Tên trên phiếu đã học"): xoá ghép tên (`product_aliases`) hoặc dòng bỏ qua (`ignored_lines`), đọc lại mọi phiếu đang hiệu lực có dòng đó → phiếu hiện lại trong Cần xử lý. Phiếu chứa dòng bị bỏ được tìm qua `document_skipped_lines` (migration 004); `product_aliases.label` lưu tên dễ đọc.
+  - **Phiếu duyệt một phần (10/10/2026):** bấm **Áp dụng** (`scan(allow_partial=True)`) → phiếu có ít nhất một dòng đã biết được ghi vào kho với các dòng đó, khách được ghi; `scanned_files` giữ `needs_mapping` + `document_id`. Dòng "Để sau" khi được duyệt → lần quét sau thêm vào **đúng đơn đó** (`stock.add_lines`, nhận dòng theo `document_lines.line_no` = số dòng Excel). Mở app/Quét lại **không** tự ghi phiếu đang chờ (chỉ khi người dùng bấm Áp dụng). Thông tin khách chỉ vào database khi phiếu đã được duyệt (người dùng yêu cầu vì bảo mật). File phiếu một phần bị xoá → `missing` (lưu trạng thái cũ trong `message`), khôi phục → hỏi lại dòng còn thiếu.
   - Bấm "Quét lại" không đọc lại phiếu đã đọc (cùng hash). `input/da-xu-ly/` chỉ chứa file hàng về và gói dữ liệu, **không** chứa phiếu giao hàng.
 - Muốn bỏ một phiếu → bấm "Huỷ phiếu" trong app (ghi biến động đảo ngược, giữ lịch sử). Xoá file **không** phải cách huỷ phiếu.
 - **Không chặn tồn âm**, vì phiếu mô tả việc đã xảy ra. Tồn âm được tô đỏ kèm gợi ý "thiếu phiếu hàng về hoặc chưa kiểm kê".
@@ -503,6 +504,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit sửa lỗi thư mục `input/` (vẫn 0.1.0). Giải thích cho người dùng: `input/da-xu-ly/` = nơi cất file đã dùng xong để không nhập lại và để còn bản lưu; không phải nơi nhập. |
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
+| 2026-10-10 | Người dùng chọn **ghi phần đã duyệt** của phiếu (cách 1): Áp dụng → phiếu vào kho với các dòng đã duyệt + khách; dòng Để sau thêm vào đúng đơn khi duyệt. Phiếu sửa "Dùng bản mới" cũng cho phép một phần. 62 test. Chuyển tag `v0.1.0`. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
