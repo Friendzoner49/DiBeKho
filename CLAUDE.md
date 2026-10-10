@@ -378,7 +378,20 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | A2 | Xin dữ liệu: danh sách ~30 mặt hàng, 20–50 phiếu giao hàng thật (nhiều tháng), một file mẫu hàng về nếu có | File nằm trong `samples/` |
 | A3 | Cài công cụ trên **cả Windows và Mac M2**: VS Code, Git, `uv`, DB Browser for SQLite; Windows thêm Inno Setup; tạo GitHub repo private | `uv --version`, `git --version` chạy được trên cả 2 máy |
 
-### Trạng thái (cập nhật 10/10/2026)
+### Tổng kết giai đoạn 1 (đóng 10/10/2026)
+
+**Kết quả:** DiBeKho **0.1.0** phát hành trên GitHub Releases (tag `v0.1.0`, bản Mac `.dmg` + bộ cài Windows, build bằng GitHub Actions). Người dùng đã chạy thử trên Windows và Mac M2: hoạt động bình thường.
+- Chức năng: toàn bộ mục 3, 10, 10a, 11, 11.1 + bỏ dòng phí, làm lại khi chọn nhầm (đọc lại phiếu, quên tên đã học), nhập tiếng Trung, giao diện sáng/tối, icon riêng, tự gỡ trên Mac. 51 test.
+- Repo sạch thông tin cá nhân/khách (lịch sử gộp lại); README tiếng Anh (mặc định) + tiếng Việt, có hướng dẫn sử dụng.
+- File đối chiếu `DiBeKho-du-lieu-goc.xlsx` (gitignored) để so kết quả app với dữ liệu gốc.
+
+**Giai đoạn 2 (khi khách đã dùng một thời gian):** thu phản hồi của khách → ghi vào file này trước → sửa/thêm tính năng. Việc treo lại:
+- Cài lên máy khách (Windows + Mac M3), **kiểm kê đầu kỳ** cùng khách (C1–C2), chạy song song với Excel 2–4 tuần (C3).
+- Câu hỏi còn mở ở mục 5: Windows 10 hay 11; cách chuyển file giữa các máy; thư mục phiếu có nằm trong Google Drive/OneDrive/iCloud không; có file `.xls` cũ không; nhà cung cấp có gửi file hàng về không; có cần nhập lại phiếu tháng 8–9 không.
+- Chưa thử thực tế: bộ cài Windows (Inno Setup) và trình gỡ trên máy sạch; tự gỡ trên Mac; số liệu với nhiều tháng phiếu thật.
+- Gợi ý nếu khách cần: tự cập nhật bản mới, ký số app (Apple Developer 99$/năm) để bỏ bước "Vẫn mở", chuyển repo sang public để khách tải không cần tài khoản GitHub.
+
+### Trạng thái chi tiết (10/10/2026)
 
 - **Phiên bản: 0.1.0** (phát hành đầu tiên, người dùng xác nhận app chạy hoàn toàn bình thường, 10/10/2026). Lịch sử git được gộp lại thành một commit `DiBeKho 0.1.0` khi làm sạch thông tin cá nhân.
 - **Đã xong:** toàn bộ chức năng mục 3 + 10a + 11 + 11.1; 37 test (bộ đọc phiếu, quét/chống trùng, phiếu sửa/xoá, hàng về, kiểm kê, chuyển dữ liệu, thống kê, xuất Excel, đủ bản dịch, mở mọi màn hình); build Windows chạy được (`--self-test` OK).
@@ -387,7 +400,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - **File dữ liệu gốc để đối chiếu:** `DiBeKho-du-lieu-goc.xlsx` ở thư mục gốc repo (gitignored, có dữ liệu khách). Sheet **Mặt hàng**: 41 dòng danh mục → SP001–SP041 theo thứ tự dòng (đúng mã app gán khi nhập danh mục vào database trống; script tự kiểm tra) + 3 mặt hàng chỉ có trên phiếu (SP042–044 dự kiến). Sheet **Khách hàng**: 3 khách từ 3 phiếu mẫu, kèm mã đơn, ngày, tên hàng và số lượng như trên phiếu. "Ngày nhập" = lúc mặt hàng có trong dữ liệu (T7 không có ngày theo từng ngày; công thức T7 trỏ tới cột I–BP không tồn tại).
 - **Làm lại khi chọn nhầm (10/10/2026):** nút "Đọc lại phiếu" (Chi tiết đơn) và "Tên trên phiếu đã học → Quên và đọc lại" (Cài đặt → Danh mục mặt hàng); xác nhận tóm tắt trước khi Áp dụng. 47 test.
 - **GitHub:** repo private của người dùng (nhánh `main`). Git của repo này đặt riêng `user.name`/`user.email` của người dùng (tài khoản git chung trên máy là người khác, không dùng).
-- **Còn lại:** chạy workflow để có `.dmg` (hoặc chạy `build_mac.sh` trên Mac M2); cài Inno Setup và thử bộ cài/gỡ cài trên Windows; **build và thử trên Mac M2**; icon app; người dùng thử với phiếu thật nhiều tháng; kiểm kê đầu kỳ cùng khách (giai đoạn C).
+- **Còn lại:** xem "Giai đoạn 2" ở trên.
 
 ### Giai đoạn B — Xây dựng (~5–7 tuần)
 
@@ -467,6 +480,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | **Icon app**: tự vẽ logo kho hàng (`resources/dibekho.svg`, không vướng bản quyền) → `.ico` (nhiều cỡ), `.icns`, icon cửa sổ `src/dibekho/ui/icon.png`; gắn vào PyInstaller và bộ cài Inno Setup. **Gỡ app trên Mac tự xoá khỏi Applications.** Không đổi số phiên bản (người dùng yêu cầu giữ 0.1.0). |
 | 2026-10-10 | Workflow phát hành: sau khi build Mac + Windows thành công, job `release` xoá Release cũ cùng tag và **mọi lần chạy cũ** của workflow (kèm Artifacts) bằng `gh` + `GITHUB_TOKEN` (`actions: write`), rồi đăng Release mới. Chuyển tag `v0.1.0` sang commit có icon + màu chế độ tối + tự gỡ trên Mac (vẫn 0.1.0 theo yêu cầu). |
 | 2026-10-10 | README (EN + VI) thêm mục **Hướng dẫn sử dụng** sau phần Cài đặt: mở lần đầu, nạp danh mục, tồn đầu, phiếu hằng ngày, hàng về, tra cứu, thống kê, sửa khi nhầm, chuyển máy, sao lưu. Tên nút lấy đúng từ `i18n/*.json`; đổi chữ trên nút thì sửa cả README. Màn hình chào lần đầu dùng `theme_color('hint')` (chế độ tối). |
+| 2026-10-10 | **Đóng giai đoạn 1.** Workflow thêm `concurrency` (tag chuyển sang commit mới huỷ lần build cũ đang chạy); chuyển tag `v0.1.0` sang commit cuối. Giai đoạn 2 bắt đầu sau khi khách dùng thử (xem "Tổng kết giai đoạn 1"). |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)

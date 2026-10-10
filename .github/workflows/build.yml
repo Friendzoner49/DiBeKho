@@ -10,6 +10,11 @@ on:
   push:
     tags: ["v*"]
 
+# A tag moved to a newer commit replaces a run that is still going for the same tag.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   mac:
     runs-on: macos-15  # Apple Silicon (arm64), same architecture as the M2/M3
