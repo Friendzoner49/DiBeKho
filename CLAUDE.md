@@ -278,6 +278,7 @@ App tự nhận loại file:
 - **Quy tắc "trao tay":** tại một thời điểm chỉ một máy làm việc. Nếu máy nhận có thao tác **sau lần xuất/nhập gần nhất** mà chưa xuất đi → cảnh báo rõ "dữ liệu trên máy này sẽ bị thay thế", yêu cầu xác nhận lần hai.
 - Gói chứa cả danh sách hash các file đã đọc → máy nhận quét thư mục phiếu của mình sẽ **không trừ trùng** những phiếu đã có.
 - Gói có phiên bản schema cũ hơn → chạy migration sau khi nhập; mới hơn → báo "hãy cập nhật app".
+- Phiếu **đang chờ** của máy cũ (`needs_mapping`/`error`/`changed`, chưa ghi vào kho) mà không có file trên máy này: lần quét đầu xoá khỏi `scanned_files` (không mất gì; chép file vào `phieu-giao-hang/` thì app hỏi lại). Trước đây chúng làm thanh bên báo "(3)" mà trang Cần xử lý trống.
 
 ### 9.4b. Dữ liệu gốc (Excel)
 
@@ -500,6 +501,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit có Xuất/Nhập dữ liệu gốc (người dùng chọn cập nhật bản phát hành, giữ số 0.1.0). |
 | 2026-10-10 | **Lỗi nghiêm trọng (người dùng báo):** file danh mục bỏ nhầm vào `input/` bị báo "không dùng được", nút Bỏ chuyển nó vào `da-xu-ly` và không còn cách nhập lại trong app. Sửa: nhận ra file danh mục trong `input/`; file không dùng được chỉ **Ẩn** (không di chuyển, migration 005); nút **Chọn file để nhập…** ở Hàng về (chọn từ bất kỳ đâu, kể cả `da-xu-ly`). 58 test. |
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit sửa lỗi thư mục `input/` (vẫn 0.1.0). Giải thích cho người dùng: `input/da-xu-ly/` = nơi cất file đã dùng xong để không nhập lại và để còn bản lưu; không phải nơi nhập. |
+| 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)

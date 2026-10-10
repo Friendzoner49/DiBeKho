@@ -248,3 +248,29 @@ def test_discarded_receipt_can_still_be_imported_from_da_xu_ly(conn, ws):
     inbox.apply_receipt(conn, ws, again)
     assert moved.exists()  # a file picked outside input/ is left where it is
     assert stock_levels(conn)[a] == 7 - 3 - 5 - 2
+
+
+def test_waiting_notes_from_the_other_computer_do_not_stay_in_to_do(tmp_path):
+    """Machine A exports while a note still waits for product names; on B that file does not exist."""
+    ws_a = Workspace(tmp_path / "A")
+    ws_a.ensure()
+    conn_a = db.connect(ws_a.db_path)
+    setup_notes(conn_a, ws_a)
+    make_note(ws_a.deliveries / "moi.xlsx", code="99", lines=[("新产品\nHàng mới tinh", "5KG/thùng", 1, "")])
+    deliveries.scan(conn_a, ws_a)
+    assert deliveries.pending_count(conn_a) == 1
+    pkg = transfer.export_package(conn_a, ws_a, Config(workspace=str(ws_a.root), device_id="a", device_name="A"))
+
+    ws_b = Workspace(tmp_path / "B")
+    ws_b.ensure()
+    db.connect(ws_b.db_path).close()
+    manifest = transfer.import_package(ws_b, pkg)
+    conn_b = db.connect(ws_b.db_path)
+    transfer.after_import(conn_b, manifest)
+    assert deliveries.scan(conn_b, ws_b).pending == 0
+    assert inbox.items(conn_b, ws_b) == []
+
+    # the note copied to B later: asked again
+    (ws_b.deliveries / "moi.xlsx").write_bytes((ws_a.deliveries / "moi.xlsx").read_bytes())
+    deliveries.scan(conn_b, ws_b)
+    assert [u.name_vi for u in deliveries.unknown_lines(conn_b, ws_b)] == ["Hàng mới tinh"]

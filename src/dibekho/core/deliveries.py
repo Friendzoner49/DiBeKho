@@ -93,6 +93,14 @@ def scan(conn, ws: Workspace) -> ScanResult:
     ).fetchall():
         if row["hash"] not in seen:
             conn.execute("UPDATE scanned_files SET status = 'missing' WHERE hash = ?", (row["hash"],))
+    # Waiting files (unknown names, errors, edited notes) that are not in the folder any more, e.g. rows
+    # that came with a data package from another computer: nothing was imported from them, so forget them.
+    # If the file is put back, the next scan asks again.
+    for row in conn.execute(
+        "SELECT hash FROM scanned_files WHERE status IN ('error', 'needs_mapping', 'changed')"
+    ).fetchall():
+        if row["hash"] not in seen:
+            conn.execute("DELETE FROM scanned_files WHERE hash = ?", (row["hash"],))
     result.pending = pending_count(conn)
     return result
 

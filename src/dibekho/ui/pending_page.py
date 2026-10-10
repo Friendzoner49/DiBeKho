@@ -84,6 +84,7 @@ class PendingPage(Page):
 
         self.empty = QLabel(t("pending.empty"))
         self.layout_.addWidget(self.empty)
+        self.layout_.addStretch()  # keeps title and hint at the top when every box is hidden
 
     # ---- refresh -----------------------------------------------------------
 
