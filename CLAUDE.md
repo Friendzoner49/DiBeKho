@@ -465,6 +465,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | README mặc định **tiếng Anh** (`README.md`, ảnh giao diện tiếng Anh `docs/images/en/`), bản tiếng Việt `README.vi.md`; link chuyển ngôn ngữ ở đầu mỗi file. Hai nút Windows/macOS thu nhỏ (cỡ như các huy hiệu khác), bỏ chữ "Tải cho". |
 | 2026-10-10 | **Bản Mac 0.1.0 chạy được trên Mac M2** (người dùng xác nhận). Lỗi: macOS Dark Mode → nền hồng nhạt + chữ trắng, không đọc được. Sửa: màu theo giao diện sáng/tối (`ui.common`: `is_dark`, `sync_theme_colors`, `theme_color`; tối: đỏ `#6e2a2a`, vàng `#5e4c14`); không dùng màu cố định cho nền/chữ nữa. Chưa phát hành bản mới: hỏi người dùng trước khi đổi số phiên bản. |
 | 2026-10-10 | **Icon app**: tự vẽ logo kho hàng (`resources/dibekho.svg`, không vướng bản quyền) → `.ico` (nhiều cỡ), `.icns`, icon cửa sổ `src/dibekho/ui/icon.png`; gắn vào PyInstaller và bộ cài Inno Setup. **Gỡ app trên Mac tự xoá khỏi Applications.** Không đổi số phiên bản (người dùng yêu cầu giữ 0.1.0). |
+| 2026-10-10 | Workflow phát hành: sau khi build Mac + Windows thành công, job `release` xoá Release cũ cùng tag và **mọi lần chạy cũ** của workflow (kèm Artifacts) bằng `gh` + `GITHUB_TOKEN` (`actions: write`), rồi đăng Release mới. Chuyển tag `v0.1.0` sang commit có icon + màu chế độ tối + tự gỡ trên Mac (vẫn 0.1.0 theo yêu cầu). |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
