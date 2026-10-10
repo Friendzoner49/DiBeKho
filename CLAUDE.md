@@ -389,6 +389,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Cài lên máy khách (Windows + Mac M3), **kiểm kê đầu kỳ** cùng khách (C1–C2), chạy song song với Excel 2–4 tuần (C3).
 - Câu hỏi còn mở ở mục 5: Windows 10 hay 11; cách chuyển file giữa các máy; thư mục phiếu có nằm trong Google Drive/OneDrive/iCloud không; có file `.xls` cũ không; nhà cung cấp có gửi file hàng về không; có cần nhập lại phiếu tháng 8–9 không.
 - Chưa thử thực tế: bộ cài Windows (Inno Setup) và trình gỡ trên máy sạch; tự gỡ trên Mac; số liệu với nhiều tháng phiếu thật.
+- Bảo trì CI (không gấp): build `v0.1.0` thành công nhưng GitHub cảnh báo các action đang dùng (checkout@v4, upload-artifact@v4, download-artifact@v4, setup-uv@v6, action-gh-release@v2) viết cho Node.js 20, đang bị ép chạy Node.js 24, hiện vẫn chạy đúng. Khi sửa workflow lần tới, nâng lên bản mới (10/2026: checkout v7, upload-artifact v7, download-artifact v8, setup-uv v7, action-gh-release v3) rồi chạy thử bằng Run workflow trước khi gắn tag.
 - Gợi ý nếu khách cần: tự cập nhật bản mới, ký số app (Apple Developer 99$/năm) để bỏ bước "Vẫn mở", chuyển repo sang public để khách tải không cần tài khoản GitHub.
 
 ### Trạng thái chi tiết (10/10/2026)
