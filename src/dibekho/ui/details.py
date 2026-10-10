@@ -38,6 +38,7 @@ from dibekho.ui.common import (
     open_path,
     row_id,
     status_text,
+    theme_color,
     title_label,
     to_qdate,
 )
@@ -90,7 +91,7 @@ class DocumentDialog(_Base):
         form.addRow(t("col.date") + ":", QLabel(fmt_date(head["doc_date"])))
         status = QLabel(status_text(head["status"]))
         if head["status"] != "active":
-            status.setStyleSheet("color: #c0392b; font-weight: bold;")
+            status.setStyleSheet(f"color: {theme_color('alert')}; font-weight: bold;")
         form.addRow(t("col.status") + ":", status)
         if kind == "delivery":
             if head["customer_id"]:

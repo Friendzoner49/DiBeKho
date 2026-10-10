@@ -4,9 +4,10 @@ import sqlite3
 from datetime import date
 
 from PySide6.QtCore import QDate, QObject, Qt, QUrl, Signal
-from PySide6.QtGui import QBrush, QColor, QDesktopServices
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QHeaderView,
     QLabel,
     QMessageBox,
@@ -20,9 +21,31 @@ from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
 
-RED = QColor("#fde2e1")
-YELLOW = QColor("#fff4cc")
+# Row highlight colours. Light theme: pale backgrounds; dark theme (e.g. macOS Dark Mode): deep tones,
+# so the white text stays readable. sync_theme_colors() updates these objects in place.
+_THEMES = {
+    "light": {"RED": "#fde2e1", "YELLOW": "#fff4cc", "hint": "#666666", "banner": "#eef5ff", "alert": "#c0392b"},
+    "dark": {"RED": "#6e2a2a", "YELLOW": "#5e4c14", "hint": "#a0a0a0", "banner": "#1f3550", "alert": "#ff7b72"},
+}
+RED = QColor(_THEMES["light"]["RED"])
+YELLOW = QColor(_THEMES["light"]["YELLOW"])
 GREY = QColor("#888888")
+
+
+def is_dark() -> bool:
+    app = QApplication.instance()
+    return app is not None and app.palette().color(QPalette.Window).lightness() < 128
+
+
+def theme_color(name: str) -> str:
+    """'hint', 'banner' or 'alert' for the current light/dark theme."""
+    return _THEMES["dark" if is_dark() else "light"][name]
+
+
+def sync_theme_colors() -> None:
+    colors = _THEMES["dark" if is_dark() else "light"]
+    RED.setRgb(QColor(colors["RED"]).rgb())
+    YELLOW.setRgb(QColor(colors["YELLOW"]).rgb())
 
 
 class AppContext(QObject):
@@ -131,6 +154,7 @@ def make_table(headers: list[str], stretch: int | None = 1) -> QTableWidget:
 
 def fill_table(table: QTableWidget, rows: list[list], ids: list | None = None, colors: list | None = None) -> None:
     """rows: list of cell lists; a cell is a QTableWidgetItem or a plain value."""
+    sync_theme_colors()  # the user may switch light/dark while the app runs
     table.setSortingEnabled(False)
     table.setRowCount(len(rows))
     for r, row in enumerate(rows):
@@ -179,7 +203,7 @@ def title_label(text: str) -> QLabel:
 def hint_label(text: str) -> QLabel:
     label = QLabel(text)
     label.setWordWrap(True)
-    label.setStyleSheet("color: #666;")
+    label.setStyleSheet(f"color: {theme_color('hint')};")
     return label
 
 

@@ -463,6 +463,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | **Phát hành 0.1.0.** Làm sạch thông tin cá nhân/khách khỏi repo (tên file mẫu đổi thành tên chung, bỏ SĐT thật trong chú thích code, tên công ty trong phiếu giả lập, email, link repo cũ, cảnh báo mật khẩu); gộp lịch sử git thành một commit; build Mac qua GitHub Actions (tag `v0.1.0`). Giữ nhãn thương hiệu 瑞德牌 → "Hiệu Thụy Đức" vì là dữ liệu phân loại hàng. |
 | 2026-10-10 | README: 2 nút **Tải cho Windows / Tải cho macOS** trỏ tới `releases/latest/download/DiBeKho-windows-setup.exe` và `DiBeKho-mac-arm64.dmg`; các huy hiệu Python/PySide6/SQLite trỏ về trang chủ. Workflow có job `release` (chỉ khi đẩy tag `v*`) tạo GitHub Release với tên file cố định. Repo private → người tải phải đăng nhập GitHub có quyền xem. |
 | 2026-10-10 | README mặc định **tiếng Anh** (`README.md`, ảnh giao diện tiếng Anh `docs/images/en/`), bản tiếng Việt `README.vi.md`; link chuyển ngôn ngữ ở đầu mỗi file. Hai nút Windows/macOS thu nhỏ (cỡ như các huy hiệu khác), bỏ chữ "Tải cho". |
+| 2026-10-10 | **Bản Mac 0.1.0 chạy được trên Mac M2** (người dùng xác nhận). Lỗi: macOS Dark Mode → nền hồng nhạt + chữ trắng, không đọc được. Sửa: màu theo giao diện sáng/tối (`ui.common`: `is_dark`, `sync_theme_colors`, `theme_color`; tối: đỏ `#6e2a2a`, vàng `#5e4c14`); không dùng màu cố định cho nền/chữ nữa. Chưa phát hành bản mới: hỏi người dùng trước khi đổi số phiên bản. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
@@ -480,6 +481,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Giữ code đơn giản; không thêm tính năng ngoài phạm vi khi chưa được yêu cầu.
 - **Phiên bản:** không tự tăng số phiên bản; hỏi người dùng trước khi đổi số. Không thêm lịch sử phiên bản vào README.
 - **Không đưa thông tin thật lên git:** tên/SĐT/địa chỉ khách, tên file của khách, email, đường dẫn máy người dùng. File mẫu thật nằm trong `samples/` (gitignored) với tên chung: `danh-muc-mau.xlsx`, `phieu-mau-1..3.xlsx`. Trước khi push: `git grep` các chuỗi nhạy cảm.
+- **Màu sắc:** luôn lấy qua `theme_color()` / `RED` / `YELLOW` trong `ui.common` (tự đổi theo sáng/tối); không viết mã màu cố định trong màn hình.
 - Đổi giao diện → chạy lại `PYTHONPATH=. uv run python scripts/readme_screenshots.py` để cập nhật ảnh README.
 
 ## 17. Bài học từ dự án cũ của người dùng

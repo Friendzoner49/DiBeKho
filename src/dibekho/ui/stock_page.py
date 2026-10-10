@@ -5,7 +5,7 @@ from dibekho.core.stock import stock_table
 from dibekho.core.text import unaccent
 from dibekho.i18n import t
 from dibekho.ui.catalog_import import start_catalog_import
-from dibekho.ui.common import RED, YELLOW, date_item, fill_table, make_table, num_item, row_id
+from dibekho.ui.common import RED, YELLOW, date_item, fill_table, make_table, num_item, row_id, theme_color
 from dibekho.ui.details import ProductDialog
 from dibekho.ui.page import Page
 
@@ -27,7 +27,7 @@ class StockPage(Page):
 
         # shown only while the catalog is empty (first start)
         self.empty = QFrame()
-        self.empty.setStyleSheet("QFrame { background: #eef5ff; border-radius: 6px; }")
+        self.empty.setStyleSheet(f"QFrame {{ background: {theme_color('banner')}; border-radius: 6px; }}")
         empty_lay = QHBoxLayout(self.empty)
         empty_text = QLabel(t("stock.empty_hint"))
         empty_text.setWordWrap(True)
