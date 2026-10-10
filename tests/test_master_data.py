@@ -74,3 +74,16 @@ def test_rejects_other_excel_files(tmp_path):
 
     with pytest.raises(master_data.NotMasterData):
         master_data.read(make_note(tmp_path / "phieu.xlsx"))
+
+
+def test_customer_of_a_waiting_note_is_exported(conn, ws, tmp_path):
+    """A note left waiting (one line not decided) still puts its customer in the master data."""
+    from dibekho.core import deliveries
+    from tests.conftest import make_note
+
+    make_note(ws.deliveries / "cho.xlsx", code="74", customer="Khách Chờ", phone="0909 000 111",
+              lines=[("新产品\nHàng chưa duyệt", "5KG/thùng", 1, "")])
+    deliveries.scan(conn, ws)
+    assert deliveries.pending_count(conn) == 1  # still waiting
+    _, customers = master_data.read(master_data.export(tmp_path / "goc.xlsx", conn))
+    assert [(c.name, c.phone) for c in customers] == [("Khách Chờ", "0909 000 111")]

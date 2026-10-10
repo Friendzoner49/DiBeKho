@@ -228,7 +228,7 @@ Nguyên tắc: **tồn kho không bao giờ được sửa trực tiếp.** Mọ
 
 - `products`: `id`, `code`, `name_vi`, `name_zh`, `spec` (quy cách), `variant` (loại/màu: Trắng, Xám nhạt, Nguyên sinh, Tái chế, Hiệu Thụy Đức… — migration 002), `unit` (thùng/cuộn/gói), `category`, `min_stock` (ngưỡng cảnh báo), `active`.
 - `product_aliases`: `key` (tên + quy cách đã chuẩn hoá trên phiếu) → `product_id`. App "học" mỗi khi người dùng chọn mặt hàng cho một dòng lạ.
-- `customers`: tên, người liên hệ, SĐT (chuẩn hoá), địa chỉ — lấy từ phiếu giao hàng, phục vụ tra cứu.
+- `customers`: tên, người liên hệ, SĐT (chuẩn hoá), địa chỉ — lấy từ phiếu giao hàng, phục vụ tra cứu. Khách được ghi **ngay khi đọc được phiếu**, kể cả phiếu còn chờ chọn mặt hàng (số đơn = 0 cho tới khi phiếu vào kho).
 - `documents`: `id`, `kind` (`delivery` | `receipt` | `stock_count`), `code` (mã phiếu), `doc_date` (ngày nghiệp vụ), `customer_id`, `note`, `status` (`active` | `cancelled`), `source_file` (tên file), `source_hash`, `created_at`.
 - `document_lines`: `document_id`, `product_id`, `qty`, `note`.
 - `stock_movements`: `product_id`, `qty` (+/−), `document_id`, `occurred_on` (= `doc_date`), `kind`, `created_at`. Để sẵn `lot_id`, `location_id` nullable cho tương lai.
@@ -502,6 +502,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | **Lỗi nghiêm trọng (người dùng báo):** file danh mục bỏ nhầm vào `input/` bị báo "không dùng được", nút Bỏ chuyển nó vào `da-xu-ly` và không còn cách nhập lại trong app. Sửa: nhận ra file danh mục trong `input/`; file không dùng được chỉ **Ẩn** (không di chuyển, migration 005); nút **Chọn file để nhập…** ở Hàng về (chọn từ bất kỳ đâu, kể cả `da-xu-ly`). 58 test. |
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit sửa lỗi thư mục `input/` (vẫn 0.1.0). Giải thích cho người dùng: `input/da-xu-ly/` = nơi cất file đã dùng xong để không nhập lại và để còn bản lưu; không phải nơi nhập. |
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
+| 2026-10-10 | Lỗi (người dùng báo): khách của phiếu còn chờ duyệt (một dòng để sau) không có trong file Xuất dữ liệu gốc, vì khách chỉ được ghi khi phiếu vào kho. Sửa: `process_file` ghi khách ngay khi đọc được phiếu. 60 test. Chuyển tag `v0.1.0`. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
