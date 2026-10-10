@@ -494,6 +494,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | **Đóng giai đoạn 1.** Workflow thêm `concurrency` (tag chuyển sang commit mới huỷ lần build cũ đang chạy); chuyển tag `v0.1.0` sang commit cuối. Giai đoạn 2 bắt đầu sau khi khách dùng thử (xem "Tổng kết giai đoạn 1"). |
 | 2026-10-10 | Dọn máy phát triển để người dùng thử cài từ GitHub Releases: xoá `dist/`, `.venv/`, cache, thư mục làm việc thử. Giữ `samples/` và `DiBeKho-du-lieu-goc.xlsx` (không có trên GitHub). Làm tiếp: `uv sync` tạo lại môi trường. |
 | 2026-10-10 | Thêm **Xuất/Nhập dữ liệu gốc (Excel)** trong Cài đặt (mục 9.4b): mặt hàng + khách hàng (khách chỉ đến cột Số đơn); nhập ở máy khác giữ nguyên mã. 56 test. Không đổi số phiên bản. |
+| 2026-10-10 | Chuyển tag `v0.1.0` sang commit có Xuất/Nhập dữ liệu gốc (người dùng chọn cập nhật bản phát hành, giữ số 0.1.0). |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
