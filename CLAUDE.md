@@ -502,6 +502,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | **Lỗi nghiêm trọng (người dùng báo):** file danh mục bỏ nhầm vào `input/` bị báo "không dùng được", nút Bỏ chuyển nó vào `da-xu-ly` và không còn cách nhập lại trong app. Sửa: nhận ra file danh mục trong `input/`; file không dùng được chỉ **Ẩn** (không di chuyển, migration 005); nút **Chọn file để nhập…** ở Hàng về (chọn từ bất kỳ đâu, kể cả `da-xu-ly`). 58 test. |
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit sửa lỗi thư mục `input/` (vẫn 0.1.0). Giải thích cho người dùng: `input/da-xu-ly/` = nơi cất file đã dùng xong để không nhập lại và để còn bản lưu; không phải nơi nhập. |
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
+| 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
