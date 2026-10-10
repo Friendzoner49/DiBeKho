@@ -499,6 +499,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Thêm **Xuất/Nhập dữ liệu gốc (Excel)** trong Cài đặt (mục 9.4b): mặt hàng + khách hàng (khách chỉ đến cột Số đơn); nhập ở máy khác giữ nguyên mã. 56 test. Không đổi số phiên bản. |
 | 2026-10-10 | Chuyển tag `v0.1.0` sang commit có Xuất/Nhập dữ liệu gốc (người dùng chọn cập nhật bản phát hành, giữ số 0.1.0). |
 | 2026-10-10 | **Lỗi nghiêm trọng (người dùng báo):** file danh mục bỏ nhầm vào `input/` bị báo "không dùng được", nút Bỏ chuyển nó vào `da-xu-ly` và không còn cách nhập lại trong app. Sửa: nhận ra file danh mục trong `input/`; file không dùng được chỉ **Ẩn** (không di chuyển, migration 005); nút **Chọn file để nhập…** ở Hàng về (chọn từ bất kỳ đâu, kể cả `da-xu-ly`). 58 test. |
+| 2026-10-10 | Chuyển tag `v0.1.0` sang commit sửa lỗi thư mục `input/` (vẫn 0.1.0). Giải thích cho người dùng: `input/da-xu-ly/` = nơi cất file đã dùng xong để không nhập lại và để còn bản lưu; không phải nơi nhập. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
