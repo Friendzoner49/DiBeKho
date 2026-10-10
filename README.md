@@ -103,6 +103,83 @@ To update, install the new version over the old one. Your data in `Documents/DiB
 - **Windows:** *Settings → Apps → DiBeKho → Uninstall*. The uninstaller asks whether to delete the data folder too.
 - **macOS:** in the app, *Settings → Uninstall…*. The app removes itself from Applications when it closes.
 
+## User guide
+
+Button names below are those of the English interface; the Vietnamese ones are in [README.vi.md](README.vi.md#hướng-dẫn-sử-dụng).
+
+### 1. First start
+
+Choose the language and the **working folder** (default `Documents/DiBeKho`), then click **Start**. Avoid a folder inside OneDrive, iCloud or Google Drive: syncing can damage the open database. The language can be changed later in **Settings → General**.
+
+### 2. Load the product catalog (once)
+
+1. On **Stock**, click **Import catalog from Excel…** and pick the monthly stock sheet.
+2. Check the preview: double-click a cell to fix it, untick rows you do not want. Rows already in the catalog are greyed out.
+3. Click **Import selected rows**. Importing the same file again only adds the new products.
+
+Single products can also be added in **Settings → Products → Add product**.
+
+### 3. Opening stock
+
+Open **Stock count**, pick the date, type the counted quantity of each product and click **Save count**. The first count is the opening stock; later counts record only the difference between the count and the app.
+
+### 4. Every day: delivery notes
+
+1. Copy the day's delivery notes (`.xlsx`) into `phieu-giao-hang/` (**Open delivery notes folder** opens it). Subfolders such as one per month are fine.
+2. Click **⟳ Rescan notes** (or press **F5**). The app also scans every time it starts.
+3. Notes whose product names are all known are read straight away and stock goes down.
+4. If **To do** shows a number, some lines need your decision:
+
+| On the line | Do this |
+|---|---|
+| A product from the catalog | Pick it under **Is product**; type a few letters (Vietnamese or Chinese) to search |
+| A product not in the catalog yet | Keep **＋ Create new product** |
+| A shipping or service fee | Click **✕ Drop line** (fee lines are usually pre-selected) |
+| Not sure | Choose **⏸ Later** |
+
+Then click **Apply and read notes again**, check the summary and confirm. The app remembers every choice, so the same name is recognised on later notes.
+
+> Delivery notes always stay where you put them. `input/da-xu-ly/` only holds processed goods-in files and data packages.
+
+### 5. Goods in (1–2 times per quarter)
+
+1. **Goods in → Create goods-in template**, open the file, fill in the arrival date and the quantities, save it.
+2. Copy the file into `input/` (**Open input folder**).
+3. In **To do**, click **Review & import**, check the list and click **Confirm goods in**. Stock goes up and the file moves to `input/da-xu-ly/`.
+
+### 6. Looking things up
+
+- **Stock**: red rows = negative stock (a goods-in or a stock count is missing); yellow rows = at or below the **Low-stock alert at** level (set it per product in **Settings → Products**, double-click the product). Double-click a product for its full history.
+- **Search** (**Ctrl+F**): one box for products, customers, phone numbers, note numbers and notes; accents are optional and Chinese works. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
+- **An order**: customer, lines, notes, **Open original file**, **Read note again**, **Cancel document**.
+- **A customer**: all their orders and the products they buy most.
+
+### 7. Statistics and Excel export
+
+In **Search → Statistics and Excel export** choose the period (day, month, quarter, year or a range), optionally split it by day or month, and narrow it to some products, categories or customers. The table shows opening stock, in, out, stock-count adjustments and closing stock, plus best sellers and a chart. **Export to Excel…** lets you pick the sheets and saves the file in `output/`.
+
+### 8. Fixing mistakes
+
+| Situation | What to do |
+|---|---|
+| Picked the wrong product, or dropped a line by mistake | **Settings → Products → Learned names on notes**, select the line, **Forget and read again…**. The affected notes come back to **To do** |
+| A note should be read again with today's catalog | Open the order, **Read note again** |
+| A note was entered by mistake | Open the order, **Cancel document** (stock is given back, history kept). Deleting the file does **not** cancel it |
+| A note file was deleted from the folder | **To do** offers **Restore file**, **Cancel document** or **Ignore** |
+| A note file was edited after it was read | **To do** offers **Use new version** or **Keep old version** |
+
+### 9. Moving to another computer
+
+Only one computer works at a time.
+
+1. On the computer in use: **Settings → Data transfer and backups → Export data**. A `.dibekho` file appears in `output/`.
+2. Send the file (USB, Zalo, e-mail…) and put it into `input/` on the other computer.
+3. There, open **To do → Import data**. The current data on that computer is backed up first and then replaced.
+
+### 10. Backups
+
+The app backs up once a day when it starts and keeps the last 14 copies in `sao-luu/`. **Settings → Data transfer and backups** has **Back up now** and **Restore selected**.
+
 ## Development
 
 You need [**uv**](https://docs.astral.sh/uv/). It downloads Python 3.13 and every library into the project's `.venv/` and leaves the system Python alone.

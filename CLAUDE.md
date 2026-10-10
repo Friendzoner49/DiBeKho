@@ -466,6 +466,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | **Bản Mac 0.1.0 chạy được trên Mac M2** (người dùng xác nhận). Lỗi: macOS Dark Mode → nền hồng nhạt + chữ trắng, không đọc được. Sửa: màu theo giao diện sáng/tối (`ui.common`: `is_dark`, `sync_theme_colors`, `theme_color`; tối: đỏ `#6e2a2a`, vàng `#5e4c14`); không dùng màu cố định cho nền/chữ nữa. Chưa phát hành bản mới: hỏi người dùng trước khi đổi số phiên bản. |
 | 2026-10-10 | **Icon app**: tự vẽ logo kho hàng (`resources/dibekho.svg`, không vướng bản quyền) → `.ico` (nhiều cỡ), `.icns`, icon cửa sổ `src/dibekho/ui/icon.png`; gắn vào PyInstaller và bộ cài Inno Setup. **Gỡ app trên Mac tự xoá khỏi Applications.** Không đổi số phiên bản (người dùng yêu cầu giữ 0.1.0). |
 | 2026-10-10 | Workflow phát hành: sau khi build Mac + Windows thành công, job `release` xoá Release cũ cùng tag và **mọi lần chạy cũ** của workflow (kèm Artifacts) bằng `gh` + `GITHUB_TOKEN` (`actions: write`), rồi đăng Release mới. Chuyển tag `v0.1.0` sang commit có icon + màu chế độ tối + tự gỡ trên Mac (vẫn 0.1.0 theo yêu cầu). |
+| 2026-10-10 | README (EN + VI) thêm mục **Hướng dẫn sử dụng** sau phần Cài đặt: mở lần đầu, nạp danh mục, tồn đầu, phiếu hằng ngày, hàng về, tra cứu, thống kê, sửa khi nhầm, chuyển máy, sao lưu. Tên nút lấy đúng từ `i18n/*.json`; đổi chữ trên nút thì sửa cả README. Màn hình chào lần đầu dùng `theme_color('hint')` (chế độ tối). |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
@@ -483,6 +484,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Giữ code đơn giản; không thêm tính năng ngoài phạm vi khi chưa được yêu cầu.
 - **Phiên bản:** không tự tăng số phiên bản; hỏi người dùng trước khi đổi số. Không thêm lịch sử phiên bản vào README.
 - **Không đưa thông tin thật lên git:** tên/SĐT/địa chỉ khách, tên file của khách, email, đường dẫn máy người dùng. File mẫu thật nằm trong `samples/` (gitignored) với tên chung: `danh-muc-mau.xlsx`, `phieu-mau-1..3.xlsx`. Trước khi push: `git grep` các chuỗi nhạy cảm.
+- **README:** có hướng dẫn sử dụng dùng đúng tên nút trong giao diện; đổi tên nút/màn hình thì cập nhật cả `README.md` và `README.vi.md`.
 - **Màu sắc:** luôn lấy qua `theme_color()` / `RED` / `YELLOW` trong `ui.common` (tự đổi theo sáng/tối); không viết mã màu cố định trong màn hình.
 - Đổi giao diện → chạy lại `PYTHONPATH=. uv run python scripts/readme_screenshots.py` để cập nhật ảnh README.
 

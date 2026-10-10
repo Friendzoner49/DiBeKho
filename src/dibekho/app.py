@@ -24,6 +24,7 @@ from dibekho import APP_NAME, i18n
 from dibekho.core import backup
 from dibekho.core.workspace import Config, Workspace, default_workspace
 from dibekho.i18n import LANGUAGES, t
+from dibekho.ui.common import theme_color
 
 
 class FirstRunDialog(QDialog):
@@ -48,7 +49,7 @@ class FirstRunDialog(QDialog):
         form.addRow(t("settings.workspace") + ":", row)
         hint = QLabel(t("firstrun.folder_hint"))
         hint.setWordWrap(True)
-        hint.setStyleSheet("color: #666;")
+        hint.setStyleSheet(f"color: {theme_color('hint')};")
         form.addRow(hint)
         box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         box.button(QDialogButtonBox.Ok).setText(t("firstrun.start"))

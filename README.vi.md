@@ -101,6 +101,81 @@ Cập nhật bản mới: cài đè lên bản cũ. Dữ liệu trong `Documents
 - **Windows:** *Settings → Apps → DiBeKho → Uninstall*. Trình gỡ sẽ hỏi có xoá thư mục dữ liệu không.
 - **macOS:** trong app vào *Cài đặt → Gỡ app…*. App tự xoá khỏi Applications khi đóng lại.
 
+## Hướng dẫn sử dụng
+
+### 1. Mở app lần đầu
+
+Chọn ngôn ngữ và **thư mục làm việc** (mặc định `Documents/DiBeKho`), rồi bấm **Bắt đầu**. Không nên chọn thư mục nằm trong OneDrive, iCloud hoặc Google Drive: đồng bộ đám mây có thể làm hỏng database đang mở. Đổi ngôn ngữ sau này ở **Cài đặt → Chung**.
+
+### 2. Nạp danh mục mặt hàng (làm một lần)
+
+1. Ở màn hình **Tồn kho**, bấm **Nhập danh mục từ Excel…** và chọn file thống kê tháng.
+2. Xem bảng xem trước: nháy đúp vào ô để sửa, bỏ tick những dòng không cần. Dòng đã có trong danh mục hiện màu xám.
+3. Bấm **Nhập các dòng đã chọn**. Nhập lại cùng file nhiều lần chỉ thêm mặt hàng mới.
+
+Thêm từng mặt hàng lẻ ở **Cài đặt → Danh mục mặt hàng → Thêm mặt hàng**.
+
+### 3. Tồn đầu kỳ
+
+Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế của từng mặt hàng rồi bấm **Lưu kiểm kê**. Lần kiểm kê đầu tiên chính là tồn đầu; các lần sau app chỉ ghi phần chênh lệch giữa số đếm và số trên app.
+
+### 4. Hằng ngày: phiếu giao hàng
+
+1. Chép các phiếu giao hàng (`.xlsx`) trong ngày vào `phieu-giao-hang/` (nút **Mở thư mục phiếu giao hàng** mở thư mục này). Chia thư mục con, ví dụ theo tháng, cũng được.
+2. Bấm **⟳ Quét lại phiếu** (hoặc phím **F5**). App cũng tự quét mỗi lần mở.
+3. Phiếu có đủ tên hàng đã biết được đọc ngay và tồn giảm.
+4. Nếu mục **Cần xử lý** hiện con số, có dòng hàng cần bạn quyết định:
+
+| Dòng trên phiếu là | Làm thế này |
+|---|---|
+| Mặt hàng có trong danh mục | Chọn ở cột **Là mặt hàng**; gõ vài chữ (tiếng Việt hoặc tiếng Trung) để tìm |
+| Mặt hàng chưa có trong danh mục | Để **＋ Tạo mặt hàng mới** |
+| Phí ship, phí dịch vụ | Bấm **✕ Bỏ dòng** (dòng phí thường đã được chọn sẵn) |
+| Chưa chắc | Chọn **⏸ Để sau** |
+
+Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt rồi xác nhận. App nhớ mọi lựa chọn, nên lần sau gặp đúng tên đó sẽ tự nhận ra.
+
+> Phiếu giao hàng luôn nằm nguyên chỗ bạn để. `input/da-xu-ly/` chỉ chứa file hàng về và gói dữ liệu đã nhập.
+
+### 5. Hàng về (1–2 lần mỗi quý)
+
+1. **Hàng về → Tạo file mẫu hàng về**, mở file, điền ngày về và số lượng, lưu lại.
+2. Chép file vào `input/` (nút **Mở thư mục input**).
+3. Ở **Cần xử lý**, bấm **Xem và nhập**, kiểm tra danh sách rồi bấm **Xác nhận nhập hàng về**. Tồn tăng và file được chuyển sang `input/da-xu-ly/`.
+
+### 6. Tra cứu
+
+- **Tồn kho**: dòng đỏ = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng vàng = bằng hoặc dưới mức **Báo sắp hết khi còn** (đặt cho từng mặt hàng ở **Cài đặt → Danh mục mặt hàng**, nháy đúp vào mặt hàng). Nháy đúp một mặt hàng để xem toàn bộ lịch sử.
+- **Tra cứu** (**Ctrl+F**): một ô tìm mặt hàng, khách, số điện thoại, mã phiếu, ghi chú; gõ không dấu hoặc tiếng Trung đều được. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng** và **Thống kê và xuất Excel**.
+- **Một đơn hàng**: khách, các dòng hàng, ghi chú, **Mở file gốc**, **Đọc lại phiếu**, **Huỷ phiếu**.
+- **Một khách hàng**: mọi đơn của khách và những mặt hàng khách hay mua.
+
+### 7. Thống kê và xuất Excel
+
+Ở **Tra cứu → Thống kê và xuất Excel**, chọn kỳ (ngày, tháng, quý, năm hoặc khoảng tự chọn), có thể chia theo ngày hoặc tháng, và thu hẹp theo mặt hàng, nhóm hàng hoặc khách. Bảng hiện tồn đầu, nhập, xuất, điều chỉnh kiểm kê, tồn cuối, kèm top bán chạy và biểu đồ. **Xuất Excel…** cho chọn các trang cần xuất và lưu file vào `output/`.
+
+### 8. Sửa khi làm nhầm
+
+| Tình huống | Cách làm |
+|---|---|
+| Chọn nhầm mặt hàng, hoặc lỡ bỏ nhầm một dòng | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**, chọn dòng, **Quên và đọc lại…**. Các phiếu liên quan hiện lại ở **Cần xử lý** |
+| Muốn đọc lại một phiếu theo danh mục hiện tại | Mở đơn hàng, **Đọc lại phiếu** |
+| Phiếu bị nhập nhầm | Mở đơn hàng, **Huỷ phiếu** (tồn được hoàn lại, lịch sử vẫn giữ). Xoá file **không** phải là huỷ phiếu |
+| Lỡ xoá file phiếu khỏi thư mục | **Cần xử lý** cho chọn **Khôi phục file**, **Huỷ phiếu** hoặc **Bỏ qua** |
+| File phiếu bị sửa sau khi đã đọc | **Cần xử lý** cho chọn **Dùng bản mới** hoặc **Giữ bản cũ** |
+
+### 9. Chuyển sang máy khác
+
+Mỗi lúc chỉ một máy làm việc.
+
+1. Ở máy đang dùng: **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu**. File `.dibekho` xuất hiện trong `output/`.
+2. Gửi file (USB, Zalo, email…) và chép vào `input/` của máy kia.
+3. Ở máy kia, vào **Cần xử lý → Nhập dữ liệu**. Dữ liệu hiện có trên máy đó được sao lưu trước, rồi mới bị thay thế.
+
+### 10. Sao lưu
+
+App tự sao lưu mỗi ngày một lần khi mở và giữ 14 bản gần nhất trong `sao-luu/`. Trong **Cài đặt → Chuyển dữ liệu và sao lưu** có **Sao lưu ngay** và **Khôi phục bản đã chọn**.
+
 ## Phát triển
 
 Cần [**uv**](https://docs.astral.sh/uv/). uv tự tải Python 3.13 và mọi thư viện vào `.venv/` của dự án, không đụng tới Python của hệ thống.
