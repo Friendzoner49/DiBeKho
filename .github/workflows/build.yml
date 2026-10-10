@@ -1,0 +1,35 @@
+# Build the macOS .dmg (Apple Silicon) and the Windows installer on GitHub's machines.
+# Run it from the "Actions" tab ("Run workflow"), or push a tag like v0.2.0.
+# The files appear under "Artifacts" at the bottom of the run page.
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  mac:
+    runs-on: macos-15  # Apple Silicon (arm64), same architecture as the M2/M3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: bash packaging/build_mac.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DiBeKho-mac
+          path: dist/*.dmg
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: choco install innosetup -y --no-progress
+      - run: powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DiBeKho-windows
+          path: |
+            dist/*.exe
+            dist/*.zip

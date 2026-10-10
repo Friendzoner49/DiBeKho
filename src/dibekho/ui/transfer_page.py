@@ -1,0 +1,96 @@
+"""Settings tab 'Chuyển dữ liệu và sao lưu': export a package for another machine; backups and restore."""
+
+from datetime import datetime
+
+from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+
+from dibekho import db
+from dibekho.core import backup, transfer
+from dibekho.i18n import t
+from dibekho.ui.common import ask, error, fill_table, hint_label, info, make_table, open_path, selected_id
+
+
+class TransferPanel(QWidget):
+    """Refreshed by the settings page that contains it."""
+
+    def __init__(self, ctx, go_pending):
+        super().__init__()
+        self.ctx = ctx
+        self.layout_ = QVBoxLayout(self)
+        box = QGroupBox(t("transfer.export_title"))
+        lay = QVBoxLayout(box)
+        lay.addWidget(hint_label(t("transfer.steps")))
+        self.status = QLabel()
+        self.status.setWordWrap(True)
+        lay.addWidget(self.status)
+        row = QHBoxLayout()
+        export = QPushButton(t("transfer.export"))
+        export.clicked.connect(self.export)
+        receive = QPushButton(t("transfer.receive"))
+        receive.clicked.connect(go_pending)
+        row.addWidget(export)
+        row.addWidget(receive)
+        row.addStretch()
+        lay.addLayout(row)
+        self.layout_.addWidget(box)
+
+        box2 = QGroupBox(t("backup.title"))
+        lay2 = QVBoxLayout(box2)
+        lay2.addWidget(hint_label(t("backup.hint")))
+        self.backups = make_table([t("backup.file"), t("backup.time")], stretch=0)
+        lay2.addWidget(self.backups)
+        row2 = QHBoxLayout()
+        now = QPushButton(t("backup.now"))
+        now.clicked.connect(self.backup_now)
+        restore = QPushButton(t("backup.restore"))
+        restore.clicked.connect(self.restore)
+        folder = QPushButton(t("backup.open_folder"))
+        folder.clicked.connect(lambda: open_path(self.ctx.ws.backups))
+        for b in (now, restore, folder):
+            row2.addWidget(b)
+        row2.addStretch()
+        lay2.addLayout(row2)
+        self.layout_.addWidget(box2, 1)
+
+    def refresh(self):
+        conn = self.ctx.conn
+        last_export = db.get_meta(conn, "last_transfer_at")
+        last_import = db.get_meta(conn, "last_import_from")
+        lines = [t("transfer.this_device", name=self.ctx.cfg.device_name)]
+        if last_export:
+            lines.append(t("transfer.last_transfer", at=last_export.replace("T", " ")))
+        if last_import:
+            lines.append(t("transfer.last_import", source=last_import.replace("T", " ")))
+        if transfer.has_unsent_changes(conn):
+            lines.append("⚠ " + t("transfer.has_changes"))
+        self.status.setText("\n".join(lines))
+        files = backup.list_backups(self.ctx.ws)
+        self._files = files
+        fill_table(self.backups, [[f.name, datetime.fromtimestamp(f.stat().st_mtime).strftime("%d/%m/%Y %H:%M")]
+                                  for f in files], ids=list(range(len(files))))
+
+    def export(self):
+        path = transfer.export_package(self.ctx.conn, self.ctx.ws, self.ctx.cfg)
+        self.refresh()
+        if ask(self, t("transfer.exported", path=str(path))):
+            open_path(path.parent)
+
+    def backup_now(self):
+        backup.named_backup(self.ctx.conn, self.ctx.ws, "thu-cong")
+        self.refresh()
+
+    def restore(self):
+        idx = selected_id(self.backups)
+        if idx is None:
+            error(self, t("backup.pick_first"))
+            return
+        chosen = self._files[idx]
+        if not ask(self, t("backup.confirm_restore", name=chosen.name)):
+            return
+        try:
+            backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-khoi-phuc")
+            self.ctx.close()
+            backup.restore(self.ctx.ws, chosen)
+        finally:
+            self.ctx.reopen()
+        info(self, t("backup.restored"))

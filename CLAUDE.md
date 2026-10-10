@@ -1,0 +1,498 @@
+# Brief dự án: DiBeKho — app theo dõi tồn kho chạy trên máy (Windows + macOS, Python + PySide6)
+
+> File này là nguồn sự thật của dự án, đọc đầu tiên ở mọi session.
+> Ngôn ngữ trao đổi: tiếng Việt. Giao diện app: **tiếng Việt (mặc định) + tiếng Anh**. Ngôn ngữ code, tên biến, commit: tiếng Anh.
+> **Quy tắc bắt buộc:** sau mỗi lần trả lời người dùng, cập nhật những điểm quan trọng (quyết định, phát hiện, câu hỏi mới/đã trả lời) vào file này, và ghi một dòng vào **Nhật ký quyết định** (mục 15).
+
+## 1. Bối cảnh
+
+- **Khách hàng:** một công ty vật liệu chống thấm (tên và thông tin khách không ghi trong repo). Bán vật liệu chống thấm: sơn, màng SBS, màng PPE/PPP, vải polyester, keo, bột…
+- **Tên app: DiBeKho** (thư mục làm việc `Documents/DiBeKho`, gói dữ liệu `.dibekho`, package Python `dibekho`).
+- Khoảng **30 sản phẩm**, khoảng **2 phiếu giao hàng/ngày**, hàng về **1–2 lần/quý**.
+- Hiện khách theo dõi tồn bằng Excel và đối chiếu thủ công với kho, dựa trên các file phiếu giao hàng.
+- **Yêu cầu đã đổi (10/10/2026, sau khi thảo luận với khách):** không còn hệ thống nhiều máy dùng chung trên internet. Thay vào đó là **một app desktop chạy riêng trên từng máy**, dữ liệu nằm ngay trên máy đó, **chi phí 0₫**.
+- Máy cần chạy: **Windows** và **macOS chip Apple M3** (của khách).
+- Dự án độc lập với luận án tốt nghiệp (nghiên cứu WMS làm sau trong `02-nghien-cuu-huong-phat-trien-wms.md`).
+- Người phát triển (người dùng) đồng hành lâu dài, tự bảo trì và mở rộng; **đã làm app desktop Java/JavaFX (mục 17) và đã từng build app bằng Python**; có Windows (máy chính) và **Mac M2** (thử và build bản Mac), chưa làm app loại này bao giờ → ưu tiên đơn giản, dễ sửa.
+
+## 2. Thuật ngữ
+
+| Người dùng/khách gọi | Thực chất | Tên trong app | Tên trong code |
+|---|---|---|---|
+| "Phiếu nhập" (các file phiếu `.xlsx` của khách) | **销售单 PHIẾU GIAO HÀNG**: hàng giao cho khách, làm **giảm** tồn | Phiếu giao hàng | `delivery` |
+| Hàng về / nhập số lượng hàng về | Hàng về kho, làm **tăng** tồn (1–2 lần/quý) | Phiếu hàng về | `receipt` |
+| Dữ liệu xuất từ máy khác | Gói toàn bộ dữ liệu của app để máy khác làm tiếp | Gói dữ liệu | `data package` |
+| Đối chiếu với kho | Đếm thực tế, ghi chênh lệch | Kiểm kê | `stock count` |
+
+## 3. Yêu cầu (phạm vi giai đoạn 1)
+
+1. **Đọc thư mục phiếu giao hàng:** app đọc **tất cả file Excel** phiếu giao hàng trong một thư mục (kể cả thư mục con), mỗi phiếu làm giảm tồn. Phiếu đã đọc không bị tính lại.
+2. **Hiển thị tồn kho hiện tại** của từng mặt hàng.
+3. **Thư mục `input`** có 2 chức năng:
+   - **Nhập hàng về** (1–2 lần/quý): bỏ file Excel hàng về (theo mẫu do app tạo) vào → tồn tăng.
+   - **Nhận dữ liệu từ máy khác:** bỏ gói dữ liệu xuất từ máy khác vào → máy này **làm tiếp** từ dữ liệu đó.
+4. **Database tự tạo trên máy** khi mở app lần đầu, không cần cài gì thêm.
+5. **Xuất dữ liệu** thành một file để máy khác tiếp tục sử dụng.
+6. **Tra cứu:** tìm mặt hàng, khách, mã phiếu, ghi chú; xem lịch sử vào/ra.
+7. **Đơn hàng (phiếu giao hàng):** danh sách tất cả phiếu, lọc theo thời gian/khách/mặt hàng; **xem chi tiết từng đơn** (khách, ngày, các dòng hàng, ghi chú, file gốc). **Chi tiết khách hàng:** các đơn của khách, **những mặt hàng khách hay mua** (tổng số lượng, số lần mua, lần mua gần nhất).
+8. **Thống kê theo kỳ: ngày / tháng / quý / khoảng tự chọn**, phạm vi **tất cả hoặc chọn cụ thể** (mặt hàng, nhóm hàng, khách): tồn đầu – nhập – xuất – tồn cuối; mặt hàng xuất nhiều nhất.
+9. **Xuất thống kê ra Excel** theo đúng kỳ và phạm vi người dùng chọn (mục 11.1).
+10. **Các chức năng hỗ trợ (đã duyệt 10/10/2026):** ghép tên hàng lạ, xử lý phiếu bị sửa, huỷ phiếu, kiểm kê, sao lưu tự động. **Không có mật khẩu** khi mở app.
+11. **Không lưu và không hiển thị giá tiền.**
+12. **Hai ngôn ngữ:** tiếng Việt (mặc định), tiếng Anh; đổi trong phần Cài đặt.
+
+### Ngoài phạm vi (không làm, nhưng không thiết kế chặn đường)
+
+- Nhiều máy dùng chung cùng lúc, đồng bộ qua internet.
+- Giá, doanh số, công nợ, hoá đơn.
+- Tách tồn theo kho/văn phòng, vị trí, lô, hạn dùng.
+- Quét mã vạch, app điện thoại.
+
+## 4. Phát hiện từ dữ liệu mẫu (10/10/2026)
+
+**3 file phiếu giao hàng mẫu** (`samples/phieu-mau-1..3.xlsx`):
+- Mẫu song ngữ. Đầu phiếu có: tên khách, điện thoại, người liên hệ, mã đơn, ngày giao, địa chỉ.
+- Dòng hàng: STT, tên hàng (dòng 1 tiếng Trung, dòng 2 tiếng Việt), quy cách (`20KG/thùng`, `1m*20m/ cuộn`, `Gói`…), số lượng, đơn giá, thành tiền, ghi chú. **App chỉ đọc tên, quy cách, số lượng, ghi chú; bỏ qua giá.**
+- **Vị trí ô không cố định** (phiếu 1 lệch xuống 1 dòng) → đọc theo nhãn, không theo toạ độ.
+- Định dạng không thống nhất: ngày `01-10-2026` / `10/09/2026`; mã đơn `74` / `076`; dấu `：` full-width; khoảng trắng thừa.
+- Có dòng không phải hàng ("Phí vận chuyển") → bỏ qua.
+- Ghi chú cho thấy **giao nhiều đợt**: "gửi đi 2 thùng còn lại", "mua thêm 5 cuộn" → cần hỏi khách số lượng nào là số thực xuất (mục 5).
+- "Tổng số lượng" cộng lẫn thùng + cuộn + gói → vô nghĩa; thống kê theo từng mã.
+- Tên hàng trên phiếu **khác** tên trong bảng tồn (`缝织聚酯标记65g` và `缝织聚酯布65g`) → cần bảng ánh xạ tên.
+
+**File thống kê tháng 7** (`samples/danh-muc-mau.xlsx`):
+- Có nhóm hàng và biến thể theo màu, loại (nguyên sinh/tái chế), thương hiệu → mỗi biến thể là một mã hàng. Dùng làm **danh mục ban đầu**.
+- Cột "Tồn còn lại" **gõ tay**, không khớp với tồn đầu + nhập − xuất; cột "Tình trạng kho" **sai** (so số với chữ). Đây là lý do khách cần app.
+- Bố cục tồn đầu – nhập – xuất – tồn cuối theo tháng là mẫu cho màn hình Thống kê tháng.
+
+## 5. Câu hỏi mở
+
+**Đã trả lời:**
+- [x] Các file "phiếu nhập" là gì? → Phiếu giao hàng (hàng ra).
+- [x] Hàng về bao lâu một lần? → 1–2 lần/quý, nhập qua file Excel trong thư mục `input`.
+- [x] Nhiều máy? → **Không dùng chung.** Mỗi máy chạy riêng, chuyển dữ liệu bằng gói dữ liệu.
+- [x] Giá tiền? → **Không cần.**
+- [x] Ngôn ngữ? → Tiếng Việt (ưu tiên) + tiếng Anh.
+- [x] Hệ điều hành? → Windows + macOS (Apple M3).
+- [x] Có máy Mac để thử/build? → **Có, Mac M2 của người dùng** (arm64, cùng kiến trúc với M3).
+- [x] Thống kê "cụ thể hoặc tất cả"? → Đúng: chọn tất cả hoặc một/nhiều mặt hàng, nhóm hàng, khách (mục 11.1).
+- [x] Mật khẩu khi mở app? → **Không.**
+- [x] Xuất thống kê ra Excel? → **Có**, theo ngày/tháng/quý, tất cả hoặc chọn cụ thể.
+- [x] Ghép tên hàng lạ, phiếu bị sửa, huỷ phiếu, kiểm kê, sao lưu tự động? → **Làm.**
+- [x] Công nghệ? → **Python + PySide6** (người dùng đã làm Python; gọn, dễ sửa, dễ gỡ trên cả 2 hệ điều hành).
+
+**Cần hỏi (đánh dấu ⛔ là chặn việc):**
+- [x] Ghi chú trên phiếu ("gửi đi 2 thùng còn lại"…)? → **Không diễn giải.** Ghi chú chỉ hiển thị; tồn luôn trừ theo cột Số lượng (10/10/2026).
+- [ ] Hai máy chuyển dữ liệu cho nhau bằng cách nào (USB, Zalo, email, Google Drive)? Có chắc **chỉ một máy làm việc tại một thời điểm** không? (Xem mục 9.4.)
+- [ ] Thư mục phiếu giao hàng nằm ở đâu, có chia thư mục con theo tháng không? Có nằm trong Google Drive/OneDrive/iCloud không?
+- [ ] Có file `.xls` (Excel đời cũ) không, hay toàn bộ là `.xlsx`?
+- [ ] Hàng về: nhà cung cấp có gửi file danh sách hàng không, hay khách dùng file mẫu của app?
+- [ ] Ngày bắt đầu dùng app → kiểm kê ngày đó làm tồn đầu. Có cần nhập lại phiếu cũ (tháng 8–9) để xem thống kê quá khứ không?
+- [x] Danh mục mặt hàng? → **File thống kê tháng 7 của khách (`samples/danh-muc-mau.xlsx`) chứa toàn bộ mặt hàng** (41 dòng, tính cả biến thể). Người dùng sẽ bổ sung sau nếu cần.
+- [x] Phiên bản macOS? → Máy khách: **Mac M3, macOS Tahoe 26.6.2**. PySide6 6.10 (Qt 6.10 hỗ trợ macOS 26) cần macOS 13+ → đủ. Vẫn nên thử bản build trên máy khách.
+- [ ] Máy Windows của khách là Windows 10 hay 11? (bản build là x64)
+
+## 6. Người dùng
+
+Một máy, một người dùng tại một thời điểm. **Không có đăng nhập/phân quyền** ở giai đoạn 1 (có thể thêm mã PIN nếu khách muốn).
+
+## 7. Kiến trúc (chốt 10/10/2026)
+
+**App desktop Python + PySide6 (Qt)**, đóng gói bằng PyInstaller thành:
+- Windows: bộ cài `.exe` (Inno Setup) có trình gỡ cài đặt trong "Apps & features".
+- macOS: file `.dmg`, kéo app vào Applications. Build trực tiếp trên **Mac M2 của người dùng** (arm64, chạy được trên M3 của khách).
+
+```
+Máy của khách
+├── App "DiBeKho" (một tiến trình Python duy nhất)
+│   ├── ui/        giao diện PySide6: tồn kho, tra cứu, thống kê, cài đặt
+│   ├── core/      nghiệp vụ: tồn kho, quét thư mục, chuyển dữ liệu, sao lưu
+│   ├── excel/     đọc phiếu giao hàng, đọc file hàng về (openpyxl)
+│   └── db/        SQLite (sqlite3 có sẵn trong Python)
+│
+├── Thư mục làm việc — MẶC ĐỊNH Documents/DiBeKho (đổi được trong Cài đặt)
+│   ├── phieu-giao-hang/     ← bỏ các file phiếu giao hàng .xlsx vào đây (được chia thư mục con)
+│   ├── input/               ← bỏ file hàng về HOẶC gói dữ liệu từ máy khác vào đây
+│   │   └── da-xu-ly/        ← app tự chuyển file đã xử lý vào đây
+│   ├── output/              ← gói dữ liệu để chuyển máy, file mẫu hàng về, báo cáo
+│   ├── sao-luu/             ← bản sao lưu tự động (giữ 14 bản)
+│   └── data/                ← kho.sqlite + app.log (KHÔNG sửa tay)
+│
+└── File cấu hình rất nhỏ (chỉ ghi đường dẫn thư mục làm việc + ngôn ngữ)
+      Windows: %APPDATA%\DiBeKho\config.json
+      macOS:   ~/Library/Application Support/DiBeKho/config.json
+```
+
+**Nguyên tắc "gọn và dễ dọn":** mọi dữ liệu nằm trong **một thư mục làm việc** người dùng nhìn thấy được. Ngoài thư mục đó app chỉ để lại chính nó và một file `config.json` vài chục byte.
+- **Gỡ trên Windows:** "Apps & features" → Gỡ. Trình gỡ xoá app + `config.json`, rồi hỏi "Xoá luôn thư mục dữ liệu?" (mặc định: không).
+- **Gỡ trên macOS:** Cài đặt → "Gỡ app khỏi máy này" (xoá `config.json`, tuỳ chọn xoá thư mục dữ liệu) → kéo app vào Thùng rác.
+- **Không dùng PyInstaller `--onefile`**: chế độ này giải nén vào thư mục tạm mỗi lần chạy và có thể để lại rác khi app bị tắt đột ngột. Dùng `--onedir` (Windows) và `.app` bundle (macOS).
+- **Thư mục làm việc nằm trong OneDrive/iCloud/Google Drive:** app phát hiện và cảnh báo (đồng bộ đám mây có thể làm hỏng file SQLite đang mở); khuyên để `data/` ở thư mục không đồng bộ.
+
+**Chi phí: 0₫.** Không server, không tài khoản trả phí.
+
+**Phát hành cho khách — máy khách không cần công cụ gì:**
+- **Không build trên máy khách.** Người dùng build trên Mac M2 của mình (vài phút) → ra file `.dmg` → gửi khách (Zalo/USB/Drive).
+- PyInstaller đóng gói sẵn Python, PySide6, openpyxl vào trong app → máy khách **không cần cài Python** hay bất kỳ thứ gì.
+- Khách: mở `.dmg` → kéo app vào Applications → mở lần đầu bấm "Vẫn mở" (~2 phút, chỉ lần đầu). Cập nhật bản mới: kéo đè app cũ, dữ liệu trong `Documents/DiBeKho` giữ nguyên.
+- **Ràng buộc phiên bản macOS:** app build trên máy có macOS mới có thể không chạy trên macOS cũ hơn, và PySide6 (Qt 6) chỉ hỗ trợ macOS từ một phiên bản nhất định trở lên. → Cần biết **phiên bản macOS trên máy khách** (mục 5); nếu cần, đặt `MACOSX_DEPLOYMENT_TARGET` và chọn phiên bản PySide6 phù hợp, và thử trên máy khách ngay ở bước B1.
+
+**Lưu ý khi cài đặt (vì không mua chứng chỉ ký số):**
+- **macOS:** PyInstaller tự ký ad-hoc (bắt buộc với chip Apple Silicon), nhưng app chưa được Apple công chứng → lần đầu mở bị chặn. Cách mở: *Cài đặt hệ thống → Quyền riêng tư & Bảo mật → "Vẫn mở"* (một lần). macOS cũng hỏi quyền truy cập thư mục Documents (bấm Cho phép). Bỏ được bước này nếu đăng ký Apple Developer Program (99$/năm), để sau nếu cần.
+- **Windows:** SmartScreen có thể cảnh báo → *"Thông tin thêm" → "Vẫn chạy"*.
+- Ghi các bước này vào hướng dẫn cài đặt kèm ảnh.
+
+## 8. Công nghệ và công cụ
+
+### Công nghệ
+
+| Thành phần | Công nghệ | Lý do |
+|---|---|---|
+| Ngôn ngữ | **Python 3.13** + SQL | Người dùng đã làm Python; một ngôn ngữ cho cả app |
+| Giao diện | **PySide6** (Qt for Python, giấy phép LGPL) | Giao diện native trên Windows và macOS; có sẵn bảng, form, chọn ngày; không dùng PyQt6 vì giấy phép GPL |
+| Biểu đồ | `QtCharts` (đi kèm PySide6) | Không thêm thư viện |
+| Database | **SQLite** qua `sqlite3` (có sẵn trong Python) | Không cài thêm gì; SQL thuần |
+| Migration | File `migrations/NNN_*.sql`, chạy khi mở app, ghi phiên bản vào `PRAGMA user_version` | Không cần ORM |
+| Đọc/ghi Excel | **openpyxl** (`.xlsx`) | Đã thử đọc đúng 4 file mẫu của khách; đọc được giá trị công thức đã tính (`data_only=True`) |
+| Tìm không dấu | Hàm `unaccent()` viết bằng Python, đăng ký vào SQLite bằng `conn.create_function` | Không cần extension |
+| Đa ngôn ngữ | File `i18n/vi.json`, `i18n/en.json` + hàm `t("key")`; đổi ngôn ngữ → mở lại cửa sổ | Đơn giản hơn Qt Linguist |
+| Quản lý môi trường | **uv** (`pyproject.toml` + `uv.lock`, môi trường trong `.venv/` của dự án) | Cùng lệnh trên Win/Mac; xoá `.venv/` là sạch, không cài gì vào Python hệ thống |
+| Đóng gói | **PyInstaller** (`--onedir`, file `.spec` lưu trong git) | Hỗ trợ PySide6 sẵn; không build chéo được → build Windows trên máy Windows, build Mac trên Mac M2 |
+| Bộ cài Windows | **Inno Setup** (miễn phí) | Có trình gỡ cài đặt chuẩn |
+| Bộ cài macOS | `hdiutil` (có sẵn trên macOS) tạo `.dmg` | Không cài thêm |
+| Kiểm thử | **pytest** (bộ đọc Excel, logic tồn với SQLite `:memory:`, xuất/nhập gói) + `pytest-qt` cho vài màn hình chính (làm sau) | |
+| CI (tuỳ chọn) | GitHub Actions chạy pytest trên `windows-latest` và `macos-14` | Phát hiện lỗi chỉ xảy ra trên một hệ điều hành |
+
+**Kích thước thực tế (build 10/10/2026, Windows):** thư mục app 91MB, file zip 35MB, build ~1 phút. Đã loại opengl32sw, Qt Quick/Qml/Pdf trong `.spec`. Bản Mac chưa build.
+
+**Đã cân nhắc và không chọn:**
+
+| Phương án | Lý do không chọn |
+|---|---|
+| Electron + React | Nặng (~150MB), hai tiến trình + IPC, `node_modules` lớn; người dùng phải học TypeScript |
+| Tauri + React | Nhẹ nhất (~10MB) nhưng phải học Rust + TypeScript |
+| JavaFX | Người dùng quen, nhưng đóng gói Mac bằng `jpackage` + module system hay vướng |
+| Python + Tkinter | Nhẹ hơn (~25MB) nhưng bảng dữ liệu và giao diện kém, khó làm đẹp |
+| Python + Flet | Giao diện hiện đại nhưng còn mới, build cần thêm Flutter SDK |
+
+### Công cụ phát triển
+
+| Việc | Windows (máy chính) | Mac M2 (thử + build bản Mac) |
+|---|---|---|
+| Soạn code | VS Code (extension Python, Ruff) + Claude Code | VS Code (tuỳ chọn) |
+| Python + môi trường | `uv` (tự tải Python 3.13 vào thư mục của uv) | `uv` |
+| Mã nguồn | Git + GitHub (private) | Git (Xcode Command Line Tools) |
+| Xem database | DB Browser for SQLite | DB Browser for SQLite |
+| Bộ cài | Inno Setup | `hdiutil` (có sẵn) |
+| Thiết kế màn hình (tuỳ chọn) | Qt Designer (`pyside6-designer`, có sẵn trong PySide6) | |
+
+Quy trình: viết code trên Windows → push GitHub → trên Mac `git pull` → `uv run pytest` → `uv run pyinstaller dibekho.spec` → thử app.
+
+### Cấu trúc repo
+
+```
+dibekho/
+├── CLAUDE.md
+├── README.md                  # giới thiệu cho GitHub (ảnh trong docs/images/, dữ liệu giả lập)
+├── pyproject.toml / uv.lock
+├── packaging/
+│   ├── dibekho.spec           # cấu hình PyInstaller (chung Win/Mac)
+│   ├── launcher.py
+│   ├── build_windows.ps1      # test → PyInstaller → --self-test → Inno Setup (hoặc zip portable)
+│   ├── build_mac.sh           # test → PyInstaller → --self-test → .dmg
+│   └── windows.iss            # Inno Setup (cài theo user, không cần quyền admin)
+├── docs/chay-thu-va-build.md  # chạy, build, cài trên máy khách
+├── .github/workflows/build.yml  # GitHub Actions: build .dmg (macos-15, arm64) + bộ cài Windows, tải ở mục Artifacts
+├── src/dibekho/
+│   ├── app.py                 # điểm khởi động
+│   ├── db/                    # kết nối, migrations/*.sql, truy vấn
+│   ├── excel/                 # đọc phiếu giao hàng, file hàng về, tạo mẫu, xuất báo cáo
+│   ├── core/                  # tồn kho, quét thư mục, chuyển dữ liệu, sao lưu, đường dẫn hệ điều hành
+│   ├── ui/                    # main_window, *_page.py (mỗi màn hình một file), details.py (chi tiết đơn/khách/mặt hàng)
+│   └── i18n/                  # vi.json, en.json
+├── tests/
+├── scripts/readme_screenshots.py  # tạo lại ảnh docs/images/ từ dữ liệu giả lập
+├── scripts/make_reference_excel.py  # tạo DiBeKho-du-lieu-goc.xlsx (gitignored) để đối chiếu app
+├── samples/                   # file Excel mẫu của khách (cho test, gitignored, KHÔNG commit)
+└── resources/                 # icon (.ico cho Windows, .icns cho macOS)
+```
+
+**Tách lớp như dự án Java cũ:** `db/` ≈ DAO, `core/` ≈ service, `ui/` ≈ View. Giao diện không viết SQL trực tiếp; `core/` và `excel/` không import Qt → test được bằng pytest mà không cần mở cửa sổ.
+
+## 9. Mô hình dữ liệu và cơ chế
+
+### 9.1. Bảng (SQLite)
+
+Nguyên tắc: **tồn kho không bao giờ được sửa trực tiếp.** Mọi thay đổi là một dòng trong `stock_movements`. **Tồn = tổng `stock_movements`** (tính trực tiếp bằng SQL; dữ liệu nhỏ nên không cần bảng cache).
+
+- `products`: `id`, `code`, `name_vi`, `name_zh`, `spec` (quy cách), `variant` (loại/màu: Trắng, Xám nhạt, Nguyên sinh, Tái chế, Hiệu Thụy Đức… — migration 002), `unit` (thùng/cuộn/gói), `category`, `min_stock` (ngưỡng cảnh báo), `active`.
+- `product_aliases`: `key` (tên + quy cách đã chuẩn hoá trên phiếu) → `product_id`. App "học" mỗi khi người dùng chọn mặt hàng cho một dòng lạ.
+- `customers`: tên, người liên hệ, SĐT (chuẩn hoá), địa chỉ — lấy từ phiếu giao hàng, phục vụ tra cứu.
+- `documents`: `id`, `kind` (`delivery` | `receipt` | `stock_count`), `code` (mã phiếu), `doc_date` (ngày nghiệp vụ), `customer_id`, `note`, `status` (`active` | `cancelled`), `source_file` (tên file), `source_hash`, `created_at`.
+- `document_lines`: `document_id`, `product_id`, `qty`, `note`.
+- `stock_movements`: `product_id`, `qty` (+/−), `document_id`, `occurred_on` (= `doc_date`), `kind`, `created_at`. Để sẵn `lot_id`, `location_id` nullable cho tương lai.
+- `scanned_files`: `path`, `hash` (SHA-256 nội dung), `status` (`imported` | `error` | `needs_mapping` | `duplicate` | `changed` | `missing` | `missing_ignored`), `message`, `scanned_at`.
+- `ignored_lines` (migration 003): `key` (cùng khoá với `product_aliases`) → dòng **không phải hàng hoá** (phí vận chuyển, phí dịch vụ…), `label`. Dòng này bị bỏ khi đọc mọi phiếu, không ảnh hưởng tồn.
+- `meta`: `device_id`, `device_name`, `last_export_at`, `last_import_from`, `data_version`.
+- `app_log`: nhật ký thao tác quan trọng (nhập, huỷ, kiểm kê, xuất/nhập gói).
+
+Mỗi lần nhập một file = **một transaction**: lỗi giữa chừng thì không ghi gì.
+
+### 9.2. Quét thư mục phiếu giao hàng
+
+- Quét khi mở app và khi bấm **"Quét lại"** (có thể thêm tự theo dõi thư mục sau).
+- Mỗi file `.xlsx`: tính hash →
+  - hash đã có → bỏ qua;
+  - mã phiếu mới → đọc, tạo `delivery`, trừ tồn;
+  - **mã phiếu đã có nhưng nội dung khác** (file bị sửa) → đánh dấu `changed`, hỏi người dùng "Thay bằng bản mới?";
+  - dòng hàng chưa nhận ra → `needs_mapping`, người dùng chọn mặt hàng, tạo mặt hàng mới, hoặc **"✕ Bỏ dòng" (không phải hàng hoá)**, rồi nhập tiếp. Dòng trông giống phí (`Phí…`, ship, vận chuyển, dịch vụ, 运费, 服务费…) được chọn sẵn "bỏ dòng". Dòng đã bỏ được nhớ trong `ignored_lines`; xem/bỏ khỏi danh sách ở Cài đặt → Danh mục mặt hàng.
+- **Không di chuyển hoặc sửa file phiếu** của khách (thư mục là kho lưu trữ của họ).
+- **Bản sao file gốc:** mỗi file đọc thành công được chép một bản vào `data/phieu-goc/<hash>.xlsx` (~15KB/file, ~10MB/năm). Nút "Mở file gốc" mở bản này nên vẫn hoạt động khi file trong thư mục bị xoá/đổi tên/di chuyển. Bản sao đi kèm trong gói dữ liệu chuyển máy.
+- **Lỡ xoá file khỏi `phieu-giao-hang/`:**
+  - Tồn, đơn hàng, thống kê **không thay đổi** (database là nguồn sự thật, file chỉ là đầu vào).
+  - Lần quét sau, app phát hiện file biến mất → mục **Cần xử lý** hiện "N phiếu không còn file trong thư mục" với 3 lựa chọn: **Khôi phục file** (chép bản sao về đúng chỗ cũ) · **Huỷ phiếu** (trả lại tồn, giữ lịch sử) · **Bỏ qua** (giữ nguyên, không hỏi lại).
+  - Bỏ lại đúng file đó vào thư mục → hash đã biết → không trừ lần hai.
+  - **Đổi tên hoặc chuyển file sang thư mục con khác** → app nhận ra cùng hash, chỉ cập nhật đường dẫn, không coi là xoá.
+- **Làm lại (chọn nhầm khi Áp dụng):**
+  - **Đọc lại phiếu** (Chi tiết đơn): phiếu cũ → `replaced` (đảo biến động, giữ lịch sử), xoá dòng `scanned_files` của hash đó, quét lại → đọc với danh mục/ghép tên hiện tại. File đã bị xoá thì chép lại từ `data/phieu-goc/`.
+  - **Quên và đọc lại** (Cài đặt → Danh mục mặt hàng → "Tên trên phiếu đã học"): xoá ghép tên (`product_aliases`) hoặc dòng bỏ qua (`ignored_lines`), đọc lại mọi phiếu đang hiệu lực có dòng đó → phiếu hiện lại trong Cần xử lý. Phiếu chứa dòng bị bỏ được tìm qua `document_skipped_lines` (migration 004); `product_aliases.label` lưu tên dễ đọc.
+  - Bấm "Quét lại" không đọc lại phiếu đã đọc (cùng hash). `input/da-xu-ly/` chỉ chứa file hàng về và gói dữ liệu, **không** chứa phiếu giao hàng.
+- Muốn bỏ một phiếu → bấm "Huỷ phiếu" trong app (ghi biến động đảo ngược, giữ lịch sử). Xoá file **không** phải cách huỷ phiếu.
+- **Không chặn tồn âm**, vì phiếu mô tả việc đã xảy ra. Tồn âm được tô đỏ kèm gợi ý "thiếu phiếu hàng về hoặc chưa kiểm kê".
+
+### 9.3. Thư mục `input`
+
+App tự nhận loại file:
+- **File hàng về** (`.xlsx` có tiêu đề "PHIẾU HÀNG VỀ / GOODS RECEIPT" theo mẫu): đọc ngày, các dòng mặt hàng + số lượng → hiện bản xem trước → xác nhận → tồn tăng. Mẫu được tạo bằng nút **"Tạo file mẫu hàng về"** (ghi vào `output/`); mẫu có sẵn danh sách mặt hàng, khách chỉ điền số lượng.
+- **Gói dữ liệu** (`.dibekho`): xem 9.4.
+- Xử lý xong → chuyển file vào `input/da-xu-ly/` (thêm ngày giờ vào tên) để không xử lý lại và người dùng thấy rõ.
+
+### 9.4. Chuyển dữ liệu sang máy khác
+
+- **Xuất:** nút "Xuất dữ liệu cho máy khác" → tạo `output/DiBeKho_<tên máy>_<yyyy-MM-dd_HHmm>.dibekho` (file zip gồm bản sao SQLite + `manifest.json`: máy nguồn, thời điểm, phiên bản schema, số phiếu, số mặt hàng).
+- **Nhập:** bỏ file vào `input/` của máy kia → app hiện tóm tắt (từ máy nào, lúc nào, bao nhiêu phiếu) → người dùng xác nhận → **sao lưu dữ liệu hiện tại** → thay bằng dữ liệu trong gói.
+- **Quy tắc "trao tay":** tại một thời điểm chỉ một máy làm việc. Nếu máy nhận có thao tác **sau lần xuất/nhập gần nhất** mà chưa xuất đi → cảnh báo rõ "dữ liệu trên máy này sẽ bị thay thế", yêu cầu xác nhận lần hai.
+- Gói chứa cả danh sách hash các file đã đọc → máy nhận quét thư mục phiếu của mình sẽ **không trừ trùng** những phiếu đã có.
+- Gói có phiên bản schema cũ hơn → chạy migration sau khi nhập; mới hơn → báo "hãy cập nhật app".
+
+### 9.5. Sao lưu
+
+- Tự sao lưu mỗi ngày khi mở app, và trước mọi thao tác nhập gói dữ liệu → `sao-luu/`, giữ 14 bản gần nhất. Dùng `conn.backup()` của `sqlite3` (an toàn khi DB đang mở).
+- Nút "Khôi phục từ bản sao lưu" trong Cài đặt.
+
+### 9.6. Tồn đầu kỳ và kiểm kê
+
+- Lần đầu mở app: chọn ngôn ngữ + thư mục làm việc. **Danh mục tự hình thành từ phiếu giao hàng**: dòng lạ → "Tạo mặt hàng mới" (một cú bấm, lấy tên Việt/Trung/quy cách từ phiếu) hoặc ghép với mặt hàng có sẵn. Sửa tên/nhóm/ngưỡng trong Cài đặt.
+- **Tồn đầu = lần kiểm kê đầu tiên** (không có loại phiếu `opening` riêng). Kiểm kê ghi theo ngày chọn: chênh lệch = số đếm − tồn tính đến hết ngày đó.
+- Màn hình Kiểm kê tự quét phiếu trước khi hiện số, để phiếu đã có không bị tính hai lần.
+- Màn hình **Kiểm kê**: hiện tồn theo app, người dùng nhập số đếm thực tế → app ghi phần chênh lệch (`stock_count`).
+
+## 10a. Đặc tả: Nhập danh mục từ bảng thống kê tháng
+
+Nút **"Nhập danh mục từ Excel…"** (Cài đặt, và trên màn hình Tồn kho khi danh mục còn trống) → chọn file thống kê tháng của khách → **bảng xem trước sửa được** (tick chọn, nháy đúp sửa ô) → nhập. Mặt hàng trùng (cùng tên Việt + quy cách + loại, không phân biệt dấu) được bỏ qua → nhập lại file nhiều lần không tạo trùng. Bộ đọc: `excel/catalog_sheet.py` (hàm thuần).
+
+Quy tắc đọc:
+- Tìm dòng tiêu đề có `Tên sản phẩm` và `Phân loại`; mỗi dòng bên dưới là một mặt hàng; bỏ dòng chữ cái `A | B | C`.
+- Cột tên: dòng 1 = tên Việt, các dòng sau = tên Trung.
+- **Ô tên gộp nhiều dòng** (vd. A32:A33) = các biến thể của cùng mặt hàng; khi đó cột Phân loại là **biến thể** (纯原料 → Nguyên sinh, 再生料 → Tái chế, 瑞德牌 → Hiệu Thụy Đức, 纯白色 → Trắng tinh), nhóm hàng suy ra "Màng PPE/PPP (卷材)" nếu tên có PPE/PPP.
+- Dòng đơn: cột Phân loại = **nhóm hàng** (涂料类 → Sơn, vữa, keo; 自粘膜 → Màng tự dính; SBS → Màng SBS; 聚酯布 → Vải polyester).
+- Màu trong ngoặc cuối tên Trung (（白色）, （浅灰色）, （灰色）, （蓝色）) → biến thể (Trắng, Xám nhạt, Xám, Xanh dương), bỏ khỏi tên.
+- Quy cách lấy từ tên: độ dày `1.5mm`, định lượng `65g`, khổ `1m*20m`, trọng lượng `20KG`; trọng lượng `(20KG)` được bỏ khỏi tên. Đơn vị đoán: KG → thùng, màng/vải/khổ → cuộn, 袋 → gói.
+- Số lượng tồn trong file **không** được dùng (gõ tay, không tin được) → tồn đầu lấy bằng Kiểm kê.
+
+**Gợi ý ghép tên phiếu → danh mục** (`catalog.suggest_product`): chỉ xét các mặt hàng có **tên Trung khớp nhiều chữ Hán nhất**, rồi chấm điểm theo mã model (FS-101 ≠ FS-102), trọng lượng (khác → nhân 0,4), khổ cuộn, độ giống tên. Không đủ điểm → đề nghị "Tạo mặt hàng mới". Kết quả trên 3 phiếu mẫu: 11/14 dòng tự ghép đúng; 3 dòng đề nghị tạo mới (冷底油 sơn lót lạnh, 背水涂 20KG, 1.5mmSBS自粘膜高分子 — người dùng tự chọn nếu đúng là SP017).
+
+## 10. Đặc tả: Đọc file phiếu giao hàng
+
+**Quy tắc đọc (theo nhãn, không theo toạ độ):**
+- Tìm các nhãn: `Tên khách hàng`, `Điện thoại liên hệ`, `Mã đơn hàng`, `Người liên hệ`, `Ngày giao hàng`, `Địa chỉ`. Giá trị nằm sau `:`/`：` hoặc ở dòng bên dưới.
+- Dòng tiêu đề bảng = dòng có `Tên hàng`; dòng hàng đọc đến dòng có `Tổng cộng`.
+- Mỗi dòng hàng lấy: tên (cả 2 dòng Trung/Việt), quy cách, số lượng, ghi chú. **Bỏ qua đơn giá, thành tiền, STT.**
+- Dòng không có số lượng (ví dụ "Phí vận chuyển") → bỏ qua.
+- Ngày: `dd-mm-yyyy`, `dd/mm/yyyy` hoặc ô kiểu ngày. Mã đơn bỏ số 0 đầu khi so trùng (`076` = `76`).
+- Ô công thức: đọc giá trị đã tính (`result`); số lượng phải là số dương, nếu không → lỗi rõ ràng kèm số dòng.
+- Chuẩn hoá trước khi so khớp: bỏ khoảng trắng thừa/xuống dòng, đổi `（）` thành `()`, chữ thường. Khoá = tên + quy cách.
+- Bộ đọc là **hàm thuần** (workbook → dữ liệu có cấu trúc + danh sách cảnh báo), không đụng database; có unit test trên các file trong `samples/`.
+- File không phải phiếu giao hàng (không tìm thấy nhãn) → bỏ qua, ghi `error` với lý do.
+
+## 11. Màn hình
+
+**Thanh điều hướng (rút gọn 10/10/2026):** Tồn kho · Cần xử lý · Tra cứu · Hàng về · Kiểm kê · Cài đặt.
+- **Đơn hàng, Khách hàng, Thống kê** không nằm trên thanh điều hướng mà là **nút nhỏ trong Tra cứu**, mở cửa sổ riêng (ít dùng).
+- **Chuyển dữ liệu + sao lưu** là một tab của **Cài đặt** (tab: Chung · Danh mục mặt hàng · Chuyển dữ liệu và sao lưu).
+- **Cần xử lý → Tên hàng chưa có trong danh mục:** mỗi dòng có cột "Có trong đơn" (mã đơn · khách · SL), ô "Là mặt hàng" gõ để tìm (tiếng Việt hoặc tiếng Trung), nút **✕ Bỏ dòng / ↺ Giữ lại**; dòng bị bỏ hiện gạch ngang.
+
+| Màn hình | Nội dung |
+|---|---|
+| **Tồn kho** (màn hình đầu) | Bảng ~30 mặt hàng: tên, quy cách, tồn hiện tại; tô vàng dưới `min_stock`, đỏ khi âm; ô lọc nhanh; nút **Quét lại**; dòng trạng thái "Đã đọc N phiếu mới · M cần xử lý" |
+| **Cần xử lý** | Các file lỗi, dòng hàng chưa nhận ra (chọn mặt hàng), phiếu bị sửa (thay/giữ), **phiếu không còn file trong thư mục (khôi phục/huỷ/bỏ qua)**, file hàng về chờ xác nhận, gói dữ liệu chờ nhập |
+| **Tra cứu** | Một ô tìm: mặt hàng (Việt/Trung/mã/quy cách), khách (tên/SĐT/địa chỉ), mã phiếu, ghi chú; gõ không dấu vẫn ra. Bấm kết quả → mở màn hình chi tiết tương ứng |
+| **Đơn hàng** | Danh sách mọi phiếu giao hàng (mới nhất trước): mã, ngày, khách, số dòng hàng, trạng thái. Lọc: khoảng ngày, khách, mặt hàng có trong đơn, trạng thái |
+| **Chi tiết đơn** | Đầu phiếu: mã, ngày giao, khách, người liên hệ, SĐT, địa chỉ. Bảng dòng hàng: tên (Việt + Trung), quy cách, số lượng, ghi chú. Tên file gốc + nút **"Mở file gốc"** (mở bằng Excel/Numbers). Trạng thái, thời điểm app đọc. Nút **Huỷ phiếu**. Bấm tên khách → Chi tiết khách; bấm mặt hàng → Chi tiết mặt hàng |
+| **Chi tiết khách** | Thông tin liên hệ; tổng số đơn, đơn đầu tiên, đơn gần nhất. Bảng **mặt hàng hay mua**: mặt hàng, tổng số lượng, số lần mua, lần mua gần nhất (sắp xếp theo tổng số lượng). Danh sách đơn của khách (bấm → Chi tiết đơn). Lọc theo khoảng thời gian. Nút xuất Excel |
+| **Chi tiết mặt hàng** | Tồn hiện tại; lịch sử vào/ra theo ngày (phiếu nào, khách nào); khách lấy nhiều nhất |
+| **Thống kê** | Chọn kỳ (mục 11.1) + phạm vi → bảng tồn đầu, nhập, xuất, tồn cuối; top mặt hàng xuất nhiều; biểu đồ xuất theo ngày/tháng; nút **"Xuất Excel"** |
+| **Kiểm kê** | Nhập số đếm thực tế, xem chênh lệch, xác nhận |
+| **Chuyển dữ liệu** | Xuất gói dữ liệu; hướng dẫn nhập ở máy kia; lịch sử xuất/nhập |
+| **Cài đặt** | Thư mục làm việc, ngôn ngữ (VI/EN), danh mục mặt hàng (thêm/sửa/ngừng/gộp, `min_stock`), tạo file mẫu hàng về, sao lưu/khôi phục, phiên bản app |
+
+### 11.1. Thống kê và xuất Excel
+
+**Chọn kỳ:** Ngày (một ngày) · Tháng · Quý · Năm · Khoảng tự chọn (từ ngày – đến ngày). Khi xem nhiều kỳ (ví dụ cả quý), chọn **chia theo**: ngày / tháng / không chia.
+
+**Chọn phạm vi** (mỗi mục: Tất cả hoặc chọn một/nhiều):
+- Mặt hàng · Nhóm hàng · Khách hàng (chỉ áp dụng cho số xuất, vì nhập/kiểm kê không gắn khách).
+
+**Nội dung file Excel** (người dùng tick chọn sheet nào cần, mặc định tất cả):
+1. **Tổng hợp nhập–xuất–tồn:** mỗi mặt hàng một dòng: tồn đầu kỳ, nhập, xuất, điều chỉnh kiểm kê, tồn cuối kỳ (+ cột theo từng ngày/tháng nếu chọn "chia theo"). Bố cục giống bảng tháng khách đang dùng.
+2. **Chi tiết phiếu:** mỗi dòng hàng của mỗi phiếu trong kỳ: ngày, loại (giao/hàng về/kiểm kê/huỷ), mã phiếu, khách, mặt hàng, quy cách, số lượng, ghi chú.
+3. **Theo khách:** khách × mặt hàng: tổng số lượng, số lần mua.
+4. **Top mặt hàng xuất nhiều.**
+
+- Tên file: `ThongKe_<kỳ>_<phạm vi>_<ngày giờ xuất>.xlsx`, lưu vào `output/`, sau đó app hỏi "Mở file?" / "Mở thư mục?".
+- Dòng đầu mỗi sheet ghi rõ kỳ, phạm vi, thời điểm xuất. Tiêu đề cột theo ngôn ngữ đang chọn (VI/EN). **Không có cột giá.**
+- Ngày tính theo **ngày nghiệp vụ** (ngày giao trên phiếu, ngày hàng về), không theo ngày app đọc file.
+- Xuất từ màn hình Chi tiết khách / Chi tiết mặt hàng = xuất thống kê với phạm vi đã chọn sẵn khách/mặt hàng đó.
+
+**Tìm không dấu:** đăng ký hàm Python `unaccent()` (bỏ dấu, `đ`→`d`, chữ thường, chuẩn hoá NFC) vào SQLite bằng `conn.create_function`, rồi tìm `WHERE unaccent(name_vi) LIKE unaccent(?)`. Dữ liệu nhỏ nên không cần cột/chỉ mục riêng.
+
+## 12. Yêu cầu phi chức năng
+
+- **Đúng số liệu:** không đọc trùng phiếu; mỗi lần nhập là một transaction; mọi thay đổi tồn có dấu vết.
+- **Tin cậy:** sao lưu tự động hằng ngày + trước khi nhập gói; đã thử khôi phục.
+- **Đa nền tảng:** chạy trên Windows 10/11 x64 và macOS (Apple Silicon M3); đường dẫn file dùng `path.join`, không viết cứng `\` hay `/`; tên file tiếng Việt có dấu đọc được trên cả hai hệ điều hành (chuẩn hoá Unicode NFC khi so sánh, vì macOS lưu tên file dạng NFD).
+- **Hiệu năng:** quét 1.000 file phiếu dưới 1 phút; màn hình mở dưới 1 giây.
+- **Nhập tiếng Trung:** mọi ô nhập nhận bộ gõ tiếng Trung (Qt hỗ trợ IME sẵn); tra cứu theo tên Trung; số gõ dạng toàn độ rộng (`１２，５`) được hiểu (`core.text.parse_number`, NFKC). Font giao diện có dự phòng chữ Hán (Windows: Microsoft YaHei; macOS tự dùng PingFang).
+- **Dễ dùng:** ít bước, thông báo lỗi bằng tiếng Việt dễ hiểu, không cần kiến thức máy tính.
+
+## 13. Lộ trình
+
+Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới, làm bán thời gian cùng Claude Code.
+
+### Giai đoạn A — Chuẩn bị (~1 tuần)
+
+| Bước | Việc | Xong khi |
+|---|---|---|
+| A1 | Hỏi khách các câu ⛔ ở mục 5 | Có câu trả lời |
+| A2 | Xin dữ liệu: danh sách ~30 mặt hàng, 20–50 phiếu giao hàng thật (nhiều tháng), một file mẫu hàng về nếu có | File nằm trong `samples/` |
+| A3 | Cài công cụ trên **cả Windows và Mac M2**: VS Code, Git, `uv`, DB Browser for SQLite; Windows thêm Inno Setup; tạo GitHub repo private | `uv --version`, `git --version` chạy được trên cả 2 máy |
+
+### Trạng thái (cập nhật 10/10/2026)
+
+- **Phiên bản: 0.1.0** (phát hành đầu tiên, người dùng xác nhận app chạy hoàn toàn bình thường, 10/10/2026). Lịch sử git được gộp lại thành một commit `DiBeKho 0.1.0` khi làm sạch thông tin cá nhân.
+- **Đã xong:** toàn bộ chức năng mục 3 + 10a + 11 + 11.1; 37 test (bộ đọc phiếu, quét/chống trùng, phiếu sửa/xoá, hàng về, kiểm kê, chuyển dữ liệu, thống kê, xuất Excel, đủ bản dịch, mở mọi màn hình); build Windows chạy được (`--self-test` OK).
+- **Bổ sung 10/10/2026:** bỏ dòng phí trong Cần xử lý, thanh điều hướng 6 mục, chuyển dữ liệu vào Cài đặt, nhập tiếng Trung, workflow GitHub Actions build Mac + Windows (`.github/workflows/build.yml`). 42 test.
+- **Dọn dẹp 10/10/2026:** xoá `build/`, `dist/` cũ, cache, file Excel trùng ở thư mục gốc (bản giống hệt vẫn ở `samples/`), `config.json` thử nghiệm. Người dùng tự xoá `K:	estapp` (dữ liệu thử bản 0.1.0). Thêm README.md.
+- **File dữ liệu gốc để đối chiếu:** `DiBeKho-du-lieu-goc.xlsx` ở thư mục gốc repo (gitignored, có dữ liệu khách). Sheet **Mặt hàng**: 41 dòng danh mục → SP001–SP041 theo thứ tự dòng (đúng mã app gán khi nhập danh mục vào database trống; script tự kiểm tra) + 3 mặt hàng chỉ có trên phiếu (SP042–044 dự kiến). Sheet **Khách hàng**: 3 khách từ 3 phiếu mẫu, kèm mã đơn, ngày, tên hàng và số lượng như trên phiếu. "Ngày nhập" = lúc mặt hàng có trong dữ liệu (T7 không có ngày theo từng ngày; công thức T7 trỏ tới cột I–BP không tồn tại).
+- **Làm lại khi chọn nhầm (10/10/2026):** nút "Đọc lại phiếu" (Chi tiết đơn) và "Tên trên phiếu đã học → Quên và đọc lại" (Cài đặt → Danh mục mặt hàng); xác nhận tóm tắt trước khi Áp dụng. 47 test.
+- **GitHub:** repo private của người dùng (nhánh `main`). Git của repo này đặt riêng `user.name`/`user.email` của người dùng (tài khoản git chung trên máy là người khác, không dùng).
+- **Còn lại:** chạy workflow để có `.dmg` (hoặc chạy `build_mac.sh` trên Mac M2); cài Inno Setup và thử bộ cài/gỡ cài trên Windows; **build và thử trên Mac M2**; icon app; người dùng thử với phiếu thật nhiều tháng; kiểm kê đầu kỳ cùng khách (giai đoạn C).
+
+### Giai đoạn B — Xây dựng (~5–7 tuần)
+
+| Bước | Việc | Xong khi |
+|---|---|---|
+| B1 | Khởi tạo dự án `uv` + PySide6: cửa sổ trống, i18n VI/EN, pytest; **đóng gói thử ngay** (PyInstaller + Inno Setup trên Windows, PyInstaller + `hdiutil` trên Mac M2) | Cài, mở, gỡ sạch được trên cả 2 máy; ghi lại kích thước app |
+| B2 | SQLite + migration + nạp danh mục mẫu | Mở app → file `kho.sqlite` tự tạo; xem được bằng DB Browser |
+| B3 | **Bộ đọc phiếu giao hàng** + test | Đọc đúng 3 file mẫu và các phiếu thật ở A2 |
+| B4 | Quét thư mục, chống trùng, màn hình **Cần xử lý** (ánh xạ tên hàng, phiếu bị sửa) | Quét 2 lần không trừ trùng; sửa file → app hỏi |
+| B5 | Màn hình **Tồn kho**, trình hướng dẫn lần đầu, tồn đầu kỳ | Tồn = tồn đầu − tổng phiếu, khớp tính tay |
+| B6 | File mẫu hàng về + đọc thư mục `input` | Bỏ file hàng về → tồn tăng; file chuyển sang `da-xu-ly/` |
+| B7 | Kiểm kê, huỷ phiếu | Chênh lệch và huỷ đều có dấu vết, tồn đúng |
+| B8 | **Tra cứu** (không dấu) | Tìm "son chong tham" ra "Sơn chống thấm" |
+| B9 | Màn hình **Đơn hàng, Chi tiết đơn, Chi tiết khách, Chi tiết mặt hàng** | Từ một khách xem được mọi đơn và mặt hàng hay mua, khớp với phiếu gốc |
+| B9b | **Thống kê theo kỳ + xuất Excel** (mục 11.1) | Xuất ngày/tháng/quý, tất cả và chọn cụ thể; số liệu khớp tính tay |
+| B10 | **Xuất/nhập gói dữ liệu** + sao lưu tự động + khôi phục | Xuất ở máy A, nhập ở máy B, tồn giống hệt; quét lại thư mục ở B không trừ trùng |
+| B11 | Hoàn thiện tiếng Anh, icon, bộ cài, hướng dẫn cài đặt (Win/Mac, có ảnh) | Người khác tự cài được theo hướng dẫn |
+
+### Giai đoạn C — Đưa vào sử dụng (~2 tuần)
+
+| Bước | Việc | Xong khi |
+|---|---|---|
+| C1 | Cài lên máy Windows và Mac M3 của khách | App mở được trên cả hai máy |
+| C2 | **Kiểm kê đầu kỳ** cùng khách → tồn đầu | Số trên app = số đếm thực tế |
+| C3 | Chạy song song với Excel 2–4 tuần | Hai bên khớp → bỏ Excel |
+
+### Giai đoạn D — Vận hành lâu dài
+
+- Phát hành bản mới: sửa code → test → build trên Windows và Mac M2 → gửi bộ cài mới cho khách (có thể thêm tự cập nhật sau). Dữ liệu trong thư mục làm việc giữ nguyên khi cài đè.
+- Hằng quý: hỗ trợ khách nhập file hàng về, kiểm tra sao lưu.
+- Tính năng mới: ghi vào file này trước, rồi làm.
+
+## 14. Tiêu chí nghiệm thu
+
+- [ ] Cài và chạy được trên Windows 10/11 và macOS M3; database tự tạo khi mở lần đầu.
+- [ ] Đặt các phiếu mẫu vào thư mục → tồn giảm đúng; quét lại không trừ trùng; sửa một phiếu → app hỏi thay hay giữ.
+- [ ] Xoá một file phiếu → tồn không đổi, app báo trong Cần xử lý, khôi phục được file; đổi tên/di chuyển file → không bị coi là phiếu mới.
+- [ ] Dòng hàng có tên lạ → chọn mặt hàng một lần, lần sau tự nhận ra.
+- [ ] Bỏ file hàng về vào `input/` → tồn tăng đúng, file chuyển sang `da-xu-ly/`.
+- [ ] Xuất gói ở máy Windows, nhập ở máy Mac (và ngược lại) → dữ liệu giống hệt.
+- [ ] Tra cứu không dấu ra đúng.
+- [ ] Mở chi tiết một đơn: đúng khách, đúng dòng hàng như file gốc; mở được file gốc.
+- [ ] Chi tiết một khách: đúng danh sách đơn và mặt hàng hay mua.
+- [ ] Thống kê và file Excel xuất ra (ngày, tháng, quý; tất cả và chọn cụ thể) khớp tính tay.
+- [ ] Đổi VI/EN toàn bộ giao diện; không chỗ nào hiện giá tiền.
+- [ ] Khôi phục được từ bản sao lưu.
+- [ ] Chi phí vận hành 0₫.
+
+## 15. Nhật ký quyết định
+
+| Ngày | Quyết định / phát hiện |
+|---|---|
+| 2026-10-10 | Các file "phiếu nhập" của khách là phiếu giao hàng (hàng ra). Đọc theo nhãn, ánh xạ tên hàng qua `product_aliases`. |
+| 2026-10-10 | Tách dự án khỏi luận án; nghiên cứu WMS làm sau trong file 02. |
+| 2026-10-10 | ~~VPS + NestJS~~ → ~~Supabase + PWA, nhiều máy dùng chung~~ → **thay thế hoàn toàn** bởi dòng dưới. |
+| 2026-10-10 | **Yêu cầu mới của khách:** app desktop chạy riêng trên từng máy (Windows + Mac M3), SQLite trên máy, đọc thư mục phiếu giao hàng, thư mục `input` cho hàng về và gói dữ liệu từ máy khác, xuất gói dữ liệu, tra cứu, thống kê tháng, **không giá**, VI (mặc định) + EN. Chi phí 0₫. |
+| 2026-10-10 | ~~Electron + React~~ (đề xuất trước, chưa chốt) → **Python 3.13 + PySide6 + sqlite3 + openpyxl + PyInstaller**, môi trường bằng `uv`; bộ cài Inno Setup (Win) và `.dmg` (Mac). Lý do: người dùng đã làm Python, một ngôn ngữ một tiến trình, nhẹ hơn Electron, dễ gỡ. Build Mac trên Mac M2 của người dùng. |
+| 2026-10-10 | Chuyển dữ liệu giữa máy theo kiểu "trao tay" (thay toàn bộ, có sao lưu và cảnh báo), không đồng bộ hai chiều. |
+| 2026-10-10 | ~~Database ở thư mục dữ liệu app~~ → **mọi dữ liệu trong một thư mục làm việc** (`Documents/DiBeKho/data/`) để dễ thấy, dễ dọn; ngoài đó chỉ có `config.json`. Cảnh báo nếu thư mục nằm trong OneDrive/iCloud/Google Drive. Dùng `--onedir`, không `--onefile` (tránh rác thư mục tạm). Tồn = tổng `stock_movements`, không cache. Không chặn tồn âm, chỉ cảnh báo. |
+| 2026-10-10 | Người dùng đồng ý phương án Python + PySide6. Không build trên máy khách: build trên Mac M2 → gửi `.dmg`; máy khách không cần cài công cụ. Cần biết phiên bản macOS của khách. |
+| 2026-10-10 | Thêm màn hình **Đơn hàng / Chi tiết đơn / Chi tiết khách** (mặt hàng khách hay mua). Thống kê theo **ngày/tháng/quý/năm/khoảng tự chọn**, phạm vi tất cả hoặc chọn cụ thể, **xuất Excel** (mục 11.1). Duyệt: ghép tên lạ, phiếu bị sửa, huỷ phiếu, kiểm kê, sao lưu. **Bỏ mật khẩu.** |
+| 2026-10-10 | **Đổi tên app thành DiBeKho.** Lỡ xoá file phiếu: tồn không đổi; app lưu bản sao file gốc trong `data/phieu-goc/`, báo trong Cần xử lý (khôi phục/huỷ/bỏ qua); đổi tên/di chuyển file nhận ra theo hash. |
+| 2026-10-10 | Ghi chú trên phiếu **không diễn giải**, chỉ hiển thị; tồn trừ theo cột Số lượng. |
+| 2026-10-10 | Bỏ loại phiếu `opening`: lần kiểm kê đầu tiên là tồn đầu. Danh mục tự hình thành từ phiếu (tạo mặt hàng mới một cú bấm). Bảng giữ thứ tự truy vấn cho tới khi người dùng bấm tiêu đề cột. |
+| 2026-10-10 | Bản 0.1.0 xây xong; build Windows 91MB (zip 35MB); `DiBeKho --self-test` kiểm tra bản đóng gói. PySide6 6.10 → macOS tối thiểu 13. Inno Setup: bỏ ngôn ngữ Vietnamese.isl (không đi kèm bản chuẩn). |
+| 2026-10-10 | Danh mục chuẩn = file thống kê tháng 7 của khách (`samples/danh-muc-mau.xlsx`). Thêm **nhập danh mục từ Excel** có xem trước, cột **Loại/màu** (`variant`, migration 002), gợi ý ghép tên dựa trên chữ Hán + mã model + quy cách. |
+| 2026-10-10 | Cần xử lý: thêm **"✕ Bỏ dòng" cho dòng không phải hàng hoá** (phí ship, phí dịch vụ), nhớ trong `ignored_lines` (migration 003); cột "Có trong đơn"; ô chọn gõ để tìm. Đổi "Ngưỡng cảnh báo" → **"Báo sắp hết khi còn"** (tô vàng khi tồn ≤ số này; 0 = tắt). Rút thanh điều hướng còn 6 mục: Đơn hàng/Khách hàng/Thống kê thành nút trong Tra cứu; Chuyển dữ liệu vào tab Cài đặt. Hỗ trợ nhập tiếng Trung. Máy khách: macOS Tahoe 26.6.2. Không build được bản Mac trên Windows → thêm workflow GitHub Actions (macos-15 arm64). |
+| 2026-10-10 | Dọn bản build/dữ liệu thử cũ; thêm README.md (ảnh từ dữ liệu giả lập, không dùng dữ liệu khách); tra cứu phiếu theo tên khách; trục biểu đồ thống kê dùng `QCategoryAxis` (nhãn ngày không còn bị "..."). Khi đổi giao diện: chạy lại `scripts/readme_screenshots.py`. |
+| 2026-10-10 | Đẩy code lên GitHub private của người dùng; đặt `user.name/email` cục bộ cho repo. Giải thích cho người dùng: `phieu-giao-hang/` = hàng ra, đọc tự động, file giữ nguyên tại chỗ; `input/` = hàng về + gói dữ liệu, cần xác nhận, file chuyển sang `da-xu-ly/`. |
+| 2026-10-10 | Tương thích Mac: bản build arm64, tối thiểu macOS 13 → M3 (Tahoe 26.6.2) đạt yêu cầu; M2 của người dùng chạy được nếu macOS ≥ 13 (chưa biết phiên bản, cần kiểm tra). **Chưa xác minh thực tế:** workflow build Mac chưa chạy lần nào. |
+| 2026-10-10 | Thêm **làm lại khi chọn nhầm**: "Đọc lại phiếu", "Quên và đọc lại" tên đã học, hộp xác nhận trước Áp dụng (migration 004). **Phiên bản:** người dùng yêu cầu bỏ lịch sử phiên bản khỏi README; bản hiện tại là `0.1.0.dev0`, chỉ thành **0.1.0 khi người dùng xác nhận app chạy bình thường**. macOS bundle dùng số `0.1.0` (bỏ `.dev0`). |
+| 2026-10-10 | Lỗi "Quên và đọc lại" báo 0 phiếu: phiếu được đọc bằng bản build cũ (trước migration 004) nên không có `document_skipped_lines` → thêm `backfill_skipped_lines` (đọc bản sao `data/phieu-goc` một lần, cờ meta `skipped_lines_backfilled`). Tắt sắp xếp bảng Cần xử lý (hàng r phải khớp `_unknown[r]`). Xoá dữ liệu thử `K:	estapp` (trừ `kho.sqlite` vì app đang mở) và `config.json`. Tạo file đối chiếu `DiBeKho-du-lieu-goc.xlsx`. |
+| 2026-10-10 | **Phát hành 0.1.0.** Làm sạch thông tin cá nhân/khách khỏi repo (tên file mẫu đổi thành tên chung, bỏ SĐT thật trong chú thích code, tên công ty trong phiếu giả lập, email, link repo cũ, cảnh báo mật khẩu); gộp lịch sử git thành một commit; build Mac qua GitHub Actions (tag `v0.1.0`). Giữ nhãn thương hiệu 瑞德牌 → "Hiệu Thụy Đức" vì là dữ liệu phân loại hàng. |
+| 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
+
+## 16. Cách làm việc (dành cho trợ lý AI)
+
+- **Sau mỗi câu trả lời, cập nhật file này** và thêm dòng vào mục 15.
+- Làm từng bước nhỏ theo mục 13; mỗi bước có test và commit riêng.
+- Bộ đọc Excel, logic tồn, xuất/nhập gói dữ liệu bắt buộc có test: phiếu lệch dòng, tên chưa ánh xạ, quét trùng, phiếu bị sửa, huỷ phiếu, gói phiên bản cũ.
+- Luôn nghĩ tới **cả Windows và macOS**: đường dẫn, tên file có dấu (NFC/NFD), quyền truy cập thư mục trên macOS.
+- Trước khi làm phần có câu hỏi ⛔ (mục 5), hỏi lại người dùng.
+- Người dùng đã làm Python, Java/JavaFX, JDBC, SQL: khi giải thích Qt/PySide6, so sánh với JavaFX nếu giúp dễ hiểu (signal/slot ≈ event handler, `QTableView` + model ≈ `TableView` + `ObservableList`).
+- `core/`, `excel/`, `db/` không được import Qt (để test bằng pytest không cần giao diện).
+- Chuỗi giao diện luôn qua `t("key")`; thêm key vào **cả** `vi.json` và `en.json` (test `test_every_translation_key_exists` kiểm tra).
+- Thay đổi schema = thêm file `db/migrations/00N_*.sql` mới, không sửa file cũ.
+- Trước khi commit: `uv run ruff check src tests --select F,E9` và `uv run pytest -q`.
+- Giữ code đơn giản; không thêm tính năng ngoài phạm vi khi chưa được yêu cầu.
+- **Phiên bản:** không tự tăng số phiên bản; hỏi người dùng trước khi đổi số. Không thêm lịch sử phiên bản vào README.
+- **Không đưa thông tin thật lên git:** tên/SĐT/địa chỉ khách, tên file của khách, email, đường dẫn máy người dùng. File mẫu thật nằm trong `samples/` (gitignored) với tên chung: `danh-muc-mau.xlsx`, `phieu-mau-1..3.xlsx`. Trước khi push: `git grep` các chuỗi nhạy cảm.
+- Đổi giao diện → chạy lại `PYTHONPATH=. uv run python scripts/readme_screenshots.py` để cập nhật ảnh README.
+
+## 17. Bài học từ dự án cũ của người dùng
+
+Dự án Java 11, JavaFX, JDBC, PostgreSQL/SQL Server (repo riêng của người dùng).
+
+**Kế thừa:** mô hình sản phẩm – khách – phiếu – dòng phiếu; cảnh báo tồn thấp; app desktop chạy trên máy.
+
+**Sửa trong app mới:**
+
+| # | Dự án cũ | App mới |
+|---|---|---|
+| 1 | Sửa tồn trực tiếp (`UPDATE ... SET stock_qty = ?` với số tính ở giao diện) | Tồn = tổng `stock_movements`, không bao giờ ghi đè |
+| 2 | Tạo đơn = nhiều lệnh rời rạc, lỗi giữa chừng để lại dữ liệu dở dang | Mỗi lần nhập là một transaction |
+| 3 | Xoá cứng đơn hàng | Huỷ bằng biến động đảo ngược, giữ lịch sử |
+| 4 | Lỗi bị nuốt (`printStackTrace`) | Thông báo lỗi rõ ràng bằng tiếng Việt; ghi `app_log` |
+| 5 | Mật khẩu database trong file cấu hình đưa lên git | SQLite cục bộ, không có mật khẩu nào trong repo |
+| 6 | Cần cài Java/Eclipse, cấu hình JDBC thủ công | Bộ cài một cú bấm, database tự tạo |
+
