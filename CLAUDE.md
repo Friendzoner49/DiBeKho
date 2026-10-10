@@ -482,6 +482,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Workflow phát hành: sau khi build Mac + Windows thành công, job `release` xoá Release cũ cùng tag và **mọi lần chạy cũ** của workflow (kèm Artifacts) bằng `gh` + `GITHUB_TOKEN` (`actions: write`), rồi đăng Release mới. Chuyển tag `v0.1.0` sang commit có icon + màu chế độ tối + tự gỡ trên Mac (vẫn 0.1.0 theo yêu cầu). |
 | 2026-10-10 | README (EN + VI) thêm mục **Hướng dẫn sử dụng** sau phần Cài đặt: mở lần đầu, nạp danh mục, tồn đầu, phiếu hằng ngày, hàng về, tra cứu, thống kê, sửa khi nhầm, chuyển máy, sao lưu. Tên nút lấy đúng từ `i18n/*.json`; đổi chữ trên nút thì sửa cả README. Màn hình chào lần đầu dùng `theme_color('hint')` (chế độ tối). |
 | 2026-10-10 | **Đóng giai đoạn 1.** Workflow thêm `concurrency` (tag chuyển sang commit mới huỷ lần build cũ đang chạy); chuyển tag `v0.1.0` sang commit cuối. Giai đoạn 2 bắt đầu sau khi khách dùng thử (xem "Tổng kết giai đoạn 1"). |
+| 2026-10-10 | Dọn máy phát triển để người dùng thử cài từ GitHub Releases: xoá `dist/`, `.venv/`, cache, thư mục làm việc thử. Giữ `samples/` và `DiBeKho-du-lieu-goc.xlsx` (không có trên GitHub). Làm tiếp: `uv sync` tạo lại môi trường. |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
