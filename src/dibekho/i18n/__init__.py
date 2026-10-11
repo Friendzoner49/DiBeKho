@@ -1,13 +1,13 @@
 """Tiny translation helper: t("key", name="x") looks up i18n/<lang>.json.
 
 Vietnamese is the default and the reference: every key must exist in vi.json.
-Missing English keys fall back to Vietnamese; missing keys everywhere show the key itself.
+Missing English/Chinese keys fall back to Vietnamese; missing keys everywhere show the key itself.
 """
 
 import json
 from importlib import resources
 
-LANGUAGES = {"vi": "Tiếng Việt", "en": "English"}
+LANGUAGES = {"vi": "Tiếng Việt", "en": "English", "zh": "中文（简体）"}
 _tables: dict[str, dict] = {}
 _current = "vi"
 

@@ -104,7 +104,7 @@
   "stock.hint": "Tồn được tính từ tồn kiểm kê, hàng về và các phiếu giao hàng. Nháy đúp một dòng để xem lịch sử.",
   "stock.filter": "Lọc theo tên, mã, quy cách (gõ không dấu cũng được)…",
   "stock.summary": "{count} mặt hàng · {low} sắp hết (vàng) · {negative} tồn âm (đỏ — thiếu hàng về hoặc chưa kiểm kê)",
-  "pending.hint": "Những việc app cần bạn quyết định. Không có gì ở đây nghĩa là mọi phiếu đã được đọc. Phiếu giao hàng luôn nằm nguyên trong thư mục phieu-giao-hang; input/da-xu-ly chỉ chứa file hàng về và gói dữ liệu đã nhập.",
+  "pending.hint": "Những việc app cần bạn quyết định. Không có gì ở đây nghĩa là mọi phiếu đã được đọc. Phiếu giao hàng đã ghi xong được chuyển vào phieu-giao-hang/da-xu-ly; phiếu còn nằm ngoài là phiếu chưa xong. input/da-xu-ly chứa file hàng về và gói dữ liệu đã nhập.",
   "pending.unknown_title": "Tên hàng chưa có trong danh mục",
   "pending.unknown_hint": "Mỗi dòng dưới đây có trên phiếu nhưng app chưa biết là mặt hàng nào. Chọn ở cột 'Là mặt hàng' (gõ vài chữ, tiếng Việt hoặc tiếng Trung, để tìm), hoặc bấm '✕ Bỏ dòng' với các dòng không phải hàng hoá như phí vận chuyển, phí dịch vụ. App nhớ lựa chọn cho các phiếu sau.",
   "pending.map_to": "Là mặt hàng",
@@ -227,7 +227,7 @@
   "backup.confirm_restore": "Khôi phục '{name}'? Dữ liệu hiện tại sẽ được sao lưu trước rồi thay thế.",
   "backup.restored": "Đã khôi phục.",
   "settings.general": "Chung",
-  "settings.language": "Ngôn ngữ / Language",
+  "settings.language": "Ngôn ngữ / Language / 语言",
   "settings.workspace": "Thư mục làm việc",
   "settings.open_folder": "Mở",
   "settings.change_folder": "Đổi thư mục…",
@@ -321,5 +321,14 @@
   "settings.delete_product": "Xoá mặt hàng",
   "settings.confirm_delete_product": "Xoá mặt hàng {name}?\n\nMặt hàng này chưa có trong phiếu nào. Các tên trên phiếu đã học cho nó cũng bị quên (gặp lại sẽ hỏi trong Cần xử lý).",
   "settings.delete_used": "{name} đã có trong {docs} phiếu nên không xoá được: xoá sẽ làm sai lịch sử và tồn kho.\n\nChuyển sang “Ngừng dùng”? Mặt hàng sẽ không hiện ở Tồn kho, Kiểm kê, Hàng về và ô chọn mặt hàng nữa; các phiếu cũ vẫn giữ nguyên.",
-  "settings.delete_used_inactive": "{name} đã có trong {docs} phiếu nên không xoá được (xoá sẽ làm sai lịch sử và tồn kho). Mặt hàng này đã ở trạng thái Ngừng dùng."
+  "settings.delete_used_inactive": "{name} đã có trong {docs} phiếu nên không xoá được (xoá sẽ làm sai lịch sử và tồn kho). Mặt hàng này đã ở trạng thái Ngừng dùng.",
+  "reset.title": "Đặt lại dữ liệu",
+  "reset.hint": "Dùng khi muốn làm lại từ đầu. App luôn sao lưu trước khi đặt lại (khôi phục được ở tab Chuyển dữ liệu và sao lưu). File của bạn (phiếu giao hàng, input, output, sao lưu) không bị xoá; phiếu trong phieu-giao-hang/da-xu-ly được chuyển ra phieu-giao-hang để đọc lại.",
+  "reset.stock": "Đặt lại tồn kho (giữ mặt hàng)…",
+  "reset.all": "Xoá toàn bộ dữ liệu…",
+  "reset.confirm_stock": "Đặt lại tồn kho?\n\n• Giữ lại: danh mục mặt hàng, tên trên phiếu đã học, dòng đã bỏ.\n• Xoá: mọi phiếu giao hàng, hàng về, kiểm kê, khách hàng → tồn kho về 0.\n• Phiếu trong phieu-giao-hang/da-xu-ly được chuyển ra phieu-giao-hang và đọc lại từ đầu.\n\nApp sao lưu trước khi đặt lại.",
+  "reset.confirm_all": "Xoá toàn bộ dữ liệu?\n\nApp trở về như vừa cài: không mặt hàng, không phiếu, không khách, tồn kho trống. Chỉ giữ cài đặt (ngôn ngữ, cỡ chữ, thư mục làm việc).\n\nApp sao lưu trước khi xoá.",
+  "reset.confirm_all_again": "Bạn chắc chắn chứ? Bấm Có để xoá toàn bộ dữ liệu.",
+  "reset.done_stock": "Đã đặt lại tồn kho. Đã chuyển {files} file phiếu ra phieu-giao-hang để đọc lại. Phiếu nào có tên hàng chưa biết sẽ hiện ở Cần xử lý.",
+  "reset.done_all": "Đã xoá toàn bộ dữ liệu. Đã chuyển {files} file phiếu ra phieu-giao-hang. Nạp lại danh mục mặt hàng rồi duyệt phiếu ở Cần xử lý."
 }

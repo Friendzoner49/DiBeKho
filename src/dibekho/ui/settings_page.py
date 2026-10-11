@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import __version__, db
-from dibekho.core import catalog, deliveries, uninstall
+from dibekho.core import catalog, deliveries, reset, uninstall
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
@@ -113,6 +113,7 @@ class ProductEditor(QDialog):
 class SettingsPage(Page):
     def __init__(self, ctx, go_pending=lambda: None):
         super().__init__(ctx, t("nav.settings"))
+        self.go_pending = go_pending
         self.tabs = QTabWidget()
         self.layout_.addWidget(self.tabs, 1)
         general_tab, products_tab = QWidget(), QWidget()
@@ -194,6 +195,20 @@ class SettingsPage(Page):
         row.addStretch()
         lay.addLayout(row)
         products_lay.addWidget(learned, 2)
+
+        reset_box = QGroupBox(t("reset.title"))
+        lay = QVBoxLayout(reset_box)
+        lay.addWidget(hint_label(t("reset.hint")))
+        row = QHBoxLayout()
+        reset_stock = QPushButton(t("reset.stock"))
+        reset_stock.clicked.connect(self.reset_stock)
+        reset_all = QPushButton(t("reset.all"))
+        reset_all.clicked.connect(self.reset_all)
+        row.addWidget(reset_stock)
+        row.addWidget(reset_all)
+        row.addStretch()
+        lay.addLayout(row)
+        general_lay.addWidget(reset_box)
 
         danger = QGroupBox(t("settings.uninstall_title"))
         lay = QHBoxLayout(danger)
@@ -279,6 +294,33 @@ class SettingsPage(Page):
         self.ctx.cfg.language = self.language.currentData()
         self.ctx.cfg.save()
         info(self, t("settings.restart_needed"))
+
+    def reset_stock(self):
+        if not ask(self, t("reset.confirm_stock")):
+            return
+        try:
+            moved = reset.reset_stock(self.ctx.conn, self.ctx.ws)
+        except Exception as exc:
+            error(self, str(exc))
+            return
+        self.ctx.notify()
+        info(self, t("reset.done_stock", files=moved))
+        self.go_pending()  # notes are read again: what is known is recorded, the rest waits here
+
+    def reset_all(self):
+        if not ask(self, t("reset.confirm_all")) or not ask(self, t("reset.confirm_all_again")):
+            return
+        try:
+            moved = reset.reset_all(self.ctx.conn, self.ctx.ws)
+            self.ctx.close()
+            reset.wipe_database(self.ctx.ws)
+        except Exception as exc:
+            error(self, str(exc))
+            return
+        finally:
+            self.ctx.reopen()  # a new, empty database
+        info(self, t("reset.done_all", files=moved))
+        self.go_pending()
 
     def change_scale(self):
         self.ctx.cfg.ui_scale = self.scale.currentData()

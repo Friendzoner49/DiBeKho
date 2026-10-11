@@ -1,7 +1,7 @@
 # Brief dự án: DiBeKho — app theo dõi tồn kho chạy trên máy (Windows + macOS, Python + PySide6)
 
 > File này là nguồn sự thật của dự án, đọc đầu tiên ở mọi session.
-> Ngôn ngữ trao đổi: tiếng Việt. Giao diện app: **tiếng Việt (mặc định) + tiếng Anh**. Ngôn ngữ code, tên biến, commit: tiếng Anh.
+> Ngôn ngữ trao đổi: tiếng Việt. Giao diện app: **tiếng Việt (mặc định) + tiếng Anh + tiếng Trung giản thể**. Ngôn ngữ code, tên biến, commit: tiếng Anh.
 > **Quy tắc bắt buộc:** sau mỗi lần trả lời người dùng, cập nhật những điểm quan trọng (quyết định, phát hiện, câu hỏi mới/đã trả lời) vào file này, và ghi một dòng vào **Nhật ký quyết định** (mục 15).
 
 ## 1. Bối cảnh
@@ -39,7 +39,7 @@
 9. **Xuất thống kê ra Excel** theo đúng kỳ và phạm vi người dùng chọn (mục 11.1).
 10. **Các chức năng hỗ trợ (đã duyệt 10/10/2026):** ghép tên hàng lạ, xử lý phiếu bị sửa, huỷ phiếu, kiểm kê, sao lưu tự động. **Không có mật khẩu** khi mở app.
 11. **Không lưu và không hiển thị giá tiền.**
-12. **Hai ngôn ngữ:** tiếng Việt (mặc định), tiếng Anh; đổi trong phần Cài đặt.
+12. **Ba ngôn ngữ giao diện:** tiếng Việt (mặc định), tiếng Anh, tiếng Trung giản thể (thêm 11/10/2026 cho người dùng Trung Quốc); đổi trong phần Cài đặt. Chỉ đổi giao diện; database, tên thư mục, dữ liệu (tên mặt hàng, đơn vị…) giữ nguyên.
 
 ### Ngoài phạm vi (không làm, nhưng không thiết kế chặn đường)
 
@@ -112,6 +112,7 @@ Máy của khách
 │
 ├── Thư mục làm việc — MẶC ĐỊNH Documents/DiBeKho (đổi được trong Cài đặt)
 │   ├── phieu-giao-hang/     ← bỏ các file phiếu giao hàng .xlsx vào đây (được chia thư mục con)
+│   │   └── da-xu-ly/        ← app chuyển phiếu đã ghi xong vào đây (từ 11/10/2026)
 │   ├── input/               ← bỏ file hàng về HOẶC gói dữ liệu từ máy khác vào đây
 │   │   └── da-xu-ly/        ← app tự chuyển file đã xử lý vào đây
 │   ├── output/              ← gói dữ liệu để chuyển máy, file mẫu hàng về, báo cáo
@@ -155,7 +156,7 @@ Máy của khách
 | Migration | File `migrations/NNN_*.sql`, chạy khi mở app, ghi phiên bản vào `PRAGMA user_version` | Không cần ORM |
 | Đọc/ghi Excel | **openpyxl** (`.xlsx`) | Đã thử đọc đúng 4 file mẫu của khách; đọc được giá trị công thức đã tính (`data_only=True`) |
 | Tìm không dấu | Hàm `unaccent()` viết bằng Python, đăng ký vào SQLite bằng `conn.create_function` | Không cần extension |
-| Đa ngôn ngữ | File `i18n/vi.json`, `i18n/en.json` + hàm `t("key")`; đổi ngôn ngữ → mở lại cửa sổ | Đơn giản hơn Qt Linguist |
+| Đa ngôn ngữ | File `i18n/vi.json`, `i18n/en.json`, `i18n/zh.json` + hàm `t("key")`; đổi ngôn ngữ → mở lại cửa sổ | Đơn giản hơn Qt Linguist |
 | Quản lý môi trường | **uv** (`pyproject.toml` + `uv.lock`, môi trường trong `.venv/` của dự án) | Cùng lệnh trên Win/Mac; xoá `.venv/` là sạch, không cài gì vào Python hệ thống |
 | Đóng gói | **PyInstaller** (`--onedir`, file `.spec` lưu trong git) | Hỗ trợ PySide6 sẵn; không build chéo được → build Windows trên máy Windows, build Mac trên Mac M2 |
 | Bộ cài Windows | **Inno Setup** (miễn phí) | Có trình gỡ cài đặt chuẩn |
@@ -194,7 +195,8 @@ Quy trình: viết code trên Windows → push GitHub → trên Mac `git pull` �
 dibekho/
 ├── CLAUDE.md
 ├── README.md                  # giới thiệu cho GitHub, TIẾNG ANH (mặc định, ảnh docs/images/en/)
-├── README.vi.md               # bản tiếng Việt (ảnh docs/images/); sửa README thì sửa cả hai
+├── README.vi.md               # bản tiếng Việt (ảnh docs/images/)
+├── README.zh.md               # bản tiếng Trung (ảnh docs/images/zh/); sửa README thì sửa cả ba
 ├── pyproject.toml / uv.lock
 ├── packaging/
 │   ├── dibekho.spec           # cấu hình PyInstaller (chung Win/Mac)
@@ -247,7 +249,7 @@ Mỗi lần nhập một file = **một transaction**: lỗi giữa chừng thì
   - mã phiếu mới → đọc, tạo `delivery`, trừ tồn;
   - **mã phiếu đã có nhưng nội dung khác** (file bị sửa) → đánh dấu `changed`, hỏi người dùng "Thay bằng bản mới?";
   - dòng hàng chưa nhận ra → `needs_mapping`, người dùng chọn mặt hàng, tạo mặt hàng mới, hoặc **"✕ Bỏ dòng" (không phải hàng hoá)**, rồi nhập tiếp. Dòng trông giống phí (`Phí…`, ship, vận chuyển, dịch vụ, 运费, 服务费…) được chọn sẵn "bỏ dòng". Dòng đã bỏ được nhớ trong `ignored_lines`; xem/bỏ khỏi danh sách ở Cài đặt → Danh mục mặt hàng.
-- **Không di chuyển hoặc sửa file phiếu** của khách (thư mục là kho lưu trữ của họ).
+- **Không sửa nội dung file phiếu.** ~~Không di chuyển file phiếu~~ → **từ 11/10/2026 (người dùng yêu cầu):** phiếu đã ghi xong (`imported`, hoặc `ignored` có `document_id` = giữ bản cũ) được chuyển vào `phieu-giao-hang/da-xu-ly/` (giữ thư mục con) để nhìn thư mục biết phiếu nào chưa xong; phiếu cần quyết định lại (vd. Quên và đọc lại) được chuyển ra ngoài. `deliveries.sort_files` chạy cuối mỗi lần quét; file đang mở (Windows) không chuyển được thì để lần quét sau. Quét vẫn đọc cả `da-xu-ly/` (theo hash, không đọc trùng).
 - **Bản sao file gốc:** mỗi file đọc thành công được chép một bản vào `data/phieu-goc/<hash>.xlsx` (~15KB/file, ~10MB/năm). Nút "Mở file gốc" mở bản này nên vẫn hoạt động khi file trong thư mục bị xoá/đổi tên/di chuyển. Bản sao đi kèm trong gói dữ liệu chuyển máy.
 - **Lỡ xoá file khỏi `phieu-giao-hang/`:**
   - Tồn, đơn hàng, thống kê **không thay đổi** (database là nguồn sự thật, file chỉ là đầu vào).
@@ -258,7 +260,7 @@ Mỗi lần nhập một file = **một transaction**: lỗi giữa chừng thì
   - **Đọc lại phiếu** (Chi tiết đơn): phiếu cũ → `replaced` (đảo biến động, giữ lịch sử), xoá dòng `scanned_files` của hash đó, quét lại → đọc với danh mục/ghép tên hiện tại. File đã bị xoá thì chép lại từ `data/phieu-goc/`.
   - **Quên và đọc lại** (Cài đặt → Danh mục mặt hàng → "Tên trên phiếu đã học"): xoá ghép tên (`product_aliases`) hoặc dòng bỏ qua (`ignored_lines`), đọc lại mọi phiếu đang hiệu lực có dòng đó → phiếu hiện lại trong Cần xử lý. Phiếu chứa dòng bị bỏ được tìm qua `document_skipped_lines` (migration 004); `product_aliases.label` lưu tên dễ đọc.
   - **Phiếu duyệt một phần (10/10/2026):** bấm **Áp dụng** (`scan(allow_partial=True)`) → phiếu có ít nhất một dòng đã biết được ghi vào kho với các dòng đó, khách được ghi; `scanned_files` giữ `needs_mapping` + `document_id`. Dòng "Để sau" khi được duyệt → lần quét sau thêm vào **đúng đơn đó** (`stock.add_lines`, nhận dòng theo `document_lines.line_no` = số dòng Excel). Mở app/Quét lại **không** tự ghi phiếu đang chờ (chỉ khi người dùng bấm Áp dụng). Thông tin khách chỉ vào database khi phiếu đã được duyệt (người dùng yêu cầu vì bảo mật). File phiếu một phần bị xoá → `missing` (lưu trạng thái cũ trong `message`), khôi phục → hỏi lại dòng còn thiếu.
-  - Bấm "Quét lại" không đọc lại phiếu đã đọc (cùng hash). `input/da-xu-ly/` chỉ chứa file hàng về và gói dữ liệu, **không** chứa phiếu giao hàng.
+  - Bấm "Quét lại" không đọc lại phiếu đã đọc (cùng hash). `input/da-xu-ly/` chứa file hàng về và gói dữ liệu đã nhập; phiếu giao hàng đã xong ở `phieu-giao-hang/da-xu-ly/`.
 - Muốn bỏ một phiếu → bấm "Huỷ phiếu" trong app (ghi biến động đảo ngược, giữ lịch sử). Xoá file **không** phải cách huỷ phiếu.
 - **Không chặn tồn âm**, vì phiếu mô tả việc đã xảy ra. Tồn âm được tô đỏ kèm gợi ý "thiếu phiếu hàng về hoặc chưa kiểm kê".
 
@@ -302,6 +304,13 @@ App tự nhận loại file:
 - **Tồn đầu = lần kiểm kê đầu tiên** (không có loại phiếu `opening` riêng). Kiểm kê ghi theo ngày chọn: chênh lệch = số đếm − tồn tính đến hết ngày đó.
 - Màn hình Kiểm kê tự quét phiếu trước khi hiện số, để phiếu đã có không bị tính hai lần.
 - Màn hình **Kiểm kê**: hiện tồn theo app, người dùng nhập số đếm thực tế → app ghi phần chênh lệch (`stock_count`).
+
+### 9.7. Đặt lại dữ liệu (11/10/2026)
+
+**Cài đặt → Chung → Đặt lại dữ liệu** (`core/reset.py`). Luôn sao lưu trước (`truoc-dat-lai-ton_*` / `truoc-xoa-toan-bo_*` trong `sao-luu/`), nên khôi phục được.
+- **Đặt lại tồn kho (giữ mặt hàng):** giữ `products`, `product_aliases`, `ignored_lines`, `hidden_inputs`, `meta`, `app_log`; xoá `stock_movements`, `document_skipped_lines`, `document_lines`, `scanned_files`, `documents`, `customers` → tồn về 0. Chuyển mọi file trong `phieu-giao-hang/da-xu-ly/` ra `phieu-giao-hang/` rồi quét lại ngay (tên đã học → phiếu vào lại kho; còn lại chờ ở Cần xử lý). Giữ `data/phieu-goc/` (khôi phục bản sao lưu vẫn mở được file gốc).
+- **Xoá toàn bộ dữ liệu:** đóng kết nối, xoá `kho.sqlite` (+ wal/shm) và `data/phieu-goc/`, mở lại → database trống như vừa cài; chỉ giữ `config.json` (ngôn ngữ, cỡ chữ, thư mục). Hỏi xác nhận 2 lần.
+- Không bao giờ xoá file của người dùng (phiếu, `input/`, `output/`, `sao-luu/`). File hàng về trong `input/da-xu-ly/` không được chuyển lại; nhập lại bằng **Chọn file để nhập…** nếu cần.
 
 ## 10a. Đặc tả: Nhập danh mục từ bảng thống kê tháng
 
@@ -409,6 +418,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - **Phiếu duyệt một phần**: Áp dụng → ghi các dòng đã duyệt + khách; dòng "Để sau" thêm vào đúng đơn khi duyệt. Dữ liệu phiếu/khách chỉ vào app khi phiếu đã được duyệt (bảo mật) (mục 9.2).
 - **Yêu cầu của khách (đợt 1)**: cột bảng kéo rộng được + rê chuột xem đủ tên, ô chọn mặt hàng ở Cần xử lý hiện đủ tên; nút **Sửa mặt hàng… / Xoá mặt hàng** trong Cài đặt (chỉ xoá mặt hàng chưa có trong phiếu, đã dùng → Ngừng dùng); giao diện **120%** cho Mac 14" (`Config.ui_scale` → `QT_SCALE_FACTOR`, đổi ở Cài đặt → Chung → Cỡ chữ và nút).
 - **Mở app trên Mac**: README có lệnh `xattr -dr com.apple.quarantine /Applications/DiBeKho.app` khi macOS cứ báo "Chuyển vào Thùng rác / Xong". File bấm đúp (`.command`) **không** giúp được (cũng bị chặn).
+- **Đợt cuối (11/10/2026, chưa phát hành, chờ người dùng chọn số phiên bản):** phiếu đã ghi xong chuyển vào `phieu-giao-hang/da-xu-ly/` (mục 9.2); **Đặt lại dữ liệu** 2 chế độ (mục 9.7); **giao diện tiếng Trung giản thể** (`zh.json`, README.zh.md, ảnh `docs/images/zh/`, mẫu hàng về thêm nhãn tiếng Trung, phông dự phòng PingFang SC / Hiragino Sans GB trên Mac). 71 test qua (+2 bỏ qua). Còn tiếng Việt khi giao diện Trung/Anh: thông báo lỗi chi tiết do `core/`/`excel/` tạo (vd. lý do file phiếu không đọc được), tên thư mục, dữ liệu.
 
 **Chưa xác nhận khi đóng giai đoạn:** build `v0.2.0` trên GitHub Actions có thành công không; bản 0.2.0 chạy trên Mac thật (giao diện 120%, cửa sổ vừa màn hình 14"); cách chép `.dmg` qua USB từ máy Windows có tránh được hộp chặn của macOS không.
 
@@ -522,6 +532,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
 | 2026-10-10 | Người dùng chọn **ghi phần đã duyệt** của phiếu (cách 1): Áp dụng → phiếu vào kho với các dòng đã duyệt + khách; dòng Để sau thêm vào đúng đơn khi duyệt. Phiếu sửa "Dùng bản mới" cũng cho phép một phần. 62 test. Chuyển tag `v0.1.0`. |
+| 2026-10-11 | Người dùng bổ sung 3 yêu cầu để đóng giai đoạn 2: (1) phiếu giao hàng đã xử lý xong chuyển vào `phieu-giao-hang/da-xu-ly/` như `input/` (thay quy tắc cũ "không di chuyển file phiếu"); (2) **Đặt lại dữ liệu**: giữ mặt hàng/tồn về 0/đọc lại phiếu, hoặc xoá toàn bộ; (3) **giao diện tiếng Trung** + README.zh.md, database giữ nguyên. Đã làm, 71 test qua; chưa gắn tag (hỏi người dùng: chuyển `v0.2.0` hay số mới). |
 | 2026-10-11 | Người dùng chạy `xattr -dr` trên Mac: nhiều dòng "No such file" do symlink hỏng của các thư viện Qt đã loại (vô hại); ghi việc dọn vào Giai đoạn 3. |
 | 2026-10-11 | **Đóng giai đoạn 2** (người dùng xác nhận). Bản hiện tại 0.2.0. Thêm "Tổng kết giai đoạn 2" và "Giai đoạn 3" vào mục 13. |
 | 2026-10-11 | Người dùng muốn thay lệnh Terminal bằng một file bấm đúp. **Không làm**: file `.command`/script nằm trong `.dmg` tải về cũng bị gắn quarantine và macOS 15+ chặn y như app (cùng hộp "Thùng rác / Xong"), nên không bớt được bước nào. Đề xuất thay thế: chép `.dmg` qua USB từ máy Windows (không mang dấu quarantine, chưa thử thực tế), người dùng tự chạy lệnh một lần trên máy khách + app tự cập nhật về sau, hoặc Apple Developer 99$/năm. Chờ người dùng chọn. |
@@ -540,13 +551,13 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Trước khi làm phần có câu hỏi ⛔ (mục 5), hỏi lại người dùng.
 - Người dùng đã làm Python, Java/JavaFX, JDBC, SQL: khi giải thích Qt/PySide6, so sánh với JavaFX nếu giúp dễ hiểu (signal/slot ≈ event handler, `QTableView` + model ≈ `TableView` + `ObservableList`).
 - `core/`, `excel/`, `db/` không được import Qt (để test bằng pytest không cần giao diện).
-- Chuỗi giao diện luôn qua `t("key")`; thêm key vào **cả** `vi.json` và `en.json` (test `test_every_translation_key_exists` kiểm tra).
+- Chuỗi giao diện luôn qua `t("key")`; thêm key vào **cả** `vi.json`, `en.json` và `zh.json` (test `test_every_translation_key_exists` kiểm tra khoá và `{biến}`).
 - Thay đổi schema = thêm file `db/migrations/00N_*.sql` mới, không sửa file cũ.
 - Trước khi commit: `uv run ruff check src tests --select F,E9` và `uv run pytest -q`.
 - Giữ code đơn giản; không thêm tính năng ngoài phạm vi khi chưa được yêu cầu.
 - **Phiên bản:** không tự tăng số phiên bản; hỏi người dùng trước khi đổi số. Không thêm lịch sử phiên bản vào README.
 - **Không đưa thông tin thật lên git:** tên/SĐT/địa chỉ khách, tên file của khách, email, đường dẫn máy người dùng. File mẫu thật nằm trong `samples/` (gitignored) với tên chung: `danh-muc-mau.xlsx`, `phieu-mau-1..3.xlsx`. Trước khi push: `git grep` các chuỗi nhạy cảm.
-- **README:** có hướng dẫn sử dụng dùng đúng tên nút trong giao diện; đổi tên nút/màn hình thì cập nhật cả `README.md` và `README.vi.md`.
+- **README:** có hướng dẫn sử dụng dùng đúng tên nút trong giao diện; đổi tên nút/màn hình thì cập nhật cả `README.md`, `README.vi.md` và `README.zh.md`.
 - **Kích thước:** mở cửa sổ bằng `fit_window(widget, w, h)` (không dùng `resize` cố định: giao diện có thể phóng 120–150%); bảng tạo bằng `make_table` (cột kéo được).
 - **Màu sắc:** luôn lấy qua `theme_color()` / `RED` / `YELLOW` trong `ui.common` (tự đổi theo sáng/tối); không viết mã màu cố định trong màn hình.
 - Đổi giao diện → chạy lại `PYTHONPATH=. uv run python scripts/readme_screenshots.py` để cập nhật ảnh README.

@@ -1,5 +1,6 @@
 from datetime import date
 
+from dibekho import db
 from dibekho.core import catalog, deliveries
 from dibekho.core.stock import stock_levels
 from tests.conftest import make_note
@@ -53,10 +54,12 @@ def test_learned_alias_is_reused(conn, ws):
 
 def test_same_file_copied_twice_counts_once(conn, ws):
     p = make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
+    content = p.read_bytes()
     map_everything(conn, ws)
-    (ws.deliveries / "copy.xlsx").write_bytes(p.read_bytes())
+    (ws.deliveries / "copy.xlsx").write_bytes(content)
     deliveries.scan(conn, ws)
     assert stock_of(conn, "vữa") == -3
+    assert (ws.deliveries_done / "copy.xlsx").exists()  # same content: also done
 
 
 def test_same_code_different_content_asks_user(conn, ws):
@@ -86,8 +89,9 @@ def test_keep_old_version(conn, ws):
 
 
 def test_deleted_file_keeps_stock_and_can_be_restored(conn, ws):
-    p = make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
+    make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
     map_everything(conn, ws)
+    p = ws.deliveries_done / "a.xlsx"
     h = deliveries.file_hash(p)
     p.unlink()
 
@@ -103,8 +107,9 @@ def test_deleted_file_keeps_stock_and_can_be_restored(conn, ws):
 
 
 def test_deleted_file_can_cancel_the_order(conn, ws):
-    p = make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
+    make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
     map_everything(conn, ws)
+    p = ws.deliveries_done / "a.xlsx"
     h = deliveries.file_hash(p)
     p.unlink()
     deliveries.scan(conn, ws)
@@ -114,10 +119,10 @@ def test_deleted_file_can_cancel_the_order(conn, ws):
 
 
 def test_moving_or_renaming_is_not_a_deletion(conn, ws):
-    p = make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
+    make_note(ws.deliveries / "a.xlsx", lines=[LINE_A])
     map_everything(conn, ws)
     (ws.deliveries / "2026-10").mkdir()
-    p.rename(ws.deliveries / "2026-10" / "phieu 101.xlsx")
+    (ws.deliveries_done / "a.xlsx").rename(ws.deliveries / "2026-10" / "phieu 101.xlsx")
     result = deliveries.scan(conn, ws)
     assert result.pending == 0 and result.imported == []
     assert stock_of(conn, "vữa") == -3
@@ -203,21 +208,22 @@ def test_reread_document_uses_current_names(conn, ws):
 
     deliveries.reread_document(conn, ws, old)
     assert stock_of(conn, "vữa") == 0  # reversed until it is read again
-    assert deliveries.scan(conn, ws).imported == ["a.xlsx"]
+    assert deliveries.scan(conn, ws).imported == ["da-xu-ly/a.xlsx"]
     rows = conn.execute("SELECT id, status FROM documents ORDER BY id").fetchall()
     assert [r["status"] for r in rows] == ["replaced", "active"]
     assert stock_of(conn, "vữa") == -3
 
 
 def test_reread_restores_a_deleted_file(conn, ws):
-    path = make_note(ws.deliveries / "a.xlsx", code="7", lines=[LINE_A])
+    make_note(ws.deliveries / "a.xlsx", code="7", lines=[LINE_A])
     map_everything(conn, ws)
+    path = ws.deliveries_done / "a.xlsx"
     path.unlink()
     deliveries.scan(conn, ws)
     doc = conn.execute("SELECT id FROM documents").fetchone()[0]
     deliveries.reread_document(conn, ws, doc)
     assert path.exists()
-    assert deliveries.scan(conn, ws).imported == ["a.xlsx"]
+    assert deliveries.scan(conn, ws).imported == ["da-xu-ly/a.xlsx"]
 
 
 def test_forget_wrong_mapping_and_choose_again(conn, ws):
@@ -321,3 +327,69 @@ def test_partly_imported_note_deleted_and_restored_asks_again(conn, ws):
     deliveries.scan(conn, ws)
     assert [u.name_vi for u in deliveries.unknown_lines(conn, ws)] == ["Hàng chưa duyệt"]
     assert stock_of(conn, "vữa") == -3
+
+
+def test_done_notes_move_to_da_xu_ly_and_back_when_waiting_again(conn, ws):
+    make_note(ws.deliveries / "2026-10" / "a.xlsx", code="1", lines=[LINE_A])
+    make_note(ws.deliveries / "b.xlsx", code="2", lines=[LINE_A, ("新产品\nHàng lạ", "5KG", 1, "")])
+    deliveries.scan(conn, ws)
+    assert (ws.deliveries / "2026-10" / "a.xlsx").exists()  # nothing decided yet: nothing moves
+    vua = next(u for u in deliveries.unknown_lines(conn, ws) if u.name_vi.startswith("vữa"))
+    deliveries.create_product_for_line(conn, vua)
+    deliveries.scan(conn, ws)
+    # a.xlsx is fully recorded -> da-xu-ly (sub-folder kept, emptied sub-folder removed); b.xlsx still waits
+    assert (ws.deliveries_done / "2026-10" / "a.xlsx").exists()
+    assert not (ws.deliveries / "2026-10").exists()
+    assert (ws.deliveries / "b.xlsx").exists()
+    row = conn.execute("SELECT rel_path FROM scanned_files WHERE status = 'imported'").fetchone()
+    assert row[0] == "da-xu-ly/2026-10/a.xlsx"
+    assert deliveries.scan(conn, ws).imported == []  # nothing read twice after the move
+    assert stock_of(conn, "vữa") == -3
+
+    # a learned name forgotten -> the note needs a decision again -> back out of da-xu-ly
+    deliveries.forget_name(conn, ws, vua.key)
+    deliveries.scan(conn, ws)
+    assert (ws.deliveries / "2026-10" / "a.xlsx").exists()
+
+
+def test_reset_stock_keeps_products_and_reads_notes_again(conn, ws):
+    from dibekho.core import reset
+    from dibekho.core.stock import Line, insert_document
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])
+    map_everything(conn, ws)
+    pid = conn.execute("SELECT id FROM products").fetchone()[0]
+    with db.transaction(conn):
+        insert_document(conn, "receipt", date(2026, 10, 1), [Line(pid, 10)])
+    assert (ws.deliveries_done / "a.xlsx").exists()
+
+    assert reset.reset_stock(conn, ws) == 1
+    assert (ws.deliveries / "a.xlsx").exists() and not list(ws.deliveries_done.iterdir())
+    for table in ("documents", "stock_movements", "scanned_files", "customers"):
+        assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+    assert conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 1
+    assert list(ws.backups.glob("truoc-dat-lai-ton_*.sqlite"))
+    # learned names are kept: the note goes straight in again
+    assert deliveries.scan(conn, ws).imported == ["a.xlsx"]
+    assert stock_of(conn, "vữa") == -3
+
+
+def test_reset_all_gives_an_empty_database(ws):
+    from dibekho.core import reset
+
+    conn = db.connect(ws.db_path)
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])
+    map_everything(conn, ws)
+    assert reset.reset_all(conn, ws) == 1
+    conn.close()
+    reset.wipe_database(ws)
+    conn = db.connect(ws.db_path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 0
+        assert (ws.deliveries / "a.xlsx").exists()
+        assert list(ws.backups.glob("truoc-xoa-toan-bo_*.sqlite"))
+        deliveries.scan(conn, ws)
+        assert deliveries.pending_count(conn) == 1  # read again: product names unknown
+    finally:
+        conn.close()

@@ -1,7 +1,7 @@
-"""Screenshots for README.md (docs/images/en) and README.vi.md (docs/images), from invented demo data - never
-customer data.
+"""Screenshots for README.md (docs/images/en), README.vi.md (docs/images) and README.zh.md (docs/images/zh), from
+invented demo data - never customer data.
 
-Run from the repo root:  PYTHONPATH=. uv run python scripts/readme_screenshots.py [vi|en]   (default: both)
+Run from the repo root:  PYTHONPATH=. uv run python scripts/readme_screenshots.py [vi|en|zh]   (default: all)
 """
 
 import os
@@ -25,10 +25,10 @@ from tests.conftest import make_note  # noqa: E402
 LANG = sys.argv[1] if len(sys.argv) > 1 else None
 if LANG is None:  # one Qt application per process: run once per language
     import subprocess
-    for lang in ("vi", "en"):
+    for lang in ("vi", "en", "zh"):
         subprocess.run([sys.executable, __file__, lang], check=True)
     sys.exit(0)
-out, tmp = Path("docs/images/en" if LANG == "en" else "docs/images"), Path(tempfile.mkdtemp())
+out, tmp = Path({"en": "docs/images/en", "zh": "docs/images/zh"}.get(LANG, "docs/images")), Path(tempfile.mkdtemp())
 out.mkdir(parents=True, exist_ok=True)
 root = tmp / "demo"
 shutil.rmtree(root, ignore_errors=True)
@@ -67,7 +67,12 @@ app = QApplication([])
 app.setStyle("Fusion")
 f = app.font()
 f.setPointSize(10)
-f.setFamilies(["Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei"])
+if sys.platform == "win32":  # the offscreen platform does not find .ttc fonts by itself
+    from PySide6.QtGui import QFontDatabase
+
+    for name in ("msyh.ttc", "msyhbd.ttc", "seguisym.ttf"):
+        QFontDatabase.addApplicationFont(f"C:/Windows/Fonts/{name}")
+f.setFamilies(["Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Symbol"])
 app.setFont(f)
 i18n.set_language(LANG)
 from dibekho.ui.common import AppContext  # noqa: E402

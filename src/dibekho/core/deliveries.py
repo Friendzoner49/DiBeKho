@@ -4,7 +4,9 @@ The database is the source of truth; files are only input:
 - a file is identified by the SHA-256 of its content, so renaming/moving it changes nothing;
 - the same content is never imported twice;
 - deleting a file never changes stock, the user is asked what to do instead;
-- every imported file is copied to data/phieu-goc/<hash>.xlsx so it can be reopened or restored.
+- every imported file is copied to data/phieu-goc/<hash>.xlsx so it can be reopened or restored;
+- a note that is fully recorded is moved to phieu-giao-hang/da-xu-ly/ (same sub-folders), and back out if it
+  needs a decision again, so the folder itself shows what is done and what is not.
 """
 
 import hashlib
@@ -16,7 +18,7 @@ from dibekho import db
 from dibekho.core import catalog
 from dibekho.core.stock import Line, add_lines, close_document, insert_document
 from dibekho.core.text import fmt_qty, match_key, nfc
-from dibekho.core.workspace import Workspace
+from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
     DeliveryNote,
     DeliveryNoteError,
@@ -69,6 +71,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     the lines that are known; the remaining lines are added to the same document once they are decided."""
     result = ScanResult()
     seen: set[str] = set()
+    found: list[tuple[Path, str, str]] = []
     for path in delivery_files(ws):
         rel = nfc(path.relative_to(ws.deliveries).as_posix())
         try:
@@ -76,6 +79,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
         except OSError:
             continue  # file being written / locked; next scan will get it
         seen.add(h)
+        found.append((path, rel, h))
         row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
         if row and row["status"] in ("imported", "missing", "missing_ignored", "ignored"):
             status = row["status"]
@@ -109,8 +113,76 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     ).fetchall():
         if row["hash"] not in seen:
             conn.execute("DELETE FROM scanned_files WHERE hash = ?", (row["hash"],))
+    sort_files(conn, ws, found)
     result.pending = pending_count(conn)
     return result
+
+
+def _in_done(rel: str) -> bool:
+    return rel.split("/", 1)[0].lower() == PROCESSED
+
+
+def _is_done(row) -> bool:
+    """Fully recorded, or an edited copy the user decided to ignore (keep the old version)."""
+    return row is not None and (row["status"] == "imported" or (row["status"] == "ignored" and row["document_id"]))
+
+
+def sort_files(conn, ws: Workspace, found) -> None:
+    """Move finished notes into phieu-giao-hang/da-xu-ly/ and notes that wait for a decision back out.
+    Sub-folders are kept (2026-09/x.xlsx <-> da-xu-ly/2026-09/x.xlsx). A file that cannot be moved now
+    (open in Excel on Windows) is moved on a later scan."""
+    for path, rel, h in found:
+        row = conn.execute("SELECT status, document_id FROM scanned_files WHERE hash = ?", (h,)).fetchone()
+        inside = _in_done(rel)
+        if _is_done(row) == inside:
+            continue
+        target = (ws.deliveries / rel.split("/", 1)[1]) if inside else (ws.deliveries_done / rel)
+        target = _free_name(target)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            path.replace(target)
+        except OSError:
+            continue
+        conn.execute("UPDATE scanned_files SET rel_path = ? WHERE hash = ? AND rel_path = ?",
+                     (nfc(target.relative_to(ws.deliveries).as_posix()), h, rel))
+        _remove_empty_folders(path.parent, ws)
+
+
+def _free_name(target: Path) -> Path:
+    n = 2
+    candidate = target
+    while candidate.exists():
+        candidate = target.with_name(f"{target.stem} ({n}){target.suffix}")
+        n += 1
+    return candidate
+
+
+def _remove_empty_folders(folder: Path, ws: Workspace) -> None:
+    """Sub-folders emptied by a move (never phieu-giao-hang/ or da-xu-ly/ themselves)."""
+    while folder not in (ws.deliveries, ws.deliveries_done) and ws.deliveries in folder.parents:
+        try:
+            folder.rmdir()  # only succeeds when empty
+        except OSError:
+            return
+        folder = folder.parent
+
+
+def move_all_out(ws: Workspace) -> int:
+    """Put every file of phieu-giao-hang/da-xu-ly/ back into phieu-giao-hang/ (reset: read everything again)."""
+    moved = 0
+    if not ws.deliveries_done.exists():
+        return 0
+    for path in sorted(p for p in ws.deliveries_done.rglob("*") if p.is_file()):
+        target = _free_name(ws.deliveries / path.relative_to(ws.deliveries_done))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        path.replace(target)
+        moved += 1
+    for folder in sorted((p for p in ws.deliveries_done.rglob("*") if p.is_dir()), reverse=True):
+        try:
+            folder.rmdir()
+        except OSError:
+            pass
+    return moved
 
 
 def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partial: bool = False) -> bool:

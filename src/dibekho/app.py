@@ -40,7 +40,7 @@ class FirstRunDialog(QDialog):
         self.language = QComboBox()
         for code, name in LANGUAGES.items():
             self.language.addItem(name, code)
-        form.addRow("Ngôn ngữ / Language:", self.language)
+        form.addRow("Ngôn ngữ / Language / 语言:", self.language)
         row = QHBoxLayout()
         self.folder = QLineEdit(str(default_workspace()))
         browse = QPushButton(t("firstrun.browse"))
@@ -111,9 +111,12 @@ def main() -> int:
     app.setWindowIcon(QIcon(str(resources.files("dibekho.ui") / "icon.png")))
     font = app.font()
     font.setPointSize(max(font.pointSize(), 10))
-    # Chinese product names and input: name a CJK fallback explicitly (macOS falls back to PingFang by itself).
+    # Chinese product names and the Chinese interface: name Simplified Chinese fallbacks explicitly, so Han
+    # characters never come from a Japanese font (missing or different glyphs).
     if sys.platform == "win32":
         font.setFamilies([font.family(), "Microsoft YaHei UI", "Microsoft YaHei", "SimSun"])
+    elif sys.platform == "darwin":
+        font.setFamilies([font.family(), "PingFang SC", "Hiragino Sans GB", "STHeiti"])
     app.setFont(font)
     sys.excepthook = _excepthook
 

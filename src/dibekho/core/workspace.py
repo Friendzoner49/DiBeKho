@@ -34,6 +34,11 @@ class Workspace:
         return self.root / DELIVERIES
 
     @property
+    def deliveries_done(self) -> Path:
+        """Delivery notes that are fully recorded are moved here, so the user sees what is left to do."""
+        return self.root / DELIVERIES / PROCESSED
+
+    @property
     def input(self) -> Path:
         return self.root / INPUT
 
@@ -62,7 +67,8 @@ class Workspace:
         return self.root / DATA / DB_FILE
 
     def ensure(self) -> None:
-        for folder in (self.deliveries, self.processed, self.output, self.backups, self.originals):
+        for folder in (self.deliveries, self.deliveries_done, self.processed, self.output, self.backups,
+                       self.originals):
             folder.mkdir(parents=True, exist_ok=True)
 
     def cloud_sync_warning(self) -> str | None:

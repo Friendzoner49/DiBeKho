@@ -166,7 +166,7 @@ def test_transfer_roundtrip(tmp_path):
     # B's own folder has none of A's files: no 'missing' warnings
     assert deliveries.scan(conn_b, ws_b).pending == 0
     # B later gets a copy of one of A's notes: recognised, not counted twice
-    (ws_b.deliveries / "1.xlsx").write_bytes((ws_a.deliveries / "1.xlsx").read_bytes())
+    (ws_b.deliveries / "1.xlsx").write_bytes((ws_a.deliveries_done / "1.xlsx").read_bytes())
     assert deliveries.scan(conn_b, ws_b).imported == []
     assert stock_levels(conn_b) == levels_a
 
@@ -181,8 +181,11 @@ def test_daily_backup_keeps_14(conn, ws):
 def test_every_translation_key_exists():
     root = Path(__file__).resolve().parent.parent / "src" / "dibekho"
     vi = json.loads((root / "i18n" / "vi.json").read_text(encoding="utf-8"))
-    en = json.loads((root / "i18n" / "en.json").read_text(encoding="utf-8"))
-    assert set(vi) == set(en), set(vi) ^ set(en)
+    for lang in ("en", "zh"):
+        other = json.loads((root / "i18n" / f"{lang}.json").read_text(encoding="utf-8"))
+        assert set(vi) == set(other), (lang, set(vi) ^ set(other))
+        for key, text in vi.items():  # same {placeholders}, or t() fails at run time
+            assert set(re.findall(r"\{(\w+)\}", text)) == set(re.findall(r"\{(\w+)\}", other[key])), (lang, key)
     used = set()
     for f in root.rglob("*.py"):
         used |= set(re.findall(r'\bt\(\s*"([a-z_.0-9]+)"', f.read_text(encoding="utf-8")))

@@ -104,7 +104,7 @@
   "stock.hint": "Stock is computed from stock counts, goods in and delivery notes. Double-click a row for its history.",
   "stock.filter": "Filter by name, code, packing…",
   "stock.summary": "{count} products · {low} low (yellow) · {negative} negative (red — missing goods-in or count)",
-  "pending.hint": "Things the app needs you to decide. Empty means every note has been read. Delivery notes always stay in the phieu-giao-hang folder; input/da-xu-ly only holds processed goods-in files and data packages.",
+  "pending.hint": "Things the app needs you to decide. Empty means every note has been read. Fully recorded delivery notes are moved to phieu-giao-hang/da-xu-ly; notes still outside it are not done yet. input/da-xu-ly holds processed goods-in files and data packages.",
   "pending.unknown_title": "Product names not in the catalog",
   "pending.unknown_hint": "These lines are on delivery notes but the app does not know which product they are. Pick one under 'Is product' (type a few letters, Vietnamese or Chinese, to search), or press '✕ Drop line' for lines that are not goods, such as shipping or service fees. The app remembers your choice.",
   "pending.map_to": "Is product",
@@ -227,7 +227,7 @@
   "backup.confirm_restore": "Restore '{name}'? Current data is backed up first, then replaced.",
   "backup.restored": "Restored.",
   "settings.general": "General",
-  "settings.language": "Ngôn ngữ / Language",
+  "settings.language": "Ngôn ngữ / Language / 语言",
   "settings.workspace": "Workspace folder",
   "settings.open_folder": "Open",
   "settings.change_folder": "Change folder…",
@@ -321,5 +321,14 @@
   "settings.delete_product": "Delete product",
   "settings.confirm_delete_product": "Delete product {name}?\n\nNo document uses it. Delivery-note names learned for it are forgotten too (they will be asked again under To do).",
   "settings.delete_used": "{name} is in {docs} documents and cannot be deleted: that would break the history and the stock.\n\nMark it “inactive” instead? It disappears from Stock, Stock count, Goods in and the product pickers; old documents stay as they are.",
-  "settings.delete_used_inactive": "{name} is in {docs} documents and cannot be deleted (that would break the history and the stock). It is already inactive."
+  "settings.delete_used_inactive": "{name} is in {docs} documents and cannot be deleted (that would break the history and the stock). It is already inactive.",
+  "reset.title": "Reset data",
+  "reset.hint": "Use this to start over. The app always makes a backup first (restore it in the Data transfer and backups tab). Your files (delivery notes, input, output, backups) are not deleted; notes in phieu-giao-hang/da-xu-ly are moved back to phieu-giao-hang to be read again.",
+  "reset.stock": "Reset stock (keep products)…",
+  "reset.all": "Delete all data…",
+  "reset.confirm_stock": "Reset stock?\n\n• Kept: the product catalog, learned names on notes, dropped lines.\n• Deleted: every delivery note, goods-in, stock count and customer → stock back to 0.\n• Notes in phieu-giao-hang/da-xu-ly are moved back to phieu-giao-hang and read again from scratch.\n\nThe app makes a backup first.",
+  "reset.confirm_all": "Delete all data?\n\nThe app goes back to a fresh install: no products, notes, customers or stock. Only the settings are kept (language, size, working folder).\n\nThe app makes a backup first.",
+  "reset.confirm_all_again": "Are you sure? Press Yes to delete all data.",
+  "reset.done_stock": "Stock reset. {files} note files were moved back to phieu-giao-hang to be read again. Notes with unknown product names are listed under To do.",
+  "reset.done_all": "All data deleted. {files} note files were moved back to phieu-giao-hang. Load the product catalog again, then review the notes under To do."
 }

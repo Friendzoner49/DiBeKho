@@ -19,7 +19,7 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-@pytest.mark.parametrize("lang", ["vi", "en"])
+@pytest.mark.parametrize("lang", ["vi", "en", "zh"])
 def test_every_screen_opens(app, ws, monkeypatch, lang):
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
@@ -276,4 +276,29 @@ def test_settings_edit_and_delete_buttons(app, ws, monkeypatch):
     select(used)
     settings.delete_selected()
     assert len(errors) == 1
+    win.close()
+
+
+def test_reset_buttons(app, ws, monkeypatch):
+    import dibekho.ui.settings_page as settings_mod
+
+    monkeypatch.setattr(settings_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(settings_mod, "info", lambda *a, **k: None)
+    i18n.set_language("vi")
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import MainWindow
+
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    setup_notes(ctx.conn, ws)
+    win = MainWindow(ctx)
+    win.show()
+    settings = win.stack.widget(win.stack.count() - 1)
+    settings.reset_stock()
+    count = lambda sql: ctx.conn.execute(sql).fetchone()[0]  # noqa: E731
+    assert count("SELECT COUNT(*) FROM products") == 2
+    assert count("SELECT COUNT(*) FROM documents WHERE status = 'active'") == 3  # read again right away
+    settings.reset_all()
+    assert count("SELECT COUNT(*) FROM products") == 0
+    assert count("SELECT COUNT(*) FROM documents") == 0
+    assert win.nav.currentRow() == 1  # 'Cần xử lý': the notes wait for product names again
     win.close()

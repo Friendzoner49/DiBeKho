@@ -4,7 +4,7 @@
 
 # DiBeKho
 
-**English** · [Tiếng Việt](README.vi.md)
+**English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md)
 
 **Automatic stock tracking from Excel delivery notes: runs on your own computer, no internet needed, zero running cost.**
 
@@ -28,13 +28,13 @@ With DiBeKho you just drop the note files into a folder. The app reads them, red
 
 > **No prices are stored.** The app is only about *quantities*: what is left, who bought what, and what sells best.
 
-The user interface is available in **Vietnamese** (default) and **English**. The Vietnamese folder names (`phieu-giao-hang`, `input`, …) stay the same in both languages.
+The user interface is available in **Vietnamese** (default), **English** and **Chinese (Simplified)**. The Vietnamese folder names (`phieu-giao-hang`, `input`, …) stay the same in every language.
 
 ## Features
 
 | | |
 |---|---|
-| 📂 **Reads delivery notes automatically** | Reads every `.xlsx` file in the folder and its subfolders. Finds the labels on the note even when cells shift. Each note counts once, even if the file is renamed or moved. |
+| 📂 **Reads delivery notes automatically** | Reads every `.xlsx` file in the folder and its subfolders. Finds the labels on the note even when cells shift. Each note counts once, even if the file is renamed or moved. Fully recorded notes move to `phieu-giao-hang/da-xu-ly/`, so the folder shows what is still to do. |
 | 🧠 **Learns product names** | A name on the note differs from the catalog? The app suggests the closest product (by Chinese name, model code and packing) and remembers your choice for later notes. |
 | ✂️ **Drops fee lines** | Shipping and service fees are recognised and dropped with one click, so stock stays right. |
 | ↩️ **Undo a wrong choice** | Read a note again, or "forget" a name match and choose again. Old history is kept. |
@@ -47,7 +47,8 @@ The user interface is available in **Vietnamese** (default) and **English**. The
 | 🔁 **Move to another computer** | Export all data to one `.dibekho` file and continue on another machine. |
 | 📑 **Master data in Excel** | Export the product catalog and customer list to Excel, and import it on another computer with the same codes. |
 | 💾 **Automatic backups** | One per day, last 14 kept; restore with one click. |
-| 🌐 **Vietnamese and English** | Switch in Settings. Chinese can be typed in every field. |
+| 🧹 **Reset** | Start over: reset stock and read every note again (products kept), or delete all data. A backup is made first. |
+| 🌐 **Vietnamese, English and Chinese** | Switch in Settings. Chinese can be typed in every field. |
 
 ## Screenshots
 
@@ -80,6 +81,7 @@ All data lives in **one working folder**, `Documents/DiBeKho` by default:
 ```
 DiBeKho/
 ├── phieu-giao-hang/   ← delivery notes go here (any subfolders you like)
+│   └── da-xu-ly/      ← fully recorded notes are moved here by the app
 ├── input/             ← goods-in files, or a data package from another computer
 │   └── da-xu-ly/      ← processed files are moved here by the app
 ├── output/            ← Excel reports, goods-in template, data packages
@@ -146,7 +148,7 @@ Open **Stock count**, pick the date, type the counted quantity of each product a
 
 Then click **Apply and read notes again**, check the summary and confirm. The app remembers every choice, so the same name is recognised on later notes.
 
-> Delivery notes always stay where you put them. `input/da-xu-ly/` only holds processed goods-in files and data packages.
+> A note that is fully recorded is moved to `phieu-giao-hang/da-xu-ly/` (same subfolders), so the notes left in `phieu-giao-hang/` are the ones still waiting. If a note needs a decision again (e.g. after **Forget and read again**), it moves back out. `input/da-xu-ly/` holds processed goods-in files and data packages.
 
 ### 5. Goods in (1–2 times per quarter)
 
@@ -191,6 +193,17 @@ Only one computer works at a time.
 
 The app backs up once a day when it starts and keeps the last 14 copies in `sao-luu/`. **Settings → Data transfer and backups** has **Back up now** and **Restore selected**.
 
+### 11. Starting over
+
+**Settings → General → Reset data** (the app always makes a backup first, so a reset can be undone with **Restore selected**):
+
+| Button | Kept | Deleted |
+|---|---|---|
+| **Reset stock (keep products)…** | Product catalog, learned names on notes, dropped lines | Every delivery note, goods in, stock count and customer: stock goes back to 0. The notes in `phieu-giao-hang/da-xu-ly/` move back to `phieu-giao-hang/` and are read again right away |
+| **Delete all data…** | Only the settings (language, size, working folder) | Everything: the app is as freshly installed. Notes move back to `phieu-giao-hang/` and wait in **To do** |
+
+Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
+
 ## Development
 
 You need [**uv**](https://docs.astral.sh/uv/). It downloads Python 3.13 and every library into the project's `.venv/` and leaves the system Python alone.
@@ -221,7 +234,7 @@ src/dibekho/
 ├── core/           # business logic: stock, folder scanning, catalog, statistics, transfer, backups
 ├── excel/          # read delivery notes, catalog and goods-in files; write reports
 ├── ui/             # PySide6 user interface, one file per screen
-└── i18n/           # vi.json, en.json
+└── i18n/           # vi.json, en.json, zh.json
 tests/              # pytest: Excel readers, stock logic, transfer, every screen opens
 packaging/          # PyInstaller spec, Windows/macOS build scripts, Inno Setup
 scripts/            # helper tools (README screenshots, reference workbook)

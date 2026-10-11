@@ -74,3 +74,20 @@ def test_rejects_other_excel_files(tmp_path):
 
     with pytest.raises(master_data.NotMasterData):
         master_data.read(make_note(tmp_path / "phieu.xlsx"))
+
+
+def test_file_exported_in_chinese_reads_the_same(conn, ws, tmp_path):
+    from dibekho import i18n
+
+    setup_notes(conn, ws)
+    with db.transaction(conn):
+        pid = catalog.create_product(conn, "Màng PPE", spec="16.5KG")
+        catalog.update_product(conn, pid, active=0)
+    i18n.set_language("zh")
+    try:
+        path = master_data.export(tmp_path / "goc-zh.xlsx", conn)
+    finally:
+        i18n.set_language("vi")
+    other = db.connect(":memory:")
+    catalog.import_master(other, *master_data.read(path))
+    assert snapshot(other) == snapshot(conn)  # '否' (inactive) included

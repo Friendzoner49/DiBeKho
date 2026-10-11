@@ -51,20 +51,22 @@ def write_template(path: Path, products, today: date) -> Path:
     ws = wb.active
     ws.title = "HangVe"
     bold = Font(bold=True)
-    ws["A1"] = MARKER
+    ws["A1"] = f"{MARKER} / 到货单"
     ws["A1"].font = Font(bold=True, size=14)
     ws["A2"] = "Điền số lượng hàng về ở cột F, rồi bỏ file này vào thư mục input/ của DiBeKho. " \
-               "/ Fill column F, then put this file into the DiBeKho input/ folder."
+               "/ Fill column F, then put this file into the DiBeKho input/ folder. " \
+               "/ 在 F 列填写到货数量，然后把此文件放入 DiBeKho 的 input/ 文件夹。"
     ws["A2"].font = Font(italic=True, color="666666")
-    ws["A3"] = "Ngày về / Date:"
+    # Vietnamese first in every label: the reader finds these rows by 'Ngày về', 'Ghi chú' and 'Mã'
+    ws["A3"] = "Ngày về / Date / 到货日期:"
     ws["B3"] = today
     ws["B3"].number_format = "DD/MM/YYYY"
-    ws["A4"] = "Ghi chú / Note:"
+    ws["A4"] = "Ghi chú / Note / 备注:"
     for cell in ("A3", "A4"):
         ws[cell].font = bold
 
-    headers = ["Mã / Code", "Tên hàng / Product", "中文", "Quy cách / Spec", "Đơn vị / Unit", "Số lượng về / Qty",
-               "Loại, màu / Variant"]
+    headers = ["Mã / Code / 编码", "Tên hàng / Product / 品名", "中文名", "Quy cách / Spec / 规格", "Đơn vị / Unit / 单位",
+               "Số lượng về / Qty / 到货数量", "Loại, màu / Variant / 类型、颜色"]
     for col, text in enumerate(headers, start=1):
         c = ws.cell(row=HEADER_ROW, column=col, value=text)
         c.font = bold
@@ -81,7 +83,7 @@ def write_template(path: Path, products, today: date) -> Path:
         ws.cell(row=r, column=7, value=p["variant"])
     if r > HEADER_ROW:
         dv = DataValidation(type="decimal", operator="greaterThanOrEqual", formula1="0", allow_blank=True)
-        dv.error = "Chỉ nhập số / Numbers only"
+        dv.error = "Chỉ nhập số / Numbers only / 只能输入数字"
         ws.add_data_validation(dv)
         dv.add(f"F{HEADER_ROW + 1}:F{r}")
     for col, width in zip("ABCDEFG", (10, 45, 20, 16, 10, 16, 22)):

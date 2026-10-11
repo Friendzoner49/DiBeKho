@@ -4,7 +4,7 @@
 
 # DiBeKho
 
-[English](README.md) · **Tiếng Việt**
+[English](README.md) · **Tiếng Việt** · [中文](README.zh.md)
 
 **Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: chạy ngay trên máy, không cần internet, chi phí 0₫.**
 
@@ -32,7 +32,7 @@ Với DiBeKho, bạn chỉ cần bỏ file phiếu vào một thư mục. App t�
 
 | | |
 |---|---|
-| 📂 **Đọc phiếu giao hàng tự động** | Đọc mọi file `.xlsx` trong thư mục, kể cả thư mục con. Nhận ra nhãn trên phiếu dù vị trí ô bị lệch. Mỗi phiếu chỉ được tính một lần, dù đổi tên hay chuyển chỗ file. |
+| 📂 **Đọc phiếu giao hàng tự động** | Đọc mọi file `.xlsx` trong thư mục, kể cả thư mục con. Nhận ra nhãn trên phiếu dù vị trí ô bị lệch. Mỗi phiếu chỉ được tính một lần, dù đổi tên hay chuyển chỗ file. Phiếu ghi xong được chuyển vào `phieu-giao-hang/da-xu-ly/`, nhìn thư mục là biết phiếu nào còn chưa xong. |
 | 🧠 **Tự học tên hàng** | Tên trên phiếu khác tên trong danh mục? App gợi ý mặt hàng khớp nhất (dựa vào tên tiếng Trung, mã model, quy cách) và nhớ lựa chọn của bạn cho các phiếu sau. |
 | ✂️ **Bỏ dòng phí** | Phí ship, phí dịch vụ… được nhận ra và bỏ qua chỉ với một cú bấm, không làm sai tồn kho. |
 | ↩️ **Sửa được khi chọn nhầm** | Đọc lại một phiếu, hoặc "quên" một lựa chọn ghép tên rồi chọn lại. Lịch sử cũ vẫn được giữ. |
@@ -45,7 +45,8 @@ Với DiBeKho, bạn chỉ cần bỏ file phiếu vào một thư mục. App t�
 | 🔁 **Chuyển máy** | Xuất toàn bộ dữ liệu thành một file `.dibekho` để máy khác làm tiếp. |
 | 📑 **Dữ liệu gốc bằng Excel** | Xuất danh mục mặt hàng và danh sách khách ra Excel, nạp sang máy khác với đúng mã cũ. |
 | 💾 **Sao lưu tự động** | Mỗi ngày một bản, giữ 14 bản gần nhất; khôi phục bằng một cú bấm. |
-| 🌐 **Tiếng Việt và tiếng Anh** | Đổi trong Cài đặt. Gõ được tiếng Trung ở mọi ô nhập. |
+| 🧹 **Đặt lại** | Làm lại từ đầu: đặt lại tồn kho và đọc lại mọi phiếu (giữ mặt hàng), hoặc xoá toàn bộ dữ liệu. Luôn sao lưu trước. |
+| 🌐 **Tiếng Việt, tiếng Anh, tiếng Trung** | Đổi trong Cài đặt. Gõ được tiếng Trung ở mọi ô nhập. |
 
 ## Ảnh màn hình
 
@@ -78,6 +79,7 @@ Toàn bộ dữ liệu nằm trong **một thư mục làm việc**, mặc đị
 ```
 DiBeKho/
 ├── phieu-giao-hang/   ← bỏ file phiếu giao hàng vào đây (chia thư mục con tuỳ ý)
+│   └── da-xu-ly/      ← app chuyển phiếu đã ghi xong vào đây
 ├── input/             ← file hàng về, hoặc gói dữ liệu từ máy khác
 │   └── da-xu-ly/      ← app tự chuyển file đã xử lý vào đây
 ├── output/            ← báo cáo Excel, file mẫu hàng về, gói dữ liệu
@@ -142,7 +144,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế của từng mặ
 
 Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt rồi xác nhận. App nhớ mọi lựa chọn, nên lần sau gặp đúng tên đó sẽ tự nhận ra.
 
-> Phiếu giao hàng luôn nằm nguyên chỗ bạn để. `input/da-xu-ly/` chỉ chứa file hàng về và gói dữ liệu đã nhập.
+> Phiếu đã ghi xong được chuyển vào `phieu-giao-hang/da-xu-ly/` (giữ nguyên thư mục con), nên phiếu còn nằm ở `phieu-giao-hang/` là phiếu chưa xong. Phiếu cần quyết định lại (vd. sau **Quên và đọc lại**) được chuyển ra ngoài. `input/da-xu-ly/` chứa file hàng về và gói dữ liệu đã nhập.
 
 ### 5. Hàng về (1–2 lần mỗi quý)
 
@@ -187,6 +189,17 @@ Mỗi lúc chỉ một máy làm việc.
 
 App tự sao lưu mỗi ngày một lần khi mở và giữ 14 bản gần nhất trong `sao-luu/`. Trong **Cài đặt → Chuyển dữ liệu và sao lưu** có **Sao lưu ngay** và **Khôi phục bản đã chọn**.
 
+### 11. Làm lại từ đầu
+
+**Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước, nên đặt lại xong vẫn khôi phục được bằng **Khôi phục bản đã chọn**):
+
+| Nút | Giữ lại | Xoá |
+|---|---|---|
+| **Đặt lại tồn kho (giữ mặt hàng)…** | Danh mục mặt hàng, tên trên phiếu đã học, dòng đã bỏ | Mọi phiếu giao hàng, hàng về, kiểm kê, khách hàng: tồn về 0. Phiếu trong `phieu-giao-hang/da-xu-ly/` được chuyển ra `phieu-giao-hang/` và đọc lại ngay |
+| **Xoá toàn bộ dữ liệu…** | Chỉ cài đặt (ngôn ngữ, cỡ chữ, thư mục làm việc) | Tất cả: app như vừa cài. Phiếu được chuyển ra `phieu-giao-hang/` và chờ ở **Cần xử lý** |
+
+File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao giờ bị xoá.
+
 ## Phát triển
 
 Cần [**uv**](https://docs.astral.sh/uv/). uv tự tải Python 3.13 và mọi thư viện vào `.venv/` của dự án, không đụng tới Python của hệ thống.
@@ -217,7 +230,7 @@ src/dibekho/
 ├── core/           # nghiệp vụ: tồn kho, quét thư mục, danh mục, thống kê, chuyển dữ liệu, sao lưu
 ├── excel/          # đọc phiếu giao hàng, danh mục, file hàng về; xuất báo cáo
 ├── ui/             # giao diện PySide6, mỗi màn hình một file
-└── i18n/           # vi.json, en.json
+└── i18n/           # vi.json, en.json, zh.json
 tests/              # pytest: bộ đọc Excel, logic tồn, chuyển dữ liệu, mở mọi màn hình
 packaging/          # PyInstaller spec, script build Windows/macOS, Inno Setup
 scripts/            # công cụ phụ (tạo ảnh cho README)

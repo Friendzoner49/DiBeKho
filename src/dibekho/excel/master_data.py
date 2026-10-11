@@ -169,4 +169,4 @@ def _number(value) -> float:
 
 def _active(value) -> bool:
     text = clean(value).casefold()
-    return text not in ("không", "khong", "no", "0", "false")
+    return text not in ("không", "khong", "no", "0", "false", "否")  # "No" in any app language
