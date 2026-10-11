@@ -120,7 +120,7 @@ Chọn ngôn ngữ và **thư mục làm việc** (mặc định `Documents/DiBe
 
 1. Ở màn hình **Tồn kho**, bấm **Nhập danh mục từ Excel…** và chọn file thống kê tháng.
 2. Xem bảng xem trước: nháy đúp vào ô để sửa, bỏ tick những dòng không cần. Dòng đã có trong danh mục hiện màu xám.
-3. Giữ tick **Ghi số tồn kho trong file (cột F) làm tồn kho của app, tính đến ngày** và chọn ngày: số ở cột *Lượng tồn kho còn lại* (F) thành tồn kho của app vào ngày đó, ghi như một lần kiểm kê (cột G không dùng). Bỏ tick nếu chỉ muốn nạp danh mục.
+3. Giữ tick **Ghi số tồn kho trong file (cột F) làm tồn kho của app, tính đến ngày** và chọn ngày: số ở cột *Lượng tồn kho còn lại* (F) thành tồn kho của app vào ngày đó, ghi như một lần kiểm kê (cột G không dùng). Nếu file có bố cục khác và app không tìm thấy cột đó, app sẽ hỏi bạn **chọn cột số lượng tồn kho** trước (mỗi cột hiện tiêu đề và vài số mẫu); số tồn luôn lấy đúng trên cùng dòng với mặt hàng. Bỏ tick nếu chỉ muốn nạp danh mục.
 4. Bấm **Nhập các dòng đã chọn**. Nhập lại cùng file nhiều lần chỉ thêm mặt hàng mới; tick các dòng đã có để cập nhật số tồn từ file mới hơn.
 
 Thêm từng mặt hàng lẻ ở **Cài đặt → Danh mục mặt hàng → Thêm mặt hàng**. Chọn một dòng rồi bấm **Sửa mặt hàng…** (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng; **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào, mặt hàng đã dùng thì app đề nghị chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
@@ -184,7 +184,7 @@ Mỗi lúc chỉ một máy làm việc.
 2. Gửi file (USB, Zalo, email…) và chép vào `input/` của máy kia.
 3. Ở máy kia, vào **Cần xử lý → Nhập dữ liệu**. Dữ liệu hiện có trên máy đó được sao lưu trước, rồi mới bị thay thế.
 
-**Dữ liệu gốc (Excel):** **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc…** ghi danh mục mặt hàng (mã, tên, quy cách, loại/màu, đơn vị, nhóm hàng, ngày nhập, mức báo sắp hết, đang dùng) và danh sách khách hàng (tên, điện thoại, người liên hệ, địa chỉ, số đơn) ra một file Excel trong `output/`. Dùng để đối chiếu với sổ sách, hoặc nạp sang máy khác bằng **Nhập dữ liệu gốc…**: máy đó sẽ có đúng các mặt hàng (giữ nguyên mã) và khách hàng như trong file. Trang thứ ba **Tồn kho** liệt kê mọi mặt hàng giống bảng thống kê tồn kho: tên, phân loại, số lượng tồn hiện tại (chỉ để xem, không nhập ngược lại). File không chứa đơn hàng; muốn chuyển toàn bộ, dùng **Xuất dữ liệu** ở trên.
+**Dữ liệu gốc (Excel):** **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc…** ghi danh mục mặt hàng (mã, tên, quy cách, loại/màu, đơn vị, nhóm hàng, ngày nhập, mức báo sắp hết, đang dùng) và danh sách khách hàng (tên, điện thoại, người liên hệ, địa chỉ, số đơn) ra một file Excel trong `output/`. Dùng để đối chiếu với sổ sách, hoặc nạp sang máy khác bằng **Nhập dữ liệu gốc…**: máy đó sẽ có đúng các mặt hàng (giữ nguyên mã) và khách hàng như trong file. Trang thứ ba **Tồn kho** liệt kê mọi mặt hàng giống bảng thống kê tồn kho: tên, nhóm hàng, loại/màu, số lượng tồn hiện tại (chỉ để xem, không nhập ngược lại). File không chứa đơn hàng; muốn chuyển toàn bộ, dùng **Xuất dữ liệu** ở trên.
 
 ### 10. Sao lưu
 

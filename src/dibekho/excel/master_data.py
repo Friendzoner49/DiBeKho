@@ -7,7 +7,7 @@ Layout (fixed, so the file reads back whatever the interface language was):
   sheet 1 = products, sheet 2 = customers; A1 starts with MARKER; header in row 4; data from row 5.
   products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | min_stock | active
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
-  sheet 3 = stock, like the customer's monthly stock sheet: name | type | stock (for reading only, not imported)
+  sheet 3 = stock, like the customer's monthly stock sheet: name | category | variant | stock (reading only)
 """
 
 from dataclasses import dataclass
@@ -90,10 +90,9 @@ def export(path: Path, conn) -> Path:
     levels = stock_levels(conn)
     # by code = the row order of the monthly sheet the catalog was loaded from
     active = conn.execute("SELECT * FROM products WHERE active = 1 ORDER BY code")
-    rows = [[_stock_name(p), " · ".join(x for x in (p["category"], p["variant"]) if x), levels.get(p["id"], 0)]
-            for p in active]
-    _sheet(ws3, t("master.title_stock"), [t("col.product"), t("master.col_type"), t("col.stock")],
-           rows, [52, 28, 12], freeze="B5")
+    rows = [[_stock_name(p), p["category"], p["variant"], levels.get(p["id"], 0)] for p in active]
+    _sheet(ws3, t("master.title_stock"), [t("col.product"), t("col.category"), t("col.variant"), t("col.stock")],
+           rows, [52, 26, 22, 12], freeze="B5")
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path

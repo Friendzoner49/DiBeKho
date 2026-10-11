@@ -302,3 +302,26 @@ def test_reset_buttons(app, ws, monkeypatch):
     assert count("SELECT COUNT(*) FROM documents") == 0
     assert win.nav.currentRow() == 1  # 'Cần xử lý': the notes wait for product names again
     win.close()
+
+
+def test_catalog_import_asks_for_the_stock_column(app, ws, monkeypatch):
+    import dibekho.ui.catalog_import as catalog_mod
+    from dibekho.core.stock import stock_levels
+    from dibekho.ui.common import AppContext
+    from tests.test_catalog import make_other_layout
+
+    asked = []
+    monkeypatch.setattr(catalog_mod, "ask_stock_column",
+                        lambda parent, path, columns: (asked.append([c.letter for c in columns]), (True, 4))[1])
+    monkeypatch.setattr(catalog_mod.CatalogImportDialog, "exec",
+                        lambda self: (self.do_import(), catalog_mod.QDialog.Accepted)[1])
+    monkeypatch.setattr(catalog_mod, "info", lambda *a, **k: None)
+    i18n.set_language("vi")
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    assert catalog_mod.import_catalog_file(ctx, None, make_other_layout(ws.root / "khac.xlsx"))
+    assert asked == [["C", "D"]]
+    assert sorted(stock_levels(ctx.conn).values()) == [7.5, 12]
+
+    # the dialog itself: 'no stock' first, then one line per column
+    dlg = catalog_mod.StockColumnDialog(ws.root / "khac.xlsx", [], None)
+    assert dlg.chosen() is None

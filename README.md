@@ -124,7 +124,7 @@ Choose the language and the **working folder** (default `Documents/DiBeKho`), th
 
 1. On **Stock**, click **Import catalog from Excel…** and pick the monthly stock sheet.
 2. Check the preview: double-click a cell to fix it, untick rows you do not want. Rows already in the catalog are greyed out.
-3. Keep **Use the stock in the file (column F) as the app's stock, as of** ticked and pick the date: the stock in the sheet's *remaining stock* column (F) becomes the app's stock on that date, as a stock count (column G is ignored). Untick it to load only the products.
+3. Keep **Use the stock in the file (column F) as the app's stock, as of** ticked and pick the date: the stock in the sheet's *remaining stock* column (F) becomes the app's stock on that date, as a stock count (column G is ignored). If the file has another layout and the app cannot find that column, it first asks you to **choose the stock column** (each column is shown with its title and a few sample values); the stock is always taken from the same row as the product. Untick the box to load only the products.
 4. Click **Import selected rows**. Importing the same file again only adds the new products; tick existing rows to update their stock from a newer sheet.
 
 Single products can also be added in **Settings → Products → Add product**. Select a row and press **Edit product…** (or double-click) to change its name, type/colour or group; **Delete product** only deletes a product that no document uses, otherwise the app offers to mark it *inactive* (hidden from lists, old documents unchanged). Long names: drag a column border wider, or hover a cell to read the full name.
@@ -188,7 +188,7 @@ Only one computer works at a time.
 2. Send the file (USB, Zalo, e-mail…) and put it into `input/` on the other computer.
 3. There, open **To do → Import data**. The current data on that computer is backed up first and then replaced.
 
-**Master data (Excel):** **Settings → Data transfer and backups → Export master data…** writes the product catalog (codes, names, packing, variant, unit, category, date added, low-stock alert, active) and the customer list (name, phone, contact, address, number of orders) to one Excel file in `output/`. Use it to check the app against your own records, or load it on another computer with **Import master data…**: the same products (same codes) and customers appear there. A third sheet, **Stock**, lists every product like the monthly stock sheet: product, type and current stock (for reading only; it is not imported back). The file holds no orders; to move everything, use **Export data** above.
+**Master data (Excel):** **Settings → Data transfer and backups → Export master data…** writes the product catalog (codes, names, packing, variant, unit, category, date added, low-stock alert, active) and the customer list (name, phone, contact, address, number of orders) to one Excel file in `output/`. Use it to check the app against your own records, or load it on another computer with **Import master data…**: the same products (same codes) and customers appear there. A third sheet, **Stock**, lists every product like the monthly stock sheet: product, category, type/colour and current stock (for reading only; it is not imported back). The file holds no orders; to move everything, use **Export data** above.
 
 ### 10. Backups
 

@@ -338,5 +338,10 @@
   "catalog.stock_done": "已按文件记录 {count} 种商品的库存（日期 {date}）。",
   "master.sheet_stock": "库存",
   "master.title_stock": "库存表",
-  "master.col_type": "分类"
+  "catalog.pick_stock_title": "选择库存数量列",
+  "catalog.pick_stock_hint": "在文件 {file} 中没有找到“剩余库存”列。\n请选择存放每种商品库存数量的列（库存按与商品相同的行读取），或只导入商品目录。",
+  "catalog.pick_stock_none": "不导入库存（只导入商品目录）",
+  "catalog.pick_stock_column": "{letter} 列：{label}",
+  "catalog.pick_stock_samples": "例如 {samples}",
+  "catalog.pick_stock_continue": "继续"
 }

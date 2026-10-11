@@ -338,5 +338,10 @@
   "catalog.stock_done": "Stock of {count} products recorded from the file (date {date}).",
   "master.sheet_stock": "Stock",
   "master.title_stock": "STOCK LIST",
-  "master.col_type": "Type"
+  "catalog.pick_stock_title": "Choose the stock column",
+  "catalog.pick_stock_hint": "No “remaining stock” column was found in {file}.\nChoose the column that holds each product's stock (it is read on the same row as the product), or import the catalog only.",
+  "catalog.pick_stock_none": "No stock (import the catalog only)",
+  "catalog.pick_stock_column": "Column {letter}: {label}",
+  "catalog.pick_stock_samples": "e.g. {samples}",
+  "catalog.pick_stock_continue": "Continue"
 }

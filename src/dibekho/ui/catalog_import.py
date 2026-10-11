@@ -12,13 +12,16 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QVBoxLayout,
 )
 
 from dibekho.core import catalog, deliveries
 from dibekho.core.text import fmt_qty, parse_number
-from dibekho.excel.catalog_sheet import CatalogItem, NotCatalogSheet, read_catalog
+from dibekho.excel.catalog_sheet import CatalogItem, NotCatalogSheet, read_catalog, sheet_columns
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
@@ -147,14 +150,67 @@ class CatalogImportDialog(QDialog):
         self.accept()
 
 
+class StockColumnDialog(QDialog):
+    """The sheet has no 'remaining stock' column we recognise: let the user point at it."""
+
+    def __init__(self, path: Path, columns, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(t("catalog.pick_stock_title"))
+        fit_window(self, 640, 460)
+        lay = QVBoxLayout(self)
+        hint = QLabel(t("catalog.pick_stock_hint", file=path.name))
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+        self.list = QListWidget()
+        none = QListWidgetItem(t("catalog.pick_stock_none"))
+        none.setData(Qt.UserRole, None)
+        self.list.addItem(none)
+        for c in columns:
+            text = t("catalog.pick_stock_column", letter=c.letter, label=c.label or "—")
+            samples = ", ".join(s for s in c.samples if s)
+            if samples:
+                text += "   " + t("catalog.pick_stock_samples", samples=samples)
+            item = QListWidgetItem(text)
+            item.setData(Qt.UserRole, c.col)
+            self.list.addItem(item)
+        self.list.setCurrentRow(0)
+        self.list.itemDoubleClicked.connect(lambda _: self.accept())
+        lay.addWidget(self.list, 1)
+        box = QDialogButtonBox()
+        box.addButton(t("catalog.pick_stock_continue"), QDialogButtonBox.AcceptRole)
+        box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+
+    def chosen(self) -> int | None:
+        item = self.list.currentItem()
+        return item.data(Qt.UserRole) if item else None
+
+
+def ask_stock_column(parent, path: Path, columns) -> tuple[bool, int | None]:
+    """(go on?, chosen column or None = no stock). Separate function so tests can replace it."""
+    dlg = StockColumnDialog(path, columns, parent)
+    if dlg.exec() != QDialog.Accepted:
+        return False, None
+    return True, dlg.chosen()
+
+
 def import_catalog_file(ctx, parent, path: Path, items: list[CatalogItem] | None = None) -> bool:
-    """Preview and import the catalog sheet at path. Returns True if the user imported it."""
-    if items is None:
-        try:
+    """Preview and import the catalog sheet at path. Returns True if the user imported it.
+    When the stock column cannot be found by its label, the user picks it first."""
+    try:
+        found = sheet_columns(path)
+        if found.stock_col is None:
+            go_on, col = ask_stock_column(parent, Path(path), found.columns)
+            if not go_on:
+                return False
+            items = read_catalog(path, col)
+        elif items is None:
             items = read_catalog(path)
-        except NotCatalogSheet as exc:
-            error(parent, t("catalog.not_sheet", error=str(exc)))
-            return False
+    except NotCatalogSheet as exc:
+        error(parent, t("catalog.not_sheet", error=str(exc)))
+        return False
     if not items:
         error(parent, t("catalog.not_sheet", error="0"))
         return False

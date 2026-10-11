@@ -5,15 +5,18 @@ below it. Column A = Vietnamese name + Chinese name on two lines, column B = cat
 When column A is merged over several rows, each row is a variant of the same product and column B
 holds the variant (纯原料 / 再生料 / 瑞德牌 / 纯白色) instead of a category.
 The stock of each row is read from the 'Lượng tồn kho còn lại' / 利余库存 column (F); the other quantity
-columns (last month, in, out) and column G are ignored.
+columns (last month, in, out) and column G are ignored. When no such column is found (another layout),
+sheet_columns() lists the columns so the user can pick the stock column, then read_catalog(path, stock_col).
+The stock is always read on the same row as the product.
 Pure function: workbook in, list of items out.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 
 from dibekho.core.text import clean, has_cjk, nfc, parse_number, unaccent
 
@@ -61,14 +64,27 @@ class NotCatalogSheet(Exception):
     pass
 
 
-def read_catalog(path: Path | str) -> list[CatalogItem]:
-    try:
-        wb = openpyxl.load_workbook(path, data_only=True)
-    except Exception as exc:
-        raise NotCatalogSheet(f"Không mở được file Excel: {exc}") from exc
+@dataclass
+class SheetColumn:
+    """A column the user may pick as the stock column."""
+    col: int
+    letter: str
+    label: str
+    samples: list[str] = field(default_factory=list)  # values on the first product rows
+
+
+@dataclass
+class SheetColumns:
+    stock_col: int | None  # found by its label, or None
+    columns: list[SheetColumn]
+
+
+def read_catalog(path: Path | str, stock_col: int | None = None) -> list[CatalogItem]:
+    """stock_col: 1-based column with the stock (e.g. 6 = F), overriding the label search."""
+    wb = _open(path)
     try:
         for ws in wb.worksheets:
-            items = _read_sheet(ws)
+            items = _read_sheet(ws, stock_col)
             if items is not None:
                 return items
     finally:
@@ -76,7 +92,46 @@ def read_catalog(path: Path | str) -> list[CatalogItem]:
     raise NotCatalogSheet("Không thấy cột 'Tên sản phẩm' / 'Phân loại'.")
 
 
-def _read_sheet(ws) -> list[CatalogItem] | None:
+def sheet_columns(path: Path | str) -> SheetColumns:
+    """The stock column found by label, and every other column with a few sample values."""
+    wb = _open(path)
+    try:
+        for ws in wb.worksheets:
+            header = _header(ws)
+            if header is None:
+                continue
+            header_row, name_col, type_col, stock_col = header
+            items = _read_sheet(ws, None) or []
+            columns = []
+            for col in range(1, ws.max_column + 1):
+                if col in (name_col, type_col):
+                    continue
+                label = " / ".join(clean(x) for x in str(ws.cell(header_row, col).value or "").splitlines()
+                                   if clean(x))
+                samples = [_sample(ws.cell(it.row, col).value) for it in items[:4]]
+                if label or any(samples):
+                    columns.append(SheetColumn(col, get_column_letter(col), label, samples))
+            return SheetColumns(stock_col, columns)
+    finally:
+        wb.close()
+    raise NotCatalogSheet("Không thấy cột 'Tên sản phẩm' / 'Phân loại'.")
+
+
+def _sample(value) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return clean(value)
+
+
+def _open(path):
+    try:
+        return openpyxl.load_workbook(path, data_only=True)
+    except Exception as exc:
+        raise NotCatalogSheet(f"Không mở được file Excel: {exc}") from exc
+
+
+def _header(ws):
+    """(header_row, name_col, type_col, stock_col) or None when this sheet is not a catalog."""
     header_row = name_col = type_col = stock_col = None
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         for cell in row:
@@ -90,8 +145,15 @@ def _read_sheet(ws) -> list[CatalogItem] | None:
                 stock_col = cell.column
         if header_row:
             break
-    if header_row is None:
+    return None if header_row is None else (header_row, name_col, type_col, stock_col)
+
+
+def _read_sheet(ws, chosen_stock_col: int | None = None) -> list[CatalogItem] | None:
+    header = _header(ws)
+    if header is None:
         return None
+    header_row, name_col, type_col, stock_col = header
+    stock_col = chosen_stock_col or stock_col
 
     # rows covered by a merged block in the name column -> first row of the block
     block_start: dict[int, int] = {}

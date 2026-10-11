@@ -338,5 +338,10 @@
   "catalog.stock_done": "Đã ghi tồn kho của {count} mặt hàng theo file (ngày {date}).",
   "master.sheet_stock": "Tồn kho",
   "master.title_stock": "BẢNG TỒN KHO",
-  "master.col_type": "Phân loại"
+  "catalog.pick_stock_title": "Chọn cột số lượng tồn kho",
+  "catalog.pick_stock_hint": "Không tìm thấy cột “Lượng tồn kho còn lại” trong file {file}.\nChọn cột chứa số lượng tồn kho của từng mặt hàng (số tồn được lấy đúng trên cùng dòng với mặt hàng), hoặc chỉ nhập danh mục.",
+  "catalog.pick_stock_none": "Không nhập số tồn (chỉ nhập danh mục)",
+  "catalog.pick_stock_column": "Cột {letter}: {label}",
+  "catalog.pick_stock_samples": "vd. {samples}",
+  "catalog.pick_stock_continue": "Tiếp tục"
 }

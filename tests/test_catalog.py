@@ -92,3 +92,30 @@ def test_real_catalog_and_suggestions(conn):
     assert tuple(suggestion("phieu-mau-2.xlsx", 14)) == ("缝织聚酯布65g", "65g 1m*100m")
     assert tuple(suggestion("phieu-mau-1.xlsx", 9)) == ("油性聚氨酯注浆液 1桶", "10KG")
     assert suggestion("phieu-mau-2.xlsx", 20) is None  # 冷底油 (sơn lót lạnh) is new
+
+
+def make_other_layout(path):
+    """Same products, but the stock column has another title (no 'Lượng tồn kho còn lại')."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Tên sản phẩm", "Phân loại", "Ghi chú", "SL hiện có"])
+    ws.append(["Sơn FS-101 (20KG)\n雨堡垒FS-101防水涂料", "涂料类", "kho 1", 12])
+    ws.append(["Keo trong suốt (8KG)\n透明胶", "涂料类", "", 7.5])
+    ws.append(["Bột chống thấm\n堵漏王", "涂料类", "hết", None])
+    wb.save(path)
+    return path
+
+
+def test_stock_column_chosen_by_the_user(tmp_path):
+    from dibekho.excel.catalog_sheet import sheet_columns
+
+    path = make_other_layout(tmp_path / "khac.xlsx")
+    found = sheet_columns(path)
+    assert found.stock_col is None  # not recognised -> the app asks
+    assert [(c.letter, c.label, c.samples) for c in found.columns] == [
+        ("C", "Ghi chú", ["kho 1", "", "hết"]),
+        ("D", "SL hiện có", ["12", "7.5", ""]),
+    ]
+    assert [i.stock for i in read_catalog(path)] == [None, None, None]
+    assert [i.stock for i in read_catalog(path, stock_col=4)] == [12, 7.5, None]  # same row as the product
+    assert sheet_columns(make_sheet(tmp_path / "t7.xlsx")).stock_col == 6  # column F found by its title
