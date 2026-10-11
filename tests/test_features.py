@@ -274,3 +274,27 @@ def test_waiting_notes_from_the_other_computer_do_not_stay_in_to_do(tmp_path):
     (ws_b.deliveries / "moi.xlsx").write_bytes((ws_a.deliveries / "moi.xlsx").read_bytes())
     deliveries.scan(conn_b, ws_b)
     assert [u.name_vi for u in deliveries.unknown_lines(conn_b, ws_b)] == ["Hàng mới tinh"]
+
+
+def test_delete_product_only_when_unused(conn, ws):
+    a, _ = setup_notes(conn, ws)
+    spare = catalog.create_product(conn, "Sơn thừa", spec="5KG")
+    catalog.set_alias(conn, "son thua|5kg", spare, "Sơn thừa")
+    assert catalog.product_documents(conn, a) == 3
+    assert catalog.product_documents(conn, spare) == 0
+    with pytest.raises(ValueError):
+        catalog.delete_product(conn, a)
+    catalog.delete_product(conn, spare)
+    assert conn.execute("SELECT COUNT(*) FROM products WHERE id = ?", (spare,)).fetchone()[0] == 0
+    assert catalog.alias_product(conn, "son thua|5kg") is None
+
+
+def test_config_keeps_ui_scale(tmp_path, monkeypatch):
+    from dibekho.core import workspace
+
+    monkeypatch.setattr(workspace, "config_dir", lambda: tmp_path)
+    cfg = workspace.Config.create(tmp_path / "w")
+    assert cfg.ui_scale == 1.2
+    cfg.ui_scale = 1.4
+    cfg.save()
+    assert workspace.Config.load().ui_scale == 1.4

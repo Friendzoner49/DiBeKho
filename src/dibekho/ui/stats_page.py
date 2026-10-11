@@ -34,6 +34,7 @@ from dibekho.ui.common import (
     ask,
     error,
     fill_table,
+    fit_window,
     from_qdate,
     make_table,
     num_item,
@@ -68,7 +69,7 @@ class PickDialog(QDialog):
     def __init__(self, title: str, items: list[tuple[str, object]], selected: list, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(520, 560)
+        fit_window(self, 520, 560)
         lay = QVBoxLayout(self)
         self.filter = QLineEdit()
         self.filter.setPlaceholderText(t("stock.filter"))

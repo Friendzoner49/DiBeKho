@@ -350,7 +350,7 @@ Quy tắc đọc:
 | **Thống kê** | Chọn kỳ (mục 11.1) + phạm vi → bảng tồn đầu, nhập, xuất, tồn cuối; top mặt hàng xuất nhiều; biểu đồ xuất theo ngày/tháng; nút **"Xuất Excel"** |
 | **Kiểm kê** | Nhập số đếm thực tế, xem chênh lệch, xác nhận |
 | **Chuyển dữ liệu** | Xuất gói dữ liệu; hướng dẫn nhập ở máy kia; lịch sử xuất/nhập |
-| **Cài đặt** | Thư mục làm việc, ngôn ngữ (VI/EN), danh mục mặt hàng (thêm/sửa/ngừng/gộp, `min_stock`), tạo file mẫu hàng về, sao lưu/khôi phục, phiên bản app |
+| **Cài đặt** | Thư mục làm việc, ngôn ngữ (VI/EN), **cỡ chữ và nút** (100–150%, mặc định 120%), danh mục mặt hàng (**Thêm / Sửa mặt hàng… / Xoá mặt hàng**, ngừng dùng, `min_stock`), tạo file mẫu hàng về, sao lưu/khôi phục, phiên bản app |
 
 ### 11.1. Thống kê và xuất Excel
 
@@ -400,7 +400,9 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Repo sạch thông tin cá nhân/khách (lịch sử gộp lại); README tiếng Anh (mặc định) + tiếng Việt, có hướng dẫn sử dụng.
 - File đối chiếu `DiBeKho-du-lieu-goc.xlsx` (gitignored) để so kết quả app với dữ liệu gốc.
 
-**Giai đoạn 2 (khi khách đã dùng một thời gian):** thu phản hồi của khách → ghi vào file này trước → sửa/thêm tính năng. Việc treo lại:
+**Giai đoạn 2 — bắt đầu 11/10/2026 (khách đã dùng ổn định).** Yêu cầu đợt 1 (đã làm): cột bảng kéo rộng được + rê chuột xem đủ tên, ô chọn mặt hàng ở Cần xử lý hiện đủ tên; nút Sửa/Xoá mặt hàng trong Cài đặt; giao diện to 120% cho Mac 14" (`Config.ui_scale` → `QT_SCALE_FACTOR`, đổi ở Cài đặt → Chung).
+
+**Việc giai đoạn 2 còn treo:** thu phản hồi của khách → ghi vào file này trước → sửa/thêm tính năng. Việc treo lại:
 - Cài lên máy khách (Windows + Mac M3), **kiểm kê đầu kỳ** cùng khách (C1–C2), chạy song song với Excel 2–4 tuần (C3).
 - Câu hỏi còn mở ở mục 5: Windows 10 hay 11; cách chuyển file giữa các máy; thư mục phiếu có nằm trong Google Drive/OneDrive/iCloud không; có file `.xls` cũ không; nhà cung cấp có gửi file hàng về không; có cần nhập lại phiếu tháng 8–9 không.
 - Chưa thử thực tế: bộ cài Windows (Inno Setup) và trình gỡ trên máy sạch; tự gỡ trên Mac; số liệu với nhiều tháng phiếu thật.
@@ -505,6 +507,8 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
 | 2026-10-10 | Người dùng chọn **ghi phần đã duyệt** của phiếu (cách 1): Áp dụng → phiếu vào kho với các dòng đã duyệt + khách; dòng Để sau thêm vào đúng đơn khi duyệt. Phiếu sửa "Dùng bản mới" cũng cho phép một phần. 62 test. Chuyển tag `v0.1.0`. |
+| 2026-10-11 | **Bắt đầu giai đoạn 2.** (1) Bảng: mọi cột kéo rộng được (`ui.common.Table`: cột `stretch` nhận phần trống, không còn `QHeaderView.Stretch` khoá cột), tối đa 520px khi tự co, ô dài có tooltip; ô "Là mặt hàng" có danh sách thả xuống rộng bằng tên dài nhất. (2) Cài đặt → Danh mục: nút **Sửa mặt hàng…** và **Xoá mặt hàng**; chỉ xoá được mặt hàng chưa có trong phiếu nào (`catalog.product_documents`, kể cả phiếu đã huỷ), xoá kèm tên đã học; đã dùng → đề nghị Ngừng dùng. (3) **Cỡ giao diện** `Config.ui_scale` (mặc định 1.2) đặt `QT_SCALE_FACTOR` trước khi tạo `QApplication`; cửa sổ mở bằng `fit_window` để không vượt màn hình. 65 test qua (2 bỏ qua vì thiếu `samples/`). Không đổi số phiên bản, chưa gắn tag (chờ người dùng). |
+| 2026-10-11 | Hướng dẫn người dùng mở app trên Mac khi bị chặn: macOS 15+ không còn mở được bằng chuột phải → Mở; dùng *Quyền riêng tư & Bảo mật → Vẫn mở*, hoặc `xattr -cr /Applications/DiBeKho.app` khi báo "bị hỏng". |
 | 2026-10-10 | Không mua chứng chỉ ký số: hướng dẫn khách "Vẫn mở" trên Mac và "Vẫn chạy" trên Windows một lần. |
 
 ## 16. Cách làm việc (dành cho trợ lý AI)
@@ -523,6 +527,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - **Phiên bản:** không tự tăng số phiên bản; hỏi người dùng trước khi đổi số. Không thêm lịch sử phiên bản vào README.
 - **Không đưa thông tin thật lên git:** tên/SĐT/địa chỉ khách, tên file của khách, email, đường dẫn máy người dùng. File mẫu thật nằm trong `samples/` (gitignored) với tên chung: `danh-muc-mau.xlsx`, `phieu-mau-1..3.xlsx`. Trước khi push: `git grep` các chuỗi nhạy cảm.
 - **README:** có hướng dẫn sử dụng dùng đúng tên nút trong giao diện; đổi tên nút/màn hình thì cập nhật cả `README.md` và `README.vi.md`.
+- **Kích thước:** mở cửa sổ bằng `fit_window(widget, w, h)` (không dùng `resize` cố định: giao diện có thể phóng 120–150%); bảng tạo bằng `make_table` (cột kéo được).
 - **Màu sắc:** luôn lấy qua `theme_color()` / `RED` / `YELLOW` trong `ui.common` (tự đổi theo sáng/tối); không viết mã màu cố định trong màn hình.
 - Đổi giao diện → chạy lại `PYTHONPATH=. uv run python scripts/readme_screenshots.py` để cập nhật ảnh README.
 

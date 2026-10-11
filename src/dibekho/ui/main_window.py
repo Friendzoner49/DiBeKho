@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from dibekho import APP_NAME, __version__
 from dibekho.core import deliveries, inbox
 from dibekho.i18n import t
-from dibekho.ui.common import AppContext, error, open_path
+from dibekho.ui.common import AppContext, error, fit_window, open_path
 from dibekho.ui.count_page import CountPage
 from dibekho.ui.pending_page import PendingPage
 from dibekho.ui.receipt_page import ReceiptPage
@@ -31,7 +31,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.ctx = ctx
         self.setWindowTitle(f"{APP_NAME} {__version__}")
-        self.resize(1280, 800)
+        fit_window(self, 1280, 800)
 
         self.nav = QListWidget()
         self.nav.setFixedWidth(200)

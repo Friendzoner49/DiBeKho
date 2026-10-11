@@ -1,5 +1,6 @@
 """Entry point: first-run setup, open the workspace, back up, scan, show the window."""
 
+import os
 import sys
 import traceback
 from importlib import resources
@@ -100,6 +101,10 @@ def self_test() -> int:
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
+    saved = Config.load()
+    # Text, cells, buttons and icons all grow together. Set before QApplication exists; a value already in the
+    # environment wins (handy while developing).
+    os.environ.setdefault("QT_SCALE_FACTOR", f"{saved.ui_scale if saved else Config.ui_scale:g}")
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setStyle("Fusion")
@@ -112,7 +117,7 @@ def main() -> int:
     app.setFont(font)
     sys.excepthook = _excepthook
 
-    cfg = Config.load()
+    cfg = saved
     if cfg is None:
         dlg = FirstRunDialog()
         if dlg.exec() != QDialog.Accepted:

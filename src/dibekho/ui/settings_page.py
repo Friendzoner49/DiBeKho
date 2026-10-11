@@ -33,6 +33,7 @@ from dibekho.ui.common import (
     ask,
     error,
     fill_table,
+    fit_window,
     hint_label,
     info,
     make_table,
@@ -45,12 +46,15 @@ from dibekho.ui.page import Page
 from dibekho.ui.transfer_page import TransferPanel
 
 
+SCALES = (100, 110, 120, 130, 140, 150)  # interface size choices, in %
+
+
 class ProductEditor(QDialog):
     def __init__(self, ctx, product=None, parent=None):
         super().__init__(parent)
         self.ctx, self.product = ctx, product
         self.setWindowTitle(t("settings.edit_product") if product else t("settings.add_product"))
-        self.resize(520, 300)
+        fit_window(self, 760, 360)
         form = QFormLayout(self)
         self.name_vi, self.name_zh, self.spec, self.unit = QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()
         self.variant = QLineEdit()
@@ -62,6 +66,8 @@ class ProductEditor(QDialog):
         self.min_stock.setDecimals(0)
         self.active = QCheckBox(t("settings.active"))
         self.active.setChecked(True)
+        for box in (self.name_vi, self.name_zh, self.spec, self.variant, self.unit, self.category):
+            box.setMinimumWidth(520)  # a long name stays visible while typing
         if product:
             self.name_vi.setText(product["name_vi"])
             self.name_zh.setText(product["name_zh"])
@@ -124,6 +130,16 @@ class SettingsPage(Page):
         self.language.setCurrentIndex(self.language.findData(ctx.cfg.language))
         self.language.currentIndexChanged.connect(self.change_language)
         form.addRow(t("settings.language") + ":", self.language)
+        self.scale = QComboBox()
+        for pct in SCALES:
+            self.scale.addItem(f"{pct}%", pct / 100)
+        current = self.scale.findData(ctx.cfg.ui_scale)
+        if current < 0:
+            self.scale.addItem(f"{round(ctx.cfg.ui_scale * 100)}%", ctx.cfg.ui_scale)
+            current = self.scale.count() - 1
+        self.scale.setCurrentIndex(current)
+        self.scale.currentIndexChanged.connect(self.change_scale)
+        form.addRow(t("settings.ui_scale") + ":", self.scale)
 
         folder_row = QHBoxLayout()
         self.folder = QLabel(str(ctx.ws.root))
@@ -151,6 +167,12 @@ class SettingsPage(Page):
         add = QPushButton(t("settings.add_product"))
         add.clicked.connect(lambda: self.edit(None))
         row.addWidget(add)
+        edit = QPushButton(t("settings.edit_product_btn"))
+        edit.clicked.connect(self.edit_selected)
+        row.addWidget(edit)
+        delete = QPushButton(t("settings.delete_product"))
+        delete.clicked.connect(self.delete_selected)
+        row.addWidget(delete)
         import_btn = QPushButton(t("catalog.import_btn"))
         import_btn.clicked.connect(lambda: start_catalog_import(self.ctx, self))
         row.addWidget(import_btn)
@@ -216,6 +238,36 @@ class SettingsPage(Page):
         self.ctx.notify()
         info(self, t("settings.forgotten", docs=count))
 
+    def edit_selected(self):
+        product_id = selected_id(self.table)
+        if product_id is None:
+            error(self, t("settings.pick_first"))
+            return
+        self.edit(product_id)
+
+    def delete_selected(self):
+        product_id = selected_id(self.table)
+        if product_id is None:
+            error(self, t("settings.pick_first"))
+            return
+        conn = self.ctx.conn
+        p = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+        used = catalog.product_documents(conn, product_id)
+        if used:  # deleting would break the history and the stock of those documents
+            if not p["active"]:
+                error(self, t("settings.delete_used_inactive", name=catalog.label(p), docs=used))
+            elif ask(self, t("settings.delete_used", name=catalog.label(p), docs=used)):
+                with db.transaction(conn):
+                    catalog.update_product(conn, product_id, active=0)
+                self.ctx.notify()
+            return
+        if not ask(self, t("settings.confirm_delete_product", name=catalog.label(p))):
+            return
+        with db.transaction(conn):
+            catalog.delete_product(conn, product_id)
+            db.log(conn, "product_deleted", catalog.label(p))
+        self.ctx.notify()
+
     def edit(self, product_id):
         product = None
         if product_id:
@@ -225,6 +277,11 @@ class SettingsPage(Page):
 
     def change_language(self):
         self.ctx.cfg.language = self.language.currentData()
+        self.ctx.cfg.save()
+        info(self, t("settings.restart_needed"))
+
+    def change_scale(self):
+        self.ctx.cfg.ui_scale = self.scale.currentData()
         self.ctx.cfg.save()
         info(self, t("settings.restart_needed"))
 

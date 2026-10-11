@@ -236,7 +236,7 @@
   "settings.device": "Tên máy",
   "settings.version": "Phiên bản",
   "settings.products": "Danh mục mặt hàng",
-  "settings.products_hint": "Nháy đúp một dòng để sửa tên, nhóm hàng, mức báo sắp hết hoặc ngừng dùng mặt hàng.",
+  "settings.products_hint": "Chọn một dòng rồi bấm Sửa mặt hàng… (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng, mức báo sắp hết. Chỉ xoá được mặt hàng chưa có trong phiếu nào; mặt hàng đã dùng thì chuyển sang Ngừng dùng. Kéo mép tiêu đề cột để xem hết tên dài.",
   "settings.add_product": "Thêm mặt hàng",
   "settings.edit_product": "Sửa mặt hàng",
   "settings.active": "Đang dùng",
@@ -315,5 +315,11 @@
   "inbox.confirm_hide": "Ẩn '{name}' khỏi danh sách?\n\nFile vẫn nằm nguyên trong thư mục input, app chỉ không nhắc lại nữa (trừ khi nội dung file thay đổi).",
   "receipts.pick_file": "Chọn file để nhập…",
   "receipts.pick_file_tip": "Chọn file hàng về hoặc file danh mục ở bất kỳ đâu, kể cả trong input/da-xu-ly",
-  "receipts.picked_done": "Đã nhập xong."
+  "receipts.picked_done": "Đã nhập xong.",
+  "settings.ui_scale": "Cỡ chữ và nút",
+  "settings.edit_product_btn": "Sửa mặt hàng…",
+  "settings.delete_product": "Xoá mặt hàng",
+  "settings.confirm_delete_product": "Xoá mặt hàng {name}?\n\nMặt hàng này chưa có trong phiếu nào. Các tên trên phiếu đã học cho nó cũng bị quên (gặp lại sẽ hỏi trong Cần xử lý).",
+  "settings.delete_used": "{name} đã có trong {docs} phiếu nên không xoá được: xoá sẽ làm sai lịch sử và tồn kho.\n\nChuyển sang “Ngừng dùng”? Mặt hàng sẽ không hiện ở Tồn kho, Kiểm kê, Hàng về và ô chọn mặt hàng nữa; các phiếu cũ vẫn giữ nguyên.",
+  "settings.delete_used_inactive": "{name} đã có trong {docs} phiếu nên không xoá được (xoá sẽ làm sai lịch sử và tồn kho). Mặt hàng này đã ở trạng thái Ngừng dùng."
 }

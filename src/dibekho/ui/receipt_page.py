@@ -12,6 +12,7 @@ from dibekho.ui.common import (
     date_item,
     error,
     fill_table,
+    fit_window,
     fmt_date,
     hint_label,
     info,
@@ -29,7 +30,7 @@ def review_receipt(ctx, parent, item) -> bool:
     """Show the goods-in lines and record them on confirmation. Returns True if recorded."""
     dlg = QDialog(parent)
     dlg.setWindowTitle(t("inbox.receipt"))
-    dlg.resize(720, 480)
+    fit_window(dlg, 820, 520)
     lay = QVBoxLayout(dlg)
     lay.addWidget(QLabel(t("inbox.receipt_preview", date=fmt_date(item.receipt.doc_date))))
     if item.receipt.note:

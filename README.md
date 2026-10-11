@@ -110,7 +110,7 @@ Button names below are those of the English interface; the Vietnamese ones are i
 
 ### 1. First start
 
-Choose the language and the **working folder** (default `Documents/DiBeKho`), then click **Start**. Avoid a folder inside OneDrive, iCloud or Google Drive: syncing can damage the open database. The language can be changed later in **Settings → General**.
+Choose the language and the **working folder** (default `Documents/DiBeKho`), then click **Start**. Avoid a folder inside OneDrive, iCloud or Google Drive: syncing can damage the open database. The language can be changed later in **Settings → General**. There, **Text and button size** scales the whole interface (default 120%, choose 100–150%; close and reopen the app to apply).
 
 ### 2. Load the product catalog (once)
 
@@ -118,7 +118,7 @@ Choose the language and the **working folder** (default `Documents/DiBeKho`), th
 2. Check the preview: double-click a cell to fix it, untick rows you do not want. Rows already in the catalog are greyed out.
 3. Click **Import selected rows**. Importing the same file again only adds the new products.
 
-Single products can also be added in **Settings → Products → Add product**.
+Single products can also be added in **Settings → Products → Add product**. Select a row and press **Edit product…** (or double-click) to change its name, type/colour or group; **Delete product** only deletes a product that no document uses, otherwise the app offers to mark it *inactive* (hidden from lists, old documents unchanged). Long names: drag a column border wider, or hover a cell to read the full name.
 
 ### 3. Opening stock
 

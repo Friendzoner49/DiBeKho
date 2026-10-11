@@ -106,7 +106,7 @@ Cập nhật bản mới: cài đè lên bản cũ. Dữ liệu trong `Documents
 
 ### 1. Mở app lần đầu
 
-Chọn ngôn ngữ và **thư mục làm việc** (mặc định `Documents/DiBeKho`), rồi bấm **Bắt đầu**. Không nên chọn thư mục nằm trong OneDrive, iCloud hoặc Google Drive: đồng bộ đám mây có thể làm hỏng database đang mở. Đổi ngôn ngữ sau này ở **Cài đặt → Chung**.
+Chọn ngôn ngữ và **thư mục làm việc** (mặc định `Documents/DiBeKho`), rồi bấm **Bắt đầu**. Không nên chọn thư mục nằm trong OneDrive, iCloud hoặc Google Drive: đồng bộ đám mây có thể làm hỏng database đang mở. Đổi ngôn ngữ sau này ở **Cài đặt → Chung**. Cũng ở đó, **Cỡ chữ và nút** phóng to/thu nhỏ toàn bộ giao diện (mặc định 120%, chọn 100–150%; tắt và mở lại app để áp dụng).
 
 ### 2. Nạp danh mục mặt hàng (làm một lần)
 
@@ -114,7 +114,7 @@ Chọn ngôn ngữ và **thư mục làm việc** (mặc định `Documents/DiBe
 2. Xem bảng xem trước: nháy đúp vào ô để sửa, bỏ tick những dòng không cần. Dòng đã có trong danh mục hiện màu xám.
 3. Bấm **Nhập các dòng đã chọn**. Nhập lại cùng file nhiều lần chỉ thêm mặt hàng mới.
 
-Thêm từng mặt hàng lẻ ở **Cài đặt → Danh mục mặt hàng → Thêm mặt hàng**.
+Thêm từng mặt hàng lẻ ở **Cài đặt → Danh mục mặt hàng → Thêm mặt hàng**. Chọn một dòng rồi bấm **Sửa mặt hàng…** (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng; **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào, mặt hàng đã dùng thì app đề nghị chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
 
 ### 3. Tồn đầu kỳ
 

@@ -236,7 +236,7 @@
   "settings.device": "Computer name",
   "settings.version": "Version",
   "settings.products": "Product catalog",
-  "settings.products_hint": "Double-click a row to edit name, category, low-stock alert or deactivate the product.",
+  "settings.products_hint": "Select a row and press Edit product… (or double-click) to change the name, type/colour, group or low-stock level. Only a product that no document uses can be deleted; a used product can be marked inactive. Drag a column border to read long names.",
   "settings.add_product": "Add product",
   "settings.edit_product": "Edit product",
   "settings.active": "Active",
@@ -315,5 +315,11 @@
   "inbox.confirm_hide": "Hide '{name}' from the list?\n\nThe file stays in the input folder; the app just stops reminding you (unless the file changes).",
   "receipts.pick_file": "Choose a file to import…",
   "receipts.pick_file_tip": "Pick a goods-in file or a catalog sheet from anywhere, including input/da-xu-ly",
-  "receipts.picked_done": "Imported."
+  "receipts.picked_done": "Imported.",
+  "settings.ui_scale": "Text and button size",
+  "settings.edit_product_btn": "Edit product…",
+  "settings.delete_product": "Delete product",
+  "settings.confirm_delete_product": "Delete product {name}?\n\nNo document uses it. Delivery-note names learned for it are forgotten too (they will be asked again under To do).",
+  "settings.delete_used": "{name} is in {docs} documents and cannot be deleted: that would break the history and the stock.\n\nMark it “inactive” instead? It disappears from Stock, Stock count, Goods in and the product pickers; old documents stay as they are.",
+  "settings.delete_used_inactive": "{name} is in {docs} documents and cannot be deleted (that would break the history and the stock). It is already inactive."
 }

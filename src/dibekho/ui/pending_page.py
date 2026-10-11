@@ -104,8 +104,10 @@ class PendingPage(Page):
             for c in (NAME, ORDERS):
                 self.unknown.item(r, c).setToolTip(self.unknown.item(r, c).text().replace("; ", chr(10)))
         # long product names: fixed widths instead of fitting the (very wide) contents
-        for col, width in ((NAME, 240), (NAME_ZH, 120), (SPEC, 100), (ORDERS, 190), (DROP, 110)):
+        for col, width in ((NAME, 240), (NAME_ZH, 130), (SPEC, 110), (ORDERS, 160), (DROP, 110), (CHOICE, 240)):
             self.unknown.setColumnWidth(col, width)
+        self.unknown.natural = 240  # takes the spare width; the drop-down list itself is as wide as the longest name
+        self.unknown.fill_spare()
         self.unknown_box.setVisible(bool(self._unknown))
 
         rows = [r for r in deliveries.pending_files(conn) if r["status"] != "needs_mapping"]
@@ -139,7 +141,7 @@ class PendingPage(Page):
         combo.completer().setFilterMode(Qt.MatchContains)
         combo.completer().setCompletionMode(QCompleter.PopupCompletion)
         combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        combo.setMinimumContentsLength(20)
+        combo.setMinimumContentsLength(32)
         combo.addItem(t("pending.create_new"), NEW)
         combo.addItem(t("pending.skip"), SKIP)
         combo.addItem(t("pending.later"), LATER)
@@ -147,8 +149,14 @@ class PendingPage(Page):
             combo.addItem(catalog.long_label(p), p["id"])
         combo.setCurrentIndex(combo.findData(self._default_choice(u)))
         combo.lineEdit().setCursorPosition(0)  # show the start of the long label (code, name)
+        # the drop-down list is as wide as the longest name, so every product name can be read in full
+        metrics = combo.fontMetrics()
+        widest = max(metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+        combo.view().setMinimumWidth(widest + 40)
+        combo.setToolTip(combo.currentText())
         combo.currentIndexChanged.connect(lambda _=0, row=r: self._restyle(row))
         combo.currentIndexChanged.connect(lambda _=0, c=combo: c.lineEdit().setCursorPosition(0))
+        combo.currentTextChanged.connect(combo.setToolTip)
         return combo
 
     def _choice(self, r):

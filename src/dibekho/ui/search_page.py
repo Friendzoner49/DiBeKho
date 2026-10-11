@@ -3,12 +3,11 @@ from PySide6.QtWidgets import QDialog, QGroupBox, QHBoxLayout, QLabel, QLineEdit
 
 from dibekho.core import queries
 from dibekho.i18n import t
-from dibekho.ui.common import date_item, fill_table, kind_text, make_table, num_item, row_id, status_text
+from dibekho.ui.common import date_item, fill_table, fit_window, kind_text, make_table, num_item, row_id, status_text
 from dibekho.ui.details import CustomerDialog, DocumentDialog, ProductDialog
 from dibekho.ui.orders_page import CustomersPage, OrdersPage
 from dibekho.ui.page import Page
 from dibekho.ui.stats_page import StatsPage
-
 
 WINDOWS = (("search.orders_btn", OrdersPage), ("search.customers_btn", CustomersPage), ("search.stats_btn", StatsPage))
 
@@ -21,7 +20,7 @@ class PageWindow(QDialog):
         self.page = page
         self.setWindowTitle(page.title_text)
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
-        self.resize(1200, 760)
+        fit_window(self, 1200, 760)
         QVBoxLayout(self).addWidget(page)
 
 

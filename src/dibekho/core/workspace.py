@@ -101,6 +101,7 @@ class Config:
     language: str = "vi"
     device_id: str = ""
     device_name: str = ""
+    ui_scale: float = 1.2  # size of text, cells and buttons (1.2 = 120%, easier to read on a laptop)
 
     @staticmethod
     def path() -> Path:

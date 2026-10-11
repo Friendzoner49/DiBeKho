@@ -6,6 +6,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from dibekho import i18n  # noqa: E402
@@ -234,4 +235,45 @@ def test_apply_imports_approved_lines_and_keeps_the_rest_waiting(app, ws, monkey
     assert ctx.conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 1
     assert ctx.conn.execute("SELECT name FROM customers").fetchone()[0] == "Khách Chờ"
     assert [page.unknown.item(r, 0).text() for r in range(page.unknown.rowCount())] == ["Hàng chưa duyệt"]
+    win.close()
+
+
+def test_settings_edit_and_delete_buttons(app, ws, monkeypatch):
+    import dibekho.ui.settings_page as settings_mod
+
+    errors = []
+    monkeypatch.setattr(settings_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(settings_mod, "error", lambda parent, text: errors.append(text))
+    monkeypatch.setattr(settings_mod.ProductEditor, "exec", lambda self: (self.name_vi.setText("Tên mới"),
+                                                                          self.save(), self.result())[2])
+    i18n.set_language("vi")
+    from dibekho.core import catalog
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import MainWindow
+
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    used, _ = setup_notes(ctx.conn, ws)
+    spare = catalog.create_product(ctx.conn, "Sơn thừa")
+    win = MainWindow(ctx)
+    win.show()
+    settings = win.stack.widget(win.stack.count() - 1)
+    win.nav.setCurrentRow(win.stack.count() - 1)
+    app.processEvents()
+
+    def select(pid):
+        row = next(r for r in range(settings.table.rowCount()) if settings.table.item(r, 0).data(Qt.UserRole) == pid)
+        settings.table.selectRow(row)
+
+    select(spare)
+    settings.edit_selected()
+    assert ctx.conn.execute("SELECT name_vi FROM products WHERE id = ?", (spare,)).fetchone()[0] == "Tên mới"
+    select(spare)
+    settings.delete_selected()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products WHERE id = ?", (spare,)).fetchone()[0] == 0
+    select(used)  # in documents: kept, marked inactive instead
+    settings.delete_selected()
+    assert ctx.conn.execute("SELECT active FROM products WHERE id = ?", (used,)).fetchone()[0] == 0
+    select(used)
+    settings.delete_selected()
+    assert len(errors) == 1
     win.close()

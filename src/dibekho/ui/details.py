@@ -22,12 +22,13 @@ from dibekho.core.stock import close_document
 from dibekho.core.text import fmt_qty
 from dibekho.i18n import t
 from dibekho.ui.common import (
-    AppContext,
     RED,
+    AppContext,
     ask,
     date_item,
     error,
     fill_table,
+    fit_window,
     fmt_date,
     from_qdate,
     hint_label,
@@ -63,7 +64,7 @@ class _Base(QDialog):
         super().__init__(parent)
         self.ctx = ctx
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
-        self.resize(980, 640)
+        fit_window(self, 1100, 700)
         self.layout_ = QVBoxLayout(self)
 
     def add_close(self) -> None:

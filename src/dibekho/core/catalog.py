@@ -47,6 +47,26 @@ def update_product(conn, product_id, **fields) -> None:
     db.touch(conn)
 
 
+def product_documents(conn, product_id) -> int:
+    """How many documents (any status, cancelled ones too) have a line with this product."""
+    return conn.execute(
+        "SELECT COUNT(DISTINCT document_id) FROM ("
+        " SELECT document_id FROM document_lines WHERE product_id = ?"
+        " UNION ALL SELECT document_id FROM stock_movements WHERE product_id = ?)",
+        (product_id, product_id),
+    ).fetchone()[0]
+
+
+def delete_product(conn, product_id) -> None:
+    """Delete a product that no document uses, with the delivery-note names learned for it.
+    A product that is in documents is kept (history and stock must stay right): set it inactive instead."""
+    if product_documents(conn, product_id):
+        raise ValueError("Mặt hàng đã có trong phiếu, không xoá được.")
+    conn.execute("DELETE FROM product_aliases WHERE product_id = ?", (product_id,))
+    conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
+    db.touch(conn)
+
+
 def products(conn, include_inactive=False) -> list[sqlite3.Row]:
     sql = "SELECT * FROM products"
     if not include_inactive:

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from dibekho.core import catalog
 from dibekho.excel.catalog_sheet import CatalogItem, NotCatalogSheet, read_catalog
 from dibekho.i18n import t
-from dibekho.ui.common import GREY, error, fill_table, hint_label, info, make_table
+from dibekho.ui.common import GREY, error, fill_table, fit_window, hint_label, info, make_table
 
 # editable columns -> CatalogItem field
 FIELDS = ("name_vi", "name_zh", "spec", "variant", "unit", "category")
@@ -28,7 +28,7 @@ class CatalogImportDialog(QDialog):
         self.ctx = ctx
         self.setWindowTitle(t("catalog.title", file=path.name))
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
-        self.resize(1200, 720)
+        fit_window(self, 1200, 720)
         lay = QVBoxLayout(self)
         lay.addWidget(hint_label(t("catalog.hint")))
 

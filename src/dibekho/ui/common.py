@@ -133,8 +133,41 @@ def text_item(value) -> QTableWidgetItem:
     return QTableWidgetItem("" if value is None else str(value))
 
 
+MAX_COLUMN_WIDTH = 520  # long product names: wider columns; the user can still drag any column wider
+
+
+def fit_window(widget: QWidget, width: int, height: int) -> None:
+    """resize() that never makes a window larger than the screen (the UI may be scaled up, e.g. 120%)."""
+    screen = widget.screen() or QApplication.primaryScreen()
+    if screen is not None:
+        avail = screen.availableGeometry()
+        width, height = min(width, int(avail.width() * 0.96)), min(height, int(avail.height() * 0.92))
+    widget.resize(width, height)
+
+
+class Table(QTableWidget):
+    """Every column can be dragged wider (or double-click its border to fit its contents).
+    The 'stretch' column also takes the spare width when the window is wider than the columns."""
+
+    def __init__(self, rows: int, columns: int, stretch: int | None):
+        super().__init__(rows, columns)
+        self.stretch = stretch
+        self.natural = 0  # width of the stretch column before it took the spare width
+
+    def fill_spare(self) -> None:
+        if self.stretch is None or self.stretch >= self.columnCount():
+            return
+        others = sum(self.columnWidth(c) for c in range(self.columnCount()) if c != self.stretch)
+        self.natural = self.natural or self.columnWidth(self.stretch)
+        self.setColumnWidth(self.stretch, max(self.natural, self.viewport().width() - others))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fill_spare()
+
+
 def make_table(headers: list[str], stretch: int | None = 1) -> QTableWidget:
-    table = QTableWidget(0, len(headers))
+    table = Table(0, len(headers), stretch)
     table.setHorizontalHeaderLabels(headers)
     table.setEditTriggers(QAbstractItemView.NoEditTriggers)
     table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -147,8 +180,6 @@ def make_table(headers: list[str], stretch: int | None = 1) -> QTableWidget:
     header.setHighlightSections(False)
     # Keep the order the query returns until the user clicks a column header.
     header.setSortIndicator(-1, Qt.AscendingOrder)
-    if stretch is not None:
-        header.setSectionResizeMode(stretch, QHeaderView.Stretch)
     return table
 
 
@@ -164,12 +195,17 @@ def fill_table(table: QTableWidget, rows: list[list], ids: list | None = None, c
                 item.setData(Qt.UserRole, ids[r])
             if colors and colors[r] is not None:
                 item.setBackground(QBrush(colors[r]))
+            if len(item.text()) > 20:
+                item.setToolTip(item.text())  # hover shows the whole name even in a narrow column
             table.setItem(r, c, item)
     table.setSortingEnabled(True)
     table.resizeColumnsToContents()
     for c in range(table.columnCount()):
-        if table.columnWidth(c) > 380:
-            table.setColumnWidth(c, 380)
+        if table.columnWidth(c) > MAX_COLUMN_WIDTH:
+            table.setColumnWidth(c, MAX_COLUMN_WIDTH)
+    if isinstance(table, Table):
+        table.natural = 0  # the width that fits the new contents
+        table.fill_spare()
 
 
 def selected_id(table: QTableWidget):
