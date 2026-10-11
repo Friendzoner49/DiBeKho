@@ -98,6 +98,12 @@ Click the **Windows** or **macOS** badge at the top to download the latest versi
 | **macOS** (Apple Silicon, macOS 13+) | Open `DiBeKho-mac-arm64.dmg` and drag **DiBeKho** into **Applications** | Blocked because the app is not notarised: *System Settings → Privacy & Security → **Open Anyway***. Allow access to Documents. |
 | **Windows** 10/11 | Run `DiBeKho-windows-setup.exe` | If SmartScreen warns: *More info → **Run anyway*** |
 
+**Mac still shows "Move to Trash / Done" every time?** Open **Terminal**, paste the command below and press Enter (once after each install). It only removes the "downloaded from the internet" mark from DiBeKho:
+
+```
+xattr -dr com.apple.quarantine /Applications/DiBeKho.app
+```
+
 To update, install the new version over the old one. Your data in `Documents/DiBeKho` is kept.
 
 **Uninstall:**

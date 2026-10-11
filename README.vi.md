@@ -93,8 +93,14 @@ Bấm nút **Windows** hoặc **macOS** ở đầu trang để tải (luôn là 
 
 | | Cách cài | Lần đầu mở |
 |---|---|---|
-| **macOS** (Apple Silicon, macOS 13+) | Mở `DiBeKho-x.y.z-mac-arm64.dmg`, kéo **DiBeKho** vào **Applications** | Bị chặn vì app chưa ký số: *Cài đặt hệ thống → Quyền riêng tư & Bảo mật → **Vẫn mở***. Cho phép truy cập Documents. |
-| **Windows** 10/11 | Chạy `DiBeKho-x.y.z-windows-setup.exe` (hoặc giải nén bản portable) | Nếu SmartScreen cảnh báo: *Thông tin thêm → **Vẫn chạy*** |
+| **macOS** (Apple Silicon, macOS 13+) | Mở `DiBeKho-mac-arm64.dmg`, kéo **DiBeKho** vào **Applications** | Bị chặn vì app chưa ký số: *Cài đặt hệ thống → Quyền riêng tư & Bảo mật → **Vẫn mở***. Cho phép truy cập Documents. |
+| **Windows** 10/11 | Chạy `DiBeKho-windows-setup.exe` | Nếu SmartScreen cảnh báo: *Thông tin thêm → **Vẫn chạy*** |
+
+**Mac vẫn báo "Chuyển vào Thùng rác / Xong" mỗi lần mở?** Mở **Terminal**, dán lệnh dưới rồi Enter (làm một lần sau mỗi lần cài bản mới). Lệnh chỉ bỏ dấu "tải từ internet" của DiBeKho:
+
+```
+xattr -dr com.apple.quarantine /Applications/DiBeKho.app
+```
 
 Cập nhật bản mới: cài đè lên bản cũ. Dữ liệu trong `Documents/DiBeKho` được giữ nguyên.
 
