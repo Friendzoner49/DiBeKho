@@ -400,9 +400,22 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Repo sạch thông tin cá nhân/khách (lịch sử gộp lại); README tiếng Anh (mặc định) + tiếng Việt, có hướng dẫn sử dụng.
 - File đối chiếu `DiBeKho-du-lieu-goc.xlsx` (gitignored) để so kết quả app với dữ liệu gốc.
 
-**Giai đoạn 2 — bắt đầu 11/10/2026 (khách đã dùng ổn định).** Yêu cầu đợt 1 (đã làm): cột bảng kéo rộng được + rê chuột xem đủ tên, ô chọn mặt hàng ở Cần xử lý hiện đủ tên; nút Sửa/Xoá mặt hàng trong Cài đặt; giao diện to 120% cho Mac 14" (`Config.ui_scale` → `QT_SCALE_FACTOR`, đổi ở Cài đặt → Chung).
+### Tổng kết giai đoạn 2 (đóng 11/10/2026)
 
-**Việc giai đoạn 2 còn treo:** thu phản hồi của khách → ghi vào file này trước → sửa/thêm tính năng. Việc treo lại:
+**Kết quả:** DiBeKho **0.2.0** (tag `v0.2.0`, GitHub Releases; Release `v0.1.0` vẫn giữ để quay lại nếu cần). Khách đã dùng ổn định; giai đoạn này làm theo phản hồi dùng thật. 65 test qua (+2 bỏ qua khi thiếu `samples/`).
+- **Dữ liệu gốc (Excel)**: xuất/nhập mặt hàng + khách hàng trong Cài đặt, nhập ở máy khác giữ nguyên mã (mục 9.4b).
+- **Thư mục `input/`**: nhận ra file danh mục; file không dùng được chỉ **Ẩn**, không bị chuyển đi; nút **Chọn file để nhập…** (chọn được cả file trong `da-xu-ly`) (mục 9.3).
+- **Sau khi nhập gói từ máy cũ**: hết lỗi "Cần xử lý (3)" mà trang trống (mục 9.4).
+- **Phiếu duyệt một phần**: Áp dụng → ghi các dòng đã duyệt + khách; dòng "Để sau" thêm vào đúng đơn khi duyệt. Dữ liệu phiếu/khách chỉ vào app khi phiếu đã được duyệt (bảo mật) (mục 9.2).
+- **Yêu cầu của khách (đợt 1)**: cột bảng kéo rộng được + rê chuột xem đủ tên, ô chọn mặt hàng ở Cần xử lý hiện đủ tên; nút **Sửa mặt hàng… / Xoá mặt hàng** trong Cài đặt (chỉ xoá mặt hàng chưa có trong phiếu, đã dùng → Ngừng dùng); giao diện **120%** cho Mac 14" (`Config.ui_scale` → `QT_SCALE_FACTOR`, đổi ở Cài đặt → Chung → Cỡ chữ và nút).
+- **Mở app trên Mac**: README có lệnh `xattr -dr com.apple.quarantine /Applications/DiBeKho.app` khi macOS cứ báo "Chuyển vào Thùng rác / Xong". File bấm đúp (`.command`) **không** giúp được (cũng bị chặn).
+
+**Chưa xác nhận khi đóng giai đoạn:** build `v0.2.0` trên GitHub Actions có thành công không; bản 0.2.0 chạy trên Mac thật (giao diện 120%, cửa sổ vừa màn hình 14"); cách chép `.dmg` qua USB từ máy Windows có tránh được hộp chặn của macOS không.
+
+**Giai đoạn 3 (khi có phản hồi mới):** thu phản hồi của khách → ghi vào file này trước → sửa/thêm tính năng. Quyết định đang chờ người dùng:
+- Cách để khách lớn tuổi mở/cập nhật app trên Mac không cần Terminal: (1) chép `.dmg` qua USB từ máy Windows (miễn phí, cần thử); (2) người dùng chạy lệnh `xattr` một lần trên máy khách + thêm **tự cập nhật** trong app (cần chuyển repo sang public hoặc nơi đặt file khác); (3) Apple Developer 99$/năm (ký số + công chứng trong workflow).
+
+**Việc còn treo từ các giai đoạn trước:**
 - Cài lên máy khách (Windows + Mac M3), **kiểm kê đầu kỳ** cùng khách (C1–C2), chạy song song với Excel 2–4 tuần (C3).
 - Câu hỏi còn mở ở mục 5: Windows 10 hay 11; cách chuyển file giữa các máy; thư mục phiếu có nằm trong Google Drive/OneDrive/iCloud không; có file `.xls` cũ không; nhà cung cấp có gửi file hàng về không; có cần nhập lại phiếu tháng 8–9 không.
 - Chưa thử thực tế: bộ cài Windows (Inno Setup) và trình gỡ trên máy sạch; tự gỡ trên Mac; số liệu với nhiều tháng phiếu thật.
@@ -507,6 +520,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
 | 2026-10-10 | Người dùng chọn **ghi phần đã duyệt** của phiếu (cách 1): Áp dụng → phiếu vào kho với các dòng đã duyệt + khách; dòng Để sau thêm vào đúng đơn khi duyệt. Phiếu sửa "Dùng bản mới" cũng cho phép một phần. 62 test. Chuyển tag `v0.1.0`. |
+| 2026-10-11 | **Đóng giai đoạn 2** (người dùng xác nhận). Bản hiện tại 0.2.0. Thêm "Tổng kết giai đoạn 2" và "Giai đoạn 3" vào mục 13. |
 | 2026-10-11 | Người dùng muốn thay lệnh Terminal bằng một file bấm đúp. **Không làm**: file `.command`/script nằm trong `.dmg` tải về cũng bị gắn quarantine và macOS 15+ chặn y như app (cùng hộp "Thùng rác / Xong"), nên không bớt được bước nào. Đề xuất thay thế: chép `.dmg` qua USB từ máy Windows (không mang dấu quarantine, chưa thử thực tế), người dùng tự chạy lệnh một lần trên máy khách + app tự cập nhật về sau, hoặc Apple Developer 99$/năm. Chờ người dùng chọn. |
 | 2026-10-11 | Người dùng hỏi: (1) chuyển máy bằng gói `.dibekho` = **thay toàn bộ** dữ liệu máy nhận (có sao lưu trước, cảnh báo nếu máy nhận có thao tác chưa xuất); Excel dữ liệu gốc = **gộp** (cập nhật theo mã/SĐT, thêm mới, không xoá). (2) Mac vẫn hiện "Chuyển vào Thùng rác / Xong": không sửa được bằng code khi chưa ký Developer ID + công chứng Apple (99$/năm); cách miễn phí: `xattr -dr com.apple.quarantine /Applications/DiBeKho.app` một lần mỗi lần cài (thêm vào README). Chờ người dùng quyết định có mua Apple Developer không. |
 | 2026-10-11 | **Phát hành 0.2.0** (người dùng chọn số mới cho giai đoạn 2, thay vì chuyển tag `v0.1.0`). Tag `v0.2.0`; Release `v0.1.0` vẫn giữ trên GitHub, nút tải trong README trỏ `releases/latest` → 0.2.0. Cài đè lên 0.1.0: dữ liệu giữ nguyên, `config.json` cũ không có `ui_scale` → tự nhận 120%. |
