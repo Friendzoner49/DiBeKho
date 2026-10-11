@@ -252,7 +252,7 @@
   "catalog.import_btn": "Nhập danh mục từ Excel…",
   "catalog.pick_file": "Chọn file Excel danh mục (bảng thống kê tháng)",
   "catalog.title": "Nhập danh mục — {file}",
-  "catalog.hint": "Kiểm tra từng dòng. Nháy đúp vào ô để sửa tên, quy cách, loại/màu, đơn vị, nhóm hàng. Bỏ tick những dòng không muốn nhập. Mặt hàng đã có (cùng tên, quy cách, loại) sẽ được bỏ qua.",
+  "catalog.hint": "Kiểm tra từng dòng. Nháy đúp vào ô để sửa tên, quy cách, loại/màu, đơn vị, nhóm hàng hoặc số tồn. Bỏ tick dòng không muốn nhập. Mặt hàng đã có (trùng tên, quy cách, loại) không bị tạo lại; tick dòng đó nếu chỉ muốn cập nhật số tồn.",
   "catalog.row": "Dòng",
   "catalog.new": "Mới",
   "catalog.exists": "Đã có",
@@ -330,5 +330,13 @@
   "reset.confirm_all": "Xoá toàn bộ dữ liệu?\n\nApp trở về như vừa cài: không mặt hàng, không phiếu, không khách, tồn kho trống. Chỉ giữ cài đặt (ngôn ngữ, cỡ chữ, thư mục làm việc).\n\nApp sao lưu trước khi xoá.",
   "reset.confirm_all_again": "Bạn chắc chắn chứ? Bấm Có để xoá toàn bộ dữ liệu.",
   "reset.done_stock": "Đã đặt lại tồn kho. Đã chuyển {files} file phiếu ra phieu-giao-hang để đọc lại. Phiếu nào có tên hàng chưa biết sẽ hiện ở Cần xử lý.",
-  "reset.done_all": "Đã xoá toàn bộ dữ liệu. Đã chuyển {files} file phiếu ra phieu-giao-hang. Nạp lại danh mục mặt hàng rồi duyệt phiếu ở Cần xử lý."
+  "reset.done_all": "Đã xoá toàn bộ dữ liệu. Đã chuyển {files} file phiếu ra phieu-giao-hang. Nạp lại danh mục mặt hàng rồi duyệt phiếu ở Cần xử lý.",
+  "catalog.col_stock": "Tồn kho (cột F)",
+  "catalog.use_stock": "Ghi số tồn kho trong file (cột F) làm tồn kho của app, tính đến ngày",
+  "catalog.stock_hint": "Số tồn được ghi như một lần kiểm kê: tồn trên app sẽ bằng đúng số trong file vào ngày đã chọn (phiếu giao hàng sau ngày đó vẫn được trừ tiếp). Áp dụng cho các dòng được tick, kể cả mặt hàng đã có. Ô tồn để trống = không đổi tồn mặt hàng đó. Nháy đúp ô để sửa số.",
+  "catalog.stock_note": "Tồn kho từ file {file}",
+  "catalog.stock_done": "Đã ghi tồn kho của {count} mặt hàng theo file (ngày {date}).",
+  "master.sheet_stock": "Tồn kho",
+  "master.title_stock": "BẢNG TỒN KHO",
+  "master.col_type": "Phân loại"
 }

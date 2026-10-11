@@ -5,6 +5,7 @@ import re
 import sqlite3
 
 from dibekho import db
+from dibekho.core.stock import stock_count
 from dibekho.core.text import clean, normalize_phone, unaccent
 
 
@@ -91,18 +92,29 @@ def find_same(conn, name_vi, spec, variant):
     ).fetchone()
 
 
-def import_catalog(conn, items) -> tuple[int, int]:
-    """Create products that do not exist yet (same name + spec + variant). Returns (created, skipped)."""
+def import_catalog(conn, items, stock_date=None, note="") -> tuple[int, int, int]:
+    """Create products that do not exist yet (same name + spec + variant). Returns (created, skipped, counted).
+
+    stock_date given: the sheet's stock (item.stock) of every item, new or existing, is recorded as a stock
+    count on that date, so the app's stock becomes exactly the sheet's number. One transaction."""
     created = skipped = 0
+    counted: dict[int, float] = {}
     with db.transaction(conn):
         for it in items:
-            if find_same(conn, it.name_vi, it.spec, it.variant):
+            same = find_same(conn, it.name_vi, it.spec, it.variant)
+            if same:
                 skipped += 1
-                continue
-            create_product(conn, it.name_vi, it.name_zh, it.spec, it.unit, it.category, variant=it.variant)
-            created += 1
-        db.log(conn, "catalog_import", f"{created} created, {skipped} skipped")
-    return created, skipped
+                pid = same["id"]
+            else:
+                pid = create_product(conn, it.name_vi, it.name_zh, it.spec, it.unit, it.category,
+                                     variant=it.variant)
+                created += 1
+            if stock_date is not None and getattr(it, "stock", None) is not None:
+                counted[pid] = it.stock
+        if counted:
+            stock_count(conn, stock_date, counted, note)
+        db.log(conn, "catalog_import", f"{created} created, {skipped} skipped, {len(counted)} stock")
+    return created, skipped, len(counted)
 
 
 def categories(conn) -> list[str]:

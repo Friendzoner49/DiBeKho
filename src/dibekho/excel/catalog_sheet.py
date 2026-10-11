@@ -4,7 +4,9 @@ Layout (by label, not position): a header row with 'Tên sản phẩm' and 'Phâ
 below it. Column A = Vietnamese name + Chinese name on two lines, column B = category for single rows.
 When column A is merged over several rows, each row is a variant of the same product and column B
 holds the variant (纯原料 / 再生料 / 瑞德牌 / 纯白色) instead of a category.
-Pure function: workbook in, list of items out. Quantities in the sheet are ignored.
+The stock of each row is read from the 'Lượng tồn kho còn lại' / 利余库存 column (F); the other quantity
+columns (last month, in, out) and column G are ignored.
+Pure function: workbook in, list of items out.
 """
 
 import re
@@ -13,7 +15,7 @@ from pathlib import Path
 
 import openpyxl
 
-from dibekho.core.text import clean, has_cjk, nfc, unaccent
+from dibekho.core.text import clean, has_cjk, nfc, parse_number, unaccent
 
 CATEGORY_NAMES = {
     "涂料类": "Sơn, vữa, keo (涂料类)",
@@ -52,6 +54,7 @@ class CatalogItem:
     unit: str
     category: str
     variant: str
+    stock: float | None = None  # 'Lượng tồn kho còn lại' in the sheet; None when the cell is empty
 
 
 class NotCatalogSheet(Exception):
@@ -74,14 +77,17 @@ def read_catalog(path: Path | str) -> list[CatalogItem]:
 
 
 def _read_sheet(ws) -> list[CatalogItem] | None:
-    header_row = name_col = type_col = None
+    header_row = name_col = type_col = stock_col = None
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         for cell in row:
-            plain = unaccent(str(cell.value or ""))
+            raw_label = str(cell.value or "")
+            plain = unaccent(raw_label)
             if "ten san pham" in plain:
                 header_row, name_col = cell.row, cell.column
             elif "phan loai" in plain:
                 type_col = cell.column
+            elif "ton kho con lai" in plain or "利余库存" in raw_label or "剩余库存" in raw_label:
+                stock_col = cell.column
         if header_row:
             break
     if header_row is None:
@@ -115,8 +121,22 @@ def _read_sheet(ws) -> list[CatalogItem] | None:
         if not clean(text):
             continue
         grouped = start is not None and (block_size.get(start, 1) > 1 or start != r)
-        items.append(_item(r, str(text), kind, grouped))
+        item = _item(r, str(text), kind, grouped)
+        if stock_col:
+            item.stock = _stock(ws.cell(r, stock_col).value)
+        items.append(item)
     return items
+
+
+def _stock(value) -> float | None:
+    if value is None or clean(value) == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return parse_number(str(value))
+    except ValueError:
+        return None
 
 
 def _item(row: int, text: str, kind: str, grouped: bool) -> CatalogItem:

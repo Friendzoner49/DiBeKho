@@ -7,6 +7,7 @@ Layout (fixed, so the file reads back whatever the interface language was):
   sheet 1 = products, sheet 2 = customers; A1 starts with MARKER; header in row 4; data from row 5.
   products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | min_stock | active
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
+  sheet 3 = stock, like the customer's monthly stock sheet: name | type | stock (for reading only, not imported)
 """
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from dibekho.core.stock import stock_levels
 from dibekho.core.text import clean
 from dibekho.i18n import t
 
@@ -83,12 +85,29 @@ def export(path: Path, conn) -> Path:
            [t("master.col_no"), t("col.customer"), t("col.phone"), t("col.contact"), t("col.address"),
             t("master.col_orders")],
            rows, [5, 36, 15, 18, 48, 9])
+
+    ws3 = wb.create_sheet(t("master.sheet_stock"))
+    levels = stock_levels(conn)
+    # by code = the row order of the monthly sheet the catalog was loaded from
+    active = conn.execute("SELECT * FROM products WHERE active = 1 ORDER BY code")
+    rows = [[_stock_name(p), " · ".join(x for x in (p["category"], p["variant"]) if x), levels.get(p["id"], 0)]
+            for p in active]
+    _sheet(ws3, t("master.title_stock"), [t("col.product"), t("master.col_type"), t("col.stock")],
+           rows, [52, 28, 12], freeze="B5")
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
 
 
-def _sheet(ws, title, headers, rows, widths, date_col=None):
+def _stock_name(p) -> str:
+    """Like column A of the monthly sheet: Vietnamese name (with packing) on line 1, Chinese name on line 2."""
+    first = p["name_vi"]
+    if p["spec"] and p["spec"].casefold() not in first.casefold():
+        first += f" ({p['spec']})"
+    return f"{first}\n{p['name_zh']}" if p["name_zh"] and p["name_zh"] != p["name_vi"] else first
+
+
+def _sheet(ws, title, headers, rows, widths, date_col=None, freeze="C5"):
     ws.append([f"{MARKER} – {title}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([t("master.note", at=datetime.now().strftime("%d/%m/%Y %H:%M"))])
@@ -107,7 +126,7 @@ def _sheet(ws, title, headers, rows, widths, date_col=None):
             ws.cell(ws.max_row, date_col).number_format = "dd/mm/yyyy"
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    ws.freeze_panes = "C5"
+    ws.freeze_panes = freeze
     ws.auto_filter.ref = f"A{HEADER_ROW}:{get_column_letter(len(headers))}{max(ws.max_row, HEADER_ROW)}"
 
 

@@ -11,16 +11,18 @@ def make_sheet(path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(["Bảng thống kê nhập - xuất kho tháng 7"])
-    ws.append(["商品名称\nTên sản phẩm", "分类\nPhân loại", "Tồn kho tháng trước"])
+    # columns as in the customer's sheet: C last month, D in, E out, F stock left (read), G notes (ignored)
+    ws.append(["商品名称\nTên sản phẩm", "分类\nPhân loại", "上月库存\nTồn kho tháng trước", "入库总量\nTổng lượng nhập kho",
+               "出库总量\nTổng lượng xuất kho", "利余库存\nLượng tồn kho còn lại", "\n公司剩余的产品。\nMặt hàng ở công ty"])
     ws.append([None, None])
-    ws.append(["A", "B", "C"])
-    ws.append(["Sơn FS-101 (20KG)\n雨堡垒FS-101防水涂料   （白色）", "涂料类", 179])
-    ws.append(["Sơn FS-101 (10KG)\n雨堡垒FS-101防水涂料   （浅灰色）", "涂料类", 0])
-    ws.append(["Vải polyester 65g/m² (1m*100m/Cuộn)\n缝织聚酯布65g", "聚酯布", 117])
-    ws.append(["MÀNG PPP (33 kg)\n高分子聚乙烯丙纶防水卷材(33 kg)", "纯原料", 148])
-    ws.append([None, "再生料", 30])
+    ws.append(["A", "B", "C", "D", "E", "F", "G"])
+    ws.append(["Sơn FS-101 (20KG)\n雨堡垒FS-101防水涂料   （白色）", "涂料类", 179, 0, 0, 120, 6])
+    ws.append(["Sơn FS-101 (10KG)\n雨堡垒FS-101防水涂料   （浅灰色）", "涂料类", 0, 0, 0, 57, "1 已打开"])
+    ws.append(["Vải polyester 65g/m² (1m*100m/Cuộn)\n缝织聚酯布65g", "聚酯布", 117, 0, 0, 103, "1已用"])
+    ws.append(["MÀNG PPP (33 kg)\n高分子聚乙烯丙纶防水卷材(33 kg)", "纯原料", 148, 0, 0, 103, "1已用"])
+    ws.append([None, "再生料", 30, 0, 0, 64])
     ws.merge_cells("A8:A9")
-    ws.append(["袋装胶粉", None, 74])
+    ws.append(["袋装胶粉", None, 74, None, 0, None])
     wb.save(path)
     return path
 
@@ -36,12 +38,32 @@ def test_reads_products_variants_and_specs(tmp_path):
         ("MÀNG PPP", "高分子聚乙烯丙纶防水卷材", "33KG", "cuộn", "Màng PPE/PPP (卷材)", "Tái chế (再生料)"),
         ("袋装胶粉", "袋装胶粉", "", "gói", "", ""),
     ]
+    assert [i.stock for i in items] == [120, 57, 103, 103, 64, None]  # column F; G is ignored
+
+
+def test_import_records_the_sheet_stock(conn, tmp_path):
+    from datetime import date
+
+    from dibekho.core.stock import stock_levels
+
+    items = read_catalog(make_sheet(tmp_path / "t7.xlsx"))
+    assert catalog.import_catalog(conn, items, date(2026, 10, 11)) == (6, 0, 5)
+    stock = {(p["spec"], p["variant"]): stock_levels(conn).get(p["id"], 0)
+             for p in conn.execute("SELECT * FROM products")}
+    assert stock[("20KG", "Trắng")] == 120 and stock[("33KG", "Tái chế (再生料)")] == 64
+    assert stock[("", "")] == 0  # empty cell: no count for that product
+    # importing again with new numbers sets the stock to the new numbers (a stock count, not an addition)
+    for it in items:
+        if it.stock is not None:
+            it.stock += 1
+    assert catalog.import_catalog(conn, items, date(2026, 10, 12)) == (0, 6, 5)
+    assert sum(stock_levels(conn).values()) == 120 + 57 + 103 + 103 + 64 + 5
 
 
 def test_import_twice_skips_existing(conn, tmp_path):
     items = read_catalog(make_sheet(tmp_path / "t7.xlsx"))
-    assert catalog.import_catalog(conn, items) == (6, 0)
-    assert catalog.import_catalog(conn, items) == (0, 6)
+    assert catalog.import_catalog(conn, items) == (6, 0, 0)
+    assert catalog.import_catalog(conn, items) == (0, 6, 0)
 
 
 def test_delivery_note_is_not_a_catalog(tmp_path):

@@ -1,10 +1,13 @@
 """Import the product catalog from the customer's monthly stock sheet, with an editable preview."""
 
+from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
+    QDateEdit,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -13,19 +16,31 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from dibekho.core import catalog
+from dibekho.core import catalog, deliveries
+from dibekho.core.text import fmt_qty, parse_number
 from dibekho.excel.catalog_sheet import CatalogItem, NotCatalogSheet, read_catalog
 from dibekho.i18n import t
-from dibekho.ui.common import GREY, error, fill_table, fit_window, hint_label, info, make_table
+from dibekho.ui.common import (
+    GREY,
+    error,
+    fill_table,
+    fit_window,
+    from_qdate,
+    hint_label,
+    info,
+    make_table,
+    to_qdate,
+)
 
 # editable columns -> CatalogItem field
 FIELDS = ("name_vi", "name_zh", "spec", "variant", "unit", "category")
+STOCK, STATUS = len(FIELDS) + 1, len(FIELDS) + 2
 
 
 class CatalogImportDialog(QDialog):
     def __init__(self, ctx, path: Path, items: list[CatalogItem], parent=None):
         super().__init__(parent)
-        self.ctx = ctx
+        self.ctx, self.path = ctx, path
         self.setWindowTitle(t("catalog.title", file=path.name))
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
         fit_window(self, 1200, 720)
@@ -33,7 +48,8 @@ class CatalogImportDialog(QDialog):
         lay.addWidget(hint_label(t("catalog.hint")))
 
         self.table = make_table([t("catalog.row"), t("col.product"), t("col.name_zh"), t("col.spec"),
-                                 t("col.variant"), t("col.unit"), t("col.category"), t("col.status")], stretch=1)
+                                 t("col.variant"), t("col.unit"), t("col.category"), t("catalog.col_stock"),
+                                 t("col.status")], stretch=1)
         self.table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed
                                    | QAbstractItemView.AnyKeyPressed)
         rows, exists = [], []
@@ -41,18 +57,22 @@ class CatalogImportDialog(QDialog):
             same = catalog.find_same(ctx.conn, it.name_vi, it.spec, it.variant)
             exists.append(same is not None)
             rows.append([str(it.row), it.name_vi, it.name_zh, it.spec, it.variant, it.unit, it.category,
-                         t("catalog.exists") if same else t("catalog.new")])
+                         fmt_qty(it.stock), t("catalog.exists") if same else t("catalog.new")])
         fill_table(self.table, rows)
         self.table.setSortingEnabled(False)
         for r, already in enumerate(exists):
             first = self.table.item(r, 0)
             first.setFlags((first.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable)
             first.setCheckState(Qt.Unchecked if already else Qt.Checked)
-            status = self.table.item(r, 7)
+            status = self.table.item(r, STATUS)
             status.setFlags(status.flags() & ~Qt.ItemIsEditable)
+            self.table.item(r, STOCK).setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if already:
                 for c in range(self.table.columnCount()):
                     self.table.item(r, c).setForeground(GREY)
+        # long names: narrower name columns so the stock column stays in view (hover or drag to read more)
+        for col, width in ((1, 330), (2, 230)):
+            self.table.setColumnWidth(col, min(self.table.columnWidth(col), width))
         lay.addWidget(self.table)
 
         row = QHBoxLayout()
@@ -62,6 +82,23 @@ class CatalogImportDialog(QDialog):
             row.addWidget(b)
         row.addStretch()
         lay.addLayout(row)
+
+        # the sheet's stock (column F) becomes the app's stock on the chosen date, as a stock count
+        has_stock = any(it.stock is not None for it in items)
+        stock_row = QHBoxLayout()
+        self.use_stock = QCheckBox(t("catalog.use_stock"))
+        self.use_stock.setChecked(has_stock)
+        self.use_stock.setEnabled(has_stock)
+        self.stock_date = QDateEdit(to_qdate(date.today()))
+        self.stock_date.setCalendarPopup(True)
+        self.stock_date.setDisplayFormat("dd/MM/yyyy")
+        self.use_stock.toggled.connect(self.stock_date.setEnabled)
+        self.stock_date.setEnabled(has_stock)
+        stock_row.addWidget(self.use_stock)
+        stock_row.addWidget(self.stock_date)
+        stock_row.addStretch()
+        lay.addLayout(stock_row)
+        lay.addWidget(hint_label(t("catalog.stock_hint")))
 
         box = QDialogButtonBox()
         box.addButton(t("catalog.import_do"), QDialogButtonBox.AcceptRole)
@@ -81,17 +118,32 @@ class CatalogImportDialog(QDialog):
                 continue
             values = {f: self.table.item(r, c + 1).text().strip() for c, f in enumerate(FIELDS)}
             if values["name_vi"]:
-                result.append(CatalogItem(row=int(self.table.item(r, 0).text()), **values))
+                result.append(CatalogItem(row=int(self.table.item(r, 0).text()), stock=self._stock(r), **values))
         return result
+
+    def _stock(self, r) -> float | None:
+        text = self.table.item(r, STOCK).text().strip()
+        try:
+            return parse_number(text) if text else None
+        except ValueError:
+            return None
 
     def do_import(self):
         items = self.selected_items()
         if not items:
             error(self, t("catalog.nothing"))
             return
-        created, skipped = catalog.import_catalog(self.ctx.conn, items)
+        stock_date = from_qdate(self.stock_date.date()) if self.use_stock.isChecked() else None
+        if stock_date is not None:
+            # notes up to that date must be in the ledger first, or they would be subtracted from the count later
+            deliveries.scan(self.ctx.conn, self.ctx.ws)
+        created, skipped, counted = catalog.import_catalog(self.ctx.conn, items, stock_date,
+                                                           t("catalog.stock_note", file=self.path.name))
         self.ctx.notify()
-        info(self, t("catalog.done", created=created, skipped=skipped))
+        text = t("catalog.done", created=created, skipped=skipped)
+        if counted:
+            text += "\n\n" + t("catalog.stock_done", count=counted, date=self.stock_date.text())
+        info(self, text)
         self.accept()
 
 

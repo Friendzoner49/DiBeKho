@@ -91,3 +91,23 @@ def test_file_exported_in_chinese_reads_the_same(conn, ws, tmp_path):
     other = db.connect(":memory:")
     catalog.import_master(other, *master_data.read(path))
     assert snapshot(other) == snapshot(conn)  # '否' (inactive) included
+
+
+def test_export_has_a_stock_sheet_like_the_monthly_sheet(conn, ws, tmp_path):
+    from datetime import date
+
+    from dibekho.core.stock import stock_count
+
+    a, b = setup_notes(conn, ws)
+    with db.transaction(conn):
+        stock_count(conn, date(2026, 10, 10), {a: 50})
+    path = master_data.export(tmp_path / "goc.xlsx", conn)
+    sheet = openpyxl.load_workbook(path).worksheets[2]
+    assert [c.value for c in sheet[4]] == ["Mặt hàng", "Phân loại", "Tồn"]
+    rows = {r[0].splitlines()[1]: (r[1], r[2]) for r in sheet.iter_rows(min_row=5, values_only=True)}
+    assert rows["背水涂"][1] == 50
+    assert rows["固沙剂"][1] == -5  # never counted: 1 + 4 delivered
+    # the stock sheet is for reading only: importing the file still works the same
+    other = db.connect(":memory:")
+    catalog.import_master(other, *master_data.read(path))
+    assert snapshot(other) == snapshot(conn)

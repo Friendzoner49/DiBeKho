@@ -252,7 +252,7 @@
   "catalog.import_btn": "Import catalog from Excel…",
   "catalog.pick_file": "Choose the catalog Excel file (monthly stock sheet)",
   "catalog.title": "Import catalog — {file}",
-  "catalog.hint": "Check each row. Double-click a cell to edit name, packing, variant, unit or category. Untick rows you don't want. Products that already exist (same name, packing, variant) are skipped.",
+  "catalog.hint": "Check each row. Double-click a cell to edit name, packing, variant, unit, category or stock. Untick rows you don't want. Products that already exist (same name, packing, variant) are not created again; tick such a row to update only its stock.",
   "catalog.row": "Row",
   "catalog.new": "New",
   "catalog.exists": "Exists",
@@ -330,5 +330,13 @@
   "reset.confirm_all": "Delete all data?\n\nThe app goes back to a fresh install: no products, notes, customers or stock. Only the settings are kept (language, size, working folder).\n\nThe app makes a backup first.",
   "reset.confirm_all_again": "Are you sure? Press Yes to delete all data.",
   "reset.done_stock": "Stock reset. {files} note files were moved back to phieu-giao-hang to be read again. Notes with unknown product names are listed under To do.",
-  "reset.done_all": "All data deleted. {files} note files were moved back to phieu-giao-hang. Load the product catalog again, then review the notes under To do."
+  "reset.done_all": "All data deleted. {files} note files were moved back to phieu-giao-hang. Load the product catalog again, then review the notes under To do.",
+  "catalog.col_stock": "Stock (column F)",
+  "catalog.use_stock": "Use the stock in the file (column F) as the app's stock, as of",
+  "catalog.stock_hint": "The stock is recorded as a stock count: on the chosen date the app's stock equals the file's number exactly (delivery notes after that date are still subtracted). Applies to ticked rows, existing products included. An empty stock cell leaves that product's stock unchanged. Double-click a cell to change the number.",
+  "catalog.stock_note": "Stock from file {file}",
+  "catalog.stock_done": "Stock of {count} products recorded from the file (date {date}).",
+  "master.sheet_stock": "Stock",
+  "master.title_stock": "STOCK LIST",
+  "master.col_type": "Type"
 }

@@ -252,7 +252,7 @@
   "catalog.import_btn": "从 Excel 导入商品目录…",
   "catalog.pick_file": "选择商品目录 Excel 文件（每月库存表）",
   "catalog.title": "导入商品目录 — {file}",
-  "catalog.hint": "请逐行检查。双击单元格可修改名称、规格、类型、单位或类别。不需要的行请取消勾选。已存在的商品（名称、规格、类型相同）会被跳过。",
+  "catalog.hint": "请逐行检查。双击单元格可修改名称、规格、类型、单位、类别或库存。不需要的行请取消勾选。已存在的商品（名称、规格、类型相同）不会重复创建；如只想更新库存，请勾选该行。",
   "catalog.row": "行",
   "catalog.new": "新",
   "catalog.exists": "已存在",
@@ -330,5 +330,13 @@
   "reset.confirm_all": "删除全部数据？\n\n应用将回到刚安装时的状态：没有商品、送货单、客户和库存。只保留设置（语言、大小、工作文件夹）。\n\n应用会先备份。",
   "reset.confirm_all_again": "确定吗？点击“是”删除全部数据。",
   "reset.done_stock": "库存已重置。已将 {files} 个送货单文件移回 phieu-giao-hang 重新读取。含未知商品名称的送货单列在“待处理”中。",
-  "reset.done_all": "全部数据已删除。已将 {files} 个送货单文件移回 phieu-giao-hang。请重新导入商品目录，然后在“待处理”中审核送货单。"
+  "reset.done_all": "全部数据已删除。已将 {files} 个送货单文件移回 phieu-giao-hang。请重新导入商品目录，然后在“待处理”中审核送货单。",
+  "catalog.col_stock": "库存（F 列）",
+  "catalog.use_stock": "把文件中的库存（F 列）作为应用的库存，截至日期",
+  "catalog.stock_hint": "库存按一次盘点记录：在所选日期，应用中的库存与文件中的数字完全一致（该日期之后的送货单仍会继续扣减）。适用于已勾选的行，包括已存在的商品。库存单元格为空 = 不改变该商品的库存。双击单元格可修改数字。",
+  "catalog.stock_note": "来自文件 {file} 的库存",
+  "catalog.stock_done": "已按文件记录 {count} 种商品的库存（日期 {date}）。",
+  "master.sheet_stock": "库存",
+  "master.title_stock": "库存表",
+  "master.col_type": "分类"
 }
