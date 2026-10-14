@@ -1,14 +1,126 @@
 """Settings tab 'Chuyển dữ liệu và sao lưu': export a package for another machine; backups and restore."""
 
+from dataclasses import replace
 from datetime import datetime
 
-from PySide6.QtWidgets import QFileDialog, QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtGui import QBrush
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from dibekho import db
 from dibekho.core import backup, catalog, deliveries, transfer
 from dibekho.excel import master_data
 from dibekho.i18n import t
-from dibekho.ui.common import ask, error, fill_table, hint_label, info, make_table, open_path, selected_id
+from dibekho.ui.common import (
+    YELLOW,
+    ask,
+    error,
+    fill_table,
+    fit_window,
+    hint_label,
+    info,
+    make_table,
+    num_item,
+    open_path,
+    selected_id,
+)
+
+
+class StockMatchDialog(QDialog):
+    """Which product each row of the 'Tồn kho' sheet goes to, when they are not tied by code (old files
+    without the code column). Rows whose name/category/type differ from the product are yellow, and the user
+    can choose another product for any row. result_stock() gives the rows with the user's choices."""
+
+    ROW, STOCK, IN_FILE, ASSIGN = range(4)
+
+    def __init__(self, parent, products, stock):
+        super().__init__(parent)
+        self.setWindowTitle(t("master.preview_title"))
+        fit_window(self, 1100, 640)
+        self.products = {p.row: p for p in products}
+        self.stock = stock
+        lay = QVBoxLayout(self)
+        lay.addWidget(hint_label(t("master.preview_hint")))
+        self.summary = QLabel()
+        lay.addWidget(self.summary)
+        self.table = make_table([t("master.col_stock_row"), t("col.stock"), t("master.col_in_file"),
+                                 t("master.col_assign")], stretch=self.ASSIGN)
+        fill_table(self.table, [[num_item(st.row), num_item(st.stock), self._in_file(st), ""] for st in stock])
+        self.table.setSortingEnabled(False)  # row r must stay stock[r]
+        self.combos = []
+        for r, st in enumerate(stock):
+            combo = QComboBox()
+            combo.addItem(t("master.no_assign"), None)
+            for p in products:
+                combo.addItem(self._product_label(p), p.row)
+            combo.setCurrentIndex(max(combo.findData(st.product_row), 0))
+            widest = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+            combo.view().setMinimumWidth(widest + 40)  # the drop-down list shows every name in full
+            combo.currentIndexChanged.connect(self._mark)
+            self.table.setCellWidget(r, self.ASSIGN, combo)
+            self.combos.append(combo)
+        # both names are long: fixed widths that fit the window, hover a cell to read it in full
+        self.table.setColumnWidth(self.IN_FILE, 400)
+        self.table.setColumnWidth(self.ASSIGN, 400)
+        self.table.natural = 400
+        self.table.fill_spare()
+        lay.addWidget(self.table)
+        box = QDialogButtonBox()
+        box.addButton(t("master.preview_continue"), QDialogButtonBox.AcceptRole)
+        box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
+        box.accepted.connect(self._accept)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+        self._mark()
+
+    # what tells the rows apart (category, type/colour, packing) comes first, so it shows in a narrow column
+    @staticmethod
+    def _in_file(st) -> str:
+        return " · ".join(x for x in (st.category, st.variant, st.name.replace("\n", " / ")) if x)
+
+    @staticmethod
+    def _product_label(p) -> str:
+        return " · ".join(x for x in (p.code or "—", p.spec, p.category, p.variant, p.name_vi) if x)
+
+    def _chosen(self, r):
+        return self.combos[r].currentData()
+
+    def _mark(self):
+        differ = 0
+        for r, st in enumerate(self.stock):
+            p = self.products.get(self._chosen(r))
+            bad = p is None or master_data.stock_differs(st, p)
+            differ += bad
+            self.combos[r].setToolTip(self.combos[r].currentText())
+            for c in (self.ROW, self.STOCK, self.IN_FILE):
+                self.table.item(r, c).setBackground(QBrush(YELLOW) if bad else QBrush())
+        self.summary.setText(t("master.preview_warn", count=differ) if differ else t("master.preview_ok"))
+
+    def _accept(self):
+        rows: dict[int, list[int]] = {}
+        for r, st in enumerate(self.stock):
+            if self._chosen(r) is not None:
+                rows.setdefault(self._chosen(r), []).append(st.row)
+        twice = [(p, rs) for p, rs in rows.items() if len(rs) > 1]
+        if twice:
+            p, rs = twice[0]
+            error(self, t("master.preview_twice", product=self._product_label(self.products[p]),
+                          rows=", ".join(str(x) for x in rs)))
+            return
+        self.accept()
+
+    def result_stock(self):
+        return [replace(st, product_row=self._chosen(r)) for r, st in enumerate(self.stock)]
 
 
 def import_master_file(ctx, parent, path, data=None) -> bool:
@@ -19,6 +131,11 @@ def import_master_file(ctx, parent, path, data=None) -> bool:
     except master_data.NotMasterData as exc:
         error(parent, t("master.not_master_file", error=str(exc)))
         return False
+    if stock and master_data.needs_check(stock):
+        dlg = StockMatchDialog(parent, products, stock)
+        if dlg.exec() != QDialog.Accepted:
+            return False
+        stock = dlg.result_stock()
     text = t("master.confirm_import", products=len(products), customers=len(customers))
     if stock:
         text = text.replace("\n\n", "\n\n" + t("master.confirm_stock", count=len(stock)) + "\n\n", 1)

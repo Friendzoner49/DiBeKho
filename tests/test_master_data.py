@@ -190,3 +190,32 @@ def test_rows_sharing_a_code_stay_separate_products_with_their_stock(conn, ws, t
     assert result["renumbered"] == [(7, "SP001", "SP003")]
     assert result["products_new"] == 3
     assert _levels_by_code(other) == {"SP001": 11, "SP002": 22, "SP003": 9}
+
+
+def swapped_old_file(conn, ws, tmp_path):
+    """An old file (no code column) where the user reordered the stock sheet: row 5 describes SP002 (22),
+    row 6 describes SP001 (11). Matching by row order alone would swap their stock."""
+    setup_notes(conn, ws)
+    path = master_data.export(tmp_path / "goc-cu.xlsx", conn)
+    wb = openpyxl.load_workbook(path)
+    sheet = wb.worksheets[2]
+    sheet.delete_cols(1)
+    sheet["A1"] = "DIBEKHO – BẢNG TỒN KHO"
+    first, second = ([c.value for c in sheet[r]] for r in (5, 6))
+    first[3], second[3] = 11, 22
+    for col, (a, b) in enumerate(zip(second, first), 1):
+        sheet.cell(5, col).value, sheet.cell(6, col).value = a, b
+    wb.save(path)
+    return path
+
+
+def test_rows_not_tied_by_code_are_flagged_for_checking(conn, ws, tmp_path):
+    products, _, stock = master_data.read(swapped_old_file(conn, ws, tmp_path))
+    assert master_data.needs_check(stock)
+    assert [st.matched_by for st in stock] == ["position", "position"]
+    by_row = {p.row: p for p in products}
+    assert [master_data.stock_differs(st, by_row[st.product_row]) for st in stock] == [True, True]
+    # a file exported by this version is tied by code: nothing to check
+    _, _, fresh = master_data.read(master_data.export(tmp_path / "moi.xlsx", conn))
+    assert not master_data.needs_check(fresh)
+    assert not any(master_data.stock_differs(st, by_row[st.product_row]) for st in fresh)

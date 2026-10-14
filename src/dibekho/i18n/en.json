@@ -357,5 +357,15 @@
   "master.stock_skipped": "Stock rows skipped (product not found):",
   "master.stock_skipped_row": "• Row {row}: {name}",
   "master.renumbered": "Codes used twice in the file (each row is still its own product, given a new code):",
-  "master.renumbered_row": "• Row {row}: {code} used twice → new code {new}"
+  "master.renumbered_row": "• Row {row}: {code} used twice → new code {new}",
+  "master.preview_title": "Check the stock before importing",
+  "master.preview_hint": "The Stock sheet of this file has no Code column (or repeats a code), so the app pairs each stock row with a product by row order. Check the 'Goes to product' column. Yellow rows: the name, category or type/colour differs from the Products sheet — choose the right product if needed. Files exported by the new version have a Code column and skip this step.",
+  "master.preview_warn": "⚠ {count} yellow rows to check.",
+  "master.preview_ok": "✓ Every row matches the name, category and type/colour of the Products sheet.",
+  "master.preview_continue": "Continue",
+  "master.preview_twice": "Product {product} is given to several stock rows (rows {rows}). Each product takes one row only.",
+  "master.col_stock_row": "Row",
+  "master.col_in_file": "In the Stock sheet",
+  "master.col_assign": "Goes to product",
+  "master.no_assign": "— Do not import this row's stock —"
 }

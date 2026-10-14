@@ -357,5 +357,15 @@
   "master.stock_skipped": "跳过的库存行（找不到商品）：",
   "master.stock_skipped_row": "• 第 {row} 行：{name}",
   "master.renumbered": "文件中重复的编码（每行仍是独立商品，已分配新编码）：",
-  "master.renumbered_row": "• 第 {row} 行：{code} 重复 → 新编码 {new}"
+  "master.renumbered_row": "• 第 {row} 行：{code} 重复 → 新编码 {new}",
+  "master.preview_title": "导入前核对库存",
+  "master.preview_hint": "此文件的库存表没有编码列（或编码重复），应用按行的顺序把每行库存对应到商品。请查看“对应商品”列。黄色行：名称、类别或类型/颜色与商品表不同——如有需要请重新选择正确的商品。新版本导出的文件带有编码列，不需要这一步。",
+  "master.preview_warn": "⚠ 有 {count} 行黄色需要核对。",
+  "master.preview_ok": "✓ 所有行的名称、类别和类型/颜色都与商品表一致。",
+  "master.preview_continue": "继续导入",
+  "master.preview_twice": "商品 {product} 对应了多行库存（第 {rows} 行）。每个商品只能对应一行。",
+  "master.col_stock_row": "行",
+  "master.col_in_file": "库存表中",
+  "master.col_assign": "对应商品",
+  "master.no_assign": "— 不导入此行库存 —"
 }

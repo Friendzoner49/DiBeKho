@@ -389,3 +389,52 @@ def test_goods_in_template_is_in_code_order(app, ws, monkeypatch):
     [path] = ws.output.glob("HangVe_*.xlsx")
     codes = [r[0] for r in openpyxl.load_workbook(path).active.iter_rows(min_row=7, values_only=True)]
     assert codes == ["SP001", "SP002", "SP003"]
+
+
+def test_stock_rows_without_code_are_checked_before_import(app, ws, tmp_path, monkeypatch):
+    """Old master file whose stock rows were reordered: the preview shows them yellow, the user assigns
+    each row to the right product, and the import gets the right numbers."""
+    import dibekho.ui.transfer_page as transfer_mod
+    from dibekho import db
+    from dibekho.core.stock import stock_levels
+    from dibekho.excel import master_data
+    from dibekho.ui.common import AppContext
+    from tests.test_master_data import swapped_old_file
+
+    i18n.set_language("vi")
+    source = db.connect(":memory:")
+    path = swapped_old_file(source, ws, tmp_path)
+    products, customers, stock = master_data.read(path)
+    dlg = transfer_mod.StockMatchDialog(None, products, stock)
+    assert "2 dòng" in dlg.summary.text()
+    for combo, st in zip(dlg.combos, stock):  # the row describing SP002 goes to SP002, and so on
+        combo.setCurrentIndex(combo.findData(6 if st.stock == 22 else 5))
+    assert dlg.summary.text().startswith("✓")
+    dlg.combos[1].setCurrentIndex(dlg.combos[1].findData(dlg.combos[0].currentData()))
+    monkeypatch.setattr(transfer_mod, "error", lambda parent, text: errors.append(text))
+    errors = []
+    dlg._accept()
+    assert errors and dlg.result() != transfer_mod.QDialog.Accepted  # one product given two rows is refused
+
+    other_ws = type(ws)(tmp_path / "other")
+    other_ws.ensure()
+    ctx = AppContext(Config(workspace=str(other_ws.root), language="vi", device_id="y", device_name="u"), other_ws)
+
+    class Picked:
+        def __init__(self, parent, products, stock):
+            self.stock = stock
+
+        def exec(self):
+            return transfer_mod.QDialog.Accepted
+
+        def result_stock(self):
+            return [master_data.MasterStock(st.row, st.code, st.name, st.stock, 6 if st.stock == 22 else 5)
+                    for st in self.stock]
+
+    monkeypatch.setattr(transfer_mod, "StockMatchDialog", Picked)
+    monkeypatch.setattr(transfer_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(transfer_mod, "info", lambda *a, **k: None)
+    assert transfer_mod.import_master_file(ctx, None, path)
+    levels = stock_levels(ctx.conn)
+    got = {r["code"]: levels.get(r["id"], 0) for r in ctx.conn.execute("SELECT id, code FROM products")}
+    assert got == {"SP001": 11, "SP002": 22}

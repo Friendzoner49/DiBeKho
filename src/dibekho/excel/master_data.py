@@ -12,6 +12,8 @@ Layout (fixed, so the file reads back whatever the interface language was):
             count). Each stock row is tied to a row of sheet 1 (product_row): by code when the code is unique,
             otherwise by position (both sheets are exported in code order), otherwise by name/category/variant.
             Files exported before the code column existed (name | category | variant | stock) work the same way.
+            Rows not tied by code are shown to the user before the import (ui: StockMatchDialog), because the
+            user may have reordered or edited one sheet and not the other.
 """
 
 from dataclasses import dataclass
@@ -61,6 +63,20 @@ class MasterStock:
     name: str
     stock: float
     product_row: int | None = None  # the row of sheet 1 it belongs to; None = not found
+    category: str = ""
+    variant: str = ""
+    matched_by: str = ""  # 'code' | 'position' | 'name' | '' (not found)
+
+
+def needs_check(stock: list[MasterStock]) -> bool:
+    """True when some stock row is not tied to its product by a unique code."""
+    return any(st.matched_by != "code" for st in stock)
+
+
+def stock_differs(st: MasterStock, p: MasterProduct) -> bool:
+    """The stock row does not describe this product (name, category or type/colour differ)."""
+    return (clean(st.name), st.category, st.variant) != (
+        clean(_name_text(p.name_vi, p.spec, p.name_zh)), p.category, p.variant)
 
 
 @dataclass
@@ -219,14 +235,14 @@ def _read_stock(ws, products: list[MasterProduct]) -> list[MasterStock]:
     result = []
     for i, (r, code, name, category, variant, value) in enumerate(lines):
         if code and code in by_code:
-            product_row = by_code[code]
+            product_row, how = by_code[code], "code"
         elif same_order:  # exported together: row i of this sheet is the i-th product of sheet 1
-            product_row = active[i].row
+            product_row, how = active[i].row, "position"
         else:
             rows = by_text.get((name, category, variant))
-            product_row = rows.pop(0) if rows else None
+            product_row, how = (rows.pop(0), "name") if rows else (None, "")
         if value is not None:
-            result.append(MasterStock(r, code, name, value, product_row))
+            result.append(MasterStock(r, code, name, value, product_row, category, variant, how))
     return result
 
 
