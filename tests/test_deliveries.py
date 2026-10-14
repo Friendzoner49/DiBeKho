@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import date
 
 from dibekho import db
@@ -32,6 +33,19 @@ def test_unknown_lines_wait_for_mapping_then_import(conn, ws):
     assert second.imported == ["a.xlsx"] and second.pending == 0
     assert stock_of(conn, "vữa") == -3
     assert stock_of(conn, "cát") == -2
+
+
+def test_file_name_in_nfd_is_found_again(conn, ws):
+    """'phiếu giao hàng.xlsx' written in NFD (accents as separate marks, from a Mac or a chat app) is another
+    name for Windows than the NFC rel_path stored: the waiting lines must still be listed and importable."""
+    name = unicodedata.normalize("NFD", "phiếu giao hàng đơn số 113.xlsx")
+    make_note(ws.deliveries / name, lines=[LINE_A])
+    assert deliveries.scan(conn, ws).pending == 1
+    [u] = deliveries.unknown_lines(conn, ws)
+    assert deliveries.note_path(ws, u.files[0]).exists()
+    deliveries.create_product_for_line(conn, u, opening=10)
+    assert deliveries.scan(conn, ws).pending == 0
+    assert stock_of(conn, "vữa") == 7
 
 
 def test_rescan_never_double_counts(conn, ws):

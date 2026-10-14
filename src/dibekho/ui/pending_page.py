@@ -213,7 +213,7 @@ class PendingPage(Page):
             return _buttons(
                 (t("btn.use_new"), lambda: self._run(lambda: deliveries.replace_changed(conn, ws, h))),
                 (t("btn.keep_old"), lambda: self._run(lambda: deliveries.keep_old(conn, h))),
-                (t("btn.open_file"), lambda: open_path(ws.deliveries / r["rel_path"])),
+                (t("btn.open_file"), lambda: open_path(deliveries.note_path(ws, r["rel_path"]))),
             )
         if r["status"] == "missing":
             return _buttons(
@@ -223,7 +223,7 @@ class PendingPage(Page):
                 (t("btn.ignore"), lambda: self._run(lambda: deliveries.ignore_missing(conn, h))),
             )
         return _buttons(
-            (t("btn.open_file"), lambda: open_path(ws.deliveries / r["rel_path"])),
+            (t("btn.open_file"), lambda: open_path(deliveries.note_path(ws, r["rel_path"]))),
             (t("btn.hide"), lambda: self._run(lambda: deliveries.dismiss_error(conn, h))),
         )
 

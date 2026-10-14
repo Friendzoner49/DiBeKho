@@ -68,6 +68,18 @@ def delivery_files(ws: Workspace) -> list[Path]:
     return sorted(files)
 
 
+def note_path(ws: Workspace, rel: str) -> Path:
+    """The file for a stored rel_path. rel_path is kept in NFC, but a name written in NFD (files that went
+    through a Mac or a chat app) is a different name for Windows: then look the file up among the notes."""
+    path = ws.deliveries / rel
+    if path.exists():
+        return path
+    for candidate in delivery_files(ws):
+        if nfc(candidate.relative_to(ws.deliveries).as_posix()) == rel:
+            return candidate
+    return path
+
+
 def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     """allow_partial=True only right after the user pressed 'Apply': waiting notes are then imported with
     the lines that are known; the remaining lines are added to the same document once they are decided."""
@@ -308,7 +320,7 @@ def unknown_lines(conn, ws: Workspace) -> list[UnknownLine]:
     found: dict[str, UnknownLine] = {}
     for row in conn.execute("SELECT * FROM scanned_files WHERE status = 'needs_mapping'").fetchall():
         try:
-            note = read_delivery_note(ws.deliveries / row["rel_path"])
+            note = read_delivery_note(note_path(ws, row["rel_path"]))
         except (OSError, NotDeliveryNote, DeliveryNoteError):
             continue
         for ln in goods_lines(conn, note):
@@ -436,7 +448,7 @@ def reread_document(conn, ws: Workspace, doc_id: int) -> None:
     if doc is None or doc["kind"] != "delivery" or doc["status"] != "active" or not doc["source_hash"]:
         raise ValueError("Chỉ đọc lại được phiếu giao hàng đang hiệu lực.")
     rel = row["rel_path"] if row else doc["source_file"]
-    target = ws.deliveries / rel
+    target = note_path(ws, rel)
     if not target.exists():  # file deleted or moved away: put the stored copy back
         original = original_copy(ws, doc["source_hash"])
         if original is None:
@@ -465,7 +477,7 @@ def forget_name(conn, ws: Workspace, key: str) -> int:
 def replace_changed(conn, ws: Workspace, h: str) -> None:
     """User chose 'use the new version' for an edited delivery note."""
     row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
-    path = ws.deliveries / row["rel_path"]
+    path = note_path(ws, row["rel_path"])
     note = read_delivery_note(path)
     goods = goods_lines(conn, note)
     unknown = [ln for ln in goods if catalog.alias_product(conn, ln.key) is None]
@@ -488,7 +500,7 @@ def keep_old(conn, h: str) -> None:
 
 def restore_missing(conn, ws: Workspace, h: str) -> Path:
     row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
-    target = ws.deliveries / row["rel_path"]
+    target = note_path(ws, row["rel_path"])
     if target.exists():
         target = target.with_name(f"{target.stem} (khoi phuc){target.suffix}")
     target.parent.mkdir(parents=True, exist_ok=True)
