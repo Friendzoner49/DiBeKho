@@ -392,49 +392,38 @@ def test_goods_in_template_is_in_code_order(app, ws, monkeypatch):
 
 
 def test_stock_rows_without_code_are_checked_before_import(app, ws, tmp_path, monkeypatch):
-    """Old master file whose stock rows were reordered: the preview shows them yellow, the user assigns
-    each row to the right product, and the import gets the right numbers."""
+    """Old master file: the preview shows the matching found from the stock sheet; a row given to the wrong
+    product turns yellow, one product for two rows is refused, and the import uses the user's choice."""
     import dibekho.ui.transfer_page as transfer_mod
     from dibekho import db
     from dibekho.core.stock import stock_levels
-    from dibekho.excel import master_data
     from dibekho.ui.common import AppContext
-    from tests.test_master_data import swapped_old_file
+    from tests.test_master_data import PPE_NAME, old_file_with_stock, ppe_variants
 
     i18n.set_language("vi")
     source = db.connect(":memory:")
-    path = swapped_old_file(source, ws, tmp_path)
-    products, customers, stock = master_data.read(path)
-    dlg = transfer_mod.StockMatchDialog(None, products, stock)
-    assert "2 dòng" in dlg.summary.text()
-    for combo, st in zip(dlg.combos, stock):  # the row describing SP002 goes to SP002, and so on
-        combo.setCurrentIndex(combo.findData(6 if st.stock == 22 else 5))
+    ppe_variants(source)
+    path = old_file_with_stock(source, tmp_path / "goc.xlsx",
+                               [(PPE_NAME, "瑞德牌", "瑞德牌", 79), (PPE_NAME, "瑞德牌", "纯白色", 31)])
+    dlg = transfer_mod.StockMatchDialog(None, *[x for i, x in enumerate(transfer_mod.master_data.read(path))
+                                               if i != 1])
     assert dlg.summary.text().startswith("✓")
-    dlg.combos[1].setCurrentIndex(dlg.combos[1].findData(dlg.combos[0].currentData()))
-    monkeypatch.setattr(transfer_mod, "error", lambda parent, text: errors.append(text))
+    first, second = (combo.currentData() for combo in dlg.combos)
+    dlg.combos[1].setCurrentIndex(dlg.combos[1].findData(first))  # 纯白色 row given to the 瑞德牌-only product
+    assert "1 dòng" in dlg.summary.text()
     errors = []
+    monkeypatch.setattr(transfer_mod, "error", lambda parent, text: errors.append(text))
     dlg._accept()
     assert errors and dlg.result() != transfer_mod.QDialog.Accepted  # one product given two rows is refused
+    dlg.combos[1].setCurrentIndex(dlg.combos[1].findData(second))
 
     other_ws = type(ws)(tmp_path / "other")
     other_ws.ensure()
     ctx = AppContext(Config(workspace=str(other_ws.root), language="vi", device_id="y", device_name="u"), other_ws)
-
-    class Picked:
-        def __init__(self, parent, products, stock):
-            self.stock = stock
-
-        def exec(self):
-            return transfer_mod.QDialog.Accepted
-
-        def result_stock(self):
-            return [master_data.MasterStock(st.row, st.code, st.name, st.stock, 6 if st.stock == 22 else 5)
-                    for st in self.stock]
-
-    monkeypatch.setattr(transfer_mod, "StockMatchDialog", Picked)
+    monkeypatch.setattr(transfer_mod.StockMatchDialog, "exec", lambda self: transfer_mod.QDialog.Accepted)
     monkeypatch.setattr(transfer_mod, "ask", lambda *a, **k: True)
     monkeypatch.setattr(transfer_mod, "info", lambda *a, **k: None)
     assert transfer_mod.import_master_file(ctx, None, path)
     levels = stock_levels(ctx.conn)
     got = {r["code"]: levels.get(r["id"], 0) for r in ctx.conn.execute("SELECT id, code FROM products")}
-    assert got == {"SP001": 11, "SP002": 22}
+    assert got == {"SP001": 31, "SP002": 79}

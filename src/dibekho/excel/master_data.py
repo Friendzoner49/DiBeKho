@@ -9,15 +9,20 @@ Layout (fixed, so the file reads back whatever the interface language was):
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
   sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock.
             The customer may correct the stock there; importing the file sets the app's stock to it (a stock
-            count). Each stock row is tied to a row of sheet 1 (product_row): by code when the code is unique,
-            otherwise by position (both sheets are exported in code order), otherwise by name/category/variant.
+            count). The stock sheet is the reference (the user's rule, 14/10/2026): sheet 1 is only used to find
+            the product each stock row describes. Each stock row is tied to a row of sheet 1 (product_row):
+            1. by code, when the code is unique in sheet 1;
+            2. otherwise by what the row says: same name (+ packing + Chinese name), or else same Chinese name
+               and packing (the Vietnamese name was edited in one sheet); then the most labels in common
+               (category, type/colour, in whichever column the user typed them); row order only breaks ties;
+            3. otherwise by position, if that product is still free.
             Files exported before the code column existed (name | category | variant | stock) work the same way.
-            Rows not tied by code are shown to the user before the import (ui: StockMatchDialog), because the
-            user may have reordered or edited one sheet and not the other.
+            Rows not tied by code are shown to the user before the import (ui: StockMatchDialog).
 """
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from itertools import permutations
 from pathlib import Path
 
 import openpyxl
@@ -25,7 +30,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from dibekho.core.stock import stock_levels
-from dibekho.core.text import clean, parse_number
+from dibekho.core.text import clean, match_key, parse_number
 from dibekho.i18n import t
 
 MARKER = "DIBEKHO"
@@ -65,7 +70,7 @@ class MasterStock:
     product_row: int | None = None  # the row of sheet 1 it belongs to; None = not found
     category: str = ""
     variant: str = ""
-    matched_by: str = ""  # 'code' | 'position' | 'name' | '' (not found)
+    matched_by: str = ""  # 'code' | 'name' | 'position' | '' (not found)
 
 
 def needs_check(stock: list[MasterStock]) -> bool:
@@ -74,9 +79,43 @@ def needs_check(stock: list[MasterStock]) -> bool:
 
 
 def stock_differs(st: MasterStock, p: MasterProduct) -> bool:
-    """The stock row does not describe this product (name, category or type/colour differ)."""
-    return (clean(st.name), st.category, st.variant) != (
-        clean(_name_text(p.name_vi, p.spec, p.name_zh)), p.category, p.variant)
+    """The stock row does not describe this product: another name (neither the whole name nor the Chinese
+    name + packing), or a category/type label of the stock row that the product does not have."""
+    text = _stock_key(st.name)
+    same_name = _fits_whole(text, _product_key(p)) or (
+        _chinese_key(p) is not None and _fits_chinese(text, _chinese_key(p)))
+    return not same_name or not _labels(st.category, st.variant) <= _labels(p.category, p.variant)
+
+
+def _norm(text) -> str:
+    """Compared without case, spaces or full-width forms ('（HY98）' = '(hy98)')."""
+    return match_key(clean(text), "")[:-1]  # match_key ends with '|' + spec
+
+
+def _stock_key(name: str) -> str:
+    return _norm(name)
+
+
+def _product_key(p: MasterProduct) -> str:
+    return _norm(_name_text(p.name_vi, p.spec, p.name_zh))
+
+
+def _fits_whole(text: str, key: str) -> bool:
+    return text == key
+
+
+def _chinese_key(p: MasterProduct):
+    """Chinese name + packing, for a product whose Vietnamese name was edited in one sheet only."""
+    return (_norm(p.name_zh), _norm(p.spec)) if p.name_zh else None
+
+
+def _fits_chinese(text: str, key) -> bool:
+    return text.endswith(key[0]) and key[1] in text  # the stock row ends with the Chinese name
+
+
+def _labels(*values) -> frozenset:
+    """Category and type/colour as a set: users put the same label in either column."""
+    return frozenset(_norm(x) for v in values for x in clean(v).split() if x)
 
 
 @dataclass
@@ -225,25 +264,62 @@ def _read_stock(ws, products: list[MasterProduct]) -> list[MasterStock]:
     code_count: dict[str, int] = {}
     for p in products:
         code_count[p.code] = code_count.get(p.code, 0) + 1
-    by_code = {p.code: p.row for p in products if p.code and code_count[p.code] == 1}
-    by_text: dict[tuple, list[int]] = {}
-    for p in active:
-        key = (clean(_name_text(p.name_vi, p.spec, p.name_zh)), p.category, p.variant)
-        by_text.setdefault(key, []).append(p.row)
-    same_order = len(lines) == len(active)
+    by_code = {p.code: p for p in products if p.code and code_count[p.code] == 1}
+    rows = [MasterStock(r, code, name, value, None, category, variant)
+            for r, code, name, category, variant, value in lines]
+    taken: set[int] = set()
 
-    result = []
-    for i, (r, code, name, category, variant, value) in enumerate(lines):
-        if code and code in by_code:
-            product_row, how = by_code[code], "code"
-        elif same_order:  # exported together: row i of this sheet is the i-th product of sheet 1
-            product_row, how = active[i].row, "position"
-        else:
-            rows = by_text.get((name, category, variant))
-            product_row, how = (rows.pop(0), "name") if rows else (None, "")
-        if value is not None:
-            result.append(MasterStock(r, code, name, value, product_row, category, variant, how))
-    return result
+    for st in rows:  # 1. code
+        p = by_code.get(st.code) if st.code else None
+        if p is not None and p.row not in taken:
+            st.product_row, st.matched_by = p.row, "code"
+            taken.add(p.row)
+
+    # 2. what the row says: the whole name, then the Chinese name + packing
+    position = {p.row: i for i, p in enumerate(active)}
+    for product_key, fits in ((_product_key, _fits_whole), (_chinese_key, _fits_chinese)):
+        groups: dict = {}  # key -> (stock rows with their index, products)
+        for p in active:
+            if p.row not in taken and product_key(p) is not None:
+                groups.setdefault(product_key(p), ([], []))[1].append(p)
+        for i, st in enumerate(rows):
+            if st.product_row is None:
+                keys = [k for k in groups if fits(_stock_key(st.name), k)]
+                if len(keys) == 1:
+                    groups[keys[0]][0].append((i, st))
+        for stocks, prods in groups.values():
+            for st, p in _best_pairs(stocks, prods, position):
+                st.product_row, st.matched_by = p.row, "name"
+                taken.add(p.row)
+
+    # 3. position, for rows whose name was changed in one sheet only
+    if len(rows) == len(active):
+        for i, st in enumerate(rows):
+            if st.product_row is None and active[i].row not in taken:
+                st.product_row, st.matched_by = active[i].row, "position"
+                taken.add(active[i].row)
+    return [st for st in rows if st.stock is not None]
+
+
+def _best_pairs(stocks: list[tuple[int, MasterStock]], prods: list[MasterProduct], position: dict[int, int]):
+    """Stock rows (with their index in the sheet) and products sharing one name: pair them for the most
+    labels in common, then the most rows at the same position. A handful of rows per name, so trying every
+    pairing is cheap."""
+    if not stocks or not prods:
+        return []
+    if len(stocks) > 7 or len(prods) > 7:  # never seen; keep the order
+        return [(st, p) for (_, st), p in zip(stocks, prods)]
+
+    def score(pairs):
+        common = sum(len(_labels(st.category, st.variant) & _labels(p.category, p.variant)) for (_, st), p in pairs)
+        same_place = sum(i == position[p.row] for (i, _), p in pairs)
+        return common, same_place
+
+    if len(stocks) <= len(prods):
+        options = (list(zip(stocks, chosen)) for chosen in permutations(prods, len(stocks)))
+    else:
+        options = (list(zip(chosen, prods)) for chosen in permutations(stocks, len(prods)))
+    return [(st, p) for (_, st), p in max(options, key=score)]
 
 
 def _stock_value(value) -> float | None:
