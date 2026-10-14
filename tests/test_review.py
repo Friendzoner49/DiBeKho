@@ -32,7 +32,7 @@ def test_the_sizes_of_the_same_product_are_suggested_first(conn):
 def test_customer_name_behind_a_chinese_only_label(conn, ws):
     """'客户名称 Anh Ba': no '(Tên khách hàng)' and no colon. The name was lost and the phone number became the
     customer's name; a later note of the same customer then showed the number instead of the name."""
-    path = make_note(ws.deliveries / "116.xlsx", code="116", phone="0912442118")
+    path = make_note(ws.deliveries / "116.xlsx", code="116", phone="0900000116")
     wb = openpyxl.load_workbook(path)
     wb.active["A4"] = "客户名称 Anh Ba"
     wb.save(path)
@@ -40,7 +40,7 @@ def test_customer_name_behind_a_chinese_only_label(conn, ws):
 
 
 def test_customers_saved_under_their_phone_number_get_their_name_back(conn, ws):
-    path = make_note(ws.deliveries / "116.xlsx", code="116", phone="0912442118")
+    path = make_note(ws.deliveries / "116.xlsx", code="116", phone="0900000116")
     wb = openpyxl.load_workbook(path)
     wb.active["A4"] = "客户名称 Anh Ba"
     wb.save(path)
