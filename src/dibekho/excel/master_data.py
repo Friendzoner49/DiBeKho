@@ -16,6 +16,8 @@ Layout (fixed, so the file reads back whatever the interface language was):
                and packing (the Vietnamese name was edited in one sheet); then the most labels in common
                (category, type/colour, in whichever column the user typed them); row order only breaks ties;
             3. otherwise by position, if that product is still free.
+            Rows of the stock sheet with the same name but another category or type/colour are different
+            products. The category and type/colour of the stock sheet win: the matched product takes them.
             Files exported before the code column existed (name | category | variant | stock) work the same way.
             Rows not tied by code are shown to the user before the import (ui: StockMatchDialog).
 """
@@ -78,20 +80,27 @@ def needs_check(stock: list[MasterStock]) -> bool:
     return any(st.matched_by != "code" for st in stock)
 
 
-def stock_problems(st: MasterStock, p: MasterProduct) -> tuple[bool, list[str]]:
-    """Why the stock row does not describe this product: (name differs, labels of the stock row that the
-    product does not have). The name is the same when the whole name, or the Chinese name + packing, fit."""
-    text = _stock_key(st.name)
-    same_name = _fits_whole(text, _product_key(p)) or (
-        _chinese_key(p) is not None and _fits_chinese(text, _chinese_key(p)))
-    have = _labels(p.category, p.variant)
-    missing = [x for v in (st.category, st.variant) for x in clean(v).split() if _norm(x) not in have]
-    return not same_name, list(dict.fromkeys(missing))
-
-
 def stock_differs(st: MasterStock, p: MasterProduct) -> bool:
-    name_differs, missing = stock_problems(st, p)
-    return name_differs or bool(missing)
+    """The stock row names another product: neither the whole name nor the Chinese name + packing fit."""
+    text = _stock_key(st.name)
+    return not (_fits_whole(text, _product_key(p)) or (
+        _chinese_key(p) is not None and _fits_chinese(text, _chinese_key(p))))
+
+
+def label_change(st: MasterStock, p: MasterProduct) -> tuple[str, str] | None:
+    """(product's 'category · type', stock sheet's) when the stock sheet says otherwise; the import applies
+    the stock sheet's, since the customer edits only that sheet."""
+    old, new = (" · ".join(x for x in pair if x) for pair in ((p.category, p.variant), (st.category, st.variant)))
+    return (old or "—", new or "—") if (p.category, p.variant) != (st.category, st.variant) else None
+
+
+def same_rows(stock: list[MasterStock]) -> dict[int, list[int]]:
+    """Rows of the stock sheet that cannot be told apart (same name, category and type/colour): row -> the
+    other such rows. Same name with another category or type is another product, not a duplicate."""
+    groups: dict[tuple, list[int]] = {}
+    for st in stock:
+        groups.setdefault((_stock_key(st.name), _labels(st.category, st.variant)), []).append(st.row)
+    return {r: [o for o in rows if o != r] for rows in groups.values() if len(rows) > 1 for r in rows}
 
 
 def _norm(text) -> str:

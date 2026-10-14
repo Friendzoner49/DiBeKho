@@ -233,11 +233,43 @@ def test_the_stock_sheet_decides_which_product_gets_the_stock(conn, tmp_path):
     by_row = {p.row: p for p in products}
     assert [by_row[st.product_row].code for st in stock] == ["SP002", "SP001"]
     assert not any(master_data.stock_differs(st, by_row[st.product_row]) for st in stock)
-    sp002 = next(p for p in products if p.code == "SP002")
-    assert master_data.stock_problems(stock[1], sp002) == (False, ["纯白色"])  # SP002 is not 纯白色
+    sp001 = by_row[stock[1].product_row]
+    assert master_data.label_change(stock[1], sp001) == ("纯白色 · 瑞德牌", "瑞德牌 · 纯白色")
     other = db.connect(":memory:")
-    catalog.import_master(other, products, customers, stock)
+    result = catalog.import_master(other, products, customers, stock)
     assert _levels_by_code(other) == {"SP001": 31, "SP002": 79}
+    # the stock sheet's category and type win
+    assert result["labels_updated"] == ["SP001"]
+    assert tuple(other.execute("SELECT category, variant FROM products WHERE code = 'SP001'").fetchone()) == (
+        "瑞德牌", "纯白色")
+
+
+def test_same_name_other_type_is_another_product_and_takes_the_stock_sheet_labels(conn, tmp_path):
+    """The user's rows 49/50: same name, 纯白色 and 再生料 in the stock sheet; the products sheet says
+    纯原料·瑞德牌 and 再生料·瑞德牌. 再生料 goes to 再生料, the 纯白色 row to the other product, which
+    becomes 纯白色 as the stock sheet says. Not a duplicate, not a problem."""
+    with db.transaction(conn):
+        for category in ("纯原料", "再生料"):
+            catalog.create_product(conn, "MÀNG CHỐNG THẤM PPE", "高分子聚乙烯涤纶防水卷材", "16.5KG",
+                                   category=category, variant="瑞德牌")
+    name = "MÀNG CHỐNG THẤM PPE (16.5KG)\n高分子聚乙烯涤纶防水卷材"
+    path = old_file_with_stock(conn, tmp_path / "goc.xlsx", [(name, "纯白色", "纯白色", 0), (name, "再生料", "再生料", 3)])
+    products, customers, stock = master_data.read(path)
+    assert master_data.same_rows(stock) == {}
+    by_row = {p.row: p for p in products}
+    assert [by_row[st.product_row].code for st in stock] == ["SP001", "SP002"]
+    assert not any(master_data.stock_differs(st, by_row[st.product_row]) for st in stock)
+    catalog.import_master(conn, products, customers, stock)
+    rows = conn.execute("SELECT code, category, variant FROM products ORDER BY code").fetchall()
+    assert [tuple(r) for r in rows] == [("SP001", "纯白色", "纯白色"), ("SP002", "再生料", "再生料")]
+    assert _levels_by_code(conn) == {"SP001": 0, "SP002": 3}
+
+
+def test_rows_identical_in_the_stock_sheet_are_reported(conn, tmp_path):
+    ppe_variants(conn)
+    path = old_file_with_stock(conn, tmp_path / "goc.xlsx", [(PPE_NAME, "瑞德牌", "瑞德牌", 79), (PPE_NAME, "瑞德牌", "瑞德牌", 5)])
+    _, _, stock = master_data.read(path)
+    assert master_data.same_rows(stock) == {5: [6], 6: [5]}
 
 
 def test_vietnamese_name_edited_in_one_sheet_only(conn, tmp_path):

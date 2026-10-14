@@ -50,6 +50,7 @@ class StockMatchDialog(QDialog):
         fit_window(self, 1250, 640)
         self.products = {p.row: p for p in products}
         self.stock = stock
+        self.same = master_data.same_rows(stock)
         lay = QVBoxLayout(self)
         lay.addWidget(hint_label(t("master.preview_hint")))
         self.summary = QLabel()
@@ -96,33 +97,35 @@ class StockMatchDialog(QDialog):
     def _chosen(self, r):
         return self.combos[r].currentData()
 
-    def _problem(self, r, st) -> str:
+    def _problems(self, r, st) -> tuple[list[str], str]:
+        """(problems that make the row yellow, the change the import will make)."""
+        problems = []
+        if st.row in self.same:  # checked inside the stock sheet first
+            problems.append(t("master.problem_same", rows=", ".join(str(x) for x in self.same[st.row])))
         p = self.products.get(self._chosen(r))
         if p is None:
-            return t("master.problem_unassigned")
-        problems = []
-        name_differs, missing = master_data.stock_problems(st, p)
-        if name_differs:
+            return problems + [t("master.problem_unassigned")], ""
+        if master_data.stock_differs(st, p):
             problems.append(t("master.problem_name"))
-        if missing:
-            has = " · ".join(x for x in (p.category, p.variant) if x) or "—"
-            problems.append(t("master.problem_labels", labels=" · ".join(missing), code=p.code or "—", has=has))
         others = [str(o.row) for i, o in enumerate(self.stock) if i != r and self._chosen(i) == p.row]
         if others:
             problems.append(t("master.problem_twice", rows=", ".join(others)))
-        return "; ".join(problems)
+        change = master_data.label_change(st, p)
+        return problems, t("master.change_labels", code=p.code or "—", old=change[0], new=change[1]) if change else ""
 
     def _mark(self):
         differ = 0
         for r, st in enumerate(self.stock):
-            problem = self._problem(r, st)
-            differ += bool(problem)
+            problems, change = self._problems(r, st)
+            problem = "; ".join(problems + ([change] if change else []))
+            problems = bool(problems)
+            differ += problems
             self.combos[r].setToolTip(self.combos[r].currentText())
             cell = self.table.item(r, self.PROBLEM)
-            cell.setText(problem)
+            cell.setText(("⚠ " if problems else "") + problem)
             cell.setToolTip(problem)
             for c in (self.ROW, self.STOCK, self.IN_FILE, self.PROBLEM):
-                self.table.item(r, c).setBackground(QBrush(YELLOW) if problem else QBrush())
+                self.table.item(r, c).setBackground(QBrush(YELLOW) if problems else QBrush())
         self.summary.setText(t("master.preview_warn", count=differ) if differ else t("master.preview_ok"))
 
     def _accept(self):
@@ -168,6 +171,8 @@ def import_master_file(ctx, parent, path, data=None) -> bool:
     text = t("master.imported", **{k: v for k, v in result.items() if isinstance(v, int)})
     if result["stock_counted"]:
         text += "\n" + t("master.imported_stock", count=result["stock_counted"])
+    if result["labels_updated"]:
+        text += "\n" + t("master.imported_labels", count=len(result["labels_updated"]))
     if result["renumbered"]:
         lines = [t("master.renumbered_row", row=r, code=old, new=new) for r, old, new in result["renumbered"]]
         text += "\n\n" + t("master.renumbered") + "\n" + "\n".join(lines)

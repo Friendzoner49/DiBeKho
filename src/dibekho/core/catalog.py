@@ -281,11 +281,12 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
     A code used on several rows (the user copied a row for another variant) belongs to the first of them;
     the other rows become new products with the next free codes (listed in 'renumbered').
     stock (rows of the 'Tồn kho' sheet, each tied to a row of the products sheet): recorded as one stock count
-    on stock_date (default today), so the app's stock equals the file's numbers.
+    on stock_date (default today), so the app's stock equals the file's numbers. The stock sheet is the one the
+    customer edits, so its category and type/colour replace the product's ('labels_updated').
     Returns counts and the rows that could not be imported.
     """
     result = {"products_new": 0, "products_updated": 0, "customers_new": 0, "customers_updated": 0,
-              "skipped": [], "stock_counted": 0, "stock_skipped": [], "renumbered": []}
+              "skipped": [], "stock_counted": 0, "stock_skipped": [], "renumbered": [], "labels_updated": []}
     row_ids: dict[int, int] = {}  # row of the products sheet -> product id
     seen_codes: set[str] = set()
     file_codes = {p.code for p in products if p.code}
@@ -349,6 +350,10 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
                 result["stock_skipped"].append((st.row, st.code or st.name))
             else:
                 counted[pid] = st.stock
+                p = conn.execute("SELECT code, category, variant FROM products WHERE id = ?", (pid,)).fetchone()
+                if (p["category"], p["variant"]) != (st.category, st.variant):
+                    update_product(conn, pid, category=st.category, variant=st.variant)
+                    result["labels_updated"].append(p["code"])
         if counted:
             stock_count(conn, stock_date or date.today(), counted, note)
             result["stock_counted"] = len(counted)
