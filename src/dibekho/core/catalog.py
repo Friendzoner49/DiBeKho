@@ -193,11 +193,13 @@ def _features(text: str) -> dict:
     }
 
 
-def match_score(note_text: str, note_spec: str, p) -> float:
+def match_score(note_text: str, note_spec: str, p, labels: bool = False) -> float:
     """How likely a delivery-note line is product p. Chinese characters, model codes (FS-101) and the
-    packing weight/size matter most, because Vietnamese descriptions differ a lot between documents."""
+    packing weight/size matter most, because Vietnamese descriptions differ a lot between documents.
+    labels=True also counts the category and type/colour (纯白色, 瑞德牌…), which notes often name."""
     a = _features(f"{note_text} {note_spec}")
-    b = _features(f"{p['name_zh']} {p['name_vi']} {p['spec']}")
+    extra = f" {p['category'] or ''} {p['variant'] or ''}" if labels else ""
+    b = _features(f"{p['name_zh']} {p['name_vi']} {p['spec']}{extra}")
     score = 0.0
     if a["cjk"] and b["cjk"]:
         overlap = len(a["cjk"] & b["cjk"]) / len(a["cjk"])
@@ -220,18 +222,34 @@ def suggest_product(conn, name: str, spec: str) -> int | None:
     Only products whose Chinese name matches best are compared, so another product that merely
     shares the packing weight never wins over the same product in a different packing.
     """
+    ranked = _ranked(conn, name, spec)
+    return ranked[0][1]["id"] if ranked and ranked[0][0] >= 0.5 else None
+
+
+def suggest_products(conn, name: str, spec: str, n: int = 3) -> list:
+    """The few products that could be this line of a note, best first (e.g. the three sizes of 管根套).
+    Shown first in 'Cần xử lý'; the full list stays one click away. Compared with every product, the
+    category and type/colour included, since notes name them in their own words (涤纶PPE 瑞德包装 18,5kg)."""
+    scored = [(match_score(name, spec, p, labels=True), p) for p in products(conn)]
+    return [p for score, p in sorted(scored, key=lambda x: -x[0]) if score > 0.15][:n]
+
+
+def _ranked(conn, name: str, spec: str) -> list:
+    """(score, product) of the products whose Chinese name matches best, best first.
+
+    Only those are compared, so another product that merely shares the packing weight never wins over
+    the same product in a different packing.
+    """
     note = _features(f"{name} {spec}")["cjk"]
     candidates = products(conn)
     if note:
         overlap = {p["id"]: len(note & _features(p["name_zh"])["cjk"]) / len(note) for p in candidates}
         top = max(overlap.values(), default=0)
+        if top == 0:
+            return []
         candidates = [p for p in candidates if overlap[p["id"]] >= top - 1e-9]
-    best, best_score = None, 0.0
-    for p in candidates:
-        score = match_score(name, spec, p)
-        if score > best_score:
-            best, best_score = p["id"], score
-    return best if best_score >= 0.5 else None
+    scored = [(match_score(name, spec, p), p) for p in candidates]
+    return sorted((x for x in scored if x[0] > 0), key=lambda x: -x[0])
 
 
 def upsert_customer(conn, name, phone="", contact="", address="") -> int | None:
@@ -249,7 +267,10 @@ def upsert_customer(conn, name, phone="", contact="", address="") -> int | None:
             (name or phone, clean(contact), clean(phone), phone_norm, clean(address)),
         )
         return cur.lastrowid
-    # keep existing data, fill in what was missing
+    # keep existing data, fill in what was missing; a name that is only the phone number (the note had
+    # no readable name) is a placeholder and gives way to the real name
+    if name and normalize_phone(row["name"]) == row["phone_norm"] and row["phone_norm"]:
+        conn.execute("UPDATE customers SET name = ? WHERE id = ?", (name, row["id"]))
     conn.execute(
         "UPDATE customers SET contact = CASE WHEN contact = '' THEN ? ELSE contact END, "
         "phone = CASE WHEN phone = '' THEN ? ELSE phone END, "

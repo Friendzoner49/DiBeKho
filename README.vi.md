@@ -134,14 +134,16 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế của từng mặ
 1. Chép các phiếu giao hàng (`.xlsx`) trong ngày vào `phieu-giao-hang/` (nút **Mở thư mục phiếu giao hàng** mở thư mục này). Chia thư mục con, ví dụ theo tháng, cũng được.
 2. Bấm **⟳ Quét lại phiếu** (hoặc phím **F5**). App cũng tự quét mỗi lần mở.
 3. Phiếu có đủ tên hàng đã biết được đọc ngay và tồn giảm.
-4. Nếu mục **Cần xử lý** hiện con số, có dòng hàng cần bạn quyết định:
+4. Nếu mục **Cần xử lý** hiện con số, có dòng hàng cần bạn quyết định. Các dòng được **nhóm theo đơn** và hiện đủ mọi dòng của đơn (dòng có ✓ là app đã nhận ra), để bạn đối chiếu với phiếu giấy. Ở cột **Là mặt hàng**, 2–3 mặt hàng giống nhất đứng đầu danh sách:
 
 | Dòng trên phiếu là | Làm thế này |
 |---|---|
-| Mặt hàng có trong danh mục | Chọn ở cột **Là mặt hàng**; gõ vài chữ (tiếng Việt hoặc tiếng Trung) để tìm |
-| Mặt hàng chưa có trong danh mục | Để **＋ Tạo mặt hàng mới**, và gõ số đang có trong kho (trước phiếu này) vào ô **Tồn ban đầu**; phiếu sẽ trừ tiếp từ số đó |
-| Phí ship, phí dịch vụ | Bấm **✕ Bỏ dòng** (dòng phí thường đã được chọn sẵn) |
-| Chưa chắc | Chọn **⏸ Để sau**: các dòng khác của phiếu vẫn được ghi; dòng này chờ và được thêm vào đúng đơn đó khi bạn duyệt |
+| Mặt hàng có trong danh mục | Chọn trong các mặt hàng gợi ý; không thấy thì chọn **🔍 Chọn mặt hàng khác…** rồi gõ vài chữ (tiếng Việt, tiếng Trung, mã) để tìm |
+| Mặt hàng chưa có trong danh mục | Chọn **＋ Tạo mặt hàng mới**, và gõ số đang có trong kho (trước phiếu này) vào ô **Tồn ban đầu**; phiếu sẽ trừ tiếp từ số đó |
+| Phí ship, phí dịch vụ | Chọn **✕ Không phải hàng hoá** (dòng phí thường đã được chọn sẵn) |
+| Chưa chắc | Để **⏸ Để sau (giữ lại, chưa duyệt)**: các dòng khác của phiếu vẫn được ghi; dòng này chờ và được thêm vào đúng đơn đó khi bạn duyệt |
+
+Cùng một tên hàng có trong nhiều đơn thì chọn ở một đơn là các đơn kia theo luôn. Lăn chuột để cuộn trang không làm đổi lựa chọn.
 
 Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt rồi xác nhận. App nhớ mọi lựa chọn, nên lần sau gặp đúng tên đó sẽ tự nhận ra.
 
@@ -170,7 +172,8 @@ Thay cho bước 2–3, có thể bấm **Chọn file để nhập…** ở **H�
 
 | Tình huống | Cách làm |
 |---|---|
-| Chọn nhầm mặt hàng, hoặc lỡ bỏ nhầm một dòng | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**, chọn dòng, **Quên và đọc lại…**. Các phiếu liên quan hiện lại ở **Cần xử lý** |
+| Vừa làm nhầm một thao tác (Áp dụng, Quên và đọc lại, sửa/xoá mặt hàng, kiểm kê, nhập hàng về, nhập dữ liệu…) | Bấm **↶ Hoàn tác** ở góc trên bên phải: dữ liệu trở về đúng như trước thao tác đó. Bấm tiếp để lùi thêm từng bước (giữ 20 bước gần nhất) |
+| Chọn nhầm mặt hàng, hoặc lỡ bỏ nhầm một dòng, từ lâu | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**: các lựa chọn được nhóm theo đơn; bấm vào đơn để xem các dòng, rồi bấm **Quên và đọc lại…** ở dòng sai. Các phiếu có dòng đó hiện lại ở **Cần xử lý** để chọn lại |
 | Muốn đọc lại một phiếu theo danh mục hiện tại | Mở đơn hàng, **Đọc lại phiếu** |
 | Phiếu bị nhập nhầm | Mở đơn hàng, **Huỷ phiếu** (tồn được hoàn lại, lịch sử vẫn giữ). Xoá file **không** phải là huỷ phiếu |
 | Lỡ xoá file phiếu khỏi thư mục | **Cần xử lý** cho chọn **Khôi phục file**, **Huỷ phiếu** hoặc **Bỏ qua** |

@@ -2,26 +2,35 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
-    QCompleter,
+    QDialog,
+    QDialogButtonBox,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from dibekho import db
 from dibekho.core import backup, catalog, deliveries, inbox, transfer
-from dibekho.core.text import fmt_qty, parse_number
+from dibekho.core.text import fmt_qty, parse_number, unaccent
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
+    NoWheelCombo,
     ask,
     error,
     fill_table,
+    fit_window,
     fmt_date,
     hint_label,
     info,
@@ -33,8 +42,8 @@ from dibekho.ui.page import Page
 from dibekho.ui.receipt_page import review_receipt
 from dibekho.ui.transfer_page import import_master_file
 
-NEW, LATER, SKIP = "new", "later", "skip"
-NAME, NAME_ZH, SPEC, ORDERS, CHOICE, OPENING, DROP = range(7)
+NEW, LATER, SKIP, OTHER = "new", "later", "skip", "other"
+NAME, NAME_ZH, SPEC, QTY, CHOICE, OPENING = range(6)
 
 
 def _buttons(*specs) -> QWidget:
@@ -56,9 +65,15 @@ class PendingPage(Page):
         self.unknown_box = QGroupBox(t("pending.unknown_title"))
         lay = QVBoxLayout(self.unknown_box)
         lay.addWidget(hint_label(t("pending.unknown_hint")))
-        self.unknown = make_table([t("pending.name_on_note"), t("col.name_zh"), t("col.spec"), t("pending.in_orders"),
-                                   t("pending.map_to"), t("pending.opening"), ""], stretch=CHOICE)
-        self.unknown.setWordWrap(False)  # long names are cut; the full text is in the tooltip
+        # one group per delivery note with all its lines, so a whole order is checked against the paper
+        self.unknown = QTreeWidget()
+        self.unknown.setColumnCount(6)
+        self.unknown.setHeaderLabels([t("pending.name_on_note"), t("col.name_zh"), t("col.spec"), t("col.qty"),
+                                      t("pending.map_to"), t("pending.opening")])
+        self.unknown.setAlternatingRowColors(True)
+        self.unknown.setSelectionMode(QAbstractItemView.NoSelection)
+        self.unknown.header().setSectionResizeMode(QHeaderView.Interactive)
+        self.unknown.header().setStretchLastSection(False)
         lay.addWidget(self.unknown)
         row = QHBoxLayout()
         apply_btn = QPushButton(t("pending.apply"))
@@ -92,30 +107,7 @@ class PendingPage(Page):
 
     def refresh(self):
         conn, ws = self.ctx.conn, self.ctx.ws
-        self._unknown = deliveries.unknown_lines(conn, ws)
-        products = catalog.products(conn)
-        fill_table(self.unknown, [[u.name_vi, u.name_zh, u.spec, "; ".join(u.orders), "", "", ""]
-                                  for u in self._unknown])
-        self.unknown.setSortingEnabled(False)  # row r must stay self._unknown[r]
-        for r, u in enumerate(self._unknown):
-            self.unknown.setCellWidget(r, CHOICE, self._choice_combo(r, u, products))
-            opening = QLineEdit()
-            opening.setPlaceholderText(t("pending.opening_placeholder"))
-            opening.setToolTip(t("pending.opening_tip"))
-            opening.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.unknown.setCellWidget(r, OPENING, opening)
-            drop = QPushButton()
-            drop.clicked.connect(lambda _=False, row=r: self._toggle_drop(row))
-            self.unknown.setCellWidget(r, DROP, drop)
-            self._restyle(r)
-            for c in (NAME, ORDERS):
-                self.unknown.item(r, c).setToolTip(self.unknown.item(r, c).text().replace("; ", chr(10)))
-        # long product names: fixed widths instead of fitting the (very wide) contents
-        for col, width in ((NAME, 200), (NAME_ZH, 120), (SPEC, 105), (ORDERS, 140), (OPENING, 95), (DROP, 110), (CHOICE, 200)):
-            self.unknown.setColumnWidth(col, width)
-        self.unknown.natural = 200  # takes the spare width; the drop-down list itself is as wide as the longest name
-        self.unknown.fill_spare()
-        self.unknown_box.setVisible(bool(self._unknown))
+        self._fill_unknown(conn, ws)
 
         rows = [r for r in deliveries.pending_files(conn) if r["status"] != "needs_mapping"]
         fill_table(self.files, [[t(f"file.{r['status']}"), r["rel_path"], self._file_message(r), ""] for r in rows])
@@ -134,68 +126,130 @@ class PendingPage(Page):
 
         self.empty.setVisible(not (self._unknown or rows or self._items))
 
-    # ---- unknown lines -----------------------------------------------------
+    # ---- unknown lines, grouped by order ---------------------------------------
+
+    def _fill_unknown(self, conn, ws):
+        self._unknown = {u.key: u for u in deliveries.unknown_lines(conn, ws)}  # one decision per name
+        self._combos: dict[str, list] = {}
+        self._rows: dict[str, list] = {}  # tree rows of each unknown name (one per order it is in)
+        self._openings: dict[str, QLineEdit] = {}
+        self._syncing = False
+        names = {p["id"]: catalog.long_label(p) for p in catalog.products(conn, include_inactive=True)}
+        self.unknown.clear()
+        for note in deliveries.waiting_notes(conn, ws):
+            head = QTreeWidgetItem([t("pending.order_title", code=note.code or "—", customer=note.customer or "—",
+                                      date=fmt_date(note.doc_date), waiting=len(note.unknown))])
+            head.setToolTip(0, note.rel_path)
+            font = head.font(0)
+            font.setBold(True)
+            head.setFont(0, font)
+            self.unknown.addTopLevelItem(head)
+            head.setFirstColumnSpanned(True)
+            for ln in note.lines:
+                item = QTreeWidgetItem([ln.name_vi or ln.raw_name, ln.name_zh, ln.spec, fmt_qty(ln.qty), "", ""])
+                item.setToolTip(NAME, ln.raw_name)
+                item.setTextAlignment(QTY, Qt.AlignRight | Qt.AlignVCenter)
+                head.addChild(item)
+                u = self._unknown.get(ln.key) if ln.product_id is None and not ln.ignored else None
+                if u is None:  # already known: shown to compare the whole order, not to change here
+                    item.setText(CHOICE, "✓ " + names.get(ln.product_id, "") if ln.product_id
+                                 else t("pending.skip_short"))
+                    for c in range(6):
+                        item.setForeground(c, GREY)
+                    continue
+                self._rows.setdefault(ln.key, []).append(item)
+                combo = self._choice_combo(u)
+                self._combos.setdefault(ln.key, []).append(combo)
+                self.unknown.setItemWidget(item, CHOICE, combo)
+                if ln.key not in self._openings:  # once per name, on its earliest order
+                    opening = QLineEdit()
+                    opening.setPlaceholderText(t("pending.opening_placeholder"))
+                    opening.setToolTip(t("pending.opening_tip"))
+                    opening.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    self._openings[ln.key] = opening
+                    self.unknown.setItemWidget(item, OPENING, opening)
+            head.setExpanded(True)
+        for key in self._combos:
+            self._restyle(key)
+        for col, width in ((NAME, 220), (NAME_ZH, 120), (SPEC, 100), (QTY, 75), (CHOICE, 300), (OPENING, 100)):
+            self.unknown.setColumnWidth(col, width)
+        self.unknown_box.setVisible(bool(self._unknown))
 
     def _default_choice(self, u):
         if u.is_fee:
             return SKIP
-        return u.suggestion or NEW
+        return u.suggestion or LATER  # nothing close enough: the user decides, nothing is created by itself
 
-    def _choice_combo(self, r, u, products) -> QComboBox:
-        combo = QComboBox()
-        combo.setEditable(True)  # type a few letters (Vietnamese or Chinese) to find the product
-        combo.setInsertPolicy(QComboBox.NoInsert)
-        combo.completer().setFilterMode(Qt.MatchContains)
-        combo.completer().setCompletionMode(QCompleter.PopupCompletion)
-        combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        combo.setMinimumContentsLength(32)
+    def _choice_combo(self, u) -> QComboBox:
+        """2-3 products with the same name first, then: new product, not goods, another product…, decide later.
+        Not editable and deaf to the mouse wheel, so scrolling never changes a choice."""
+        combo = NoWheelCombo()
+        suggestions = [] if u.is_fee else catalog.suggest_products(self.ctx.conn, u.raw_name, u.spec)
+        if u.suggestion and u.suggestion not in [p["id"] for p in suggestions]:
+            suggestions.insert(0, self.ctx.conn.execute("SELECT * FROM products WHERE id = ?",
+                                                        (u.suggestion,)).fetchone())
+        for p in suggestions:
+            combo.addItem(catalog.long_label(p), p["id"])
+        if suggestions:
+            combo.insertSeparator(combo.count())
         combo.addItem(t("pending.create_new"), NEW)
         combo.addItem(t("pending.skip"), SKIP)
+        combo.addItem(t("pending.other"), OTHER)
         combo.addItem(t("pending.later"), LATER)
-        for p in products:
-            combo.addItem(catalog.long_label(p), p["id"])
         combo.setCurrentIndex(combo.findData(self._default_choice(u)))
-        combo.lineEdit().setCursorPosition(0)  # show the start of the long label (code, name)
-        # the drop-down list is as wide as the longest name, so every product name can be read in full
-        metrics = combo.fontMetrics()
-        widest = max(metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
-        combo.view().setMinimumWidth(widest + 40)
+        combo.setProperty("previous", combo.currentIndex())
+        widest = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+        combo.view().setMinimumWidth(widest + 40)  # every name readable in full in the drop-down list
         combo.setToolTip(combo.currentText())
-        combo.currentIndexChanged.connect(lambda _=0, row=r: self._restyle(row))
-        combo.currentIndexChanged.connect(lambda _=0, c=combo: c.lineEdit().setCursorPosition(0))
-        combo.currentTextChanged.connect(combo.setToolTip)
-        combo.currentTextChanged.connect(lambda _=0, row=r: self._restyle(row))  # typed text = 'later'
+        combo.currentIndexChanged.connect(lambda _=0, c=combo, key=u.key: self._choice_changed(key, c))
         return combo
 
-    def _choice(self, r):
-        combo = self.unknown.cellWidget(r, CHOICE)
-        idx = combo.findText(combo.currentText())  # typed text that matches nothing -> decide later
-        return combo.itemData(idx) if idx >= 0 else LATER
+    def _choice_changed(self, key, combo):
+        if self._syncing:
+            return
+        data = combo.currentData()
+        if data == OTHER:  # pick any product from the whole catalog
+            picked = ProductPicker(self.ctx, self).choose()
+            if picked is None:
+                self._syncing = True
+                combo.setCurrentIndex(combo.property("previous"))
+                self._syncing = False
+                return
+            data = picked
+        self.set_choice(key, data)
 
-    def _toggle_drop(self, r):
-        combo = self.unknown.cellWidget(r, CHOICE)
-        if self._choice(r) == SKIP:
-            default = self._default_choice(self._unknown[r])
-            combo.setCurrentIndex(combo.findData(NEW if default == SKIP else default))
-        else:
-            combo.setCurrentIndex(combo.findData(SKIP))
+    def set_choice(self, key, data):
+        """Same decision for every row of this name (it may be in several orders)."""
+        self._syncing = True
+        for combo in self._combos[key]:
+            idx = combo.findData(data)
+            if idx < 0:  # a product picked from the whole list: add it on top
+                p = self.ctx.conn.execute("SELECT * FROM products WHERE id = ?", (data,)).fetchone()
+                combo.insertItem(0, catalog.long_label(p), data)
+                idx = 0
+            combo.setCurrentIndex(idx)
+            combo.setProperty("previous", idx)
+            combo.setToolTip(combo.currentText())
+        self._syncing = False
+        self._restyle(key)
 
-    def _restyle(self, r):
+    def choice(self, key):
+        return self._combos[key][0].currentData()
+
+    def _restyle(self, key):
         """Lines marked 'not goods' are greyed and struck through, like deleted."""
-        skip = self._choice(r) == SKIP
-        for c in (NAME, NAME_ZH, SPEC, ORDERS):
-            item = self.unknown.item(r, c)
-            font = item.font()
-            font.setStrikeOut(skip)
-            item.setFont(font)
-            item.setForeground(GREY if skip else self.palette().text().color())
-        self.unknown.cellWidget(r, DROP).setText(t("pending.keep_line") if skip else t("pending.drop_line"))
-        opening = self.unknown.cellWidget(r, OPENING)
-        if opening is not None:  # only a new product needs its stock before the note; others have a history
-            opening.setEnabled(self._choice(r) == NEW)
+        skip = self.choice(key) == SKIP
+        for item in self._rows[key]:
+            for c in (NAME, NAME_ZH, SPEC, QTY):
+                font = item.font(c)
+                font.setStrikeOut(skip)
+                item.setFont(c, font)
+                item.setForeground(c, GREY if skip else self.palette().text().color())
+        if key in self._openings:  # only a new product needs its stock before the note; others have a history
+            self._openings[key].setEnabled(self.choice(key) == NEW)
 
-    def _opening(self, r) -> float | None:
-        text = self.unknown.cellWidget(r, OPENING).text().strip()
+    def _opening(self, key) -> float | None:
+        text = self._openings[key].text().strip() if key in self._openings else ""
         if not text:
             return None
         return parse_number(text)
@@ -262,7 +316,8 @@ class PendingPage(Page):
 
     # ---- actions -----------------------------------------------------------
 
-    def _run(self, action):
+    def _run(self, action, undo_action="file"):
+        self.ctx.undo_point(undo_action)
         try:
             action()
         except Exception as exc:  # show the reason instead of failing silently
@@ -271,16 +326,16 @@ class PendingPage(Page):
 
     def apply_mapping(self, confirm=True):
         conn = self.ctx.conn
-        choices = [(u, self._choice(r)) for r, u in enumerate(self._unknown)]
+        choices = [(u, self.choice(key)) for key, u in self._unknown.items()]
         openings = {}
-        for r, (u, choice) in enumerate(choices):
+        for u, choice in choices:
             if choice != NEW:
                 continue
             try:
-                openings[u.key] = self._opening(r)
+                openings[u.key] = self._opening(u.key)
             except ValueError:
                 error(self, t("pending.opening_invalid", name=u.name_vi or u.raw_name))
-                self.unknown.cellWidget(r, OPENING).setFocus()
+                self._openings[u.key].setFocus()
                 return
         counts = {NEW: 0, SKIP: 0, LATER: 0, "map": 0}
         for _, choice in choices:
@@ -288,6 +343,7 @@ class PendingPage(Page):
         if confirm and not ask(self, t("pending.confirm_apply", mapped=counts["map"], created=counts[NEW],
                                        skipped=counts[SKIP], later=counts[LATER])):
             return
+        self.ctx.undo_point("apply")
         for u, choice in choices:
             if choice == NEW:
                 deliveries.create_product_for_line(conn, u, opening=openings.get(u.key),
@@ -334,6 +390,7 @@ class PendingPage(Page):
             return
         try:
             backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-nhap-du-lieu")
+            self.ctx.undo_point("package")
             self.ctx.close()
             manifest = transfer.import_package(self.ctx.ws, it.path)
             self.ctx.reopen()
@@ -349,3 +406,41 @@ class PendingPage(Page):
             return
         self.rescan()
         info(self, t("transfer.imported", device=m.device_name))
+
+
+class ProductPicker(QDialog):
+    """'Chọn mặt hàng khác…': the whole catalog with a search box (Vietnamese, Chinese, code, no accents)."""
+
+    def __init__(self, ctx, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(t("pending.other_title"))
+        fit_window(self, 760, 560)
+        lay = QVBoxLayout(self)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText(t("pending.other_search"))
+        lay.addWidget(self.search)
+        self.list = QListWidget()
+        for p in sorted(catalog.products(ctx.conn), key=lambda p: (len(p["code"]), p["code"])):
+            item = QListWidgetItem(catalog.long_label(p))
+            item.setData(Qt.UserRole, p["id"])
+            item.setData(Qt.UserRole + 1, unaccent(f"{catalog.long_label(p)} {p['name_zh']}"))
+            self.list.addItem(item)
+        lay.addWidget(self.list)
+        box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+        self.search.textChanged.connect(self._filter)
+        self.list.itemDoubleClicked.connect(lambda _: self.accept())
+        self.search.setFocus()
+
+    def _filter(self, text):
+        needle = unaccent(text)
+        for i in range(self.list.count()):
+            item = self.list.item(i)
+            item.setHidden(needle not in item.data(Qt.UserRole + 1))
+
+    def choose(self) -> int | None:
+        if self.exec() != QDialog.Accepted or self.list.currentItem() is None:
+            return None
+        return self.list.currentItem().data(Qt.UserRole)

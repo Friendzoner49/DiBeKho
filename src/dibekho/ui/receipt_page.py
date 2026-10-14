@@ -50,6 +50,7 @@ def review_receipt(ctx, parent, item) -> bool:
     lay.addWidget(box)
     if dlg.exec() != QDialog.Accepted:
         return False
+    ctx.undo_point("receipt")
     try:
         inbox.apply_receipt(ctx.conn, ctx.ws, item)
     except Exception as exc:

@@ -163,6 +163,7 @@ class DocumentDialog(_Base):
     def cancel_doc(self):
         if not ask(self, t("doc.confirm_cancel")):
             return
+        self.ctx.undo_point("cancel_doc")
         try:
             with db.transaction(self.ctx.conn):
                 close_document(self.ctx.conn, self.doc_id, "cancelled")
@@ -180,6 +181,7 @@ class DocumentDialog(_Base):
     def reread_doc(self):
         if not ask(self, t("doc.confirm_reread")):
             return
+        self.ctx.undo_point("reread")
         try:
             deliveries.reread_document(self.ctx.conn, self.ctx.ws, self.doc_id)
             result = deliveries.scan(self.ctx.conn, self.ctx.ws)

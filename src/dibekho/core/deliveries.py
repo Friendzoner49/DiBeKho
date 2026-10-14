@@ -18,7 +18,7 @@ from pathlib import Path
 from dibekho import db
 from dibekho.core import catalog
 from dibekho.core.stock import Line, add_lines, close_document, insert_document, stock_count
-from dibekho.core.text import fmt_qty, match_key, nfc
+from dibekho.core.text import fmt_qty, match_key, nfc, normalize_code, normalize_phone
 from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
     DeliveryNote,
@@ -128,6 +128,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
         if row["hash"] not in seen:
             conn.execute("DELETE FROM scanned_files WHERE hash = ?", (row["hash"],))
     sort_files(conn, ws, found)
+    backfill_customers(conn, ws)
     result.pending = pending_count(conn)
     return result
 
@@ -342,6 +343,50 @@ def unknown_lines(conn, ws: Workspace) -> list[UnknownLine]:
     return list(found.values())
 
 
+@dataclass
+class NoteLine:
+    row: int  # Excel row of the line
+    raw_name: str
+    name_vi: str
+    name_zh: str
+    spec: str
+    qty: float
+    key: str
+    product_id: int | None  # known (learned) product; None = waiting for a decision, or 'not goods'
+    ignored: bool = False  # 'not goods' (a fee)
+
+
+@dataclass
+class WaitingNote:
+    """A delivery note in 'Cần xử lý' with all its lines, so the user checks a whole order at once."""
+    rel_path: str
+    code: str
+    doc_date: date | None
+    customer: str
+    lines: list[NoteLine]
+
+    @property
+    def unknown(self) -> list[NoteLine]:
+        return [ln for ln in self.lines if ln.product_id is None and not ln.ignored]
+
+
+def waiting_notes(conn, ws: Workspace) -> list[WaitingNote]:
+    """Notes waiting for a decision, oldest first, each with every line (known ones too, to compare)."""
+    result = []
+    for row in conn.execute("SELECT * FROM scanned_files WHERE status = 'needs_mapping'").fetchall():
+        try:
+            note = read_delivery_note(note_path(ws, row["rel_path"]))
+        except (OSError, NotDeliveryNote, DeliveryNoteError):
+            continue
+        lines = [NoteLine(ln.row, ln.raw_name, ln.name_vi, ln.name_zh, ln.spec, ln.qty, ln.key,
+                          catalog.alias_product(conn, ln.key), catalog.is_ignored(conn, ln.key))
+                 for ln in note.lines]
+        waiting = WaitingNote(row["rel_path"], note.code, note.doc_date, note.customer_name, lines)
+        if waiting.unknown:
+            result.append(waiting)
+    return sorted(result, key=lambda n: (n.doc_date or date.max, normalize_code(n.code), n.rel_path))
+
+
 def line_label(line) -> str:
     return " ".join(x for x in (line.name_vi or line.raw_name, line.spec) if x)
 
@@ -404,6 +449,29 @@ def backfill_skipped_lines(conn, ws: Workspace) -> None:
     db.set_meta(conn, "skipped_lines_backfilled", "1")
 
 
+def backfill_customers(conn, ws: Workspace) -> int:
+    """Notes recorded without a customer name because the reader missed a Chinese-only label ('客户名称 Anh Ba'):
+    the customer is missing, or named by its phone number. Read their stored copies again and fill the name
+    in. Returns the number of notes fixed."""
+    fixed = 0
+    for d in conn.execute(
+        "SELECT d.id, d.source_hash, c.name, c.phone_norm FROM documents d LEFT JOIN customers c ON c.id = d.customer_id "
+        "WHERE d.kind = 'delivery' AND d.source_hash <> ''"
+    ).fetchall():
+        if d["name"] is not None and not (d["phone_norm"] and normalize_phone(d["name"]) == d["phone_norm"]):
+            continue  # has a real name
+        path = original_copy(ws, d["source_hash"])
+        try:
+            note = read_delivery_note(path) if path else None
+        except (OSError, NotDeliveryNote, DeliveryNoteError):
+            note = None
+        if note is not None and note.customer_name:
+            customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
+            conn.execute("UPDATE documents SET customer_id = ? WHERE id = ?", (customer_id, d["id"]))
+            fixed += 1
+    return fixed
+
+
 def documents_with_key(conn, key: str) -> list[int]:
     ids = {r[0] for r in conn.execute(
         "SELECT s.document_id FROM document_skipped_lines s JOIN documents d ON d.id = s.document_id "
@@ -436,6 +504,55 @@ def learned_names(conn, ws: Workspace) -> list[LearnedName]:
     for g in catalog.ignored_lines(conn):
         result.append(LearnedName(g["key"], g["label"] or g["key"], None, documents_with_key(conn, g["key"])))
     return sorted(result, key=lambda x: x.label.casefold())
+
+
+@dataclass
+class LearnedLine:
+    key: str
+    label: str  # the line as written on the note
+    qty: float
+    product_id: int | None  # None = dropped as 'not goods'
+    documents: list[int]  # every active note with this line (forgetting reads them all again)
+
+
+@dataclass
+class LearnedOrder:
+    doc_id: int | None  # None: names learned but no longer in any active note
+    code: str
+    doc_date: str
+    customer: str
+    lines: list[LearnedLine]
+
+
+def learned_by_order(conn, ws: Workspace) -> list[LearnedOrder]:
+    """What the app learned, grouped by delivery note (newest first), so a wrong choice is found from the
+    order it spoiled. Names in no active note come last."""
+    names = {n.key: n for n in learned_names(conn, ws)}
+    orders, used = [], set()
+    docs = conn.execute(
+        "SELECT d.id, d.code, d.doc_date, COALESCE(c.name, '') AS customer FROM documents d "
+        "LEFT JOIN customers c ON c.id = d.customer_id WHERE d.kind = 'delivery' AND d.status = 'active' "
+        "ORDER BY d.doc_date DESC, d.id DESC"
+    ).fetchall()
+    for d in docs:
+        lines = []
+        for r in conn.execute("SELECT line_no, raw_name, raw_spec, qty FROM document_lines WHERE document_id = ? "
+                              "ORDER BY line_no", (d["id"],)):
+            key = match_key(r["raw_name"], r["raw_spec"])
+            if key in names:
+                lines.append(LearnedLine(key, " ".join(x for x in (r["raw_name"], r["raw_spec"]) if x), r["qty"],
+                                         names[key].product_id, names[key].documents))
+        for r in conn.execute("SELECT key, raw_name FROM document_skipped_lines WHERE document_id = ?", (d["id"],)):
+            if r["key"] in names:
+                lines.append(LearnedLine(r["key"], r["raw_name"] or names[r["key"]].label, 0, None,
+                                         names[r["key"]].documents))
+        if lines:
+            used.update(ln.key for ln in lines)
+            orders.append(LearnedOrder(d["id"], d["code"], d["doc_date"], d["customer"], lines))
+    rest = [LearnedLine(n.key, n.label, 0, n.product_id, []) for n in names.values() if n.key not in used]
+    if rest:
+        orders.append(LearnedOrder(None, "", "", "", rest))
+    return orders
 
 
 def reread_document(conn, ws: Workspace, doc_id: int) -> None:

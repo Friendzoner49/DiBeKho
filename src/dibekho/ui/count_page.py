@@ -117,6 +117,7 @@ class CountPage(Page):
         d = from_qdate(self.date.date())
         if not ask(self, t("count.confirm", count=len(counted), date=d.strftime("%d/%m/%Y"))):
             return
+        self.ctx.undo_point("stock_count")
         with db.transaction(self.ctx.conn):
             stock_count(self.ctx.conn, d, counted, self.note.text().strip())
         self.note.clear()

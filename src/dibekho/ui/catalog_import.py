@@ -137,6 +137,7 @@ class CatalogImportDialog(QDialog):
             error(self, t("catalog.nothing"))
             return
         stock_date = from_qdate(self.stock_date.date()) if self.use_stock.isChecked() else None
+        self.ctx.undo_point("catalog")
         if stock_date is not None:
             # notes up to that date must be in the ledger first, or they would be subtracted from the count later
             deliveries.scan(self.ctx.conn, self.ctx.ws)

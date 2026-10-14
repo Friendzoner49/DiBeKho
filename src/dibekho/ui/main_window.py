@@ -13,9 +13,9 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import APP_NAME, __version__
-from dibekho.core import deliveries, inbox
+from dibekho.core import deliveries, inbox, undo
 from dibekho.i18n import t
-from dibekho.ui.common import AppContext, error, fit_window, open_path
+from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
 from dibekho.ui.count_page import CountPage
 from dibekho.ui.pending_page import PendingPage
 from dibekho.ui.receipt_page import ReceiptPage
@@ -66,10 +66,13 @@ class MainWindow(QMainWindow):
         scan.clicked.connect(lambda: self.rescan())
         open_notes = QPushButton(t("main.open_deliveries"))
         open_notes.clicked.connect(lambda: open_path(ctx.ws.deliveries))
+        self.undo_btn = QPushButton()
+        self.undo_btn.clicked.connect(self.undo_last)
         self.status = QLabel()
         top.addWidget(scan)
         top.addWidget(open_notes)
         top.addWidget(self.status, 1)
+        top.addWidget(self.undo_btn)
 
         right = QWidget()
         right_lay = QVBoxLayout(right)
@@ -95,6 +98,8 @@ class MainWindow(QMainWindow):
         self._update_badge()
         # e.g. a note read again from its detail window: keep the 'Cần xử lý' counter current
         ctx.changed.connect(lambda: self._update_badge(self._last))
+        ctx.changed.connect(self._update_undo)
+        self._update_undo()
 
     def rescan(self, quiet: bool = False, allow_partial: bool = False):
         """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed.
@@ -121,6 +126,36 @@ class MainWindow(QMainWindow):
         if pending:
             parts.append(t("main.pending", count=pending))
         self.status.setText(" · ".join(parts))
+
+    def _update_undo(self):
+        point = undo.latest(self.ctx.ws)
+        self.undo_btn.setEnabled(point is not None)
+        if point is None:
+            self.undo_btn.setText(t("undo.button_none"))
+            self.undo_btn.setToolTip(t("undo.none"))
+            return
+        action = t(f"undo.{point.action}")
+        self.undo_btn.setText(t("undo.button", action=action))
+        self.undo_btn.setToolTip(t("undo.tip", action=action, at=point.at.strftime("%d/%m/%Y %H:%M")))
+
+    def undo_last(self):
+        """Put the data back as it was just before the last action that left an undo point."""
+        point = undo.latest(self.ctx.ws)
+        if point is None:
+            return
+        action = t(f"undo.{point.action}")
+        if not ask(self, t("undo.confirm", action=action, at=point.at.strftime("%d/%m/%Y %H:%M"))):
+            return
+        try:
+            self.ctx.close()
+            undo.undo(self.ctx.ws, point)
+        except Exception as exc:
+            error(self, str(exc))
+        finally:
+            self.ctx.reopen()
+        self.rescan(quiet=True)  # notes go back in or out of da-xu-ly/ as the restored data says
+        self.ctx.notify()
+        info(self, t("undo.done", action=action))
 
     def show_pending(self):
         self.rescan(quiet=True)

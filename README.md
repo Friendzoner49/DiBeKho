@@ -138,14 +138,16 @@ Open **Stock count**, pick the date, type the counted quantity of each product a
 1. Copy the day's delivery notes (`.xlsx`) into `phieu-giao-hang/` (**Open delivery notes folder** opens it). Subfolders such as one per month are fine.
 2. Click **⟳ Rescan notes** (or press **F5**). The app also scans every time it starts.
 3. Notes whose product names are all known are read straight away and stock goes down.
-4. If **To do** shows a number, some lines need your decision:
+4. If **To do** shows a number, some lines need your decision. They are **grouped by order**, with every line of the order (lines with ✓ are already recognised), so you can compare with the paper note. Under **Is product** the 2–3 closest products come first:
 
 | On the line | Do this |
 |---|---|
-| A product from the catalog | Pick it under **Is product**; type a few letters (Vietnamese or Chinese) to search |
-| A product not in the catalog yet | Keep **＋ Create new product**, and type the quantity already in stock (before this note) under **Opening stock**; the note is then subtracted from it |
-| A shipping or service fee | Click **✕ Drop line** (fee lines are usually pre-selected) |
-| Not sure | Choose **⏸ Later**: the other lines of the note are recorded; this one waits and joins the same order once decided |
+| A product from the catalog | Pick one of the suggestions; if it is not there, choose **🔍 Choose another product…** and type a few letters (Vietnamese, Chinese, code) |
+| A product not in the catalog yet | Choose **＋ Create new product**, and type the quantity already in stock (before this note) under **Opening stock**; the note is then subtracted from it |
+| A shipping or service fee | Choose **✕ Not goods** (fee lines are usually pre-selected) |
+| Not sure | Leave **⏸ Later (keep waiting)**: the other lines of the note are recorded; this one waits and joins the same order once decided |
+
+When the same name is in several orders, choosing it in one sets the others too. Scrolling with the mouse wheel never changes a choice.
 
 Then click **Apply and read notes again**, check the summary and confirm. The app remembers every choice, so the same name is recognised on later notes.
 
@@ -174,7 +176,8 @@ In **Search → Statistics and Excel export** choose the period (day, month, qua
 
 | Situation | What to do |
 |---|---|
-| Picked the wrong product, or dropped a line by mistake | **Settings → Products → Learned names on notes**, select the line, **Forget and read again…**. The affected notes come back to **To do** |
+| Just did something wrong (Apply, Forget and read again, edit/delete a product, stock count, goods in, an import…) | Press **↶ Undo** at the top right: the data goes back exactly as before that action. Press again to go back step by step (the last 20 steps are kept) |
+| Picked the wrong product, or dropped a line by mistake, some time ago | **Settings → Products → Learned names on notes**: choices are grouped by order; click an order to see its lines, then **Forget and read again…** on the wrong one. The notes with that line come back to **To do** to choose again |
 | A note should be read again with today's catalog | Open the order, **Read note again** |
 | A note was entered by mistake | Open the order, **Cancel document** (stock is given back, history kept). Deleting the file does **not** cancel it |
 | A note file was deleted from the folder | **To do** offers **Restore file**, **Cancel document** or **Ignore** |

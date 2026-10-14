@@ -15,16 +15,20 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QTabWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from dibekho import __version__, db
 from dibekho.core import catalog, deliveries, reset, uninstall
+from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
@@ -34,6 +38,7 @@ from dibekho.ui.common import (
     error,
     fill_table,
     fit_window,
+    fmt_date,
     hint_label,
     info,
     make_table,
@@ -101,6 +106,7 @@ class ProductEditor(QDialog):
         fields = dict(name_vi=self.name_vi.text().strip(), name_zh=self.name_zh.text().strip(),
                       spec=self.spec.text().strip(), variant=self.variant.text().strip(), unit=self.unit.text().strip(),
                       category=self.category.currentText().strip(), min_stock=self.min_stock.value())
+        self.ctx.undo_point("product_edit" if self.product else "product_add")
         with db.transaction(self.ctx.conn):
             if self.product:
                 catalog.update_product(self.ctx.conn, self.product["id"], active=int(self.active.isChecked()),
@@ -184,16 +190,14 @@ class SettingsPage(Page):
         learned = QGroupBox(t("settings.learned_title"))
         lay = QVBoxLayout(learned)
         lay.addWidget(hint_label(t("settings.learned_hint")))
-        self.learned = make_table([t("pending.name_on_note"), t("settings.learned_as"), t("settings.learned_docs")],
-                                  stretch=1)
-        self.learned.doubleClicked.connect(lambda _: self.forget())
+        # grouped by order: click an order to see its lines, then forget a wrong choice or keep it
+        self.learned = QTreeWidget()
+        self.learned.setColumnCount(4)
+        self.learned.setHeaderLabels([t("settings.learned_order"), t("col.qty"), t("settings.learned_as"), ""])
+        self.learned.setAlternatingRowColors(True)
+        self.learned.header().setSectionResizeMode(QHeaderView.Interactive)
+        self.learned.header().setStretchLastSection(False)
         lay.addWidget(self.learned)
-        row = QHBoxLayout()
-        forget = QPushButton(t("settings.forget"))
-        forget.clicked.connect(self.forget)
-        row.addWidget(forget)
-        row.addStretch()
-        lay.addLayout(row)
         products_lay.addWidget(learned, 2)
 
         reset_box = QGroupBox(t("reset.title"))
@@ -229,23 +233,46 @@ class SettingsPage(Page):
             if not p["active"]:
                 for c in range(self.table.columnCount()):
                     self.table.item(r, c).setForeground(GREY)
-        names = {p["id"]: catalog.label(p) for p in rows}
-        self._learned = deliveries.learned_names(self.ctx.conn, self.ctx.ws)
-        fill_table(self.learned, [[n.label, names.get(n.product_id, "") if n.product_id else t("pending.skip_short"),
-                                   num_item(len(n.documents))] for n in self._learned],
-                   ids=list(range(len(self._learned))))
+        self._fill_learned({p["id"]: catalog.long_label(p) for p in rows})
         self.transfer.refresh()
 
-    def forget(self):
-        idx = selected_id(self.learned)
-        if idx is None:
-            error(self, t("settings.pick_first"))
+    def _fill_learned(self, names):
+        expanded = {self.learned.topLevelItem(i).data(0, Qt.UserRole) for i in range(self.learned.topLevelItemCount())
+                    if self.learned.topLevelItem(i).isExpanded()}
+        self.learned.clear()
+        for order in deliveries.learned_by_order(self.ctx.conn, self.ctx.ws):
+            if order.doc_id is None:
+                title = t("settings.learned_no_order", count=len(order.lines))
+            else:
+                title = t("settings.learned_order_title", code=order.code, date=fmt_date(order.doc_date),
+                          customer=order.customer or "—", count=len(order.lines))
+            head = QTreeWidgetItem([title])
+            head.setData(0, Qt.UserRole, order.doc_id or 0)
+            self.learned.addTopLevelItem(head)
+            head.setFirstColumnSpanned(True)
+            for ln in order.lines:
+                item = QTreeWidgetItem([ln.label, fmt_qty(ln.qty) if ln.qty else "",
+                                        names.get(ln.product_id, "") if ln.product_id else t("pending.skip_short")])
+                item.setToolTip(0, ln.label)
+                item.setToolTip(2, item.text(2))
+                head.addChild(item)
+                button = QPushButton(t("settings.forget"))
+                button.clicked.connect(lambda _=False, line=ln: self.forget(line))
+                self.learned.setItemWidget(item, 3, button)
+            head.setExpanded(head.data(0, Qt.UserRole) in expanded)  # collapsed: click an order to open it
+        for col, width in ((0, 420), (1, 60), (2, 360), (3, 170)):
+            self.learned.setColumnWidth(col, width)
+
+    def forget(self, line):
+        orders = [r[0] for r in self.ctx.conn.execute(
+            f"SELECT code FROM documents WHERE id IN ({','.join('?' * len(line.documents))}) ORDER BY doc_date",
+            line.documents)] if line.documents else []
+        if not ask(self, t("settings.confirm_forget", name=line.label, docs=len(orders),
+                           orders=", ".join(orders) or "—")):
             return
-        item = self._learned[idx]
-        if not ask(self, t("settings.confirm_forget", name=item.label, docs=len(item.documents))):
-            return
+        self.ctx.undo_point("forget")
         try:
-            count = deliveries.forget_name(self.ctx.conn, self.ctx.ws, item.key)
+            count = deliveries.forget_name(self.ctx.conn, self.ctx.ws, line.key)
             deliveries.scan(self.ctx.conn, self.ctx.ws)
         except Exception as exc:
             error(self, str(exc))
@@ -272,12 +299,14 @@ class SettingsPage(Page):
             if not p["active"]:
                 error(self, t("settings.delete_used_inactive", name=catalog.label(p), docs=used))
             elif ask(self, t("settings.delete_used", name=catalog.label(p), docs=used)):
+                self.ctx.undo_point("product_edit")
                 with db.transaction(conn):
                     catalog.update_product(conn, product_id, active=0)
                 self.ctx.notify()
             return
         if not ask(self, t("settings.confirm_delete_product", name=catalog.label(p))):
             return
+        self.ctx.undo_point("product_delete")
         with db.transaction(conn):
             catalog.delete_product(conn, product_id)
             db.log(conn, "product_deleted", catalog.label(p))
@@ -298,6 +327,7 @@ class SettingsPage(Page):
     def reset_stock(self):
         if not ask(self, t("reset.confirm_stock")):
             return
+        self.ctx.undo_point("reset")
         try:
             moved = reset.reset_stock(self.ctx.conn, self.ctx.ws)
         except Exception as exc:

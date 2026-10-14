@@ -24,6 +24,17 @@ HEADER_LABELS = {
     "date": "ngay giao hang",
     "address": "dia chi",
 }
+# the same labels in Chinese, used when the Vietnamese one is missing from the note
+HEADER_LABELS_ZH = {
+    "customer": "客户名称",
+    "phone": "联系电话",
+    "code": "订货单号",
+    "contact": "联系人",
+    "date": "送货日期",
+    "address": "地址",
+}
+# what may follow a Chinese label before its value: '( Tên khách hàng )', ':', '：'
+_LEADING_LABEL_REST = re.compile(r"^\s*(\([^)]*\)|（[^）]*）)?\s*[:：]?\s*")
 COLUMN_LABELS = {
     "name": "ten hang",
     "spec": "quy cach",
@@ -179,6 +190,15 @@ def _read_header_fields(rows) -> dict:
                 if key in found or label not in plain:
                     continue
                 found[key] = _value_after_label(text, label) or _neighbour_value(rows, r, c)
+    # Some notes keep only the Chinese label: '客户名称 Anh Ba' (no 'Tên khách hàng', no colon)
+    for r, row in enumerate(rows):
+        for c, value in enumerate(row):
+            text = _text(value)
+            for key, label in HEADER_LABELS_ZH.items():
+                if key in found or not text.lstrip().startswith(label):
+                    continue
+                rest = _LEADING_LABEL_REST.sub("", text.lstrip()[len(label):])
+                found[key] = clean(rest) or _neighbour_value(rows, r, c)
     return found
 
 

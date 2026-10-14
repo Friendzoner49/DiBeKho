@@ -8,6 +8,7 @@ from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QComboBox,
     QHeaderView,
     QLabel,
     QMessageBox,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
+from dibekho.core import undo
 from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
@@ -62,6 +64,10 @@ class AppContext(QObject):
     def notify(self) -> None:
         self.changed.emit()
 
+    def undo_point(self, action: str) -> None:
+        """Call just before an action the user may want to undo ('Hoàn tác'); action names t('undo.<action>')."""
+        undo.mark(self.conn, self.ws, action)
+
     def close(self) -> None:
         self.conn.close()
         self.conn = None
@@ -71,6 +77,14 @@ class AppContext(QObject):
             self.conn.close()
         self.conn = db.connect(self.ws.db_path)
         self.notify()
+
+
+class NoWheelCombo(QComboBox):
+    """A drop-down that ignores the mouse wheel: scrolling a long table must never change a choice on the way
+    (a customer's '管根套 90-110' ended up as a PPE membrane, 9 wheel notches further down the list)."""
+
+    def wheelEvent(self, event):
+        event.ignore()  # the table under it scrolls instead
 
 
 # ---- formatting ------------------------------------------------------------

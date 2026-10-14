@@ -79,16 +79,26 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
     i18n.set_language("vi")
 
 
-def test_pending_page_drops_fee_lines(app, ws, monkeypatch):
+def key_of(page, name):
+    return next(k for k, u in page._unknown.items() if u.name_vi == name)
+
+
+def test_pending_page_groups_lines_by_order(app, ws, monkeypatch):
+    """One group per note with all its lines; fee lines are dropped by default; nothing unknown is created
+    by itself; the drop-down ignores the mouse wheel; the same name in two orders takes one decision."""
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtGui import QWheelEvent
+
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     i18n.set_language("vi")
-    from dibekho.ui.common import AppContext
+    from dibekho.ui.common import AppContext, NoWheelCombo
     from dibekho.ui.main_window import PENDING, MainWindow
-    from dibekho.ui.pending_page import CHOICE, NEW, SKIP
+    from dibekho.ui.pending_page import LATER, NEW, SKIP
     from tests.conftest import make_note
 
-    make_note(ws.deliveries / "a.xlsx", lines=[("背水涂\nvữa chống thấm", "10KG/thùng", 3, ""),
-                                               ("运费\nPhí vận chuyển", "", 1, "")])
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[("背水涂\nvữa chống thấm", "10KG/thùng", 3, ""),
+                                                         ("运费\nPhí vận chuyển", "", 1, "")])
+    make_note(ws.deliveries / "b.xlsx", code="2", day="06-10-2026", lines=[("背水涂\nvữa chống thấm", "10KG/thùng", 2, "")])
     ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
     win = MainWindow(ctx)
     win.show()
@@ -96,34 +106,75 @@ def test_pending_page_drops_fee_lines(app, ws, monkeypatch):
     win.nav.setCurrentRow(PENDING)
     app.processEvents()
     page = win.pending
-    names = [page.unknown.item(r, 0).text() for r in range(page.unknown.rowCount())]
-    fee, goods = names.index("Phí vận chuyển"), names.index("vữa chống thấm")
-    assert page._choice(fee) == SKIP and page.unknown.item(fee, 0).font().strikeOut()
-    assert page._choice(goods) == NEW
-    page._toggle_drop(goods)
-    assert page._choice(goods) == SKIP
-    page._toggle_drop(goods)
-    assert page._choice(goods) == NEW
-    combo = page.unknown.cellWidget(goods, CHOICE)
-    combo.setEditText("không có mặt hàng này")
-    assert page._choice(goods) == "later"
-    combo.setCurrentIndex(combo.findData(NEW))
-    from dibekho.ui.pending_page import OPENING
+    assert page.unknown.topLevelItemCount() == 2  # orders 1 and 2
+    assert "Đơn 1" in page.unknown.topLevelItem(0).text(0) and page.unknown.topLevelItem(0).childCount() == 2
+    fee, goods = key_of(page, "Phí vận chuyển"), key_of(page, "vữa chống thấm")
+    assert page.choice(fee) == SKIP and page._rows[fee][0].font(0).strikeOut()
+    assert page.choice(goods) == LATER  # no product is close: the user decides
+    assert len(page._combos[goods]) == 2  # in both orders
 
-    assert page.unknown.cellWidget(goods, OPENING).isEnabled()
-    assert not page.unknown.cellWidget(fee, OPENING).isEnabled()  # only a new product takes an opening stock
-    page.unknown.cellWidget(goods, OPENING).setText("10")
+    combo = page._combos[goods][0]
+    assert isinstance(combo, NoWheelCombo)
+    before = combo.currentIndex()
+    combo.wheelEvent(QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, -120), Qt.NoButton,
+                                 Qt.NoModifier, Qt.NoScrollPhase, False))
+    assert combo.currentIndex() == before  # scrolling the page never changes a choice
+
+    combo.setCurrentIndex(combo.findData(NEW))
+    assert page._combos[goods][1].currentData() == NEW  # the other order follows
+    assert page._openings[goods].isEnabled()
+    assert not page._openings[fee].isEnabled()  # only a new product takes an opening stock
+    page._openings[goods].setText("10")
     page.apply_mapping(confirm=False)
-    assert ctx.conn.execute("SELECT COUNT(*) FROM document_lines WHERE qty = 3").fetchone()[0] == 1
     from dibekho.core.stock import stock_levels
 
-    assert list(stock_levels(ctx.conn).values()) == [10 - 3]
+    assert list(stock_levels(ctx.conn).values()) == [10 - 3 - 2]
     assert ctx.conn.execute("SELECT COUNT(*) FROM ignored_lines").fetchone()[0] == 1
+    assert page.unknown.topLevelItemCount() == 0
+    win.close()
+
+
+def test_undo_the_last_apply(app, ws, monkeypatch):
+    import dibekho.ui.main_window as main_mod
+
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(main_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(main_mod, "info", lambda *a, **k: None)
+    i18n.set_language("vi")
+    from dibekho.core import catalog
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import MainWindow
+    from tests.conftest import make_note
+
+    make_note(ws.deliveries / "a.xlsx", code="125", lines=[("管根套 90-110\nBọc ống chân 90-110", "Cái", 20, "")])
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    with ctx.conn:
+        pipe = catalog.create_product(ctx.conn, "Bọc chống thấm cổ ống nước 90-110", "管根套90-110", "90-110")
+        membrane = catalog.create_product(ctx.conn, "Màng PPE", "高分子聚乙烯涤纶防水卷材", "16.5KG")
+    win = MainWindow(ctx)
+    win.show()
+    win.rescan()
+    page = win.pending
+    page.refresh()
+    assert not win.undo_btn.isEnabled()
+    [key] = page._unknown
+    assert page.choice(key) == pipe  # the right one is suggested first
+    page.set_choice(key, membrane)  # the customer's mistake
+    page.apply_mapping(confirm=False)
+    assert ctx.conn.execute("SELECT product_id FROM document_lines").fetchone()[0] == membrane
+    assert win.undo_btn.isEnabled() and "Áp dụng" in win.undo_btn.text()
+
+    win.undo_last()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
+    assert ctx.conn.execute("SELECT COUNT(*) FROM product_aliases").fetchone()[0] == 0
+    page.refresh()
+    assert list(page._unknown) == [key]  # back in 'Cần xử lý', to choose again
+    assert not win.undo_btn.isEnabled()
     win.close()
 
 
 def test_undo_buttons(app, ws, monkeypatch):
-    """'Đọc lại phiếu' in the order window and 'Quên và đọc lại' in settings."""
+    """'Đọc lại phiếu' in the order window and 'Quên và đọc lại' in settings (grouped by order)."""
     import dibekho.ui.details as details_mod
     import dibekho.ui.settings_page as settings_mod
 
@@ -147,12 +198,19 @@ def test_undo_buttons(app, ws, monkeypatch):
     settings = win.stack.widget(win.stack.count() - 1)
     win.nav.setCurrentRow(win.stack.count() - 1)
     app.processEvents()
-    assert settings.learned.rowCount() == 2
-    settings.learned.selectRow(0)
-    settings.forget()
+    tree = settings.learned
+    assert tree.topLevelItemCount() == 3  # orders 3, 2, 1 (newest first)
+    assert "Đơn 3" in tree.topLevelItem(0).text(0) and not tree.topLevelItem(0).isExpanded()
+    assert tree.topLevelItem(0).childCount() == 2
+    from dibekho.core import deliveries
+
+    line = next(ln for o in deliveries.learned_by_order(ctx.conn, ws) for ln in o.lines if "cát" in ln.label)
+    settings.forget(line)
     app.processEvents()
-    assert settings.learned.rowCount() == 1
+    assert all(tree.topLevelItem(i).childCount() == 1 for i in range(tree.topLevelItemCount()) if
+               tree.topLevelItem(i).childCount())
     assert "(2)" in win.nav.item(1).text()  # both notes with the forgotten name wait under "Cần xử lý"
+    assert "Quên" in win.undo_btn.text()
     win.close()
 
 
@@ -223,7 +281,7 @@ def test_apply_imports_approved_lines_and_keeps_the_rest_waiting(app, ws, monkey
     i18n.set_language("vi")
     from dibekho.ui.common import AppContext
     from dibekho.ui.main_window import PENDING, MainWindow
-    from dibekho.ui.pending_page import CHOICE, LATER
+    from dibekho.ui.pending_page import CHOICE, NEW
     from tests.conftest import make_note
 
     make_note(ws.deliveries / "a.xlsx", code="74", customer="Khách Chờ",
@@ -235,14 +293,14 @@ def test_apply_imports_approved_lines_and_keeps_the_rest_waiting(app, ws, monkey
     win.nav.setCurrentRow(PENDING)
     app.processEvents()
     page = win.pending
-    later = [page.unknown.item(r, 0).text() for r in range(page.unknown.rowCount())].index("Hàng chưa duyệt")
-    combo = page.unknown.cellWidget(later, CHOICE)
-    combo.setCurrentIndex(combo.findData(LATER))
+    page.set_choice(key_of(page, "vữa chống thấm"), NEW)  # 'Hàng chưa duyệt' stays 'Để sau'
     page.apply_mapping(confirm=False)
     assert ctx.conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
     assert ctx.conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 1
     assert ctx.conn.execute("SELECT name FROM customers").fetchone()[0] == "Khách Chờ"
-    assert [page.unknown.item(r, 0).text() for r in range(page.unknown.rowCount())] == ["Hàng chưa duyệt"]
+    assert [u.name_vi for u in page._unknown.values()] == ["Hàng chưa duyệt"]
+    head = page.unknown.topLevelItem(0)
+    assert head.childCount() == 2 and head.child(0).text(CHOICE).startswith("✓")  # the approved line, to compare
     win.close()
 
 
