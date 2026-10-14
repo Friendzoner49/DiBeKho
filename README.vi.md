@@ -139,7 +139,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế của từng mặ
 | Dòng trên phiếu là | Làm thế này |
 |---|---|
 | Mặt hàng có trong danh mục | Chọn ở cột **Là mặt hàng**; gõ vài chữ (tiếng Việt hoặc tiếng Trung) để tìm |
-| Mặt hàng chưa có trong danh mục | Để **＋ Tạo mặt hàng mới** |
+| Mặt hàng chưa có trong danh mục | Để **＋ Tạo mặt hàng mới**, và gõ số đang có trong kho (trước phiếu này) vào ô **Tồn ban đầu**; phiếu sẽ trừ tiếp từ số đó |
 | Phí ship, phí dịch vụ | Bấm **✕ Bỏ dòng** (dòng phí thường đã được chọn sẵn) |
 | Chưa chắc | Chọn **⏸ Để sau**: các dòng khác của phiếu vẫn được ghi; dòng này chờ và được thêm vào đúng đơn đó khi bạn duyệt |
 
@@ -149,7 +149,7 @@ Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt r�
 
 ### 5. Hàng về (1–2 lần mỗi quý)
 
-1. **Hàng về → Tạo file mẫu hàng về**, mở file, điền ngày về và số lượng, lưu lại.
+1. **Hàng về → Tạo file mẫu hàng về** (mặt hàng xếp theo mã: SP001, SP002…), mở file, điền ngày về và số lượng, lưu lại.
 2. Chép file vào `input/` (nút **Mở thư mục input**).
 3. Ở **Cần xử lý**, bấm **Xem và nhập**, kiểm tra danh sách rồi bấm **Xác nhận nhập hàng về**. Tồn tăng và file được chuyển sang `input/da-xu-ly/`.
 
@@ -184,7 +184,7 @@ Mỗi lúc chỉ một máy làm việc.
 2. Gửi file (USB, Zalo, email…) và chép vào `input/` của máy kia.
 3. Ở máy kia, vào **Cần xử lý → Nhập dữ liệu**. Dữ liệu hiện có trên máy đó được sao lưu trước, rồi mới bị thay thế.
 
-**Dữ liệu gốc (Excel):** **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc…** ghi danh mục mặt hàng (mã, tên, quy cách, loại/màu, đơn vị, nhóm hàng, ngày nhập, mức báo sắp hết, đang dùng) và danh sách khách hàng (tên, điện thoại, người liên hệ, địa chỉ, số đơn) ra một file Excel trong `output/`. Dùng để đối chiếu với sổ sách, hoặc nạp sang máy khác bằng **Nhập dữ liệu gốc…**: máy đó sẽ có đúng các mặt hàng (giữ nguyên mã) và khách hàng như trong file. Trang thứ ba **Tồn kho** liệt kê mọi mặt hàng giống bảng thống kê tồn kho: tên, nhóm hàng, loại/màu, số lượng tồn hiện tại (chỉ để xem, không nhập ngược lại). File không chứa đơn hàng; muốn chuyển toàn bộ, dùng **Xuất dữ liệu** ở trên.
+**Dữ liệu gốc (Excel):** **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc…** ghi danh mục mặt hàng (mã, tên, quy cách, loại/màu, đơn vị, nhóm hàng, ngày nhập, mức báo sắp hết, đang dùng) và danh sách khách hàng (tên, điện thoại, người liên hệ, địa chỉ, số đơn) ra một file Excel trong `output/`. Dùng để đối chiếu với sổ sách, hoặc nạp sang máy khác bằng **Nhập dữ liệu gốc…**: máy đó sẽ có đúng các mặt hàng (giữ nguyên mã) và khách hàng như trong file. Trang thứ ba **Tồn kho** liệt kê mọi mặt hàng giống bảng thống kê tồn kho: mã, tên, nhóm hàng, loại/màu, số lượng tồn hiện tại. Có thể sửa số tồn ngay trong trang này: **Nhập dữ liệu gốc…** sẽ đặt tồn kho trên app đúng bằng các số đó (ghi như một lần kiểm kê hôm nay). Cũng có thể bỏ file vào `input/` rồi nhập ở **Cần xử lý**. Dòng chép thêm cho biến thể khác vẫn là một mặt hàng riêng dù lỡ chép cả mã (app cấp mã mới và báo lại). File không chứa đơn hàng; muốn chuyển toàn bộ, dùng **Xuất dữ liệu** ở trên.
 
 ### 10. Sao lưu
 

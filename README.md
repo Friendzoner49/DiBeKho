@@ -143,7 +143,7 @@ Open **Stock count**, pick the date, type the counted quantity of each product a
 | On the line | Do this |
 |---|---|
 | A product from the catalog | Pick it under **Is product**; type a few letters (Vietnamese or Chinese) to search |
-| A product not in the catalog yet | Keep **＋ Create new product** |
+| A product not in the catalog yet | Keep **＋ Create new product**, and type the quantity already in stock (before this note) under **Opening stock**; the note is then subtracted from it |
 | A shipping or service fee | Click **✕ Drop line** (fee lines are usually pre-selected) |
 | Not sure | Choose **⏸ Later**: the other lines of the note are recorded; this one waits and joins the same order once decided |
 
@@ -153,7 +153,7 @@ Then click **Apply and read notes again**, check the summary and confirm. The ap
 
 ### 5. Goods in (1–2 times per quarter)
 
-1. **Goods in → Create goods-in template**, open the file, fill in the arrival date and the quantities, save it.
+1. **Goods in → Create goods-in template** (products in code order: SP001, SP002…), open the file, fill in the arrival date and the quantities, save it.
 2. Copy the file into `input/` (**Open input folder**).
 3. In **To do**, click **Review & import**, check the list and click **Confirm goods in**. Stock goes up and the file moves to `input/da-xu-ly/`.
 
@@ -188,7 +188,7 @@ Only one computer works at a time.
 2. Send the file (USB, Zalo, e-mail…) and put it into `input/` on the other computer.
 3. There, open **To do → Import data**. The current data on that computer is backed up first and then replaced.
 
-**Master data (Excel):** **Settings → Data transfer and backups → Export master data…** writes the product catalog (codes, names, packing, variant, unit, category, date added, low-stock alert, active) and the customer list (name, phone, contact, address, number of orders) to one Excel file in `output/`. Use it to check the app against your own records, or load it on another computer with **Import master data…**: the same products (same codes) and customers appear there. A third sheet, **Stock**, lists every product like the monthly stock sheet: product, category, type/colour and current stock (for reading only; it is not imported back). The file holds no orders; to move everything, use **Export data** above.
+**Master data (Excel):** **Settings → Data transfer and backups → Export master data…** writes the product catalog (codes, names, packing, variant, unit, category, date added, low-stock alert, active) and the customer list (name, phone, contact, address, number of orders) to one Excel file in `output/`. Use it to check the app against your own records, or load it on another computer with **Import master data…**: the same products (same codes) and customers appear there. A third sheet, **Stock**, lists every product like the monthly stock sheet: code, product, category, type/colour and current stock. You may correct the stock there: **Import master data…** sets the app's stock to exactly those numbers (recorded as a stock count today). The file can also be dropped into `input/` and imported from **To do**. A row copied for another variant keeps being its own product even if its code was copied too (the app gives it a new code and says so). The file holds no orders; to move everything, use **Export data** above.
 
 ### 10. Backups
 

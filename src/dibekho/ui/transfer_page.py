@@ -5,10 +5,45 @@ from datetime import datetime
 from PySide6.QtWidgets import QFileDialog, QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from dibekho import db
-from dibekho.core import backup, catalog, transfer
+from dibekho.core import backup, catalog, deliveries, transfer
 from dibekho.excel import master_data
 from dibekho.i18n import t
 from dibekho.ui.common import ask, error, fill_table, hint_label, info, make_table, open_path, selected_id
+
+
+def import_master_file(ctx, parent, path, data=None) -> bool:
+    """Import a master-data workbook: products, customers and the stock of its 'Tồn kho' sheet.
+    Returns True when imported. data: the already read (products, customers, stock)."""
+    try:
+        products, customers, stock = data or master_data.read(path)
+    except master_data.NotMasterData as exc:
+        error(parent, t("master.not_master_file", error=str(exc)))
+        return False
+    text = t("master.confirm_import", products=len(products), customers=len(customers))
+    if stock:
+        text = text.replace("\n\n", "\n\n" + t("master.confirm_stock", count=len(stock)) + "\n\n", 1)
+    if not ask(parent, text):
+        return False
+    backup.named_backup(ctx.conn, ctx.ws, "truoc-nhap-du-lieu-goc")
+    if stock:  # notes up to today must be in the ledger first, or they would be subtracted from the count
+        deliveries.scan(ctx.conn, ctx.ws)
+    result = catalog.import_master(ctx.conn, products, customers, stock, note=t("master.stock_note"))
+    ctx.notify()
+    text = t("master.imported", **{k: v for k, v in result.items() if isinstance(v, int)})
+    if result["stock_counted"]:
+        text += "\n" + t("master.imported_stock", count=result["stock_counted"])
+    if result["renumbered"]:
+        lines = [t("master.renumbered_row", row=r, code=old, new=new) for r, old, new in result["renumbered"]]
+        text += "\n\n" + t("master.renumbered") + "\n" + "\n".join(lines)
+    if result["skipped"]:
+        lines = [t("master.skipped_row", row=r, code=code or "—", existing=existing)
+                 for r, code, existing in result["skipped"]]
+        text += "\n\n" + t("master.skipped") + "\n" + "\n".join(lines)
+    if result["stock_skipped"]:
+        lines = [t("master.stock_skipped_row", row=r, name=name) for r, name in result["stock_skipped"]]
+        text += "\n\n" + t("master.stock_skipped") + "\n" + "\n".join(lines)
+    info(parent, text)
+    return True
 
 
 class TransferPanel(QWidget):
@@ -102,24 +137,8 @@ class TransferPanel(QWidget):
 
     def import_master(self):
         path, _ = QFileDialog.getOpenFileName(self, t("master.import"), str(self.ctx.ws.root), "Excel (*.xlsx)")
-        if not path:
-            return
-        try:
-            products, customers = master_data.read(path)
-        except master_data.NotMasterData as exc:
-            error(self, t("master.not_master_file", error=str(exc)))
-            return
-        if not ask(self, t("master.confirm_import", products=len(products), customers=len(customers))):
-            return
-        backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-nhap-du-lieu-goc")
-        result = catalog.import_master(self.ctx.conn, products, customers)
-        self.ctx.notify()
-        text = t("master.imported", **{k: v for k, v in result.items() if k != "skipped"})
-        if result["skipped"]:
-            lines = [t("master.skipped_row", row=r, code=code or "—", existing=existing)
-                     for r, code, existing in result["skipped"]]
-            text += "\n\n" + t("master.skipped") + "\n" + "\n".join(lines)
-        info(self, text)
+        if path:
+            import_master_file(self.ctx, self, path)
 
     def backup_now(self):
         backup.named_backup(self.ctx.conn, self.ctx.ws, "thu-cong")

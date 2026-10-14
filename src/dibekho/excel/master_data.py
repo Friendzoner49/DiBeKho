@@ -7,7 +7,11 @@ Layout (fixed, so the file reads back whatever the interface language was):
   sheet 1 = products, sheet 2 = customers; A1 starts with MARKER; header in row 4; data from row 5.
   products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | min_stock | active
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
-  sheet 3 = stock, like the customer's monthly stock sheet: name | category | variant | stock (reading only)
+  sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock.
+            The customer may correct the stock there; importing the file sets the app's stock to it (a stock
+            count). Each stock row is tied to a row of sheet 1 (product_row): by code when the code is unique,
+            otherwise by position (both sheets are exported in code order), otherwise by name/category/variant.
+            Files exported before the code column existed (name | category | variant | stock) work the same way.
 """
 
 from dataclasses import dataclass
@@ -19,7 +23,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from dibekho.core.stock import stock_levels
-from dibekho.core.text import clean
+from dibekho.core.text import clean, parse_number
 from dibekho.i18n import t
 
 MARKER = "DIBEKHO"
@@ -48,6 +52,15 @@ class MasterProduct:
     created_at: str = ""  # 'YYYY-MM-DD HH:MM:SS' or ''
     min_stock: float = 0
     active: bool = True
+
+
+@dataclass
+class MasterStock:
+    row: int
+    code: str
+    name: str
+    stock: float
+    product_row: int | None = None  # the row of sheet 1 it belongs to; None = not found
 
 
 @dataclass
@@ -90,9 +103,10 @@ def export(path: Path, conn) -> Path:
     levels = stock_levels(conn)
     # by code = the row order of the monthly sheet the catalog was loaded from
     active = conn.execute("SELECT * FROM products WHERE active = 1 ORDER BY code")
-    rows = [[_stock_name(p), p["category"], p["variant"], levels.get(p["id"], 0)] for p in active]
-    _sheet(ws3, t("master.title_stock"), [t("col.product"), t("col.category"), t("col.variant"), t("col.stock")],
-           rows, [52, 26, 22, 12], freeze="B5")
+    rows = [[p["code"], _stock_name(p), p["category"], p["variant"], levels.get(p["id"], 0)] for p in active]
+    _sheet(ws3, t("master.title_stock"),
+           [t("col.code"), t("col.product"), t("col.category"), t("col.variant"), t("col.stock")],
+           rows, [10, 52, 26, 22, 12])
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
@@ -100,10 +114,14 @@ def export(path: Path, conn) -> Path:
 
 def _stock_name(p) -> str:
     """Like column A of the monthly sheet: Vietnamese name (with packing) on line 1, Chinese name on line 2."""
-    first = p["name_vi"]
-    if p["spec"] and p["spec"].casefold() not in first.casefold():
-        first += f" ({p['spec']})"
-    return f"{first}\n{p['name_zh']}" if p["name_zh"] and p["name_zh"] != p["name_vi"] else first
+    return _name_text(p["name_vi"], p["spec"], p["name_zh"])
+
+
+def _name_text(name_vi, spec, name_zh) -> str:
+    first = name_vi
+    if spec and spec.casefold() not in first.casefold():
+        first += f" ({spec})"
+    return f"{first}\n{name_zh}" if name_zh and name_zh != name_vi else first
 
 
 def _sheet(ws, title, headers, rows, widths, date_col=None, freeze="C5"):
@@ -138,11 +156,18 @@ def _to_datetime(text: str):
 
 # ---- read --------------------------------------------------------------------
 
-def read(path: Path | str) -> tuple[list[MasterProduct], list[MasterCustomer]]:
+def read(path: Path | str) -> tuple[list[MasterProduct], list[MasterCustomer], list[MasterStock]]:
     try:
         wb = openpyxl.load_workbook(path, data_only=True)
     except Exception as exc:  # not an Excel file, damaged, locked
         raise NotMasterData(str(exc)) from exc
+    try:
+        return _read(wb)
+    finally:
+        wb.close()
+
+
+def _read(wb):
     sheets = wb.worksheets
     if len(sheets) < 2 or not all(str(s["A1"].value or "").startswith(MARKER) for s in sheets[:2]):
         raise NotMasterData(t("master.not_master"))
@@ -161,7 +186,59 @@ def read(path: Path | str) -> tuple[list[MasterProduct], list[MasterCustomer]]:
         name, phone = clean(row[1]), clean(row[2])
         if name or phone:
             customers.append(MasterCustomer(r, name, phone, clean(row[3]), clean(row[4])))
-    return products, customers
+    stock = []
+    if len(sheets) > 2 and str(sheets[2]["A1"].value or "").startswith(MARKER):
+        stock = _read_stock(sheets[2], products)
+    return products, customers, stock
+
+
+def _read_stock(ws, products: list[MasterProduct]) -> list[MasterStock]:
+    """Rows of the stock sheet, each tied to a row of sheet 1 (see the module docstring)."""
+    header = [clean(c.value) for c in ws[HEADER_ROW]]
+    with_code = len([h for h in header if h]) >= 5
+    lines = []  # (row, code, name, category, variant, stock)
+    for r, row in enumerate(ws.iter_rows(min_row=HEADER_ROW + 1, values_only=True), HEADER_ROW + 1):
+        row = list(row) + [None] * 5
+        if not with_code:
+            row = [None] + row
+        code, name = clean(row[0]), clean(row[1])
+        if code or name:
+            lines.append((r, code, name, clean(row[2]), clean(row[3]), _stock_value(row[4])))
+
+    active = [p for p in products if p.active]
+    code_count: dict[str, int] = {}
+    for p in products:
+        code_count[p.code] = code_count.get(p.code, 0) + 1
+    by_code = {p.code: p.row for p in products if p.code and code_count[p.code] == 1}
+    by_text: dict[tuple, list[int]] = {}
+    for p in active:
+        key = (clean(_name_text(p.name_vi, p.spec, p.name_zh)), p.category, p.variant)
+        by_text.setdefault(key, []).append(p.row)
+    same_order = len(lines) == len(active)
+
+    result = []
+    for i, (r, code, name, category, variant, value) in enumerate(lines):
+        if code and code in by_code:
+            product_row = by_code[code]
+        elif same_order:  # exported together: row i of this sheet is the i-th product of sheet 1
+            product_row = active[i].row
+        else:
+            rows = by_text.get((name, category, variant))
+            product_row = rows.pop(0) if rows else None
+        if value is not None:
+            result.append(MasterStock(r, code, name, value, product_row))
+    return result
+
+
+def _stock_value(value) -> float | None:
+    if value is None or clean(value) == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return parse_number(clean(value))
+    except ValueError:
+        return None
 
 
 def _created(value) -> str:
@@ -170,6 +247,10 @@ def _created(value) -> str:
     if isinstance(value, date):
         return value.strftime("%Y-%m-%d 00:00:00")
     text = clean(value)
+    try:  # '2026-10-14 09:36:32' typed or kept as text
+        return datetime.fromisoformat(text).strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        pass
     for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(text[:10], fmt).strftime("%Y-%m-%d 00:00:00")

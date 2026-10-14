@@ -290,8 +290,10 @@ App tự nhận loại file:
   - **Mặt hàng:** STT · Mã SP · Tên tiếng Việt · Tên Trung · Quy cách · Loại/màu · Đơn vị · Nhóm hàng · Ngày nhập (= `products.created_at`) · Báo sắp hết khi còn · Đang dùng.
   - **Khách hàng:** STT · Khách hàng · Điện thoại · Người liên hệ · Địa chỉ · Số đơn (đơn giao hàng đang hiệu lực; chỉ để xem, khi nhập bỏ qua). Theo yêu cầu: **không** có mã đơn, tổng SL, mặt hàng đã mua.
 - Nhập: mã đã có → cập nhật theo file; mã mới → tạo đúng mã đó (giữ ngày nhập); không mã → mã kế tiếp; trùng tên+quy cách+loại với mặt hàng mang mã **không có trong file** → bỏ qua và báo (không tạo trùng). Khách khớp theo SĐT rồi theo tên, nhận giá trị trong file. Sao lưu trước khi nhập; một transaction.
-  - **Tồn kho** (trang 3, chỉ để xem, không đọc khi nhập; người dùng yêu cầu 11/10/2026): giống bảng thống kê tồn kho của khách, 4 cột Mặt hàng (tên Việt + quy cách, dòng 2 tên Trung) · Nhóm hàng · Loại/màu · Tồn (hiện tại) — nhóm hàng và loại/màu tách riêng theo yêu cầu người dùng. Mặt hàng đang dùng, theo mã (= thứ tự dòng của file danh mục).
-- Không thay thế gói `.dibekho`: file Excel không có phiếu, tên đã học (tồn kho chỉ có ở trang 3 để xem).
+  - **Tồn kho** (trang 3): giống bảng thống kê tồn kho của khách, 5 cột **Mã** (thêm 14/10/2026) · Mặt hàng (tên Việt + quy cách, dòng 2 tên Trung) · Nhóm hàng · Loại/màu · Tồn (hiện tại). Mặt hàng đang dùng, theo mã. **Từ 14/10/2026 được đọc khi nhập**: khách sửa số tồn trong trang này → Nhập dữ liệu gốc đặt tồn app đúng bằng số đó (một lần kiểm kê hôm nay, quét phiếu trước). Mỗi dòng tồn gắn với một dòng trang 1 (`MasterStock.product_row`): theo mã nếu mã không trùng; không thì theo **thứ tự dòng** (2 trang xuất cùng thứ tự, số dòng bằng nhau); không thì theo tên+nhóm+loại. File cũ chưa có cột Mã (4 cột) dùng cùng cách.
+  - **Mã trùng trong trang 1** (người dùng chép dòng cho biến thể khác, giữ nguyên mã): dòng đầu giữ mã, các dòng sau là **mặt hàng mới với mã kế tiếp** (`_free_code`, tránh cả mã còn dùng phía dưới file) và được báo lại ("renumbered"). Trước đây các dòng này **ghi đè nhau** (file thật 14/10: 52 dòng → chỉ còn 45 mặt hàng). Kiểm tra trùng khi nhập dữ liệu gốc tính cả **nhóm hàng** (`find_same(..., category)`), vì người dùng phân biệt biến thể ở cột nhóm hàng.
+  - File dữ liệu gốc bỏ vào `input/` được nhận ra (`inbox` kind `master`) → nút **Nhập dữ liệu gốc…** ở Cần xử lý; dùng chung `transfer_page.import_master_file`. Thử trên file thật của người dùng: 52/52 mặt hàng, tổng tồn 4.459 khớp, nhập lại lần 2 không tạo trùng.
+- Không thay thế gói `.dibekho`: file Excel không có phiếu, lịch sử, tên đã học (chỉ có số tồn hiện tại).
 - Đã thử trên dữ liệu thật: 44 mặt hàng + 3 khách khớp `DiBeKho-du-lieu-goc.xlsx` (khác biệt duy nhất: quy cách của 3 mặt hàng tạo từ phiếu giữ nguyên chữ trên phiếu, vd. `20KG/thùng`).
 
 ### 9.5. Sao lưu
@@ -305,6 +307,8 @@ App tự nhận loại file:
 - **Tồn đầu = lần kiểm kê đầu tiên** (không có loại phiếu `opening` riêng). Kiểm kê ghi theo ngày chọn: chênh lệch = số đếm − tồn tính đến hết ngày đó.
 - Màn hình Kiểm kê tự quét phiếu trước khi hiện số, để phiếu đã có không bị tính hai lần.
 - Màn hình **Kiểm kê**: hiện tồn theo app, người dùng nhập số đếm thực tế → app ghi phần chênh lệch (`stock_count`).
+- **Tồn ban đầu của mặt hàng mới từ phiếu (14/10/2026):** Cần xử lý có cột **Tồn ban đầu** (chỉ bật khi chọn "Tạo mặt hàng mới"). Áp dụng → `create_product_for_line(opening=…)` ghi kiểm kê vào **ngày trước phiếu sớm nhất** có dòng đó (`UnknownLine.first_date`), rồi phiếu trừ tiếp. Để trống = 0.
+- **Mẫu hàng về** xếp theo **mã sản phẩm** (14/10/2026).
 
 ### 9.7. Đặt lại dữ liệu (11/10/2026)
 
@@ -534,6 +538,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
 | 2026-10-10 | Người dùng chọn **ghi phần đã duyệt** của phiếu (cách 1): Áp dụng → phiếu vào kho với các dòng đã duyệt + khách; dòng Để sau thêm vào đúng đơn khi duyệt. Phiếu sửa "Dùng bản mới" cũng cho phép một phần. 62 test. Chuyển tag `v0.1.0`. |
+| 2026-10-14 | Phản hồi dùng thật (người dùng): (1) mặt hàng mới từ phiếu chưa có tồn đầu → thêm cột **Tồn ban đầu** ở Cần xử lý (kiểm kê ngày trước phiếu); (2) nhập lại dữ liệu gốc phải ra **đúng số tồn** của trang Tồn kho → trang Tồn kho thêm cột **Mã**, được đọc khi nhập; file bỏ vào `input/` cũng nhập được; sửa lỗi **dòng trùng mã bị gộp** (mất 7 biến thể PPE/PPP trên máy thử); (3) mẫu hàng về theo thứ tự mã. 82 test qua. Giữ **0.2.0**, chuyển tag. Máy thử của người dùng đang có 45 mặt hàng (đã bị gộp) → nhập lại file sẽ thêm 7 mặt hàng mã mới SP046–SP052. |
 | 2026-10-11 | Người dùng chạy lại build Mac thành công (lỗi lần trước không lặp lại). Thêm theo yêu cầu, vẫn **0.2.0** (chuyển tag): trang Tồn kho của dữ liệu gốc tách **Nhóm hàng** và **Loại/màu** thành 2 cột; nhập danh mục mà không nhận ra cột tồn → hỏi người dùng chọn cột (có giá trị mẫu). 75 test qua. |
 | 2026-10-11 | Sửa hiểu nhầm từ đầu (người dùng yêu cầu, để kết thúc 0.2.0): (1) nhập danh mục từ bảng thống kê tồn kho **đọc số tồn ở cột F** (bỏ cột G) và ghi thành tồn kho của app (kiểm kê theo ngày chọn); (2) Xuất dữ liệu gốc có thêm trang **Tồn kho**: tên, phân loại, số lượng tồn. 73 test qua. Chuyển tag `v0.2.0`. |
 | 2026-10-11 | Người dùng chọn (a): giữ số **0.2.0**, chuyển tag `v0.2.0` sang commit có thư mục `da-xu-ly` cho phiếu, Đặt lại dữ liệu, tiếng Trung. |

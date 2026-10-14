@@ -108,8 +108,16 @@ def test_pending_page_drops_fee_lines(app, ws, monkeypatch):
     combo.setEditText("không có mặt hàng này")
     assert page._choice(goods) == "later"
     combo.setCurrentIndex(combo.findData(NEW))
+    from dibekho.ui.pending_page import OPENING
+
+    assert page.unknown.cellWidget(goods, OPENING).isEnabled()
+    assert not page.unknown.cellWidget(fee, OPENING).isEnabled()  # only a new product takes an opening stock
+    page.unknown.cellWidget(goods, OPENING).setText("10")
     page.apply_mapping(confirm=False)
-    assert ctx.conn.execute("SELECT COUNT(*) FROM document_lines").fetchone()[0] == 1
+    assert ctx.conn.execute("SELECT COUNT(*) FROM document_lines WHERE qty = 3").fetchone()[0] == 1
+    from dibekho.core.stock import stock_levels
+
+    assert list(stock_levels(ctx.conn).values()) == [10 - 3]
     assert ctx.conn.execute("SELECT COUNT(*) FROM ignored_lines").fetchone()[0] == 1
     win.close()
 
@@ -325,3 +333,59 @@ def test_catalog_import_asks_for_the_stock_column(app, ws, monkeypatch):
     # the dialog itself: 'no stock' first, then one line per column
     dlg = catalog_mod.StockColumnDialog(ws.root / "khac.xlsx", [], None)
     assert dlg.chosen() is None
+
+
+def test_master_file_dropped_in_input_is_imported_from_to_do(app, ws, monkeypatch):
+    import dibekho.ui.transfer_page as transfer_mod
+    from dibekho import db
+    from dibekho.core import catalog
+    from dibekho.excel import master_data
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import PENDING, MainWindow
+
+    monkeypatch.setattr(transfer_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(transfer_mod, "info", lambda *a, **k: None)
+    i18n.set_language("vi")
+    source = db.connect(":memory:")
+    with db.transaction(source):
+        catalog.create_product(source, "Sơn A", spec="20KG")
+    path = master_data.export(ws.input / "goc.xlsx", source)
+    import openpyxl
+
+    wb = openpyxl.load_workbook(path)
+    wb.worksheets[2]["E5"] = 42  # the customer corrects the stock in the file
+    wb.save(path)
+
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    win = MainWindow(ctx)
+    win.show()
+    win.rescan()
+    win.nav.setCurrentRow(PENDING)
+    app.processEvents()
+    [item] = win.pending._items
+    assert item.kind == "master"
+    win.pending.import_master(item)
+    from dibekho.core.stock import stock_levels
+
+    assert list(stock_levels(ctx.conn).values()) == [42]
+    assert not path.exists() and list(ws.processed.iterdir())  # moved to input/da-xu-ly
+    win.close()
+
+
+def test_goods_in_template_is_in_code_order(app, ws, monkeypatch):
+    import openpyxl
+
+    import dibekho.ui.receipt_page as receipt_mod
+    from dibekho import db
+    from dibekho.core import catalog
+    from dibekho.ui.common import AppContext
+
+    monkeypatch.setattr(receipt_mod, "ask", lambda *a, **k: False)
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    with db.transaction(ctx.conn):
+        for name, category in (("Vải", "B"), ("Sơn", "A"), ("Keo", "A")):  # catalog order would be Keo, Sơn, Vải
+            catalog.create_product(ctx.conn, name, category=category)
+    receipt_mod.ReceiptPage(ctx, lambda: None).make_template()
+    [path] = ws.output.glob("HangVe_*.xlsx")
+    codes = [r[0] for r in openpyxl.load_workbook(path).active.iter_rows(min_row=7, values_only=True)]
+    assert codes == ["SP001", "SP002", "SP003"]

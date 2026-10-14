@@ -64,6 +64,13 @@ def import_excel_file(ctx, parent, path: Path) -> bool:
     item = inbox.read_item(ctx.conn, path)
     if item.kind == "receipt":
         return review_receipt(ctx, parent, item)
+    if item.kind == "master":
+        from dibekho.ui.transfer_page import import_master_file
+
+        if import_master_file(ctx, parent, path, item.master):
+            inbox.done(ctx.ws, path)
+            return True
+        return False
     if item.kind == "catalog":
         if import_catalog_file(ctx, parent, path, item.catalog):
             inbox.done(ctx.ws, path)
@@ -111,7 +118,8 @@ class ReceiptPage(Page):
             info(self, t("receipts.picked_done"))
 
     def make_template(self):
-        products = catalog.products(self.ctx.conn)
+        # in product-code order, like the other lists the user fills from (SP001, SP002…)
+        products = sorted(catalog.products(self.ctx.conn), key=lambda p: (len(p["code"]), p["code"]))
         if not products:
             error(self, t("receipts.no_products"))
             return

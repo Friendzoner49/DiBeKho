@@ -103,11 +103,90 @@ def test_export_has_a_stock_sheet_like_the_monthly_sheet(conn, ws, tmp_path):
         stock_count(conn, date(2026, 10, 10), {a: 50})
     path = master_data.export(tmp_path / "goc.xlsx", conn)
     sheet = openpyxl.load_workbook(path).worksheets[2]
-    assert [c.value for c in sheet[4]] == ["Mặt hàng", "Nhóm hàng", "Loại / màu", "Tồn"]
-    rows = {r[0].splitlines()[1]: r[1:] for r in sheet.iter_rows(min_row=5, values_only=True)}
-    assert rows["背水涂"][2] == 50
-    assert rows["固沙剂"][2] == -5  # never counted: 1 + 4 delivered
-    # the stock sheet is for reading only: importing the file still works the same
+    assert [c.value for c in sheet[4]] == ["Mã", "Mặt hàng", "Nhóm hàng", "Loại / màu", "Tồn"]
+    rows = {r[1].splitlines()[1]: r for r in sheet.iter_rows(min_row=5, values_only=True)}
+    assert rows["背水涂"][4] == 50 and rows["背水涂"][0].startswith("SP")
+    assert rows["固沙剂"][4] == -5  # never counted: 1 + 4 delivered
     other = db.connect(":memory:")
     catalog.import_master(other, *master_data.read(path))
     assert snapshot(other) == snapshot(conn)
+
+
+def _levels_by_code(conn):
+    from dibekho.core.stock import stock_levels
+
+    levels = stock_levels(conn)
+    return {r["code"]: levels.get(r["id"], 0) for r in conn.execute("SELECT id, code FROM products")}
+
+
+def test_stock_corrected_in_the_file_is_imported_exactly(conn, ws, tmp_path):
+    from datetime import date
+
+    from dibekho.core.stock import stock_count
+
+    a, b = setup_notes(conn, ws)
+    with db.transaction(conn):
+        stock_count(conn, date(2026, 10, 10), {a: 50})
+    path = master_data.export(tmp_path / "goc.xlsx", conn)
+    wb = openpyxl.load_workbook(path)
+    sheet = wb.worksheets[2]
+    for row in sheet.iter_rows(min_row=5):
+        row[4].value = str(len(row[1].value))  # the customer types new numbers (even as text)
+    wanted = {row[0].value: float(row[4].value) for row in sheet.iter_rows(min_row=5)}
+    wb.save(path)
+
+    # same computer: the stock becomes exactly the file's numbers
+    result = catalog.import_master(conn, *master_data.read(path))
+    assert result["stock_counted"] == 2 and result["stock_skipped"] == []
+    assert _levels_by_code(conn) == wanted
+    # another, empty computer: same products, same stock
+    other = db.connect(":memory:")
+    catalog.import_master(other, *master_data.read(path))
+    assert _levels_by_code(other) == wanted
+
+
+def test_old_stock_sheet_without_code_column_is_matched_by_name(conn, ws, tmp_path):
+    setup_notes(conn, ws)
+    path = master_data.export(tmp_path / "goc.xlsx", conn)
+    wb = openpyxl.load_workbook(path)
+    sheet = wb.worksheets[2]
+    sheet.delete_cols(1)  # files exported before 14/10/2026: name | category | variant | stock
+    sheet["A1"] = "DIBEKHO – BẢNG TỒN KHO"  # the title was in column A
+    for row in sheet.iter_rows(min_row=5):
+        row[3].value = 7
+    wb.save(path)
+    products, customers, stock = master_data.read(path)
+    assert [st.product_row for st in stock] == [p.row for p in products]  # same order as sheet 1
+    other = db.connect(":memory:")
+    catalog.import_master(other, products, customers, stock)
+    assert set(_levels_by_code(other).values()) == {7}
+
+
+def test_master_file_in_input_is_recognised(conn, ws):
+    from dibekho.core import inbox
+
+    setup_notes(conn, ws)
+    master_data.export(ws.input / "goc.xlsx", conn)
+    [item] = inbox.items(conn, ws)
+    assert item.kind == "master" and len(item.master[2]) == 2
+
+
+def test_rows_sharing_a_code_stay_separate_products_with_their_stock(conn, ws, tmp_path):
+    """The user copied a row for another variant and kept its code: both rows must become products,
+    and the stock of each row must go to the right one (the bug that merged PPE variants)."""
+    setup_notes(conn, ws)
+    path = master_data.export(tmp_path / "goc.xlsx", conn)
+    wb = openpyxl.load_workbook(path)
+    products_sheet, stock_sheet = wb.worksheets[0], wb.worksheets[2]
+    products_sheet.append([3, "SP001", products_sheet["C5"].value, "", products_sheet["E5"].value, "Tái chế",
+                           "thùng", "", None, 0, "Có"])  # copy of SP001, another variant, same code
+    stock_sheet.append(["SP001", "copy", "", "Tái chế", 9])
+    for row, qty in zip(stock_sheet.iter_rows(min_row=5), (11, 22, 9)):
+        row[4].value = qty
+    wb.save(path)
+
+    other = db.connect(":memory:")
+    result = catalog.import_master(other, *master_data.read(path))
+    assert result["renumbered"] == [(7, "SP001", "SP003")]
+    assert result["products_new"] == 3
+    assert _levels_by_code(other) == {"SP001": 11, "SP002": 22, "SP003": 9}

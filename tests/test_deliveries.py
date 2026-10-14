@@ -393,3 +393,15 @@ def test_reset_all_gives_an_empty_database(ws):
         assert deliveries.pending_count(conn) == 1  # read again: product names unknown
     finally:
         conn.close()
+
+
+def test_opening_stock_of_a_new_product_comes_before_its_notes(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="1", day="05-10-2026", lines=[LINE_A])
+    make_note(ws.deliveries / "b.xlsx", code="2", day="03-10-2026", lines=[(*LINE_A[:2], 2, "")])
+    deliveries.scan(conn, ws)
+    [u] = deliveries.unknown_lines(conn, ws)
+    assert u.first_date == date(2026, 10, 3)
+    deliveries.create_product_for_line(conn, u, opening=40)
+    deliveries.scan(conn, ws)
+    assert stock_of(conn, "vữa") == 40 - 3 - 2  # opening stock, then both notes
+    assert stock_levels(conn, as_of=date(2026, 10, 2)) == {1: 40}  # recorded the day before the first note

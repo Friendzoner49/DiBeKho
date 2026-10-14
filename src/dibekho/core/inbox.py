@@ -14,18 +14,20 @@ from dibekho.core.transfer import EXTENSION, Manifest, TransferError, move_to_pr
 from dibekho.core.workspace import Workspace
 from dibekho.excel.catalog_sheet import CatalogItem, NotCatalogSheet, read_catalog
 from dibekho.excel.delivery_note import NotDeliveryNote, DeliveryNoteError, read_delivery_note
+from dibekho.excel import master_data
 from dibekho.excel.receipt import NotReceipt, ReceiptError, ReceiptFile, read_receipt
 
 
 @dataclass
 class InboxItem:
     path: Path
-    kind: str                 # receipt | catalog | package | error
+    kind: str                 # receipt | catalog | master | package | error
     error: str = ""
     receipt: ReceiptFile | None = None
     resolved: list | None = None  # receipt lines joined with products: (line, product_row|None)
     manifest: Manifest | None = None
     catalog: list[CatalogItem] | None = None
+    master: tuple | None = None  # (products, customers, stock) of a master-data workbook
 
 
 def items(conn, ws: Workspace) -> list[InboxItem]:
@@ -60,6 +62,10 @@ def read_item(conn, path: Path) -> InboxItem:
     try:
         receipt = read_receipt(path)
     except NotReceipt:
+        try:
+            return InboxItem(path, "master", master=master_data.read(path))
+        except master_data.NotMasterData:
+            pass
         try:
             catalog = read_catalog(path)
             if catalog:

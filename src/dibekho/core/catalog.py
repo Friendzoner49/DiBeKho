@@ -1,6 +1,7 @@
 """Products, aliases and customers."""
 
 import difflib
+from datetime import date
 import re
 import sqlite3
 
@@ -85,11 +86,14 @@ def long_label(p) -> str:
     return label(p) + (f" · {p['name_zh']}" if p["name_zh"] and p["name_zh"] != p["name_vi"] else "")
 
 
-def find_same(conn, name_vi, spec, variant):
-    return conn.execute(
-        "SELECT * FROM products WHERE unaccent(name_vi) = ? AND unaccent(spec) = ? AND unaccent(variant) = ?",
-        (unaccent(clean(name_vi)), unaccent(clean(spec)), unaccent(clean(variant))),
-    ).fetchone()
+def find_same(conn, name_vi, spec, variant, category=None):
+    """Same name + packing + variant (and category, when given), ignoring accents."""
+    sql = "SELECT * FROM products WHERE unaccent(name_vi) = ? AND unaccent(spec) = ? AND unaccent(variant) = ?"
+    args = [unaccent(clean(name_vi)), unaccent(clean(spec)), unaccent(clean(variant))]
+    if category is not None:
+        sql += " AND unaccent(category) = ?"
+        args.append(unaccent(clean(category)))
+    return conn.execute(sql, args).fetchone()
 
 
 def import_catalog(conn, items, stock_date=None, note="") -> tuple[int, int, int]:
@@ -259,41 +263,65 @@ def upsert_customer(conn, name, phone="", contact="", address="") -> int | None:
 
 # ---- master data (Excel 'Dữ liệu gốc') ----------------------------------------
 
-def import_master(conn, products, customers) -> dict:
+def _free_code(conn, reserved: set[str]) -> str:
+    """Next SPxxx that is neither in the database nor used further down in the file."""
+    code = next_product_code(conn)
+    while code in reserved:
+        code = f"SP{int(code[2:]) + 1:03d}"
+    return code
+
+
+def import_master(conn, products, customers, stock=(), stock_date=None, note="") -> dict:
     """Load products (keeping their codes) and customers from the master-data workbook.
 
     A code that exists is updated to the file's values; a new code is created as is (no code: next free one).
     A product whose name/packing/variant already exists here under a code that is not in the file is skipped,
     so importing never duplicates a product.
     Customers are matched by phone number, then by name, and take the file's values.
+    A code used on several rows (the user copied a row for another variant) belongs to the first of them;
+    the other rows become new products with the next free codes (listed in 'renumbered').
+    stock (rows of the 'Tồn kho' sheet, each tied to a row of the products sheet): recorded as one stock count
+    on stock_date (default today), so the app's stock equals the file's numbers.
     Returns counts and the rows that could not be imported.
     """
     result = {"products_new": 0, "products_updated": 0, "customers_new": 0, "customers_updated": 0,
-              "skipped": []}
+              "skipped": [], "stock_counted": 0, "stock_skipped": [], "renumbered": []}
+    row_ids: dict[int, int] = {}  # row of the products sheet -> product id
+    seen_codes: set[str] = set()
     file_codes = {p.code for p in products if p.code}
     with db.transaction(conn):
         for p in products:
             fields = dict(name_vi=p.name_vi, name_zh=p.name_zh, spec=p.spec, variant=p.variant,
                           unit=p.unit or guess_unit(p.spec), category=p.category, min_stock=float(p.min_stock or 0),
                           active=int(bool(p.active)))
-            row = conn.execute("SELECT id FROM products WHERE code = ?", (p.code,)).fetchone() if p.code else None
+            duplicate = bool(p.code) and p.code in seen_codes
+            seen_codes.add(p.code)
+            row = None
+            if p.code and not duplicate:
+                row = conn.execute("SELECT id FROM products WHERE code = ?", (p.code,)).fetchone()
             if row is not None:
                 update_product(conn, row["id"], **fields)
                 if p.created_at:
                     conn.execute("UPDATE products SET created_at = ? WHERE id = ?", (p.created_at, row["id"]))
                 result["products_updated"] += 1
+                row_ids[p.row] = row["id"]
                 continue
-            same = find_same(conn, p.name_vi, p.spec, p.variant)
+            # the category counts too: users tell variants apart in either column
+            same = find_same(conn, p.name_vi, p.spec, p.variant, p.category)
             if same is not None and same["code"] not in file_codes:  # already here under another code
                 result["skipped"].append((p.row, p.code, same["code"]))
+                row_ids[p.row] = same["id"]
                 continue
-            code = p.code or next_product_code(conn)
-            conn.execute(
+            code = p.code if p.code and not duplicate else _free_code(conn, file_codes)
+            if duplicate:
+                result["renumbered"].append((p.row, p.code, code))
+            cur = conn.execute(
                 "INSERT INTO products(code, name_vi, name_zh, spec, unit, category, min_stock, active, variant, "
                 "created_at) VALUES(?,?,?,?,?,?,?,?,?, COALESCE(NULLIF(?, ''), datetime('now','localtime')))",
                 (code, fields["name_vi"], fields["name_zh"], fields["spec"], fields["unit"], fields["category"],
                  fields["min_stock"], fields["active"], fields["variant"], p.created_at),
             )
+            row_ids[p.row] = cur.lastrowid
             result["products_new"] += 1
         for c in customers:
             phone_norm = normalize_phone(c.phone)
@@ -314,4 +342,14 @@ def import_master(conn, products, customers) -> dict:
         db.touch(conn)
         db.log(conn, "master_import", f"{result['products_new']}+{result['products_updated']} products, "
                                       f"{result['customers_new']}+{result['customers_updated']} customers")
+        counted: dict[int, float] = {}
+        for st in stock:
+            pid = row_ids.get(st.product_row) if st.product_row else None
+            if pid is None:
+                result["stock_skipped"].append((st.row, st.code or st.name))
+            else:
+                counted[pid] = st.stock
+        if counted:
+            stock_count(conn, stock_date or date.today(), counted, note)
+            result["stock_counted"] = len(counted)
     return result

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import backup, catalog, deliveries, inbox, transfer
-from dibekho.core.text import fmt_qty
+from dibekho.core.text import fmt_qty, parse_number
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
@@ -30,9 +31,10 @@ from dibekho.ui.common import (
 from dibekho.ui.catalog_import import import_catalog_file
 from dibekho.ui.page import Page
 from dibekho.ui.receipt_page import review_receipt
+from dibekho.ui.transfer_page import import_master_file
 
 NEW, LATER, SKIP = "new", "later", "skip"
-NAME, NAME_ZH, SPEC, ORDERS, CHOICE, DROP = range(6)
+NAME, NAME_ZH, SPEC, ORDERS, CHOICE, OPENING, DROP = range(7)
 
 
 def _buttons(*specs) -> QWidget:
@@ -55,7 +57,7 @@ class PendingPage(Page):
         lay = QVBoxLayout(self.unknown_box)
         lay.addWidget(hint_label(t("pending.unknown_hint")))
         self.unknown = make_table([t("pending.name_on_note"), t("col.name_zh"), t("col.spec"), t("pending.in_orders"),
-                                   t("pending.map_to"), ""], stretch=CHOICE)
+                                   t("pending.map_to"), t("pending.opening"), ""], stretch=CHOICE)
         self.unknown.setWordWrap(False)  # long names are cut; the full text is in the tooltip
         lay.addWidget(self.unknown)
         row = QHBoxLayout()
@@ -92,11 +94,16 @@ class PendingPage(Page):
         conn, ws = self.ctx.conn, self.ctx.ws
         self._unknown = deliveries.unknown_lines(conn, ws)
         products = catalog.products(conn)
-        fill_table(self.unknown, [[u.name_vi, u.name_zh, u.spec, "; ".join(u.orders), "", ""]
+        fill_table(self.unknown, [[u.name_vi, u.name_zh, u.spec, "; ".join(u.orders), "", "", ""]
                                   for u in self._unknown])
         self.unknown.setSortingEnabled(False)  # row r must stay self._unknown[r]
         for r, u in enumerate(self._unknown):
             self.unknown.setCellWidget(r, CHOICE, self._choice_combo(r, u, products))
+            opening = QLineEdit()
+            opening.setPlaceholderText(t("pending.opening_placeholder"))
+            opening.setToolTip(t("pending.opening_tip"))
+            opening.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.unknown.setCellWidget(r, OPENING, opening)
             drop = QPushButton()
             drop.clicked.connect(lambda _=False, row=r: self._toggle_drop(row))
             self.unknown.setCellWidget(r, DROP, drop)
@@ -104,9 +111,9 @@ class PendingPage(Page):
             for c in (NAME, ORDERS):
                 self.unknown.item(r, c).setToolTip(self.unknown.item(r, c).text().replace("; ", chr(10)))
         # long product names: fixed widths instead of fitting the (very wide) contents
-        for col, width in ((NAME, 240), (NAME_ZH, 130), (SPEC, 110), (ORDERS, 160), (DROP, 110), (CHOICE, 240)):
+        for col, width in ((NAME, 200), (NAME_ZH, 120), (SPEC, 105), (ORDERS, 140), (OPENING, 95), (DROP, 110), (CHOICE, 200)):
             self.unknown.setColumnWidth(col, width)
-        self.unknown.natural = 240  # takes the spare width; the drop-down list itself is as wide as the longest name
+        self.unknown.natural = 200  # takes the spare width; the drop-down list itself is as wide as the longest name
         self.unknown.fill_spare()
         self.unknown_box.setVisible(bool(self._unknown))
 
@@ -157,6 +164,7 @@ class PendingPage(Page):
         combo.currentIndexChanged.connect(lambda _=0, row=r: self._restyle(row))
         combo.currentIndexChanged.connect(lambda _=0, c=combo: c.lineEdit().setCursorPosition(0))
         combo.currentTextChanged.connect(combo.setToolTip)
+        combo.currentTextChanged.connect(lambda _=0, row=r: self._restyle(row))  # typed text = 'later'
         return combo
 
     def _choice(self, r):
@@ -182,6 +190,15 @@ class PendingPage(Page):
             item.setFont(font)
             item.setForeground(GREY if skip else self.palette().text().color())
         self.unknown.cellWidget(r, DROP).setText(t("pending.keep_line") if skip else t("pending.drop_line"))
+        opening = self.unknown.cellWidget(r, OPENING)
+        if opening is not None:  # only a new product needs its stock before the note; others have a history
+            opening.setEnabled(self._choice(r) == NEW)
+
+    def _opening(self, r) -> float | None:
+        text = self.unknown.cellWidget(r, OPENING).text().strip()
+        if not text:
+            return None
+        return parse_number(text)
 
     def _file_message(self, r) -> str:
         if r["status"] == "missing":
@@ -217,6 +234,9 @@ class PendingPage(Page):
                      qty=fmt_qty(total))
         if it.kind == "catalog":
             return t("inbox.catalog_detail", count=len(it.catalog))
+        if it.kind == "master":
+            products, customers, stock = it.master
+            return t("inbox.master_detail", products=len(products), customers=len(customers), stock=len(stock))
         if it.kind == "package":
             m = it.manifest
             return t("inbox.package_detail", device=m.device_name, at=m.exported_at.replace("T", " "),
@@ -232,6 +252,9 @@ class PendingPage(Page):
                             (t("btn.discard"), lambda: self.discard(it)))
         if it.kind == "catalog":
             return _buttons((t("catalog.import_btn"), lambda: self.import_catalog(it)),
+                            (t("btn.discard"), lambda: self.discard(it)))
+        if it.kind == "master":
+            return _buttons((t("master.import"), lambda: self.import_master(it)),
                             (t("btn.discard"), lambda: self.discard(it)))
         # unusable file: never moved, only hidden
         return _buttons((t("btn.open_file"), lambda: open_path(it.path)),
@@ -249,6 +272,16 @@ class PendingPage(Page):
     def apply_mapping(self, confirm=True):
         conn = self.ctx.conn
         choices = [(u, self._choice(r)) for r, u in enumerate(self._unknown)]
+        openings = {}
+        for r, (u, choice) in enumerate(choices):
+            if choice != NEW:
+                continue
+            try:
+                openings[u.key] = self._opening(r)
+            except ValueError:
+                error(self, t("pending.opening_invalid", name=u.name_vi or u.raw_name))
+                self.unknown.cellWidget(r, OPENING).setFocus()
+                return
         counts = {NEW: 0, SKIP: 0, LATER: 0, "map": 0}
         for _, choice in choices:
             counts[choice if choice in (NEW, SKIP, LATER) else "map"] += 1
@@ -257,7 +290,8 @@ class PendingPage(Page):
             return
         for u, choice in choices:
             if choice == NEW:
-                deliveries.create_product_for_line(conn, u)
+                deliveries.create_product_for_line(conn, u, opening=openings.get(u.key),
+                                                   note=t("pending.opening_note", name=u.name_vi or u.raw_name))
             elif choice == SKIP:
                 deliveries.ignore_unknown(conn, u)
             elif choice != LATER:
@@ -279,6 +313,11 @@ class PendingPage(Page):
         if import_catalog_file(self.ctx, self, it.path, it.catalog):
             inbox.done(self.ctx.ws, it.path)
             self.ctx.notify()
+
+    def import_master(self, it):
+        if import_master_file(self.ctx, self, it.path, it.master):
+            inbox.done(self.ctx.ws, it.path)
+            self.rescan()
 
     def hide(self, it):
         if ask(self, t("inbox.confirm_hide", name=it.path.name)):

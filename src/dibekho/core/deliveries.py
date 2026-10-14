@@ -12,11 +12,12 @@ The database is the source of truth; files are only input:
 import hashlib
 import shutil
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 
 from dibekho import db
 from dibekho.core import catalog
-from dibekho.core.stock import Line, add_lines, close_document, insert_document
+from dibekho.core.stock import Line, add_lines, close_document, insert_document, stock_count
 from dibekho.core.text import fmt_qty, match_key, nfc
 from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
@@ -46,6 +47,7 @@ class UnknownLine:
     raw_name: str = ""
     orders: list[str] = field(default_factory=list)  # "76 · Khách A · SL 2" for each note containing the line
     is_fee: bool = False  # looks like 'Phí vận chuyển' -> the UI pre-selects 'not goods'
+    first_date: date | None = None  # earliest delivery date among the notes containing the line
 
 
 def file_hash(path: Path) -> str:
@@ -322,6 +324,8 @@ def unknown_lines(conn, ws: Workspace) -> list[UnknownLine]:
                 )
             if row["rel_path"] not in item.files:
                 item.files.append(row["rel_path"])
+            if note.doc_date and (item.first_date is None or note.doc_date < item.first_date):
+                item.first_date = note.doc_date
             item.orders.append(" · ".join(x for x in (note.code, note.customer_name, f"SL {fmt_qty(ln.qty)}") if x))
     return list(found.values())
 
@@ -339,10 +343,16 @@ def ignore_unknown(conn, line: UnknownLine) -> None:
     catalog.ignore_line(conn, line.key, line_label(line))
 
 
-def create_product_for_line(conn, line: UnknownLine, category: str = "") -> int:
+def create_product_for_line(conn, line: UnknownLine, category: str = "", opening: float | None = None,
+                            note: str = "") -> int:
+    """opening: the stock on hand before the first note containing this line (a new product has no
+    history yet). Recorded as a stock count on the day before that note, so the note is subtracted from it."""
     with db.transaction(conn):
         product_id = catalog.create_product(conn, line.name_vi, line.name_zh, line.spec, category=category)
         catalog.set_alias(conn, line.key, product_id, line_label(line))
+        if opening is not None:
+            day = (line.first_date or date.today()) - timedelta(days=1)
+            stock_count(conn, day, {product_id: opening}, note)
     return product_id
 
 
