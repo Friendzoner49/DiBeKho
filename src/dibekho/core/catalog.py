@@ -19,11 +19,16 @@ def guess_unit(spec: str) -> str:
     return s.lower()
 
 
+# highest SPxxx number ever given out: a deleted product's code is never given to another product
+CODE_MAX_KEY = "product_code_max"
+
+
 def next_product_code(conn: sqlite3.Connection) -> str:
     row = conn.execute(
         "SELECT MAX(CAST(SUBSTR(code, 3) AS INTEGER)) FROM products WHERE code GLOB 'SP[0-9]*'"
     ).fetchone()
-    return f"SP{(row[0] or 0) + 1:03d}"
+    used = int(db.get_meta(conn, CODE_MAX_KEY, "0") or 0)
+    return f"SP{max(row[0] or 0, used) + 1:03d}"
 
 
 def create_product(conn, name_vi, name_zh="", spec="", unit="", category="", min_stock=0, variant="") -> int:
@@ -64,6 +69,10 @@ def delete_product(conn, product_id) -> None:
     A product that is in documents is kept (history and stock must stay right): set it inactive instead."""
     if product_documents(conn, product_id):
         raise ValueError("Mặt hàng đã có trong phiếu, không xoá được.")
+    code = conn.execute("SELECT code FROM products WHERE id = ?", (product_id,)).fetchone()
+    if code and re.fullmatch(r"SP\d+", code[0]):
+        used = int(db.get_meta(conn, CODE_MAX_KEY, "0") or 0)
+        db.set_meta(conn, CODE_MAX_KEY, str(max(used, int(code[0][2:]))))
     conn.execute("DELETE FROM product_aliases WHERE product_id = ?", (product_id,))
     conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
     db.touch(conn)

@@ -123,7 +123,7 @@ Chọn ngôn ngữ và **thư mục làm việc** (mặc định `Documents/DiBe
 3. Giữ tick **Ghi số tồn kho trong file (cột F) làm tồn kho của app, tính đến ngày** và chọn ngày: số ở cột *Lượng tồn kho còn lại* (F) thành tồn kho của app vào ngày đó, ghi như một lần kiểm kê (cột G không dùng). Nếu file có bố cục khác và app không tìm thấy cột đó, app sẽ hỏi bạn **chọn cột số lượng tồn kho** trước (mỗi cột hiện tiêu đề và vài số mẫu); số tồn luôn lấy đúng trên cùng dòng với mặt hàng. Bỏ tick nếu chỉ muốn nạp danh mục.
 4. Bấm **Nhập các dòng đã chọn**. Nhập lại cùng file nhiều lần chỉ thêm mặt hàng mới; tick các dòng đã có để cập nhật số tồn từ file mới hơn.
 
-Thêm từng mặt hàng lẻ ở **Cài đặt → Danh mục mặt hàng → Thêm mặt hàng**. Chọn một dòng rồi bấm **Sửa mặt hàng…** (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng; **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào, mặt hàng đã dùng thì app đề nghị chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
+Thêm từng mặt hàng lẻ ở **Cài đặt → Danh mục mặt hàng → Thêm mặt hàng**. Chọn một dòng rồi bấm **Sửa mặt hàng…** (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng; **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào, mặt hàng đã dùng thì app đề nghị chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ được cấp lại cho mặt hàng khác. Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
 
 ### 3. Tồn đầu kỳ
 

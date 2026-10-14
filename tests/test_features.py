@@ -292,6 +292,17 @@ def test_delete_product_only_when_unused(conn, ws):
     assert catalog.alias_product(conn, "son thua|5kg") is None
 
 
+def test_a_deleted_code_is_never_given_again(conn):
+    first = catalog.create_product(conn, "A")
+    middle = catalog.create_product(conn, "B")
+    last = catalog.create_product(conn, "C")
+    catalog.delete_product(conn, last)  # SP003, the highest
+    catalog.delete_product(conn, middle)  # SP002, a gap
+    new = catalog.create_product(conn, "D")
+    codes = [r[0] for r in conn.execute("SELECT code FROM products ORDER BY code")]
+    assert codes == ["SP001", "SP004"] and new != first
+
+
 def test_config_keeps_ui_scale(tmp_path, monkeypatch):
     from dibekho.core import workspace
 

@@ -127,7 +127,7 @@ Choose the language and the **working folder** (default `Documents/DiBeKho`), th
 3. Keep **Use the stock in the file (column F) as the app's stock, as of** ticked and pick the date: the stock in the sheet's *remaining stock* column (F) becomes the app's stock on that date, as a stock count (column G is ignored). If the file has another layout and the app cannot find that column, it first asks you to **choose the stock column** (each column is shown with its title and a few sample values); the stock is always taken from the same row as the product. Untick the box to load only the products.
 4. Click **Import selected rows**. Importing the same file again only adds the new products; tick existing rows to update their stock from a newer sheet.
 
-Single products can also be added in **Settings → Products → Add product**. Select a row and press **Edit product…** (or double-click) to change its name, type/colour or group; **Delete product** only deletes a product that no document uses, otherwise the app offers to mark it *inactive* (hidden from lists, old documents unchanged). Long names: drag a column border wider, or hover a cell to read the full name.
+Single products can also be added in **Settings → Products → Add product**. Select a row and press **Edit product…** (or double-click) to change its name, type/colour or group; **Delete product** only deletes a product that no document uses, otherwise the app offers to mark it *inactive* (hidden from lists, old documents unchanged). The code of a deleted product is never given to another product. Long names: drag a column border wider, or hover a cell to read the full name.
 
 ### 3. Opening stock
 
