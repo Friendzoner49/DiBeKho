@@ -108,3 +108,29 @@ def test_undo_puts_the_data_back_step_by_step(conn, ws):
         assert [r[0] for r in conn.execute("SELECT name_vi FROM products ORDER BY id")] == expected
     assert undo.latest(ws) is None
     conn.close()
+
+
+def test_excel_lock_file_in_the_originals_folder_is_left_out(conn, ws, tmp_path):
+    """'Mở file gốc' used to open data/phieu-goc/<hash>.xlsx itself: Excel then kept '~$<hash>.xlsx' there,
+    locked, and exporting the data package failed with 'Permission denied'."""
+    import zipfile
+
+    from dibekho.core import transfer
+    from dibekho.core.workspace import Config
+
+    make_note(ws.deliveries / "125.xlsx", code="125", lines=[PIPE_90])
+    pipe_collars(conn)
+    deliveries.scan(conn, ws)
+    catalog.set_alias(conn, deliveries.unknown_lines(conn, ws)[0].key, 1)
+    deliveries.scan(conn, ws)
+    [h] = [p.stem for p in ws.originals.glob("*.xlsx")]
+    (ws.originals / f"~${h}.xlsx").write_bytes(b"lock")
+
+    view = deliveries.viewing_copy(ws, h, "phieu 125.xlsx")
+    assert view.name == "phieu 125.xlsx" and ws.originals not in view.parents
+    assert view.read_bytes() == (ws.originals / f"{h}.xlsx").read_bytes()
+    assert deliveries.viewing_copy(ws, h, "phieu 125.xlsx") == view  # opened again: a fresh copy
+
+    pkg = transfer.export_package(conn, ws, Config(workspace=str(ws.root), device_id="a", device_name="A"))
+    with zipfile.ZipFile(pkg) as z:
+        assert [n for n in z.namelist() if n.startswith("phieu-goc/")] == [f"phieu-goc/{h}.xlsx"]

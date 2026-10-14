@@ -11,6 +11,8 @@ The database is the source of truth; files are only input:
 
 import hashlib
 import shutil
+import stat
+import tempfile
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -190,7 +192,10 @@ def move_all_out(ws: Workspace) -> int:
     for path in sorted(p for p in ws.deliveries_done.rglob("*") if p.is_file()):
         target = _free_name(ws.deliveries / path.relative_to(ws.deliveries_done))
         target.parent.mkdir(parents=True, exist_ok=True)
-        path.replace(target)
+        try:
+            path.replace(target)
+        except OSError:  # open in Excel (or its lock file): left where it is
+            continue
         moved += 1
     for folder in sorted((p for p in ws.deliveries_done.rglob("*") if p.is_dir()), reverse=True):
         try:
@@ -649,3 +654,23 @@ def dismiss_error(conn, h: str) -> None:
 def original_copy(ws: Workspace, source_hash: str) -> Path | None:
     p = ws.originals / f"{source_hash}.xlsx"
     return p if p.exists() else None
+
+
+def viewing_copy(ws: Workspace, source_hash: str, name: str = "") -> Path | None:
+    """A read-only copy of the stored original in the system's temp folder, to open in Excel: the stored copy
+    is never opened itself, so Excel leaves no lock file in data/phieu-goc and cannot save over it."""
+    src = original_copy(ws, source_hash)
+    if src is None:
+        return None
+    folder = Path(tempfile.gettempdir()) / "DiBeKho" / source_hash[:12]
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / (Path(name).name if name.lower().endswith(".xlsx") else f"{source_hash[:12]}.xlsx")
+    try:
+        if target.exists():
+            target.chmod(stat.S_IWRITE | stat.S_IREAD)
+        shutil.copyfile(src, target)
+        target.chmod(stat.S_IREAD)
+    except OSError:  # already open in Excel: open that one again
+        if not target.exists():
+            return src
+    return target

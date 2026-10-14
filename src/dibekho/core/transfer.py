@@ -6,6 +6,7 @@ Model: only one machine works at a time. Importing a package REPLACES local data
 
 import json
 import os
+import re
 import shutil
 import tempfile
 import zipfile
@@ -69,9 +70,18 @@ def export_package(conn, ws: Workspace, cfg: Config) -> Path:
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("manifest.json", json.dumps({**manifest.__dict__, "format": FORMAT}, ensure_ascii=False))
             z.write(snap, "kho.sqlite")
-            for f in sorted(ws.originals.glob("*.xlsx")):
+            for f in original_files(ws):
                 z.write(f, f"phieu-goc/{f.name}")
     return dest
+
+
+# data/phieu-goc/<sha256>.xlsx; anything else there (an Excel lock file '~$<sha256>.xlsx' left while a copy
+# is open, a file the user put there) is not part of the data
+ORIGINAL_NAME = re.compile(r"[0-9a-f]{64}\.xlsx")
+
+
+def original_files(ws: Workspace) -> list[Path]:
+    return sorted(f for f in ws.originals.glob("*.xlsx") if ORIGINAL_NAME.fullmatch(f.name))
 
 
 def read_manifest(path: Path) -> Manifest:
@@ -96,7 +106,8 @@ def import_package(ws: Workspace, path: Path) -> Manifest:
     with tempfile.TemporaryDirectory() as tmp:
         with zipfile.ZipFile(path) as z:
             z.extract("kho.sqlite", tmp)
-            originals = [n for n in z.namelist() if n.startswith("phieu-goc/") and n.endswith(".xlsx")]
+            originals = [n for n in z.namelist()
+                         if n.startswith("phieu-goc/") and ORIGINAL_NAME.fullmatch(Path(n).name)]
             ws.originals.mkdir(parents=True, exist_ok=True)
             for name in originals:
                 target = ws.originals / Path(name).name

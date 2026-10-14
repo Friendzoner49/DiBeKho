@@ -154,7 +154,7 @@ class DocumentDialog(_Base):
             ProductDialog(self.ctx, product_id, self).exec()
 
     def open_original(self):
-        copy = deliveries.original_copy(self.ctx.ws, self.head["source_hash"])
+        copy = deliveries.viewing_copy(self.ctx.ws, self.head["source_hash"], self.head["source_file"] or "")
         if copy is None:
             error(self, t("doc.original_missing"))
         else:
