@@ -233,6 +233,8 @@ def test_the_stock_sheet_decides_which_product_gets_the_stock(conn, tmp_path):
     by_row = {p.row: p for p in products}
     assert [by_row[st.product_row].code for st in stock] == ["SP002", "SP001"]
     assert not any(master_data.stock_differs(st, by_row[st.product_row]) for st in stock)
+    sp002 = next(p for p in products if p.code == "SP002")
+    assert master_data.stock_problems(stock[1], sp002) == (False, ["纯白色"])  # SP002 is not 纯白色
     other = db.connect(":memory:")
     catalog.import_master(other, products, customers, stock)
     assert _levels_by_code(other) == {"SP001": 31, "SP002": 79}

@@ -410,7 +410,10 @@ def test_stock_rows_without_code_are_checked_before_import(app, ws, tmp_path, mo
     assert dlg.summary.text().startswith("✓")
     first, second = (combo.currentData() for combo in dlg.combos)
     dlg.combos[1].setCurrentIndex(dlg.combos[1].findData(first))  # 纯白色 row given to the 瑞德牌-only product
-    assert "1 dòng" in dlg.summary.text()
+    problems = [dlg.table.item(r, dlg.PROBLEM).text() for r in range(2)]
+    assert "纯白色" in problems[1] and "SP002" in problems[1]  # what the row says that SP002 is not
+    assert "dòng 6" in problems[0]  # SP002 is now given to both rows
+    assert "2 dòng" in dlg.summary.text()
     errors = []
     monkeypatch.setattr(transfer_mod, "error", lambda parent, text: errors.append(text))
     dlg._accept()

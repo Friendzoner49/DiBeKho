@@ -78,13 +78,20 @@ def needs_check(stock: list[MasterStock]) -> bool:
     return any(st.matched_by != "code" for st in stock)
 
 
-def stock_differs(st: MasterStock, p: MasterProduct) -> bool:
-    """The stock row does not describe this product: another name (neither the whole name nor the Chinese
-    name + packing), or a category/type label of the stock row that the product does not have."""
+def stock_problems(st: MasterStock, p: MasterProduct) -> tuple[bool, list[str]]:
+    """Why the stock row does not describe this product: (name differs, labels of the stock row that the
+    product does not have). The name is the same when the whole name, or the Chinese name + packing, fit."""
     text = _stock_key(st.name)
     same_name = _fits_whole(text, _product_key(p)) or (
         _chinese_key(p) is not None and _fits_chinese(text, _chinese_key(p)))
-    return not same_name or not _labels(st.category, st.variant) <= _labels(p.category, p.variant)
+    have = _labels(p.category, p.variant)
+    missing = [x for v in (st.category, st.variant) for x in clean(v).split() if _norm(x) not in have]
+    return not same_name, list(dict.fromkeys(missing))
+
+
+def stock_differs(st: MasterStock, p: MasterProduct) -> bool:
+    name_differs, missing = stock_problems(st, p)
+    return name_differs or bool(missing)
 
 
 def _norm(text) -> str:

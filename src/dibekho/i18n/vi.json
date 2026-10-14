@@ -360,12 +360,17 @@
   "master.renumbered_row": "• Dòng {row}: {code} trùng → mã mới {new}",
   "master.preview_title": "Kiểm tra số tồn trước khi nhập",
   "master.preview_hint": "Trang Tồn kho của file này chưa có cột Mã, nên app tìm mặt hàng cho từng dòng tồn theo chính nội dung của dòng đó (tên, tên Trung, quy cách, nhóm hàng, loại/màu). Trang Tồn kho là chuẩn; trang Mặt hàng chỉ dùng để tìm. Dòng tô vàng: không tìm được mặt hàng giống hẳn — chọn lại ở cột 'Gán cho mặt hàng' nếu cần. File xuất từ bản mới có cột Mã sẽ không cần bước này.",
-  "master.preview_warn": "⚠ {count} dòng tô vàng cần kiểm tra.",
+  "master.preview_warn": "⚠ {count} dòng tô vàng cần kiểm tra (xem cột Vấn đề).",
   "master.preview_ok": "✓ Mọi dòng đều tìm được mặt hàng khớp với trang Tồn kho.",
   "master.preview_continue": "Tiếp tục nhập",
   "master.preview_twice": "Mặt hàng {product} đang được gán cho nhiều dòng tồn (dòng {rows}). Mỗi mặt hàng chỉ nhận một dòng.",
   "master.col_stock_row": "Dòng",
   "master.col_in_file": "Trong trang Tồn kho",
   "master.col_assign": "Gán cho mặt hàng",
-  "master.no_assign": "— Không nhập số tồn dòng này —"
+  "master.no_assign": "— Không nhập số tồn dòng này —",
+  "master.col_problem": "Vấn đề",
+  "master.problem_unassigned": "Chưa gán mặt hàng: số tồn dòng này sẽ không được nhập",
+  "master.problem_name": "Tên khác với mặt hàng được gán",
+  "master.problem_labels": "Trang Tồn kho ghi {labels}, nhưng {code} là {has}",
+  "master.problem_twice": "Mặt hàng này cũng được gán cho dòng {rows}"
 }

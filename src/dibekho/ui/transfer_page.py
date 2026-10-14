@@ -39,14 +39,15 @@ from dibekho.ui.common import (
 class StockMatchDialog(QDialog):
     """Which product each row of the 'Tồn kho' sheet goes to, when they are not tied by code (old files
     without the code column). Rows whose name/category/type differ from the product are yellow, and the user
-    can choose another product for any row. result_stock() gives the rows with the user's choices."""
+    can choose another product for any row; the 'Problem' column says why a row is yellow.
+    result_stock() gives the rows with the user's choices."""
 
-    ROW, STOCK, IN_FILE, ASSIGN = range(4)
+    ROW, STOCK, IN_FILE, ASSIGN, PROBLEM = range(5)
 
     def __init__(self, parent, products, stock):
         super().__init__(parent)
         self.setWindowTitle(t("master.preview_title"))
-        fit_window(self, 1100, 640)
+        fit_window(self, 1250, 640)
         self.products = {p.row: p for p in products}
         self.stock = stock
         lay = QVBoxLayout(self)
@@ -54,8 +55,8 @@ class StockMatchDialog(QDialog):
         self.summary = QLabel()
         lay.addWidget(self.summary)
         self.table = make_table([t("master.col_stock_row"), t("col.stock"), t("master.col_in_file"),
-                                 t("master.col_assign")], stretch=self.ASSIGN)
-        fill_table(self.table, [[num_item(st.row), num_item(st.stock), self._in_file(st), ""] for st in stock])
+                                 t("master.col_assign"), t("master.col_problem")], stretch=self.PROBLEM)
+        fill_table(self.table, [[num_item(st.row), num_item(st.stock), self._in_file(st), "", ""] for st in stock])
         self.table.setSortingEnabled(False)  # row r must stay stock[r]
         self.combos = []
         for r, st in enumerate(stock):
@@ -69,10 +70,10 @@ class StockMatchDialog(QDialog):
             combo.currentIndexChanged.connect(self._mark)
             self.table.setCellWidget(r, self.ASSIGN, combo)
             self.combos.append(combo)
-        # both names are long: fixed widths that fit the window, hover a cell to read it in full
-        self.table.setColumnWidth(self.IN_FILE, 400)
-        self.table.setColumnWidth(self.ASSIGN, 400)
-        self.table.natural = 400
+        # long texts: fixed widths that fit the window, hover a cell to read it in full
+        self.table.setColumnWidth(self.IN_FILE, 360)
+        self.table.setColumnWidth(self.ASSIGN, 360)
+        self.table.natural = 280
         self.table.fill_spare()
         lay.addWidget(self.table)
         box = QDialogButtonBox()
@@ -95,15 +96,33 @@ class StockMatchDialog(QDialog):
     def _chosen(self, r):
         return self.combos[r].currentData()
 
+    def _problem(self, r, st) -> str:
+        p = self.products.get(self._chosen(r))
+        if p is None:
+            return t("master.problem_unassigned")
+        problems = []
+        name_differs, missing = master_data.stock_problems(st, p)
+        if name_differs:
+            problems.append(t("master.problem_name"))
+        if missing:
+            has = " · ".join(x for x in (p.category, p.variant) if x) or "—"
+            problems.append(t("master.problem_labels", labels=" · ".join(missing), code=p.code or "—", has=has))
+        others = [str(o.row) for i, o in enumerate(self.stock) if i != r and self._chosen(i) == p.row]
+        if others:
+            problems.append(t("master.problem_twice", rows=", ".join(others)))
+        return "; ".join(problems)
+
     def _mark(self):
         differ = 0
         for r, st in enumerate(self.stock):
-            p = self.products.get(self._chosen(r))
-            bad = p is None or master_data.stock_differs(st, p)
-            differ += bad
+            problem = self._problem(r, st)
+            differ += bool(problem)
             self.combos[r].setToolTip(self.combos[r].currentText())
-            for c in (self.ROW, self.STOCK, self.IN_FILE):
-                self.table.item(r, c).setBackground(QBrush(YELLOW) if bad else QBrush())
+            cell = self.table.item(r, self.PROBLEM)
+            cell.setText(problem)
+            cell.setToolTip(problem)
+            for c in (self.ROW, self.STOCK, self.IN_FILE, self.PROBLEM):
+                self.table.item(r, c).setBackground(QBrush(YELLOW) if problem else QBrush())
         self.summary.setText(t("master.preview_warn", count=differ) if differ else t("master.preview_ok"))
 
     def _accept(self):

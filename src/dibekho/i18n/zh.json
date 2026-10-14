@@ -360,12 +360,17 @@
   "master.renumbered_row": "• 第 {row} 行：{code} 重复 → 新编码 {new}",
   "master.preview_title": "导入前核对库存",
   "master.preview_hint": "此文件的库存表没有编码列，应用根据每行库存本身的内容（名称、中文名、规格、类别、类型/颜色）找到对应商品。以库存表为准；商品表只用于查找。黄色行：没有完全相符的商品——如有需要请在“对应商品”中重新选择。新版本导出的文件带有编码列，不需要这一步。",
-  "master.preview_warn": "⚠ 有 {count} 行黄色需要核对。",
+  "master.preview_warn": "⚠ 有 {count} 行黄色需要核对（见“问题”列）。",
   "master.preview_ok": "✓ 每一行都找到了与库存表相符的商品。",
   "master.preview_continue": "继续导入",
   "master.preview_twice": "商品 {product} 对应了多行库存（第 {rows} 行）。每个商品只能对应一行。",
   "master.col_stock_row": "行",
   "master.col_in_file": "库存表中",
   "master.col_assign": "对应商品",
-  "master.no_assign": "— 不导入此行库存 —"
+  "master.no_assign": "— 不导入此行库存 —",
+  "master.col_problem": "问题",
+  "master.problem_unassigned": "未对应商品：此行库存不会导入",
+  "master.problem_name": "名称与所对应的商品不同",
+  "master.problem_labels": "库存表写的是 {labels}，但 {code} 是 {has}",
+  "master.problem_twice": "此商品也对应了第 {rows} 行"
 }
