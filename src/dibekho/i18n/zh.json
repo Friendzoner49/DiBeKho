@@ -450,5 +450,6 @@
   "receipt_form.confirm_close": "放弃正在填写的到货单？已输入的内容不会保存。",
   "receipt_form.saved": "到货单 {code} 已保存。如有错误，请点“↶ 撤销”或“修改”。\n\n文件：\n{path}\n\n现在打开？",
   "receipt_form.saved_no_file": "到货单 {code} 已入库，但无法生成 Excel 文件：\n{error}",
-  "receipt_form.open_file": "打开到货单文件"
+  "receipt_form.open_file": "打开到货单文件",
+  "transfer.older_version": "此数据包来自 DiBeKho {version}（旧版本）。应用会自动把数据转换为 {current} 版本的格式；送货单、商品、客户和库存保持不变。"
 }

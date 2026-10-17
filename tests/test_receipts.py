@@ -156,3 +156,73 @@ def test_code_of_a_receipt_undone_is_not_given_again(conn, ws):
     doc = receipts.save(conn, ReceiptInput(date(2026, 10, 16), SUPPLIER, supplier_name="X",
                                            lines=[ReceiptLineInput(1, a)]), ws=ws)
     assert conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "HV005"
+
+
+def old_package(tmp_path):
+    """A data package as DiBeKho 0.2.0 wrote it (schema 5: no suppliers, no receipt source)."""
+    import json
+    import zipfile
+
+    from dibekho.core.stock import Line, insert_document
+
+    path = tmp_path / "old.sqlite"
+    conn = db.connect(path)
+    with db.transaction(conn):
+        a = catalog.create_product(conn, "Sơn A", "涂料A", "20KG", unit="thùng")
+        insert_document(conn, "receipt", date(2026, 9, 1), [Line(a, 30)], note="quý 3")
+        insert_document(conn, "delivery", date(2026, 9, 5), [Line(a, 4)], code="7", code_norm="7")
+    for sql in ("ALTER TABLE documents DROP COLUMN ref_code", "ALTER TABLE documents DROP COLUMN supplier_id",
+                "ALTER TABLE documents DROP COLUMN receipt_source", "DROP TABLE suppliers", "PRAGMA user_version = 5"):
+        conn.execute(sql)
+    conn.close()
+    pkg = tmp_path / "DiBeKho_cu.dibekho"
+    with zipfile.ZipFile(pkg, "w") as z:
+        z.writestr("manifest.json", json.dumps({"device_name": "May cu", "device_id": "x", "exported_at": "2026-10-17T14:48:02",
+                                                "schema_version": 5, "app_version": "0.2.0", "deliveries": 1,
+                                                "products": 1, "format": 1}))
+        z.write(path, "kho.sqlite")
+    return pkg
+
+
+def test_package_from_0_2_0_is_upgraded_on_import(tmp_path, ws):
+    from dibekho.core import transfer
+
+    pkg = old_package(tmp_path)
+    manifest = transfer.read_manifest(pkg)
+    assert transfer.is_older(manifest) and manifest.app_version == "0.2.0"
+    db.connect(ws.db_path).close()
+    transfer.import_package(ws, pkg)
+    conn = db.connect(ws.db_path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == db.schema_version()
+    [a] = [r[0] for r in conn.execute("SELECT id FROM products")]
+    assert stock_levels(conn) == {a: 26}
+    old = conn.execute("SELECT * FROM documents WHERE kind = 'receipt'").fetchone()
+    assert old["receipt_source"] == "" and old["code"] == ""  # older receipts: source unknown, shown as —
+    doc = receipts.save(conn, ReceiptInput(date(2026, 10, 17), SUPPLIER, supplier_name="Công ty mẹ",
+                                           lines=[ReceiptLineInput(5, a)]), ws=ws)
+    assert conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "HV001"
+    assert stock_levels(conn) == {a: 31}
+    conn.close()
+
+
+def test_a_package_that_cannot_be_upgraded_leaves_the_data_here(tmp_path, ws, monkeypatch):
+    import pytest
+
+    from dibekho.core import transfer
+
+    pkg = old_package(tmp_path)
+    conn = db.connect(ws.db_path)
+    with db.transaction(conn):
+        catalog.create_product(conn, "Hàng ở máy này")
+    conn.close()
+
+    def broken(*a, **k):
+        raise RuntimeError("migration failed")
+
+    monkeypatch.setattr(db, "connect", broken)
+    with pytest.raises(RuntimeError):
+        transfer.import_package(ws, pkg)
+    monkeypatch.undo()
+    conn = db.connect(ws.db_path)
+    assert [r[0] for r in conn.execute("SELECT name_vi FROM products")] == ["Hàng ở máy này"]
+    conn.close()

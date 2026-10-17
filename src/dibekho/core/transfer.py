@@ -84,6 +84,11 @@ def original_files(ws: Workspace) -> list[Path]:
     return sorted(f for f in ws.originals.glob("*.xlsx") if ORIGINAL_NAME.fullmatch(f.name))
 
 
+def is_older(manifest: Manifest) -> bool:
+    """The package comes from an earlier version (older schema): it is upgraded when imported."""
+    return manifest.schema_version is not None and manifest.schema_version < db.schema_version()
+
+
 def read_manifest(path: Path) -> Manifest:
     try:
         with zipfile.ZipFile(path) as z:
@@ -106,6 +111,11 @@ def import_package(ws: Workspace, path: Path) -> Manifest:
     with tempfile.TemporaryDirectory() as tmp:
         with zipfile.ZipFile(path) as z:
             z.extract("kho.sqlite", tmp)
+        # a package from an older version is brought to this version's schema here, on the extracted copy:
+        # if that fails, nothing on this computer has been replaced yet
+        upgraded = db.connect(Path(tmp) / "kho.sqlite")
+        upgraded.close()
+        with zipfile.ZipFile(path) as z:
             originals = [n for n in z.namelist()
                          if n.startswith("phieu-goc/") and ORIGINAL_NAME.fullmatch(Path(n).name)]
             ws.originals.mkdir(parents=True, exist_ok=True)

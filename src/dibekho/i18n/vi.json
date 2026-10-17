@@ -450,5 +450,6 @@
   "receipt_form.confirm_close": "Bỏ phiếu đang nhập? Những gì đã gõ sẽ không được lưu.",
   "receipt_form.saved": "Đã lưu phiếu hàng về {code}. Nếu nhập nhầm, bấm '↶ Hoàn tác' hoặc 'Sửa phiếu'.\n\nFile phiếu:\n{path}\n\nMở file ngay?",
   "receipt_form.saved_no_file": "Đã lưu phiếu hàng về {code} vào kho, nhưng chưa tạo được file Excel:\n{error}",
-  "receipt_form.open_file": "Mở file phiếu"
+  "receipt_form.open_file": "Mở file phiếu",
+  "transfer.older_version": "Gói này xuất từ DiBeKho {version} (bản cũ). App sẽ tự chuyển dữ liệu sang dạng của bản {current}; phiếu, mặt hàng, khách và tồn kho giữ nguyên."
 }

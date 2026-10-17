@@ -11,6 +11,7 @@ dist/
 # Customer data: real names and phone numbers, never commit
 samples/
 /*.xlsx
+*.dibekho
 
 # OS
 .DS_Store

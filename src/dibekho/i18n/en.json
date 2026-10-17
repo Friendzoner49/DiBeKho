@@ -450,5 +450,6 @@
   "receipt_form.confirm_close": "Discard this receipt? What you typed is not saved.",
   "receipt_form.saved": "Goods in {code} saved. If something is wrong, press '↶ Undo' or 'Edit'.\n\nFile:\n{path}\n\nOpen it now?",
   "receipt_form.saved_no_file": "Goods in {code} is recorded, but the Excel file could not be written:\n{error}",
-  "receipt_form.open_file": "Open receipt file"
+  "receipt_form.open_file": "Open receipt file",
+  "transfer.older_version": "This package comes from DiBeKho {version} (an older version). The data is converted to version {current} automatically; notes, products, customers and stock stay the same."
 }

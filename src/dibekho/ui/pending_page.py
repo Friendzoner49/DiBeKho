@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dibekho import db
+from dibekho import __version__, db
 from dibekho.core import backup, catalog, deliveries, inbox, transfer
 from dibekho.core.text import fmt_qty, parse_number, unaccent
 from dibekho.i18n import t
@@ -384,6 +384,8 @@ class PendingPage(Page):
         m = it.manifest
         text = t("transfer.confirm_import", device=m.device_name, at=m.exported_at.replace("T", " "),
                  deliveries=m.deliveries, products=m.products)
+        if transfer.is_older(m):
+            text += "\n\n" + t("transfer.older_version", version=m.app_version or "?", current=__version__)
         if not ask(self, text):
             return
         if transfer.has_unsent_changes(self.ctx.conn) and not ask(self, t("transfer.unsent_warning")):
