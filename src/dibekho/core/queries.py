@@ -34,10 +34,11 @@ def documents(conn, kind="delivery", date_from: date | None = None, date_to: dat
         args += [like, like, normalize_code(text)]
     return conn.execute(
         f"""
-        SELECT d.*, c.name AS customer_name,
+        SELECT d.*, c.name AS customer_name, s.name AS supplier_name,
                COUNT(l.id) AS line_count, COALESCE(SUM(l.qty), 0) AS total_qty
         FROM documents d
         LEFT JOIN customers c ON c.id = d.customer_id
+        LEFT JOIN suppliers s ON s.id = d.supplier_id
         LEFT JOIN document_lines l ON l.document_id = d.id
         WHERE {' AND '.join(where)}
         GROUP BY d.id
@@ -50,8 +51,9 @@ def documents(conn, kind="delivery", date_from: date | None = None, date_to: dat
 def document(conn, doc_id: int):
     head = conn.execute(
         """
-        SELECT d.*, c.name AS customer_name, c.contact, c.phone, c.address
+        SELECT d.*, c.name AS customer_name, c.contact, c.phone, c.address, s.name AS supplier_name
         FROM documents d LEFT JOIN customers c ON c.id = d.customer_id
+        LEFT JOIN suppliers s ON s.id = d.supplier_id
         WHERE d.id = ?
         """,
         (doc_id,),

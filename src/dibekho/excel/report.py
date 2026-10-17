@@ -97,7 +97,10 @@ def _details(wb, conn, start, end, filters, info):
                t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"), t("col.qty_change"), t("col.note")]
     ws, r = _sheet(wb, t("sheet.details"), info, headers)
     for m in stats.detail_lines(conn, start, end, filters):
-        values = [date.fromisoformat(m["occurred_on"]), kinds.get(m["kind"], m["kind"]), m["code"],
+        kind = kinds.get(m["kind"], m["kind"])
+        if m["receipt_source"] == "return" and m["kind"] in ("receipt_in", "receipt_reverse"):
+            kind += " · " + t("receipt_form.source_short_return")
+        values = [date.fromisoformat(m["occurred_on"]), kind, m["code"],
                   m["customer_name"], m["product_code"], m["name_vi"], m["spec"], m["variant"], m["unit"], m["qty"],
                   m["note"]]
         for col, v in enumerate(values, start=1):

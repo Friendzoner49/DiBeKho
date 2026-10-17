@@ -39,7 +39,7 @@ The user interface is available in **Vietnamese** (default), **English** and **C
 | ✂️ **Drops fee lines** | Shipping and service fees are recognised and dropped with one click, so stock stays right. |
 | ↩️ **Undo a wrong choice** | Read a note again, or "forget" a name match and choose again. Old history is kept. |
 | 🛡️ **Safe with files** | Deleting a note file never changes stock; the app offers *restore*, *cancel the note* or *ignore*. If a note is edited, the app asks whether to use the new version. |
-| 📥 **Goods in** | The app makes an Excel template; fill in the quantities and drop it into `input/`. |
+| 📥 **Goods in** | One window: choose the source (border gate / parent company, or a customer return), 3 products are suggested, type the quantities and save. New products are entered on their row. The app writes the receipt's Excel file. |
 | 🔢 **Stock count** | Enter what you counted and the app records the difference. The first count is the opening stock. |
 | 🔎 **Search everything** | Products, customers, phone numbers, note numbers, notes. Works without Vietnamese accents and with Chinese input. |
 | 📊 **Statistics and Excel export** | By day, month, quarter, year or any range; all items or selected products, categories, customers. Opening, in, out, closing stock, best sellers and a chart. |
@@ -84,7 +84,7 @@ DiBeKho/
 │   └── da-xu-ly/      ← fully recorded notes are moved here by the app
 ├── input/             ← goods-in files, or a data package from another computer
 │   └── da-xu-ly/      ← processed files are moved here by the app
-├── output/            ← Excel reports, goods-in template, data packages
+├── output/            ← Excel reports, goods-in receipts (hang-ve/), data packages
 ├── sao-luu/           ← automatic backups
 └── data/              ← database and copies of the original notes (do not edit)
 ```
@@ -155,11 +155,18 @@ Then click **Apply and read notes again**, check the summary and confirm. The ap
 
 ### 5. Goods in (1–2 times per quarter)
 
-1. **Goods in → Create goods-in template** (products in code order: SP001, SP002…), open the file, fill in the arrival date and the quantities, save it.
-2. Copy the file into `input/` (**Open input folder**).
-3. In **To do**, click **Review & import**, check the list and click **Confirm goods in**. Stock goes up and the file moves to `input/da-xu-ly/`.
+<img src="docs/images/en/hang-ve.png" alt="Goods in" width="760">
 
-Instead of steps 2–3 you can click **Choose a file to import…** on **Goods in** and pick the file wherever it is, even in `input/da-xu-ly/`. The same button also takes the monthly catalog sheet. A catalog sheet dropped into `input/` is recognised too (**Import catalog from Excel…** in **To do**). A file the app cannot use is never moved: **Hide** only removes it from the list.
+1. **Goods in → ＋ Goods in…**.
+2. Choose **where the goods come from**:
+   - **Border gate / parent company**: type the supplier, or pick one used before.
+   - **Customer return**: pick the customer, and the order if you know it.
+3. 3 products are suggested (what usually comes from that supplier, or what was in the customer's order). Type the **quantities**; rows left without a quantity are skipped. Click a product name to change it: **🔍 Choose a product from the catalog…** (search without accents, in Chinese, by code) or **★ New product (not in the catalog)…**. Press **＋ Add row** for more.
+4. Press **Save goods in**, read the summary and agree. Stock goes up, the receipt gets a code (HV001, HV002…) and its Excel file is written in `output/hang-ve/`.
+
+A mistake: press **↶ Undo** right away, or select the receipt under **Goods in so far** and press **Edit selected…** (the old one stays in the history as “replaced”). The mouse wheel never changes a quantity or the date.
+
+Goods-in files of the old kind (a filled template) can still be imported with **Choose a file to import…** or by dropping them into `input/`. The same button also takes the monthly catalog sheet. A catalog sheet dropped into `input/` is recognised too (**Import catalog from Excel…** in **To do**). A file the app cannot use is never moved: **Hide** only removes it from the list.
 
 ### 6. Looking things up
 

@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QComboBox,
+    QDateEdit,
+    QDoubleSpinBox,
     QHeaderView,
     QLabel,
     QMessageBox,
@@ -85,6 +87,24 @@ class NoWheelCombo(QComboBox):
 
     def wheelEvent(self, event):
         event.ignore()  # the table under it scrolls instead
+
+
+class NoWheelSpin(QDoubleSpinBox):
+    """A quantity box that ignores the mouse wheel, for the same reason as NoWheelCombo.
+    Shows 20, not 20,00 (decimals still accepted when typed)."""
+
+    def wheelEvent(self, event):
+        event.ignore()
+
+    def textFromValue(self, value):
+        text = self.locale().toString(value, "f", self.decimals())
+        point = self.locale().decimalPoint()
+        return text.rstrip("0").rstrip(point) if point in text else text
+
+
+class NoWheelDate(QDateEdit):
+    def wheelEvent(self, event):
+        event.ignore()
 
 
 # ---- formatting ------------------------------------------------------------

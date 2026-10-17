@@ -215,7 +215,7 @@ def detail_lines(conn, start: date, end: date, filters: Filters | None = None):
     customer_args = [*OUT_KINDS, *cargs] if f.customer_ids else []
     return conn.execute(
         f"""
-        SELECT m.occurred_on, m.kind, m.qty, d.code, d.kind AS doc_kind, c.name AS customer_name,
+        SELECT m.occurred_on, m.kind, m.qty, d.code, d.kind AS doc_kind, d.receipt_source, c.name AS customer_name,
                p.code AS product_code, p.name_vi, p.spec, p.variant, p.unit,
                (SELECT note FROM document_lines l WHERE l.document_id = d.id AND l.product_id = p.id LIMIT 1) AS note
         FROM stock_movements m

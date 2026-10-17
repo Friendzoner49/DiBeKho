@@ -37,7 +37,7 @@ Với DiBeKho, bạn chỉ cần bỏ file phiếu vào một thư mục. App t�
 | ✂️ **Bỏ dòng phí** | Phí ship, phí dịch vụ… được nhận ra và bỏ qua chỉ với một cú bấm, không làm sai tồn kho. |
 | ↩️ **Sửa được khi chọn nhầm** | Đọc lại một phiếu, hoặc "quên" một lựa chọn ghép tên rồi chọn lại. Lịch sử cũ vẫn được giữ. |
 | 🛡️ **An toàn với file** | Lỡ xoá file phiếu thì tồn kho không đổi, và app cho chọn *khôi phục*, *huỷ phiếu* hoặc *bỏ qua*. Sửa phiếu thì app hỏi dùng bản mới hay giữ bản cũ. |
-| 📥 **Nhập hàng về** | App tạo sẵn file Excel mẫu, bạn chỉ điền số lượng rồi bỏ vào thư mục `input/`. |
+| 📥 **Nhập hàng về** | Một cửa sổ: chọn nguồn hàng (cửa khẩu / công ty mẹ, hoặc khách trả lại), app gợi ý sẵn 3 mặt hàng, gõ số lượng rồi lưu. Mặt hàng mới nhập ngay trên dòng. App tạo luôn file Excel của phiếu. |
 | 🔢 **Kiểm kê** | Nhập số đếm thực tế, app ghi phần chênh lệch. Lần kiểm kê đầu tiên chính là tồn đầu kỳ. |
 | 🔎 **Tra cứu mọi thứ** | Tìm mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Gõ không dấu hoặc tiếng Trung đều được. |
 | 📊 **Thống kê và xuất Excel** | Theo ngày, tháng, quý, năm hoặc khoảng tự chọn; tất cả hoặc chọn riêng mặt hàng, nhóm hàng, khách. Có tồn đầu, nhập, xuất, tồn cuối, top bán chạy và biểu đồ. |
@@ -82,7 +82,7 @@ DiBeKho/
 │   └── da-xu-ly/      ← app chuyển phiếu đã ghi xong vào đây
 ├── input/             ← file hàng về, hoặc gói dữ liệu từ máy khác
 │   └── da-xu-ly/      ← app tự chuyển file đã xử lý vào đây
-├── output/            ← báo cáo Excel, file mẫu hàng về, gói dữ liệu
+├── output/            ← báo cáo Excel, file phiếu hàng về (hang-ve/), gói dữ liệu
 ├── sao-luu/           ← bản sao lưu tự động
 └── data/              ← database và bản sao file phiếu gốc (không sửa tay)
 ```
@@ -151,17 +151,25 @@ Sau đó bấm **Áp dụng và đọc lại phiếu**, xem bảng tóm tắt r�
 
 ### 5. Hàng về (1–2 lần mỗi quý)
 
-1. **Hàng về → Tạo file mẫu hàng về** (mặt hàng xếp theo mã: SP001, SP002…), mở file, điền ngày về và số lượng, lưu lại.
-2. Chép file vào `input/` (nút **Mở thư mục input**).
-3. Ở **Cần xử lý**, bấm **Xem và nhập**, kiểm tra danh sách rồi bấm **Xác nhận nhập hàng về**. Tồn tăng và file được chuyển sang `input/da-xu-ly/`.
+<img src="docs/images/hang-ve.png" alt="Nhập hàng về" width="760">
 
-Thay cho bước 2–3, có thể bấm **Chọn file để nhập…** ở **Hàng về** và chọn thẳng file ở bất kỳ đâu, kể cả trong `input/da-xu-ly/`. Nút này cũng nhận file danh mục (thống kê tháng). File danh mục bỏ vào `input/` cũng được nhận ra (**Nhập danh mục từ Excel…** trong **Cần xử lý**). File app không dùng được sẽ không bao giờ bị di chuyển: **Ẩn** chỉ bỏ nó khỏi danh sách.
+1. **Hàng về → ＋ Nhập hàng về…**.
+2. Chọn **hàng từ đâu về**:
+   - **Cửa khẩu / công ty mẹ**: gõ tên nhà cung cấp, hoặc chọn tên đã dùng lần trước.
+   - **Khách hàng trả lại**: chọn khách, và mã đơn khách trả nếu biết.
+3. App gợi ý sẵn 3 mặt hàng (hàng hay về từ nhà cung cấp đó, hoặc hàng trong đơn của khách). Gõ **số lượng**; dòng nào để trống số lượng thì bỏ qua. Bấm vào tên mặt hàng để đổi: **🔍 Chọn mặt hàng trong kho…** (tìm không dấu, tiếng Trung, mã) hoặc **★ Mặt hàng mới (chưa có trong kho)…**. Cần thêm thì bấm **＋ Thêm dòng**.
+4. Bấm **Lưu phiếu hàng về**, đọc lại bảng tóm tắt rồi đồng ý. Tồn tăng, phiếu có mã (HV001, HV002…) và file Excel của phiếu được tạo trong `output/hang-ve/`.
+
+Nhập nhầm: bấm **↶ Hoàn tác** ngay, hoặc chọn phiếu trong **Các lần hàng về** rồi bấm **Sửa phiếu đã chọn…** (phiếu cũ vẫn giữ trong lịch sử, có trạng thái “đã thay”). Lăn chuột không làm đổi số lượng hay ngày.
+
+File hàng về dạng cũ (file mẫu đã điền) vẫn nhập được bằng **Chọn file để nhập…** hoặc bỏ vào `input/`. Nút này cũng nhận file danh mục (thống kê tháng). File danh mục bỏ vào `input/` cũng được nhận ra (**Nhập danh mục từ Excel…** trong **Cần xử lý**). File app không dùng được sẽ không bao giờ bị di chuyển: **Ẩn** chỉ bỏ nó khỏi danh sách.
 
 ### 6. Tra cứu
 
 - **Tồn kho**: dòng đỏ = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng vàng = bằng hoặc dưới mức **Báo sắp hết khi còn** (đặt cho từng mặt hàng ở **Cài đặt → Danh mục mặt hàng**, nháy đúp vào mặt hàng). Nháy đúp một mặt hàng để xem toàn bộ lịch sử.
 - **Tra cứu** (**Ctrl+F**): một ô tìm mặt hàng, khách, số điện thoại, mã phiếu, ghi chú; gõ không dấu hoặc tiếng Trung đều được. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng** và **Thống kê và xuất Excel**.
 - **Một đơn hàng**: khách, các dòng hàng, ghi chú, **Mở file gốc**, **Đọc lại phiếu**, **Huỷ phiếu**.
+- **Một phiếu hàng về**: nguồn hàng, nhà cung cấp hoặc khách trả, **Mở file phiếu**, **Sửa phiếu hàng về…**, **Huỷ phiếu**.
 - **Một khách hàng**: mọi đơn của khách và những mặt hàng khách hay mua.
 
 ### 7. Thống kê và xuất Excel

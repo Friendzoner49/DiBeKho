@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import deliveries, queries
+from dibekho.core import deliveries, queries, receipts
 from dibekho.core.stock import close_document
 from dibekho.core.text import fmt_qty
 from dibekho.i18n import t
@@ -85,7 +85,12 @@ class DocumentDialog(_Base):
         kind = head["kind"]
         self.setWindowTitle(f"{kind_text(kind)} {head['code']}".strip())
 
-        title = t("doc.title_delivery", code=head["code"]) if kind == "delivery" else kind_text(kind)
+        if kind == "delivery":
+            title = t("doc.title_delivery", code=head["code"])
+        elif kind == "receipt" and head["code"]:
+            title = t("doc.title_receipt", code=head["code"])
+        else:
+            title = kind_text(kind)
         self.layout_.addWidget(title_label(title))
 
         form = QFormLayout()
@@ -100,6 +105,16 @@ class DocumentDialog(_Base):
             form.addRow(t("col.contact") + ":", _selectable(head["contact"]))
             form.addRow(t("col.phone") + ":", _selectable(head["phone"]))
             form.addRow(t("col.address") + ":", _selectable(head["address"]))
+        if kind == "receipt" and head["receipt_source"]:
+            form.addRow(t("receipt_form.source") + ":",
+                        QLabel(t(f"receipt_form.source_short_{head['receipt_source']}")))
+            if head["receipt_source"] == "return":
+                if head["customer_id"]:
+                    form.addRow(t("col.customer") + ":", _link(head["customer_name"], self.open_customer))
+                if head["ref_code"]:
+                    form.addRow(t("receipt_form.order") + ":", _selectable(head["ref_code"]))
+            else:
+                form.addRow(t("receipt_form.supplier") + ":", _selectable(head["supplier_name"]))
         if head["note"]:
             form.addRow(t("col.note") + ":", _selectable(head["note"]))
         if head["source_file"]:
@@ -137,6 +152,15 @@ class DocumentDialog(_Base):
             b = QPushButton(t("btn.reread_doc"))
             b.setToolTip(t("doc.reread_tip"))
             b.clicked.connect(self.reread_doc)
+            buttons.addWidget(b)
+        if kind == "receipt" and receipts.exported_file(ctx.ws, head["source_file"]):
+            b = QPushButton(t("receipt_form.open_file"))
+            b.clicked.connect(lambda: open_path(receipts.exported_file(ctx.ws, head["source_file"])))
+            buttons.addWidget(b)
+        if kind == "receipt" and head["status"] == "active":
+            b = QPushButton(t("receipts.edit"))
+            b.setToolTip(t("receipts.edit_tip"))
+            b.clicked.connect(self.edit_receipt)
             buttons.addWidget(b)
         if head["status"] == "active":
             b = QPushButton(t("btn.cancel_doc"))
@@ -177,6 +201,12 @@ class DocumentDialog(_Base):
             return
         self.ctx.notify()
         self.accept()
+
+    def edit_receipt(self):
+        from dibekho.ui.receipt_form import open_receipt_form
+
+        if open_receipt_form(self.ctx, self, self.doc_id):
+            self.accept()
 
     def reread_doc(self):
         if not ask(self, t("doc.confirm_reread")):

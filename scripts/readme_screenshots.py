@@ -17,8 +17,8 @@ if sys.platform == "win32":
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dibekho import db, i18n  # noqa: E402
-from dibekho.core import catalog, deliveries  # noqa: E402
-from dibekho.core.stock import Line, insert_document, stock_count  # noqa: E402
+from dibekho.core import catalog, deliveries, receipts  # noqa: E402
+from dibekho.core.stock import stock_count  # noqa: E402
 from dibekho.core.workspace import Config, Workspace  # noqa: E402
 from tests.conftest import make_note  # noqa: E402
 
@@ -87,9 +87,10 @@ with db.transaction(conn):
     for vi, zh, spec, unit, cat, variant, mn in P:
         ids.append(catalog.create_product(conn, vi, zh, spec, unit=unit, category=cat, min_stock=mn, variant=variant))
 stock_count(conn, date(2026, 9, 1), dict(zip(ids, [40, 30, 25, 12, 6, 20, 8, 10, 60])), "Kiểm kê đầu kỳ")
-with db.transaction(conn):
-    insert_document(conn, "receipt", date(2026, 9, 20), [Line(ids[0], 30), Line(ids[5], 15), Line(ids[2], 10)],
-                    note="Hàng về quý 3")
+receipts.save(conn, receipts.ReceiptInput(
+    date(2026, 9, 20), receipts.SUPPLIER, supplier_name="Công ty mẹ", note="Hàng về quý 3",
+    lines=[receipts.ReceiptLineInput(30, ids[0]), receipts.ReceiptLineInput(15, ids[5]),
+           receipts.ReceiptLineInput(10, ids[2])]))
 for code, day, c, lines in NOTES:
     name, phone = CUSTOMERS[c]
     make_note(ws.deliveries / f"2026-{day[3:5]}" / f"phieu-{code}.xlsx", code=code, day=day, customer=name,
@@ -147,4 +148,19 @@ d = CustomerDialog(ctx, cust, win)
 d.resize(1100, 640)
 d.show()
 shot(d, "chi-tiet-khach.png")
+d.close()
+
+from dibekho.ui.receipt_form import ReceiptForm  # noqa: E402
+
+form = ReceiptForm(ctx, win)
+form.resize(1100, 600)
+form.rows[0].qty.setValue(20)
+form.rows[1].qty.setValue(10)
+row = form.add_row()
+form._set_product(row, None, receipts.NewProduct(P[0][0] + " (mới)", P[0][1], "5KG", unit=P[0][3]))
+row.qty.setValue(6)
+form.show()
+shot(form, "hang-ve.png")
+form.saved_doc = -1  # close without asking
+form.close()
 print("ok")

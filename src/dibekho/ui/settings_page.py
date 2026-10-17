@@ -99,13 +99,16 @@ class ProductEditor(QDialog):
         box.rejected.connect(self.reject)
         form.addRow(box)
 
+    def fields(self) -> dict:
+        return dict(name_vi=self.name_vi.text().strip(), name_zh=self.name_zh.text().strip(),
+                    spec=self.spec.text().strip(), variant=self.variant.text().strip(), unit=self.unit.text().strip(),
+                    category=self.category.currentText().strip(), min_stock=self.min_stock.value())
+
     def save(self):
         if not self.name_vi.text().strip():
             self.name_vi.setFocus()
             return
-        fields = dict(name_vi=self.name_vi.text().strip(), name_zh=self.name_zh.text().strip(),
-                      spec=self.spec.text().strip(), variant=self.variant.text().strip(), unit=self.unit.text().strip(),
-                      category=self.category.currentText().strip(), min_stock=self.min_stock.value())
+        fields = self.fields()
         self.ctx.undo_point("product_edit" if self.product else "product_add")
         with db.transaction(self.ctx.conn):
             if self.product:

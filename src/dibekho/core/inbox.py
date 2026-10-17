@@ -78,7 +78,7 @@ def read_item(conn, path: Path) -> InboxItem:
             read_delivery_note(path)
             msg = "Đây là phiếu giao hàng — hãy để nó trong thư mục phieu-giao-hang/, không phải input/."
         except (NotDeliveryNote, DeliveryNoteError):
-            msg = "Không phải file hàng về hay file danh mục. Hãy dùng 'Tạo file mẫu hàng về' trong app."
+            msg = "Không phải file hàng về hay file danh mục. Hàng về: dùng nút 'Nhập hàng về…' trong app."
         return InboxItem(path, "error", error=msg)
     except ReceiptError as exc:
         return InboxItem(path, "error", error=str(exc))
@@ -97,7 +97,9 @@ def read_item(conn, path: Path) -> InboxItem:
 
 def _already_imported(conn, h: str) -> bool:
     return conn.execute(
-        "SELECT 1 FROM documents WHERE kind = 'receipt' AND status = 'active' AND source_hash = ?", (h,)
+        # 'replaced': a receipt edited in the app; its old file must not come in again either
+        "SELECT 1 FROM documents WHERE kind = 'receipt' AND status IN ('active', 'replaced') AND source_hash = ?",
+        (h,)
     ).fetchone() is not None
 
 
