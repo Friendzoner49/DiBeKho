@@ -1,4 +1,4 @@
--- Where goods in come from (15/10/2026). receipt_source: '' (older receipts, unknown),
+-- Where goods in come from (17/10/2026). receipt_source: '' (older receipts, unknown),
 -- 'supplier' = border gate / parent company (named in suppliers), 'return' = goods a customer sent back
 -- (documents.customer_id is that customer; documents.ref_code the order it came from, optional).
 CREATE TABLE suppliers (

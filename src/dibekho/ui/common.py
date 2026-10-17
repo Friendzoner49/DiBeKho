@@ -1,10 +1,12 @@
 """Shared UI helpers: app context, tables, formatting, messages."""
 
+import re
 import sqlite3
+import unicodedata
 from datetime import date
 
 from PySide6.QtCore import QDate, QObject, Qt, QUrl, Signal
-from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPalette
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPalette, QValidator
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -21,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import undo
-from dibekho.core.text import fmt_qty
+from dibekho.core.text import fmt_qty, parse_number
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
 
@@ -91,15 +93,34 @@ class NoWheelCombo(QComboBox):
 
 class NoWheelSpin(QDoubleSpinBox):
     """A quantity box that ignores the mouse wheel, for the same reason as NoWheelCombo.
-    Shows 20, not 20,00 (decimals still accepted when typed)."""
+    Shows 20, not 20,00. '.' and ',' are both the decimal point and there is no thousands separator:
+    with the Vietnamese locale Qt read '1.5' as 15."""
 
     def wheelEvent(self, event):
         event.ignore()
 
     def textFromValue(self, value):
-        text = self.locale().toString(value, "f", self.decimals())
-        point = self.locale().decimalPoint()
-        return text.rstrip("0").rstrip(point) if point in text else text
+        text = f"{value:.{self.decimals()}f}"
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        return text.replace(".", self.locale().decimalPoint())
+
+    def valueFromText(self, text):
+        try:
+            return parse_number(text or "0")
+        except ValueError:
+            return 0.0
+
+    def validate(self, text, pos):
+        s = unicodedata.normalize("NFKC", text).strip().replace("。", ".")
+        if re.fullmatch(rf"\d*([.,]\d{{0,{self.decimals()}}})?", s) is None:
+            return QValidator.Invalid, text, pos
+        if s in ("", ".", ","):
+            return QValidator.Intermediate, text, pos
+        return (QValidator.Acceptable if parse_number(s) <= self.maximum() else QValidator.Invalid), text, pos
+
+    def fixup(self, text):
+        return text
 
 
 class NoWheelDate(QDateEdit):

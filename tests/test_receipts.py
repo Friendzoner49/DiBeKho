@@ -128,3 +128,31 @@ def test_edit_a_receipt_replaces_it_and_keeps_its_code(conn, ws):
     (ws.input / "cu.xlsx").write_bytes(old_file.read_bytes())
     [item] = inbox.items(conn, ws)
     assert item.kind == "error"
+
+
+def test_first_receipt_ever_still_opens_with_3_products(conn):
+    """The customer's data has deliveries but no goods in yet: running-out products, then what went out lately."""
+    from datetime import timedelta
+
+    from dibekho.core.stock import Line, insert_document
+
+    a, b, c, d = products(conn)
+    with db.transaction(conn):
+        catalog.update_product(conn, d, min_stock=5)
+        recent = date.today() - timedelta(days=3)
+        insert_document(conn, "delivery", recent, [Line(a, 2)], code="1", code_norm="1")  # a: -2, below 0
+        insert_document(conn, "delivery", recent, [Line(b, 1), Line(c, 1)], code="2", code_norm="2")
+    suggested = receipts.suggestions(conn, SUPPLIER, "Nhà cung cấp mới")
+    assert len(suggested) == 3 and suggested[:2] == [d, a]  # the furthest under its level first: d 5 short, a 2; then b or c
+    assert receipts.suggestions(conn, RETURN) == []  # a return waits for the customer
+
+
+def test_code_of_a_receipt_undone_is_not_given_again(conn, ws):
+    """Undo forgets the receipt but its file stays in output/hang-ve/: the next receipt gets the next code."""
+    a, *_ = products(conn)
+    (ws.output / "hang-ve").mkdir(parents=True)
+    (ws.output / "hang-ve" / "HangVe_HV004_2026-10-15.xlsx").write_bytes(b"")
+    assert receipts.next_code(conn, ws) == "HV005"
+    doc = receipts.save(conn, ReceiptInput(date(2026, 10, 16), SUPPLIER, supplier_name="X",
+                                           lines=[ReceiptLineInput(1, a)]), ws=ws)
+    assert conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "HV005"

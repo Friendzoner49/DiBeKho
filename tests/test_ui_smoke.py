@@ -473,6 +473,14 @@ def test_goods_in_window(app, ws, monkeypatch):
     qty.wheelEvent(QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, 120), Qt.NoButton,
                                Qt.NoModifier, Qt.NoScrollPhase, False))
     assert qty.value() == 0  # scrolling the window never types a quantity
+    from PySide6.QtCore import QLocale
+
+    qty.setLocale(QLocale(QLocale.Vietnamese))  # '.' is the thousands separator there: '1.5' became 15
+    for typed in ("1.5", "1,5"):
+        qty.lineEdit().setText(typed)
+        qty.interpretText()
+        assert qty.value() == 1.5 and qty.text() == "1,5"
+    qty.setValue(0)
 
     form.rows[0].qty.setValue(12)
     form._set_product(form.rows[3], None, NewProduct("Keo mới", spec="5KG", unit="thùng"))

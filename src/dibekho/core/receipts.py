@@ -8,6 +8,7 @@ A receipt can be edited later: the old document is marked 'replaced' (its moveme
 with the same code, takes its place. Nothing is deleted.
 """
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -85,7 +86,8 @@ def suggestions(conn, source: str, supplier_name: str = "", customer_id: int | N
                 ref_code: str = "", n: int = SUGGESTED) -> list[int]:
     """Products to put on the first rows (the user changes or clears them).
     Return: the products of that order, else of the customer's last orders.
-    Supplier: what usually comes from this supplier, else what usually comes in at all."""
+    Supplier: what usually comes from this supplier, then what usually comes in at all, then what is running out,
+    then what went out most lately, so the very first receipt still opens with 3 products."""
     if source == RETURN:
         if not customer_id:
             return []
@@ -107,8 +109,22 @@ def suggestions(conn, source: str, supplier_name: str = "", customer_id: int | N
             base + " AND d.supplier_id IN (SELECT id FROM suppliers WHERE unaccent(name) = ?) "
                    "GROUP BY l.product_id ORDER BY COUNT(*) DESC, MAX(d.doc_date) DESC",
             (unaccent(clean(supplier_name)),)), n)
-    if len(found) < n:
-        more = _first(conn.execute(base + " GROUP BY l.product_id ORDER BY COUNT(*) DESC, MAX(d.doc_date) DESC"), n * 2)
+    for sql in (
+        base + " GROUP BY l.product_id ORDER BY COUNT(*) DESC, MAX(d.doc_date) DESC",
+        # running out: below 0, or at the 'báo sắp hết' level; the lowest first
+        """SELECT p.id FROM products p LEFT JOIN stock_movements m ON m.product_id = p.id WHERE p.active = 1
+           GROUP BY p.id
+           HAVING COALESCE(SUM(m.qty), 0) < 0 OR (p.min_stock > 0 AND COALESCE(SUM(m.qty), 0) <= p.min_stock)
+           ORDER BY COALESCE(SUM(m.qty), 0) - p.min_stock, p.code""",
+        # what went out most in the last 90 days
+        """SELECT l.product_id FROM document_lines l JOIN documents d ON d.id = l.document_id
+           JOIN products p ON p.id = l.product_id
+           WHERE d.kind = 'delivery' AND d.status = 'active' AND p.active = 1 AND d.doc_date >= date('now', '-90 days')
+           GROUP BY l.product_id ORDER BY SUM(l.qty) DESC""",
+    ):
+        if len(found) >= n:
+            break
+        more = _first(conn.execute(sql), n + len(found))
         found += [p for p in more if p not in found][: n - len(found)]
     return found
 
@@ -162,11 +178,19 @@ def same_as_existing(conn, data: ReceiptInput) -> list[tuple[ReceiptLineInput, o
 
 # ---- saving -------------------------------------------------------------------------------------------------
 
-def next_code(conn) -> str:
+def next_code(conn, ws: Workspace | None = None) -> str:
+    """HV001, HV002… Files already in output/hang-ve/ count too: after an Undo the database forgets a receipt
+    but its file stays, and a new receipt must not get the code of that file."""
     row = conn.execute(
         "SELECT MAX(CAST(SUBSTR(code, 3) AS INTEGER)) FROM documents WHERE kind = 'receipt' AND code GLOB 'HV[0-9]*'"
     ).fetchone()
-    return f"HV{(row[0] or 0) + 1:03d}"
+    highest = row[0] or 0
+    if ws is not None and (ws.output / FOLDER).exists():
+        for f in (ws.output / FOLDER).glob("HangVe_HV*_*.xlsx"):
+            m = re.match(r"HangVe_HV(\d+)_", f.name)
+            if m:
+                highest = max(highest, int(m.group(1)))
+    return f"HV{highest + 1:03d}"
 
 
 def _supplier_id(conn, name: str) -> int:
@@ -177,13 +201,13 @@ def _supplier_id(conn, name: str) -> int:
     return conn.execute("INSERT INTO suppliers(name) VALUES(?)", (name,)).lastrowid
 
 
-def save(conn, data: ReceiptInput, replaces: int | None = None) -> int:
+def save(conn, data: ReceiptInput, replaces: int | None = None, ws: Workspace | None = None) -> int:
     """Create the new products and the receipt in one transaction. replaces: the receipt being edited
     (marked 'replaced', the new one keeps its code). Returns the new document id."""
     if problems(data):
         raise ValueError("Phiếu hàng về chưa đủ thông tin.")
     with db.transaction(conn):
-        code = next_code(conn)
+        code = next_code(conn, ws)
         if replaces:
             old = conn.execute("SELECT code FROM documents WHERE id = ?", (replaces,)).fetchone()
             close_document(conn, replaces, "replaced")

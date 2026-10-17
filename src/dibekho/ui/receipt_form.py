@@ -59,6 +59,7 @@ class NewProductDialog(ProductEditor):
         form = self.layout()
         form.setRowVisible(self.min_stock, False)
         form.setRowVisible(self.active, False)
+        form.setRowVisible(self.min_stock_hint, False)
         if draft:
             self.name_vi.setText(draft.name_vi)
             self.name_zh.setText(draft.name_zh)
@@ -409,7 +410,7 @@ class ReceiptForm(QDialog):
             return
         self.ctx.undo_point("receipt_edit" if self.doc_id else "receipt")
         try:
-            doc = receipts.save(self.ctx.conn, data, replaces=self.doc_id)
+            doc = receipts.save(self.ctx.conn, data, replaces=self.doc_id, ws=self.ctx.ws)
         except Exception as exc:
             error(self, str(exc))
             return
