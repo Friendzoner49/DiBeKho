@@ -117,7 +117,7 @@ Máy của khách
 │   │   └── da-xu-ly/        ← app tự chuyển file đã xử lý vào đây
 │   ├── output/              ← gói dữ liệu để chuyển máy, file mẫu hàng về, báo cáo
 │   ├── sao-luu/             ← bản sao lưu tự động (giữ 14 bản)
-│   └── data/                ← kho.sqlite + app.log (KHÔNG sửa tay)
+│   └── data/                ← kho.sqlite + app.log (nhật ký thao tác, tối đa 1MB, mục 9.10) (KHÔNG sửa tay)
 │
 └── File cấu hình rất nhỏ (chỉ ghi đường dẫn thư mục làm việc + ngôn ngữ)
       Windows: %APPDATA%\DiBeKho\config.json
@@ -317,6 +317,14 @@ Người dùng yêu cầu: hàng về rất lâu mới có một đơn và mỗi
 - **Sửa phiếu** (giống "Quên và đọc lại" cho hàng về): **Sửa phiếu đã chọn…** ở trang Hàng về hoặc **Sửa phiếu hàng về…** trong chi tiết phiếu → mở lại cửa sổ với dữ liệu cũ → lưu = phiếu cũ `replaced` (đảo biến động, vẫn xem được) + phiếu mới **cùng mã**; điểm hoàn tác `receipt_edit`. Mã mới tính cả các file `HangVe_HV…` đã có trong `output/hang-ve/` (Hoàn tác xoá phiếu nhưng file còn → không cấp lại mã đó). Huỷ phiếu vẫn có. Mặt hàng mới đã tạo không tự xoá khi sửa/huỷ phiếu (Ngừng dùng trong Cài đặt); Hoàn tác thì xoá hết.
 - **Hiển thị:** trang Hàng về có cột Mã phiếu · Ngày · Nguồn hàng · Nhà cung cấp / khách; chi tiết phiếu có nguồn hàng, nhà cung cấp hoặc khách (bấm được) + đơn, **Mở file phiếu**. Thống kê: khách trả lại tính là **nhập**; trang Chi tiết phiếu của file Excel ghi "Hàng về · Khách trả lại".
 - **Chuyển máy:** schema 6 → gói xuất từ 0.3.0 bị bản 0.2.0 từ chối ("hãy cập nhật app"); máy nhận phải cài 0.3.0 trước.
+
+### 9.10. Nhật ký thao tác (17/10/2026)
+
+Người dùng yêu cầu: log chạy ngầm mỗi khi người dùng thao tác, để người dùng biết lỗi ở đâu và trợ lý AI đọc để sửa; nút xem log ẩn, chỉ hiện khi bấm 3 lần vào phần phiên bản; tối đa 1MB, vượt thì tự xoá phần cũ.
+- `core/activity.py` (không Qt): ghi `data/app.log`, mỗi dòng `ngày giờ [loại] nội dung`, traceback thụt lề dưới dòng lỗi. Quá `MAX_BYTES` (1.000.000) → giữ ~720KB mới nhất, cắt tại đầu dòng (không cắt giữa chữ Việt/Trung, không bắt đầu giữa traceback), ghi file tạm rồi `os.replace`. Mở–ghi–đóng mỗi lần; lỗi ghi bị bỏ qua (log không bao giờ làm hỏng app). Chưa `setup()` thì không ghi gì (test, `--self-test`).
+- Ghi gì (nhãn tiếng Anh): `start` (phiên bản, hệ điều hành, Python, Qt, ngôn ngữ, cỡ chữ), `page`/`tab`, `click` (nút bấm + tên cửa sổ, `ui.common.ActivityFilter` cài trên QApplication), `menu`, `window` (hộp thoại mở), `ask`/`info`/`error` (nội dung thông báo + câu trả lời; `error()` gọi trong `except` thì kèm traceback), `crash` (lỗi không bắt được), `action` (mọi điểm hoàn tác), `undo`, `scan` (phiếu đọc được, số chờ), `apply` (từng dòng → mã SP / new / skip / later), `receipt` (tóm tắt phiếu hàng về), `forget`, `data` (mọi `db.log`; ghi trong transaction nên thao tác bị huỷ vẫn có thể còn dòng, dòng lỗi theo sau). **Không ghi chữ người dùng gõ.**
+- Xem: **Cài đặt → Chung**, bấm **3 lần** (trong 1,5 giây) vào số phiên bản → hiện nút nhỏ **Nhật ký…** (tới khi đóng app) → cửa sổ Nhật ký thao tác: Làm mới · Sao chép · **Lưu ra file…** (`output/NhatKy_<ngày giờ>.log`, để gửi qua Zalo) · Mở thư mục · Xoá nhật ký. Đếm bằng `mouseReleaseEvent` (cú bấm thứ 2 của bấm nhanh là double-click, không phải press).
+- Log không đi theo gói dữ liệu; Hoàn tác, nhập gói, Xoá toàn bộ dữ liệu không đụng tới nó.
 
 ### 9.5. Sao lưu
 
@@ -561,6 +569,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 | 2026-10-10 | Lỗi (người dùng báo, Mac): sau khi nhập gói dữ liệu từ máy cũ, thanh bên báo "Cần xử lý (3)" nhưng trang trống — 3 phiếu chờ chọn mặt hàng của máy cũ không có file ở máy mới. Sửa trong `deliveries.scan` (xoá dòng chờ không còn file); trang Cần xử lý không còn khoảng trống khi rỗng. 59 test. Chuyển tag `v0.1.0` sang bản sửa. |
 | 2026-10-10 | **Hoàn tác** việc ghi khách ngay khi đọc phiếu: người dùng không muốn dữ liệu từ phiếu **chưa duyệt** đi vào app (lý do bảo mật). Quy tắc: thông tin khách/phiếu chỉ vào database khi người dùng đã duyệt phiếu. Chờ người dùng chọn cách xử lý phiếu duyệt một phần. |
 | 2026-10-10 | Người dùng chọn **ghi phần đã duyệt** của phiếu (cách 1): Áp dụng → phiếu vào kho với các dòng đã duyệt + khách; dòng Để sau thêm vào đúng đơn khi duyệt. Phiếu sửa "Dùng bản mới" cũng cho phép một phần. 62 test. Chuyển tag `v0.1.0`. |
+| 2026-10-17 | **Nhật ký thao tác** (người dùng yêu cầu, mục 9.10): `data/app.log` tối đa 1MB, tự xoá phần cũ; ghi bấm nút, trang, hộp thoại, thông báo, lỗi kèm traceback, quyết định ở Cần xử lý, phiếu hàng về, hoàn tác, quét; xem bằng cách bấm 3 lần vào số phiên bản ở Cài đặt → nút Nhật ký…; Lưu ra file để gửi. 115 test. Chờ người dùng chọn: chuyển tag `v0.3.0` hay số mới. |
 | 2026-10-17 | File Excel hàng về xuất ra: bỏ mọi dấu vết của app (người dùng muốn file trông như người tự tạo): bỏ dòng "Phiếu do DiBeKho tạo…", bỏ tiếng Anh (nhãn Việt + Trung như phiếu giao hàng của công ty), sheet "Hàng về", kẻ ô bảng, thuộc tính file không còn `openpyxl`/tác giả. Chống nhập trùng vẫn theo hash. Test kiểm tra không còn chữ DiBeKho/openpyxl trong file. 109 test. Giữ 0.3.0, chuyển tag. |
 | 2026-10-17 | Người dùng gửi gói dữ liệu chuẩn xuất từ 0.2.0 (`DiBeKho_<máy>_2026-10-17_1448.dibekho`), yêu cầu nhận dữ liệu bản cũ và tự đổi sang bản mới. App đã nâng cấp gói cũ khi nhập (migration khi mở lại); thêm: nâng cấp trên bản giải nén trước khi thay database, thông báo gói từ bản cũ, test gói schema 5 và gói không nâng cấp được. Thử gói thật trên máy thử: đúng hết. **`*.dibekho` thêm vào .gitignore** (trước đó file gói ở thư mục gốc repo chưa bị chặn). 109 test. Giữ 0.3.0, chuyển tag `v0.3.0`. |
 | 2026-10-17 | **Yêu cầu phiên bản mới** (người dùng): (1) hàng về có **nhà cung cấp**, 2 loại: cửa khẩu/công ty mẹ và khách hàng trả lại; (2) nhập được **mặt hàng mới** + sửa thông tin, số lượng; (3) bỏ file mẫu hàng về → **cửa sổ nhập hàng về** gợi ý sẵn 3 mặt hàng (sửa/tìm trong kho được), nút "+" thêm dòng, lưu → tạo phiếu + xuất file Excel; (4) người dùng già → bước nhầm phải quay lại được. Làm theo mục 9.9 (migration 006 `suppliers`, `documents.receipt_source/supplier_id/ref_code`; mã phiếu HV001…; Sửa phiếu = thay phiếu cũ, giữ mã; ô số/ngày bỏ qua con lăn chuột; tóm tắt trước khi lưu). Tự chọn (chưa hỏi người dùng): 3 gợi ý theo nhà cung cấp/đơn của khách; khách trả lại tính là nhập trong thống kê; mặt hàng mới không tự xoá khi sửa/huỷ phiếu. 107 test. Người dùng chọn **0.3.0** (tag mới `v0.3.0`, không chuyển `v0.2.0`). |
@@ -603,6 +612,7 @@ Mỗi bước có "Xong khi". Thời gian là ước lượng cho người mới
 - Trước khi commit: `uv run ruff check src tests --select F,E9` và `uv run pytest -q`.
 - Giữ code đơn giản; không thêm tính năng ngoài phạm vi khi chưa được yêu cầu.
 - **Phiên bản:** không tự tăng số phiên bản; hỏi người dùng trước khi đổi số. Không thêm lịch sử phiên bản vào README.
+- **Nhật ký `data/app.log` có tên khách, tên file:** đọc để sửa lỗi được, nhưng không bao giờ commit, không trích tên/SĐT thật vào code, test hay commit.
 - **Không đưa thông tin thật lên git:** tên/SĐT/địa chỉ khách, tên file của khách, email, đường dẫn máy người dùng. File mẫu thật nằm trong `samples/` (gitignored) với tên chung: `danh-muc-mau.xlsx`, `phieu-mau-1..3.xlsx`. Trước khi push: `git grep` các chuỗi nhạy cảm.
 - **README:** có hướng dẫn sử dụng dùng đúng tên nút trong giao diện; đổi tên nút/màn hình thì cập nhật cả `README.md`, `README.vi.md` và `README.zh.md`.
 - **Kích thước:** mở cửa sổ bằng `fit_window(widget, w, h)` (không dùng `resize` cố định: giao diện có thể phóng 120–150%); bảng tạo bằng `make_table` (cột kéo được).

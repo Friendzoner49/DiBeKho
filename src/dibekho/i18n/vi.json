@@ -451,5 +451,17 @@
   "receipt_form.saved": "Đã lưu phiếu hàng về {code}. Nếu nhập nhầm, bấm '↶ Hoàn tác' hoặc 'Sửa phiếu'.\n\nFile phiếu:\n{path}\n\nMở file ngay?",
   "receipt_form.saved_no_file": "Đã lưu phiếu hàng về {code} vào kho, nhưng chưa tạo được file Excel:\n{error}",
   "receipt_form.open_file": "Mở file phiếu",
-  "transfer.older_version": "Gói này xuất từ DiBeKho {version} (bản cũ). App sẽ tự chuyển dữ liệu sang dạng của bản {current}; phiếu, mặt hàng, khách và tồn kho giữ nguyên."
+  "transfer.older_version": "Gói này xuất từ DiBeKho {version} (bản cũ). App sẽ tự chuyển dữ liệu sang dạng của bản {current}; phiếu, mặt hàng, khách và tồn kho giữ nguyên.",
+  "log.button": "Nhật ký…",
+  "log.title": "Nhật ký thao tác",
+  "log.hint": "Mọi thao tác và lỗi, mới nhất ở cuối. File: {path} (tối đa {size} KB; đầy thì phần cũ nhất tự xoá). Có tên khách và tên file: chỉ gửi cho người bảo trì app.",
+  "log.refresh": "Làm mới",
+  "log.copy": "Sao chép",
+  "log.save": "Lưu ra file…",
+  "log.open_folder": "Mở thư mục",
+  "log.clear": "Xoá nhật ký",
+  "log.empty": "Nhật ký trống.",
+  "log.copied": "Đã sao chép nhật ký.",
+  "log.saved": "Đã lưu bản sao nhật ký:\n{path}\n\nMở thư mục chứa file?",
+  "log.confirm_clear": "Xoá toàn bộ nhật ký thao tác? Dữ liệu kho không bị ảnh hưởng."
 }

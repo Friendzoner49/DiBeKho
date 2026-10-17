@@ -9,6 +9,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
+from dibekho.core import activity
 from dibekho.core.text import unaccent
 
 
@@ -89,3 +90,6 @@ def touch(conn: sqlite3.Connection) -> None:
 
 def log(conn: sqlite3.Connection, action: str, detail: str = "") -> None:
     conn.execute("INSERT INTO app_log(action, detail) VALUES(?, ?)", (action, detail))
+    # also in the activity file; written inside the transaction, so an action rolled back may leave its line
+    # (the error line follows it)
+    activity.log("data", f"{action} {detail}".strip())

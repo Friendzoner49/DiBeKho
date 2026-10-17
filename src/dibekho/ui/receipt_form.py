@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from dibekho.core import catalog, receipts
+from dibekho.core import activity, catalog, receipts
 from dibekho.core.receipts import RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
 from dibekho.core.text import fmt_qty
 from dibekho.i18n import t
@@ -408,6 +408,7 @@ class ReceiptForm(QDialog):
             return
         if not ask(self, self._confirm_text(data), t("receipt_form.confirm_title")):
             return
+        activity.log("receipt", self._confirm_text(data).split("\n\n" + t("receipt_form.confirm_new"))[0])
         self.ctx.undo_point("receipt_edit" if self.doc_id else "receipt")
         try:
             doc = receipts.save(self.ctx.conn, data, replaces=self.doc_id, ws=self.ctx.ws)

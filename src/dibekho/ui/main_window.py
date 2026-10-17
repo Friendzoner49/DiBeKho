@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import APP_NAME, __version__
-from dibekho.core import deliveries, inbox, undo
+from dibekho.core import activity, deliveries, inbox, undo
 from dibekho.i18n import t
 from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
 from dibekho.ui.count_page import CountPage
@@ -59,6 +59,8 @@ class MainWindow(QMainWindow):
             self.nav.addItem(QListWidgetItem(t(key)))
             self.stack.addWidget(page)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.currentRowChanged.connect(
+            lambda r: r >= 0 and activity.log("page", self.nav.item(r).text().split("  (")[0]))
 
         top = QHBoxLayout()
         scan = QPushButton(t("main.rescan"))
@@ -110,6 +112,9 @@ class MainWindow(QMainWindow):
             error(self, t("main.scan_failed", error=str(exc)))
             return None
         self._last = result
+        if result.imported or result.pending:
+            activity.log("scan", f"read {len(result.imported)}: {', '.join(result.imported)} · waiting {result.pending}"
+                         if result.imported else f"waiting {result.pending}")
         if result.imported or not quiet:
             self.ctx.notify()
         self._update_badge(result)
@@ -146,6 +151,7 @@ class MainWindow(QMainWindow):
         action = t(f"undo.{point.action}")
         if not ask(self, t("undo.confirm", action=action, at=point.at.strftime("%d/%m/%Y %H:%M"))):
             return
+        activity.log("undo", f"{point.action} ({point.at:%d/%m/%Y %H:%M})")
         try:
             self.ctx.close()
             undo.undo(self.ctx.ws, point)

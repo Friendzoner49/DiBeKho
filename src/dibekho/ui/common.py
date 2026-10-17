@@ -2,19 +2,23 @@
 
 import re
 import sqlite3
+import sys
 import unicodedata
 from datetime import date
 
-from PySide6.QtCore import QDate, QObject, Qt, QUrl, Signal
+from PySide6.QtCore import QDate, QEvent, QObject, Qt, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPalette, QValidator
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QAbstractItemView,
     QApplication,
     QComboBox,
     QDateEdit,
+    QDialog,
     QDoubleSpinBox,
     QHeaderView,
     QLabel,
+    QMenu,
     QMessageBox,
     QTableWidget,
     QTableWidgetItem,
@@ -22,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import undo
+from dibekho.core import activity, undo
 from dibekho.core.text import fmt_qty, parse_number
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
@@ -70,6 +74,7 @@ class AppContext(QObject):
 
     def undo_point(self, action: str) -> None:
         """Call just before an action the user may want to undo ('Hoàn tác'); action names t('undo.<action>')."""
+        activity.log("action", action)
         undo.mark(self.conn, self.ws, action)
 
     def close(self) -> None:
@@ -126,6 +131,35 @@ class NoWheelSpin(QDoubleSpinBox):
 class NoWheelDate(QDateEdit):
     def wheelEvent(self, event):
         event.ignore()
+
+
+class ActivityFilter(QObject):
+    """Installed on the QApplication: writes each button click, menu choice and window opened to the activity
+    log (core.activity). Typed text is never logged. Every event passes through here, so it returns at once
+    for the other event types and never stops an event."""
+
+    def eventFilter(self, obj, event):
+        kind = event.type()
+        if kind not in (QEvent.MouseButtonRelease, QEvent.Show):
+            return False
+        try:
+            if kind == QEvent.Show:
+                if isinstance(obj, QDialog) and not isinstance(obj, QMessageBox):
+                    activity.log("window", obj.windowTitle())
+            elif event.button() == Qt.LeftButton:
+                if isinstance(obj, QMenu):
+                    action = obj.activeAction()
+                    if action is not None and action.text():
+                        activity.log("menu", action.text().replace("&", ""))
+                elif isinstance(obj, QAbstractButton) and obj.isEnabled() and obj.rect().contains(event.position().toPoint()):
+                    label = obj.text().replace("&", "") or obj.toolTip()
+                    if obj.isCheckable():
+                        label += " ☑" if not obj.isChecked() else " ☐"  # the state after this click
+                    window = obj.window().windowTitle() if obj.window() else ""
+                    activity.log("click", f"{label} · {window}" if window else label)
+        except Exception:
+            pass
+        return False
 
 
 # ---- formatting ------------------------------------------------------------
@@ -303,12 +337,20 @@ def ask(parent: QWidget, text: str, title: str | None = None) -> bool:
     yes = box.addButton(t("btn.yes"), QMessageBox.YesRole)
     box.addButton(t("btn.no"), QMessageBox.NoRole)
     box.exec()
-    return box.clickedButton() is yes
+    answer = box.clickedButton() is yes
+    activity.log("ask", f"{text} → {'yes' if answer else 'no'}")
+    return answer
 
 
 def info(parent: QWidget, text: str) -> None:
+    activity.log("info", text)
     QMessageBox.information(parent, t("app.name"), text)
 
 
 def error(parent: QWidget, text: str) -> None:
+    # called from except blocks all over the app: keep the traceback, the message box only shows str(exc)
+    if sys.exc_info()[0] is not None:
+        activity.log_exception("error", text)
+    else:
+        activity.log("error", text)
     QMessageBox.warning(parent, t("app.name"), text)

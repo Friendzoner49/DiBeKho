@@ -56,9 +56,10 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
     assert [i.name_vi for i in imp.selected_items()] == ["Sơn mới"]
     imp.close()
 
+    from dibekho.ui.log_dialog import LogDialog
     from dibekho.ui.receipt_form import NewProductDialog, ReceiptForm
 
-    for dlg in (ReceiptForm(ctx, win), NewProductDialog(ctx, None, win)):
+    for dlg in (ReceiptForm(ctx, win), NewProductDialog(ctx, None, win), LogDialog(ctx, win)):
         dlg.show()
         app.processEvents()
         dlg.done(0)

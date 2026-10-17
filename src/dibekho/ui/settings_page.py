@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import __version__, db
-from dibekho.core import catalog, deliveries, reset, uninstall
+from dibekho.core import activity, catalog, deliveries, reset, uninstall
 from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
@@ -47,6 +47,7 @@ from dibekho.ui.common import (
     row_id,
     selected_id,
 )
+from dibekho.ui.log_dialog import LogDialog, TripleClickLabel
 from dibekho.ui.page import Page
 from dibekho.ui.transfer_page import TransferPanel
 
@@ -125,6 +126,7 @@ class SettingsPage(Page):
         super().__init__(ctx, t("nav.settings"))
         self.go_pending = go_pending
         self.tabs = QTabWidget()
+        self.tabs.currentChanged.connect(lambda i: activity.log("tab", self.tabs.tabText(i)))
         self.layout_.addWidget(self.tabs, 1)
         general_tab, products_tab = QWidget(), QWidget()
         general_lay, products_lay = QVBoxLayout(general_tab), QVBoxLayout(products_tab)
@@ -164,7 +166,18 @@ class SettingsPage(Page):
         folder_row.addWidget(change_btn)
         form.addRow(t("settings.workspace") + ":", folder_row)
         form.addRow(t("settings.device") + ":", QLabel(ctx.cfg.device_name))
-        form.addRow(t("settings.version") + ":", QLabel(__version__))
+        # the activity log is hidden: 3 clicks on the version number show a small button for it
+        version_row = QHBoxLayout()
+        self.version = TripleClickLabel(__version__)
+        self.log_btn = QPushButton(t("log.button"))
+        self.log_btn.setFlat(True)
+        self.log_btn.setVisible(False)
+        self.log_btn.clicked.connect(lambda: LogDialog(self.ctx, self).exec())
+        self.version.revealed.connect(lambda: self.log_btn.setVisible(True))
+        version_row.addWidget(self.version)
+        version_row.addWidget(self.log_btn)
+        version_row.addStretch()
+        form.addRow(t("settings.version") + ":", version_row)
         general_lay.addWidget(general)
 
         products = QGroupBox(t("settings.products"))
@@ -274,6 +287,7 @@ class SettingsPage(Page):
         if not ask(self, t("settings.confirm_forget", name=line.label, docs=len(orders),
                            orders=", ".join(orders) or "—")):
             return
+        activity.log("forget", line.label)
         self.ctx.undo_point("forget")
         try:
             count = deliveries.forget_name(self.ctx.conn, self.ctx.ws, line.key)

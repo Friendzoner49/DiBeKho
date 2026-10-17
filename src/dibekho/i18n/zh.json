@@ -451,5 +451,17 @@
   "receipt_form.saved": "到货单 {code} 已保存。如有错误，请点“↶ 撤销”或“修改”。\n\n文件：\n{path}\n\n现在打开？",
   "receipt_form.saved_no_file": "到货单 {code} 已入库，但无法生成 Excel 文件：\n{error}",
   "receipt_form.open_file": "打开到货单文件",
-  "transfer.older_version": "此数据包来自 DiBeKho {version}（旧版本）。应用会自动把数据转换为 {current} 版本的格式；送货单、商品、客户和库存保持不变。"
+  "transfer.older_version": "此数据包来自 DiBeKho {version}（旧版本）。应用会自动把数据转换为 {current} 版本的格式；送货单、商品、客户和库存保持不变。",
+  "log.button": "日志…",
+  "log.title": "操作日志",
+  "log.hint": "所有操作和错误，最新的在最下面。文件：{path}（最多 {size} KB；写满后自动删除最旧的部分）。其中包含客户名称和文件名：只发给维护应用的人。",
+  "log.refresh": "刷新",
+  "log.copy": "复制",
+  "log.save": "保存为文件…",
+  "log.open_folder": "打开文件夹",
+  "log.clear": "清空日志",
+  "log.empty": "日志为空。",
+  "log.copied": "已复制日志。",
+  "log.saved": "日志副本已保存：\n{path}\n\n打开所在文件夹？",
+  "log.confirm_clear": "清空全部操作日志？库存数据不受影响。"
 }

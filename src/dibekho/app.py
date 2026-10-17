@@ -1,11 +1,13 @@
 """Entry point: first-run setup, open the workspace, back up, scan, show the window."""
 
 import os
+import platform
 import sys
 import traceback
 from importlib import resources
 from pathlib import Path
 
+from PySide6.QtCore import qVersion
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,8 +23,8 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
-from dibekho import APP_NAME, i18n
-from dibekho.core import backup
+from dibekho import APP_NAME, __version__, i18n
+from dibekho.core import activity, backup
 from dibekho.core.workspace import Config, Workspace, default_workspace
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.common import theme_color
@@ -68,6 +70,10 @@ class FirstRunDialog(QDialog):
 def _excepthook(exc_type, exc, tb):
     text = "".join(traceback.format_exception(exc_type, exc, tb))
     sys.__stderr__ and sys.__stderr__.write(text)
+    try:
+        activity.log("crash", text.strip())
+    except Exception:
+        pass
     QMessageBox.critical(None, APP_NAME, t("app.unexpected_error", error=f"{exc_type.__name__}: {exc}"))
 
 
@@ -138,9 +144,13 @@ def main() -> int:
         Config.remove()
         return 1
 
-    from dibekho.ui.common import AppContext
+    from dibekho.ui.common import ActivityFilter, AppContext
     from dibekho.ui.main_window import MainWindow
 
+    activity.setup(ws.data / activity.FILE_NAME)
+    activity.log("start", f"DiBeKho {__version__} · {platform.platform()} · Python {platform.python_version()} · "
+                          f"Qt {qVersion()} · {cfg.language} · {cfg.ui_scale:g}x")
+    app.installEventFilter(ActivityFilter(app))
     ctx = AppContext(cfg, ws)
     try:
         backup.daily_backup(ctx.conn, ws)

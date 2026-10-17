@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import __version__, db
-from dibekho.core import backup, catalog, deliveries, inbox, transfer
+from dibekho.core import activity, backup, catalog, deliveries, inbox, transfer
 from dibekho.core.text import fmt_qty, parse_number, unaccent
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -344,6 +344,10 @@ class PendingPage(Page):
                                        skipped=counts[SKIP], later=counts[LATER])):
             return
         self.ctx.undo_point("apply")
+        codes = dict(conn.execute("SELECT id, code FROM products"))
+        activity.log("apply", "\n".join(
+            f"{deliveries.line_label(u)} → {codes.get(c, c) if c not in (NEW, SKIP, LATER) else c}"
+            for u, c in choices))
         for u, choice in choices:
             if choice == NEW:
                 deliveries.create_product_for_line(conn, u, opening=openings.get(u.key),
