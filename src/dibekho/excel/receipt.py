@@ -8,12 +8,13 @@ in the app does not break a file written earlier.
 """
 
 import re
+import zipfile
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
 import openpyxl
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from dibekho.core.text import clean, parse_number, unaccent
@@ -99,61 +100,83 @@ def write_template(path: Path, products, today: date) -> Path:
 
 
 SOURCE_LABELS = {
-    "supplier": "Cửa khẩu / công ty mẹ · Border gate / parent company · 口岸/母公司",
-    "return": "Khách hàng trả lại · Customer return · 客户退货",
+    "supplier": "Cửa khẩu / công ty mẹ  口岸/母公司",
+    "return": "Khách hàng trả lại  客户退货",
 }
+_THIN = Side(style="thin", color="999999")
+_BOX = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_THIN)
+# what Excel itself writes in docProps/app.xml (openpyxl would name itself there)
+_APP_XML = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
+            'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+            '<Application>Microsoft Excel</Application></Properties>')
 
 
 def write_receipt(path: Path, head, lines) -> Path:
-    """A receipt entered in the app, for the user to keep or print. Same layout as the template (label rows,
-    then a table whose column A is the code and F the quantity), so read_receipt still recognises it.
+    """A receipt entered in the app, for the user to keep, print or send. It reads like a sheet a person made
+    (user's request, 17/10/2026): Vietnamese and Chinese labels like the company's own notes, no mention of the
+    app, nothing in the file properties naming a program. Same layout as the old template (label rows, then a
+    table whose column A is the code and F the quantity), so read_receipt still recognises it.
     head: document row with code, doc_date, note, receipt_source, supplier_name, customer_name, ref_code.
     lines: rows with code, name_vi, name_zh, spec, unit, qty, variant, note."""
     wb = openpyxl.Workbook()
+    wb.properties.creator = ""
+    wb.properties.lastModifiedBy = ""
     ws = wb.active
-    ws.title = "HangVe"
+    ws.title = "Hàng về"
     bold = Font(bold=True)
-    ws["A1"] = f"{MARKER} / 到货单"
+    ws["A1"] = "PHIẾU HÀNG VỀ  到货单"
     ws["A1"].font = Font(bold=True, size=14)
-    ws["A2"] = "Phiếu do DiBeKho tạo khi nhập hàng về — đã ghi vào kho, không cần nhập lại. "                "/ Written by DiBeKho — already recorded, do not import it again. / 已入库，无需再次导入。"
-    ws["A2"].font = Font(italic=True, color="666666")
     source = head["receipt_source"]
     who = head["supplier_name"] if source == "supplier" else head["customer_name"]
     # labels must not start with 'Mã' (the reader takes that row as the table header)
     rows = [
-        ("Ngày về / Date / 到货日期:", date.fromisoformat(head["doc_date"])),
-        ("Ghi chú / Note / 备注:", head["note"]),
-        ("Số phiếu / No. / 单号:", head["code"]),
-        ("Nguồn hàng / Source / 来源:", SOURCE_LABELS.get(source, "")),
-        ("Nhà cung cấp / Supplier / 供应商:" if source == "supplier" else "Khách hàng / Customer / 客户:", who or ""),
+        ("Ngày về  到货日期:", date.fromisoformat(head["doc_date"])),
+        ("Ghi chú  备注:", head["note"]),
+        ("Số phiếu  单号:", head["code"]),
+        ("Nguồn hàng  来源:", SOURCE_LABELS.get(source, "")),
+        ("Nhà cung cấp  供应商:" if source == "supplier" else "Khách hàng  客户:", who or ""),
     ]
     if source == "return" and head["ref_code"]:
-        rows.append(("Đơn gốc / Order / 原订单:", head["ref_code"]))
+        rows.append(("Đơn gốc  原订单:", head["ref_code"]))
     for r, (label, value) in enumerate(rows, start=3):
         ws.cell(row=r, column=1, value=label).font = bold
         ws.cell(row=r, column=2, value=value)
     ws["B3"].number_format = "DD/MM/YYYY"
+    ws["B3"].alignment = Alignment(horizontal="left")
     header_row = 3 + len(rows) + 1
-    headers = ["Mã / Code / 编码", "Tên hàng / Product / 品名", "中文名", "Quy cách / Spec / 规格", "Đơn vị / Unit / 单位",
-               "Số lượng về / Qty / 到货数量", "Loại, màu / Variant / 类型、颜色", "Ghi chú / Note / 备注"]
+    headers = ["Mã hàng\n编码", "Tên hàng\n品名", "Tên tiếng Trung\n中文名", "Quy cách\n规格", "Đơn vị\n单位",
+               "Số lượng\n数量", "Loại, màu\n类型、颜色", "Ghi chú\n备注"]
     for col, text in enumerate(headers, start=1):
         c = ws.cell(row=header_row, column=col, value=text)
         c.font = bold
-        c.alignment = Alignment(wrap_text=True, vertical="center")
+        c.border = _BOX
+        c.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+    ws.row_dimensions[header_row].height = 32
     total = 0
     r = header_row
     for r, ln in enumerate(lines, start=header_row + 1):
         for col, value in enumerate((ln["code"], ln["name_vi"], ln["name_zh"], ln["spec"], ln["unit"], ln["qty"],
                                      ln["variant"], ln["note"]), start=1):
-            ws.cell(row=r, column=col, value=value)
+            ws.cell(row=r, column=col, value=value).border = _BOX
         total += ln["qty"]
-    ws.cell(row=r + 1, column=5, value="Tổng / Total / 合计").font = bold
+    ws.cell(row=r + 1, column=5, value="Tổng cộng  合计").font = bold
     ws.cell(row=r + 1, column=6, value=total).font = bold
-    for col, width in zip("ABCDEFGH", (10, 45, 20, 16, 10, 16, 22, 24)):
+    for col, width in zip("ABCDEFGH", (11, 45, 22, 16, 10, 12, 20, 24)):
         ws.column_dimensions[col].width = width
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
+    _plain_app_properties(path)
     return path
+
+
+def _plain_app_properties(path: Path) -> None:
+    tmp = path.with_suffix(".tmp")
+    with zipfile.ZipFile(path) as src, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            data = _APP_XML.encode("utf-8") if item.filename == "docProps/app.xml" else src.read(item.filename)
+            dst.writestr(item, data)
+    tmp.replace(path)
 
 
 def is_receipt(path: Path) -> bool:

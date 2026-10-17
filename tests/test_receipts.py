@@ -99,6 +99,11 @@ def test_exported_file_cannot_be_imported_twice(conn, ws):
                                            lines=[ReceiptLineInput(7, a)]))
     path = receipts.export_file(conn, ws, doc)
     assert path.parent == ws.output / "hang-ve" and path.name == "HangVe_HV001_2026-10-15.xlsx"
+    import zipfile
+
+    with zipfile.ZipFile(path) as z:  # reads like a sheet a person made: no app name anywhere, properties included
+        everything = b"".join(z.read(n) for n in z.namelist()).lower()
+    assert b"dibekho" not in everything and b"openpyxl" not in everything
     read = read_receipt(path)  # the same layout as the old template
     assert read.doc_date == date(2026, 10, 15) and [(ln.code, ln.qty) for ln in read.lines] == [(code_of(conn, a), 7)]
 
