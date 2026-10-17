@@ -192,12 +192,16 @@ def test_package_from_0_2_0_is_upgraded_on_import(tmp_path, ws):
     assert transfer.is_older(manifest) and manifest.app_version == "0.2.0"
     db.connect(ws.db_path).close()
     transfer.import_package(ws, pkg)
+    import sqlite3
+
+    raw = sqlite3.connect(ws.db_path)  # not db.connect, which would migrate: the file put in place is upgraded
+    assert raw.execute("PRAGMA user_version").fetchone()[0] == db.schema_version()
+    raw.close()
     conn = db.connect(ws.db_path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == db.schema_version()
     [a] = [r[0] for r in conn.execute("SELECT id FROM products")]
     assert stock_levels(conn) == {a: 26}
     old = conn.execute("SELECT * FROM documents WHERE kind = 'receipt'").fetchone()
-    assert old["receipt_source"] == "" and old["code"] == ""  # older receipts: source unknown, shown as —
+    assert old["receipt_source"] == "" and old["code"] == ""  # older receipts: source unknown, the column stays empty
     doc = receipts.save(conn, ReceiptInput(date(2026, 10, 17), SUPPLIER, supplier_name="Công ty mẹ",
                                            lines=[ReceiptLineInput(5, a)]), ws=ws)
     assert conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "HV001"
