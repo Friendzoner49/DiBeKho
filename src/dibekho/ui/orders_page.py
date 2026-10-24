@@ -8,6 +8,7 @@ from dibekho.core import catalog, queries
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
+    location_name,
     date_item,
     fill_table,
     from_qdate,
@@ -21,7 +22,16 @@ from dibekho.ui.common import (
 from dibekho.ui.details import CustomerDialog, DocumentDialog
 from dibekho.ui.page import Page
 
-KINDS = ("delivery", "receipt", "stock_count")
+KINDS = ("delivery", "receipt", "stock_count", "transfer")
+
+
+def _place(d) -> str:
+    """Delivery: taken from; receipt: put in; transfer: from → to ('?' while a note waits for its place)."""
+    if d["kind"] == "transfer":
+        return f"{location_name(d['location_id'])} → {location_name(d['to_location_id'])}"
+    if d["kind"] in ("delivery", "receipt"):
+        return location_name(d["location_id"]) + ("" if d["location_set"] else " (?)")
+    return ""
 
 
 class OrdersPage(Page):
@@ -68,8 +78,9 @@ class OrdersPage(Page):
 
         self.count = QLabel()
         self.layout_.addWidget(self.count)
-        self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.lines"),
-                                 t("col.total_qty"), t("col.order_total"), t("col.status"), t("col.file")], stretch=2)
+        self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.place"),
+                                 t("col.lines"), t("col.total_qty"), t("col.order_total"), t("col.status"),
+                                 t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
         self.layout_.addWidget(self.table)
 
@@ -107,7 +118,8 @@ class OrdersPage(Page):
         )
         rows, colors = [], []
         for d in docs:
-            rows.append([date_item(d["doc_date"]), d["code"], d["customer_name"], num_item(d["line_count"]),
+            rows.append([date_item(d["doc_date"]), d["code"], d["customer_name"], _place(d),
+                         num_item(d["line_count"]),
                          num_item(d["total_qty"]),
                          money_item(d["order_total"]) if d["kind"] == "delivery" else "",
                          status_text(d["status"]), d["source_file"]])

@@ -28,12 +28,14 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, catalog, deliveries, reset, uninstall
+from dibekho.core.stock import low_stock_default
 from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
 from dibekho.ui.common import (
     GREY,
+    NoWheelSpin,
     ask,
     error,
     fill_table,
@@ -187,6 +189,16 @@ class SettingsPage(Page):
         products = QGroupBox(t("settings.products"))
         lay = QVBoxLayout(products)
         lay.addWidget(hint_label(t("settings.products_hint")))
+        alarm_row = QHBoxLayout()
+        alarm_row.addWidget(QLabel(t("settings.low_default") + ":"))
+        self.low_default = NoWheelSpin()
+        self.low_default.setRange(0, 1e6)
+        self.low_default.setDecimals(0)
+        self.low_default.setValue(low_stock_default(ctx.conn))
+        self.low_default.editingFinished.connect(self.change_low_default)
+        alarm_row.addWidget(self.low_default)
+        alarm_row.addWidget(hint_label(t("settings.low_default_hint")), 1)
+        lay.addLayout(alarm_row)
         self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
                                  t("col.unit"), t("col.category"), t("col.min_stock"), t("settings.active")], stretch=1)
         self.table.doubleClicked.connect(lambda idx: self.edit(row_id(self.table, idx.row())))
@@ -245,6 +257,9 @@ class SettingsPage(Page):
         general_lay.addStretch()
 
     def refresh(self):
+        self.low_default.blockSignals(True)
+        self.low_default.setValue(low_stock_default(self.ctx.conn))  # may come with a data package or an undo
+        self.low_default.blockSignals(False)
         rows = catalog.products(self.ctx.conn, include_inactive=True)
         fill_table(self.table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"], p["category"],
                                  num_item(p["min_stock"]), t("btn.yes") if p["active"] else t("btn.no")]
@@ -373,6 +388,16 @@ class SettingsPage(Page):
             self.ctx.reopen()  # a new, empty database
         info(self, t("reset.done_all", files=moved))
         self.go_pending()
+
+    def change_low_default(self):
+        value = self.low_default.value()
+        if abs(value - low_stock_default(self.ctx.conn)) < 1e-9:
+            return
+        self.ctx.undo_point("low_default")
+        with db.transaction(self.ctx.conn):
+            db.set_meta(self.ctx.conn, "low_stock_default", str(int(value)))
+            db.log(self.ctx.conn, "low_stock_default", fmt_qty(value))
+        self.ctx.notify()
 
     def change_scale(self):
         self.ctx.cfg.ui_scale = self.scale.currentData()

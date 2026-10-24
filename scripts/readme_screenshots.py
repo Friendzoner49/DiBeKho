@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dibekho import db, i18n  # noqa: E402
 from dibekho.core import catalog, deliveries, receipts  # noqa: E402
-from dibekho.core.stock import stock_count  # noqa: E402
+from dibekho.core.stock import MAIN, OFFICE, Line, set_location, stock_count, transfer  # noqa: E402
 from dibekho.core.workspace import Config, Workspace  # noqa: E402
 from tests.conftest import make_note  # noqa: E402
 
@@ -115,6 +115,14 @@ by_note = {(zh, spec_key(SPECS[i])): ids[i] for i, (vi, zh, *_r) in enumerate(P)
 for u in deliveries.unknown_lines(conn, ws):
     deliveries.map_line(conn, u.key, by_note[(u.name_zh, spec_key(u.spec))])
 deliveries.scan(conn, ws)
+# places: most orders from Kho tổng, one from Văn phòng; some goods carried to the office; stock notes
+with db.transaction(conn):
+    for d in deliveries.unplaced(conn):
+        set_location(conn, d["id"], OFFICE if d["code"] == "105" else MAIN)
+    transfer(conn, date(2026, 9, 25), MAIN, OFFICE, [Line(ids[0], 4), Line(ids[4], 3), Line(ids[6], 4)],
+             "Mang lên văn phòng")
+    catalog.update_product(conn, ids[0], stock_note="2 thùng móp vỏ")
+    catalog.update_product(conn, ids[5], stock_note="1 thùng in lệch nhãn, 1 thùng hết hạn 11/2026")
 
 win = MainWindow(ctx)
 win.resize(1280, 760)

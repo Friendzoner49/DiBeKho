@@ -34,11 +34,14 @@ from dibekho.i18n import t
 # Row highlight colours. Light theme: pale backgrounds; dark theme (e.g. macOS Dark Mode): deep tones,
 # so the white text stays readable. sync_theme_colors() updates these objects in place.
 _THEMES = {
-    "light": {"RED": "#fde2e1", "YELLOW": "#fff4cc", "hint": "#666666", "banner": "#eef5ff", "alert": "#c0392b"},
-    "dark": {"RED": "#6e2a2a", "YELLOW": "#5e4c14", "hint": "#a0a0a0", "banner": "#1f3550", "alert": "#ff7b72"},
+    "light": {"RED": "#fde2e1", "YELLOW": "#fff4cc", "ORANGE": "#ffd9a8", "hint": "#666666", "banner": "#eef5ff",
+              "alert": "#c0392b", "warn": "#b35900"},
+    "dark": {"RED": "#6e2a2a", "YELLOW": "#5e4c14", "ORANGE": "#6e4210", "hint": "#a0a0a0", "banner": "#1f3550",
+             "alert": "#ff7b72", "warn": "#ffb066"},
 }
 RED = QColor(_THEMES["light"]["RED"])
 YELLOW = QColor(_THEMES["light"]["YELLOW"])
+ORANGE = QColor(_THEMES["light"]["ORANGE"])  # running low: order more
 GREY = QColor("#888888")
 
 
@@ -48,7 +51,7 @@ def is_dark() -> bool:
 
 
 def theme_color(name: str) -> str:
-    """'hint', 'banner' or 'alert' for the current light/dark theme."""
+    """'hint', 'banner', 'alert' or 'warn' for the current light/dark theme."""
     return _THEMES["dark" if is_dark() else "light"][name]
 
 
@@ -56,6 +59,7 @@ def sync_theme_colors() -> None:
     colors = _THEMES["dark" if is_dark() else "light"]
     RED.setRgb(QColor(colors["RED"]).rgb())
     YELLOW.setRgb(QColor(colors["YELLOW"]).rgb())
+    ORANGE.setRgb(QColor(colors["ORANGE"]).rgb())
 
 
 class AppContext(QObject):
@@ -94,6 +98,23 @@ class NoWheelCombo(QComboBox):
 
     def wheelEvent(self, event):
         event.ignore()  # the table under it scrolls instead
+
+
+def location_name(location_id) -> str:
+    """Kho tổng / Văn phòng in the interface language."""
+    from dibekho.core.stock import LOCATION_CODES, MAIN
+
+    return t(f"loc.{LOCATION_CODES.get(location_id, LOCATION_CODES[MAIN])}")
+
+
+def location_combo(selected=None) -> "NoWheelCombo":
+    from dibekho.core.stock import LOCATIONS, MAIN
+
+    combo = NoWheelCombo()
+    for loc in LOCATIONS:
+        combo.addItem(location_name(loc), loc)
+    combo.setCurrentIndex(max(combo.findData(selected or MAIN), 0))
+    return combo
 
 
 class NoWheelSpin(QDoubleSpinBox):
@@ -221,6 +242,19 @@ def money_item(value) -> SortItem:
     return item
 
 
+def money_text(m) -> str:
+    """'Doanh thu 12.000.000 = tiền hàng … + phí khác …' for a stats.Money (fees unknown when products are
+    filtered: fees belong to no product)."""
+    if m.fees is None:
+        text = t("stats.money_goods", goods=fmt_money(m.goods), orders=m.orders)
+    else:
+        text = t("stats.money", total=fmt_money(m.total), goods=fmt_money(m.goods), fees=fmt_money(m.fees),
+                 orders=m.orders)
+    if m.unpriced:
+        text += " · " + t("stats.unpriced", count=m.unpriced)
+    return text
+
+
 def date_item(iso: str | None) -> SortItem:
     return SortItem(fmt_date(iso), iso or "")
 
@@ -302,6 +336,42 @@ def fill_table(table: QTableWidget, rows: list[list], ids: list | None = None, c
     if isinstance(table, Table):
         table.natural = 0  # the width that fits the new contents
         table.fill_spare()
+
+
+def only_editable(table: QTableWidget, columns) -> None:
+    """After fill_table: cells of these columns can be typed into (double-click, or start typing), the
+    others stay read-only."""
+    table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed
+                          | QAbstractItemView.AnyKeyPressed)
+    for r in range(table.rowCount()):
+        for c in range(table.columnCount()):
+            item = table.item(r, c)
+            if item is None:
+                continue
+            if c in columns:
+                item.setFlags(item.flags() | Qt.ItemIsEditable)
+                item.setToolTip(t("note.edit_tip") + ("\n" + item.text() if item.text() else ""))
+            else:
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+
+
+def save_stock_note(ctx: "AppContext", product_id: int, text: str, notify=True) -> bool:
+    """The note kept with a product's stock (damaged, misprinted, expired boxes...). Shared by the Tồn kho and
+    Kiểm kê pages; it is in the database, so it goes with the data package. Returns True when it changed."""
+    from dibekho.core import catalog
+    from dibekho.core.text import clean
+
+    text = clean(text)
+    row = ctx.conn.execute("SELECT code, stock_note FROM products WHERE id = ?", (product_id,)).fetchone()
+    if row is None or row["stock_note"] == text:
+        return False
+    ctx.undo_point("stock_note")
+    with db.transaction(ctx.conn):
+        catalog.update_product(ctx.conn, product_id, stock_note=text)
+        db.log(ctx.conn, "stock_note", row["code"])
+    if notify:
+        ctx.notify()
+    return True
 
 
 def selected_id(table: QTableWidget):

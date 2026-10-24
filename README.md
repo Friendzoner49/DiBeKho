@@ -23,9 +23,9 @@
 
 You drop Excel delivery notes into a folder. The app reads them, takes the goods off the stock, and records the orders and customers. Nothing has to be typed in again.
 
-- 📦 **See the stock** of every product; low stock is yellow, negative stock is red.
+- 📦 **See the stock** of every product, split between the **main warehouse** and the **office**; below 30 the row turns orange with "Running low — order more", negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
-- 🔢 **Stock count:** type what you counted, the app records the difference.
+- 🔢 **Stock count** per place (main warehouse, office): type what you counted, the app records the difference. **Transfer** goods between the two.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
 - 💰 **Revenue per customer:** total, the products they buy most, every order with unit prices and amounts, for any period.
 - 📊 **Statistics** by day, month, quarter or year, and **export to Excel**.
@@ -123,6 +123,8 @@ Do these 4 steps once, in this order.
 
 > Scrolling with the mouse wheel **never** changes a choice or a number. When the same name is in several orders, choosing it in one sets the others too.
 
+6. A note does not say where the goods came from, so each new order shows in **To do → Orders without a place yet**. Choose **Main warehouse** or **Office** for each order and click **Save places**. Meanwhile the goods are taken from the main warehouse (the total is already right). Chose wrong? Change **Taken from** in the order window.
+
 ### 2. Goods in
 
 <img src="docs/images/en/hang-ve.png" alt="Goods in window" width="760">
@@ -134,7 +136,8 @@ Do these 4 steps once, in this order.
 3. Three products are suggested. Type a **quantity** on each row; rows left without a quantity are skipped.
    - To change a product, click its name → **🔍 Choose a product from the catalog…** or **★ New product (not in the catalog)…**.
    - For more rows, click **＋ Add row**.
-4. Click **Save goods in**, read the summary and agree. The stock goes up, the receipt gets a code (HV001, HV002…) and an Excel file of it is saved in `output/hang-ve/`.
+4. Choose **Put in**: main warehouse or office.
+5. Click **Save goods in**, read the summary and agree. The stock goes up, the receipt gets a code (HV001, HV002…) and an Excel file of it is saved in `output/hang-ve/`.
 
 A mistake? Click **↶ Undo** straight away, or select the receipt in the list and click **Edit selected…**. The old receipt stays in the history as "replaced".
 
@@ -142,19 +145,22 @@ Goods-in files of the old kind (a filled template) can still be imported with **
 
 ### 3. Stock count
 
-Open **Stock count**, pick the date, type what you counted and click **Save count**. The app only records the difference between your count and its own number, so the history stays clear.
+Open **Stock count**, pick the date, type what you counted in the 2 yellow columns **Counted: Main warehouse** and **Counted: Office**, and click **Save count**. A place left empty stays as it is. The app only records the difference between your count and its own number, so the history stays clear.
+
+- **Transfer…**: goods carried between the main warehouse and the office. Choose from and to, type the quantities and click **Save transfer**. The total does not change, only each place (transfers CH001, CH002…).
+- **Stock note** column (the same as on the Stock page): double-click to write, e.g. "3 boxes misprinted, 2 expire 12/2026". It is saved at once, goes with the data package to another computer and is in the Excel files.
 
 ### 4. Looking things up
 
-- **Stock:** **red** rows = negative stock (a goods in or a stock count is missing); **yellow** rows = running low. Double-click a product to see everything that came in and went out.
+- **Stock:** columns **Main warehouse**, **Office** and the total. **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows with "⚠ Running low — order more" = below the alert level (**30** by default, changed in **Settings → Products → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
 - **Search** (**Ctrl+F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
 - Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Read note again**, **Cancel document**.
-- Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period.
+- Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period. **Export to Excel…** saves exactly that (every order with its prices, the products bought) to a file in `output/`.
 - Prices come from the unit price / amount columns of the note. A note without a price leaves the cell empty (—) and it is not counted in revenue.
 
 ### 5. Statistics and Excel export
 
-**Search → Statistics and Excel export**: choose the period (day, month, quarter, year, or from – to) and the products, categories or customers to include. The table shows opening stock, in, out and closing stock, with best sellers and a chart. Click **Export to Excel…** to save a file in `output/`.
+**Search → Statistics and Excel export**: choose the period (day, month, quarter, year, or from – to) and the products, categories or customers to include. The table shows opening stock, in, out, closing stock, **revenue** and the stock note, with best sellers and a chart; the line above it gives the revenue of the period = goods + other fees. Click **Export to Excel…** to save a file in `output/` (with unit price, amount, revenue, place and note columns).
 
 ### 6. Product catalog
 

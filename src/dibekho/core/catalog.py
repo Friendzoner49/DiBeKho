@@ -43,7 +43,7 @@ def create_product(conn, name_vi, name_zh="", spec="", unit="", category="", min
 
 
 def update_product(conn, product_id, **fields) -> None:
-    allowed = {"name_vi", "name_zh", "spec", "unit", "category", "min_stock", "active", "variant"}
+    allowed = {"name_vi", "name_zh", "spec", "unit", "category", "min_stock", "active", "variant", "stock_note"}
     sets = {k: v for k, v in fields.items() if k in allowed}
     if not sets:
         return
@@ -384,6 +384,8 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
                 if (p["category"], p["variant"]) != (st.category, st.variant):
                     update_product(conn, pid, category=st.category, variant=st.variant)
                     result["labels_updated"].append(p["code"])
+                if st.note is not None:
+                    update_product(conn, pid, stock_note=st.note)
         if counted:
             stock_count(conn, stock_date or date.today(), counted, note)
             result["stock_counted"] = len(counted)

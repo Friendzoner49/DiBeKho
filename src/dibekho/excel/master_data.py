@@ -7,7 +7,9 @@ Layout (fixed, so the file reads back whatever the interface language was):
   sheet 1 = products, sheet 2 = customers; A1 starts with MARKER; header in row 4; data from row 5.
   products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | min_stock | active
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
-  sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock.
+  sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock
+            (| Kho tổng | Văn phòng | note, from 0.4.0: the two places are shown only, the import reads the total
+            stock and the note).
             The customer may correct the stock there; importing the file sets the app's stock to it (a stock
             count). The stock sheet is the reference (the user's rule, 14/10/2026): sheet 1 is only used to find
             the product each stock row describes. Each stock row is tied to a row of sheet 1 (product_row):
@@ -31,7 +33,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from dibekho.core.stock import stock_levels
+from dibekho.core.stock import MAIN, OFFICE, stock_levels
 from dibekho.core.text import clean, match_key, parse_number
 from dibekho.i18n import t
 
@@ -73,6 +75,7 @@ class MasterStock:
     category: str = ""
     variant: str = ""
     matched_by: str = ""  # 'code' | 'name' | 'position' | '' (not found)
+    note: str | None = None  # the product's stock note; None = a file without that column (keep the app's)
 
 
 def needs_check(stock: list[MasterStock]) -> bool:
@@ -172,12 +175,16 @@ def export(path: Path, conn) -> Path:
 
     ws3 = wb.create_sheet(t("master.sheet_stock"))
     levels = stock_levels(conn)
+    placed = stock_levels(conn, by_location=True)
     # by code = the row order of the monthly sheet the catalog was loaded from
     active = conn.execute("SELECT * FROM products WHERE active = 1 ORDER BY code")
-    rows = [[p["code"], _stock_name(p), p["category"], p["variant"], levels.get(p["id"], 0)] for p in active]
+    # the columns after Tồn are appended, so files from older versions (5 columns) are still read the same way
+    rows = [[p["code"], _stock_name(p), p["category"], p["variant"], levels.get(p["id"], 0),
+             placed.get((p["id"], MAIN), 0), placed.get((p["id"], OFFICE), 0), p["stock_note"]] for p in active]
     _sheet(ws3, t("master.title_stock"),
-           [t("col.code"), t("col.product"), t("col.category"), t("col.variant"), t("col.stock")],
-           rows, [10, 52, 26, 22, 12])
+           [t("col.code"), t("col.product"), t("col.category"), t("col.variant"), t("col.stock"), t("loc.main"),
+            t("loc.office"), t("col.stock_note")],
+           rows, [10, 52, 26, 22, 12, 12, 12, 40])
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
@@ -267,22 +274,24 @@ def _read_stock(ws, products: list[MasterProduct]) -> list[MasterStock]:
     """Rows of the stock sheet, each tied to a row of sheet 1 (see the module docstring)."""
     header = [clean(c.value) for c in ws[HEADER_ROW]]
     with_code = len([h for h in header if h]) >= 5
-    lines = []  # (row, code, name, category, variant, stock)
+    with_note = with_code and len([h for h in header if h]) >= 8
+    lines = []  # (row, code, name, category, variant, stock, note)
     for r, row in enumerate(ws.iter_rows(min_row=HEADER_ROW + 1, values_only=True), HEADER_ROW + 1):
-        row = list(row) + [None] * 5
+        row = list(row) + [None] * 8
         if not with_code:
             row = [None] + row
         code, name = clean(row[0]), clean(row[1])
         if code or name:
-            lines.append((r, code, name, clean(row[2]), clean(row[3]), _stock_value(row[4])))
+            lines.append((r, code, name, clean(row[2]), clean(row[3]), _stock_value(row[4]),
+                          clean(row[7]) if with_note else None))
 
     active = [p for p in products if p.active]
     code_count: dict[str, int] = {}
     for p in products:
         code_count[p.code] = code_count.get(p.code, 0) + 1
     by_code = {p.code: p for p in products if p.code and code_count[p.code] == 1}
-    rows = [MasterStock(r, code, name, value, None, category, variant)
-            for r, code, name, category, variant, value in lines]
+    rows = [MasterStock(r, code, name, value, None, category, variant, note=note)
+            for r, code, name, category, variant, value, note in lines]
     taken: set[int] = set()
 
     for st in rows:  # 1. code

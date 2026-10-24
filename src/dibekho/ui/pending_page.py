@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, backup, catalog, deliveries, inbox, transfer
+from dibekho.core.stock import set_location
 from dibekho.core.text import fmt_qty, parse_number, unaccent
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -34,6 +35,7 @@ from dibekho.ui.common import (
     fmt_date,
     hint_label,
     info,
+    location_combo,
     make_table,
     open_path,
 )
@@ -61,6 +63,24 @@ class PendingPage(Page):
     def __init__(self, ctx, rescan):
         super().__init__(ctx, t("nav.pending"), t("pending.hint"))
         self.rescan = rescan  # callable from the main window: scan + notify
+
+        # recorded delivery notes waiting for their place: goods already taken from Kho tổng meanwhile
+        self.places_box = QGroupBox(t("pending.places_title"))
+        lay = QVBoxLayout(self.places_box)
+        lay.addWidget(hint_label(t("pending.places_hint")))
+        self.places = make_table([t("col.doc_code"), t("col.date"), t("col.customer"), t("col.lines"),
+                                  t("col.total_qty"), t("loc.taken_from")], stretch=2)
+        lay.addWidget(self.places)
+        row = QHBoxLayout()
+        places_btn = QPushButton(t("pending.places_save"))
+        places_btn.clicked.connect(self.save_places)
+        font = places_btn.font()
+        font.setBold(True)
+        places_btn.setFont(font)
+        row.addWidget(places_btn)
+        row.addStretch()
+        lay.addLayout(row)
+        self.layout_.addWidget(self.places_box, 2)
 
         self.unknown_box = QGroupBox(t("pending.unknown_title"))
         lay = QVBoxLayout(self.unknown_box)
@@ -107,6 +127,7 @@ class PendingPage(Page):
 
     def refresh(self):
         conn, ws = self.ctx.conn, self.ctx.ws
+        self._fill_places(conn)
         self._fill_unknown(conn, ws)
 
         rows = [r for r in deliveries.pending_files(conn) if r["status"] != "needs_mapping"]
@@ -124,7 +145,34 @@ class PendingPage(Page):
         self.inbox.resizeColumnsToContents()
         self.inbox_box.setVisible(bool(self._items))
 
-        self.empty.setVisible(not (self._unknown or rows or self._items))
+        self.empty.setVisible(not (self._unknown or rows or self._items or self._unplaced))
+
+    # ---- delivery notes waiting for their place ----------------------------------
+
+    def _fill_places(self, conn):
+        self._unplaced = deliveries.unplaced(conn)
+        fill_table(self.places, [[d["code"], fmt_date(d["doc_date"]), d["customer"], str(d["line_count"]),
+                                  fmt_qty(d["total_qty"]), ""] for d in self._unplaced],
+                   ids=[d["id"] for d in self._unplaced])
+        self._place_combos = []
+        for i, d in enumerate(self._unplaced):
+            combo = location_combo()
+            self.places.setCellWidget(i, 5, combo)
+            self._place_combos.append(combo)
+        self.places.resizeColumnsToContents()
+        self.places_box.setVisible(bool(self._unplaced))
+
+    def save_places(self):
+        if not self._unplaced:
+            return
+        self.ctx.undo_point("places")
+        with db.transaction(self.ctx.conn):
+            for d, combo in zip(self._unplaced, self._place_combos):
+                set_location(self.ctx.conn, d["id"], combo.currentData())
+        activity.log("places", ", ".join(f"{d['code']} → {c.currentData()}"
+                                         for d, c in zip(self._unplaced, self._place_combos)))
+        self.ctx.notify()
+        self.rescan()
 
     # ---- unknown lines, grouped by order ---------------------------------------
 

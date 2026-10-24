@@ -121,7 +121,8 @@ class MainWindow(QMainWindow):
         return result
 
     def _update_badge(self, result=None):
-        pending = deliveries.pending_count(self.ctx.conn) + len(inbox.items(self.ctx.conn, self.ctx.ws))
+        pending = (deliveries.pending_count(self.ctx.conn) + deliveries.unplaced_count(self.ctx.conn)
+                   + len(inbox.items(self.ctx.conn, self.ctx.ws)))
         label = t("nav.pending") + (f"  ({pending})" if pending else "")
         self.nav.item(PENDING).setText(label)
         self.nav.item(PENDING).setForeground(Qt.red if pending else self.nav.palette().text().color())

@@ -40,10 +40,18 @@ def migrate(conn: sqlite3.Connection) -> None:
     for version, sql in _migration_files():
         if version <= current:
             continue
-        with transaction(conn):
-            for statement in _split_sql(sql):
-                conn.execute(statement)
-            conn.execute(f"PRAGMA user_version = {version}")
+        # A migration may rebuild a table (SQLite cannot change a CHECK otherwise): foreign keys are off while it
+        # runs (the pragma does nothing inside a transaction) and checked before it commits.
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            with transaction(conn):
+                for statement in _split_sql(sql):
+                    conn.execute(statement)
+                if conn.execute("PRAGMA foreign_key_check").fetchone() is not None:
+                    raise sqlite3.IntegrityError(f"migration {version}: foreign key check failed")
+                conn.execute(f"PRAGMA user_version = {version}")
+        finally:
+            conn.execute("PRAGMA foreign_keys = ON")
 
 
 def _split_sql(sql: str) -> list[str]:

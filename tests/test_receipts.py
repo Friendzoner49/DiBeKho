@@ -143,6 +143,7 @@ def test_first_receipt_ever_still_opens_with_3_products(conn):
 
     a, b, c, d = products(conn)
     with db.transaction(conn):
+        db.set_meta(conn, "low_stock_default", "0")  # only d has an alarm level (the default one: test_locations)
         catalog.update_product(conn, d, min_stock=5)
         recent = date.today() - timedelta(days=3)
         insert_document(conn, "delivery", recent, [Line(a, 2)], code="1", code_norm="1")  # a: -2, below 0
@@ -164,7 +165,11 @@ def test_code_of_a_receipt_undone_is_not_given_again(conn, ws):
 
 
 # migration 007 (prices): a database written by 0.3.0 or earlier has none of these
-PRICE_COLUMNS_DROP = ("ALTER TABLE document_lines DROP COLUMN unit_price", "ALTER TABLE document_lines DROP COLUMN amount",
+LOCATIONS_DROP = ("DROP INDEX ix_movements_location", "DROP TABLE locations", "UPDATE stock_movements SET location_id = NULL",
+                  "ALTER TABLE document_lines DROP COLUMN location_id", "ALTER TABLE documents DROP COLUMN location_id",
+                  "ALTER TABLE documents DROP COLUMN to_location_id", "ALTER TABLE documents DROP COLUMN location_set",
+                  "ALTER TABLE products DROP COLUMN stock_note")
+PRICE_COLUMNS_DROP = (*LOCATIONS_DROP, "ALTER TABLE document_lines DROP COLUMN unit_price", "ALTER TABLE document_lines DROP COLUMN amount",
                       "ALTER TABLE documents DROP COLUMN fee_amount", "ALTER TABLE documents DROP COLUMN note_total",
                       "ALTER TABLE documents DROP COLUMN prices_read")
 

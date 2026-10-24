@@ -40,6 +40,8 @@ from dibekho.ui.common import (
     from_qdate,
     hint_label,
     info,
+    location_combo,
+    location_name,
     open_path,
     theme_color,
     title_label,
@@ -135,6 +137,8 @@ class ReceiptForm(QDialog):
         self.date.setDisplayFormat("dd/MM/yyyy")
         self.date.setDate(to_qdate(date.today()))
         form.addRow(t("receipt_form.date") + ":", self.date)
+        self.location = location_combo()
+        form.addRow(t("loc.put_in") + ":", self.location)
 
         self.supplier = NoWheelCombo()
         self.supplier.setEditable(True)
@@ -235,7 +239,8 @@ class ReceiptForm(QDialog):
             supplier_name=self.supplier.currentText().strip(),
             customer_name=self.customer.currentText().split(" · ")[0].strip(), customer_id=self.customer_id(),
             ref_code=self.order.currentText().strip(), note=self.note.text().strip(),
-            lines=[ReceiptLineInput(r.qty.value(), r.product_id, r.new, r.note.text()) for r in self.rows])
+            lines=[ReceiptLineInput(r.qty.value(), r.product_id, r.new, r.note.text()) for r in self.rows],
+            location_id=self.location.currentData())
 
     def dirty(self) -> bool:
         return any(r.qty.value() > 0 for r in self.rows) or self.doc_id is not None
@@ -243,6 +248,7 @@ class ReceiptForm(QDialog):
     def _load(self, data: ReceiptInput):
         (self.src_return if data.source == RETURN else self.src_supplier).setChecked(True)
         self.date.setDate(to_qdate(data.doc_date))
+        self.location.setCurrentIndex(max(self.location.findData(data.location_id), 0))
         self.supplier.setCurrentText(data.supplier_name)
         if data.customer_id:
             i = self.customer.findData(data.customer_id)
@@ -435,6 +441,7 @@ class ReceiptForm(QDialog):
             who = t("receipt_form.source_return") + ": " + data.customer_name
             if data.ref_code:
                 who += " · " + t("receipt_form.order") + " " + data.ref_code
+        who += "\n" + t("loc.put_in") + ": " + location_name(data.location_id)
         lines = []
         for ln in data.filled():
             name = ("★ " + ln.new.label()) if ln.new else catalog.label(self.products[ln.product_id])

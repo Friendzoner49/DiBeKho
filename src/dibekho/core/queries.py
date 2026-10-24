@@ -88,14 +88,15 @@ def document(conn, doc_id: int):
     return head, lines
 
 
-def count_differences(conn, doc_id: int) -> dict[int, float]:
-    """For a stock_count document: product_id -> adjustment applied."""
+def count_differences(conn, doc_id: int) -> dict[tuple[int, int], float]:
+    """For a stock_count document: (product_id, location_id) -> adjustment applied (a count of the total is
+    adjusted at Kho tổng)."""
     rows = conn.execute(
-        "SELECT product_id, SUM(qty) FROM stock_movements WHERE document_id = ? AND kind = 'count_adjust' "
-        "GROUP BY product_id",
+        "SELECT product_id, location_id, SUM(qty) FROM stock_movements WHERE document_id = ? "
+        "AND kind = 'count_adjust' GROUP BY product_id, location_id",
         (doc_id,),
     )
-    return {r[0]: r[1] for r in rows}
+    return {(r[0], r[1]): r[2] for r in rows}
 
 
 # ---- customers -------------------------------------------------------------
@@ -190,8 +191,10 @@ def customer_products(conn, customer_id: int, date_from: date | None = None, dat
 
 def product(conn, product_id: int):
     return conn.execute(
-        "SELECT p.*, COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id), 0) AS stock "
-        "FROM products p WHERE p.id = ?",
+        "SELECT p.*, COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id), 0) AS stock, "
+        "COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id AND location_id = 1), 0) AS stock_main, "
+        "COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id AND location_id = 2), 0) "
+        "AS stock_office FROM products p WHERE p.id = ?",
         (product_id,),
     ).fetchone()
 

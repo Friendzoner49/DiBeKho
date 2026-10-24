@@ -19,7 +19,7 @@ from pathlib import Path
 
 from dibekho import db
 from dibekho.core import catalog
-from dibekho.core.stock import Line, add_lines, close_document, insert_document, stock_count
+from dibekho.core.stock import MAIN, Line, add_lines, close_document, insert_document, stock_count
 from dibekho.core.text import fmt_qty, match_key, nfc, normalize_code, normalize_phone
 from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
@@ -267,9 +267,15 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
         shutil.copy2(path, copy)
     customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
     lines = _note_lines(conn, note)
+    # a note read again (or its edited version) keeps the place chosen for it; a new one waits for the user
+    # in Cần xử lý, its goods taken from Kho tổng meanwhile, so stock is right in total from the start
+    prev = conn.execute(
+        "SELECT location_id, location_set FROM documents WHERE kind = 'delivery' AND code_norm = ? "
+        "AND status = 'replaced' ORDER BY id DESC LIMIT 1", (note.code_norm,)).fetchone()
     doc_id = insert_document(
         conn, "delivery", note.doc_date, lines, code=note.code, code_norm=note.code_norm,
         customer_id=customer_id, source_file=rel, source_hash=h,
+        location_id=prev["location_id"] if prev else MAIN, location_set=bool(prev and prev["location_set"]),
     )
     for ln in note.lines:
         if catalog.is_ignored(conn, ln.key):
@@ -356,6 +362,22 @@ def pending_count(conn) -> int:
     return conn.execute(
         f"SELECT COUNT(*) FROM scanned_files WHERE status IN ({marks})", PENDING_STATUSES
     ).fetchone()[0]
+
+
+def unplaced(conn):
+    """Recorded delivery notes whose place (Kho tổng / Văn phòng) the user has not chosen yet, oldest first."""
+    return conn.execute(
+        "SELECT d.id, d.code, d.doc_date, COALESCE(c.name, '') AS customer, "
+        "(SELECT COUNT(*) FROM document_lines x WHERE x.document_id = d.id) AS line_count, "
+        "(SELECT COALESCE(SUM(x.qty), 0) FROM document_lines x WHERE x.document_id = d.id) AS total_qty "
+        "FROM documents d LEFT JOIN customers c ON c.id = d.customer_id "
+        "WHERE d.kind = 'delivery' AND d.status = 'active' AND d.location_set = 0 ORDER BY d.doc_date, d.id"
+    ).fetchall()
+
+
+def unplaced_count(conn) -> int:
+    return conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery' AND status = 'active' "
+                        "AND location_set = 0").fetchone()[0]
 
 
 def pending_files(conn):

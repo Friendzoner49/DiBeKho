@@ -1,6 +1,9 @@
-"""Period statistics: opening, in, out, count adjustments, closing per product.
+"""Period statistics: opening, in, out, count adjustments, closing per product, and revenue.
 
 Dates are business dates (date on the delivery note / receipt), not import time.
+Transfers between Kho tổng and Văn phòng are neither in nor out (net zero per product).
+Revenue = selling prices read from the delivery notes: goods (line amounts) per product, plus other fees per
+order (shipping...), which belong to no product. Active orders only; a line without a price counts nothing.
 """
 
 import calendar
@@ -57,6 +60,8 @@ class SummaryRow:
     adjust: float
     closing: float | None
     per_bucket: dict = field(default_factory=dict)  # label -> (in, out)
+    revenue: float | None = None  # goods sold in the period (None: no priced line)
+    stock_note: str = ""  # the note kept with the product (damaged, expired boxes...)
 
 
 # ---- periods ---------------------------------------------------------------
@@ -106,7 +111,7 @@ def summary(conn, start: date, end: date, filters: Filters | None = None, by: st
     in_marks, out_marks, adj_marks = (",".join("?" * len(k)) for k in (IN_KINDS, OUT_KINDS, ADJ_KINDS))
     rows = conn.execute(
         f"""
-        SELECT p.id, p.code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit, p.category,
+        SELECT p.id, p.code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit, p.category, p.stock_note,
           COALESCE(SUM(CASE WHEN m.occurred_on < ? THEN m.qty END), 0) AS opening,
           COALESCE(SUM(CASE WHEN m.occurred_on BETWEEN ? AND ? AND m.kind IN ({in_marks}) THEN m.qty END), 0) AS qty_in,
           COALESCE(-SUM(CASE WHEN m.occurred_on BETWEEN ? AND ? AND m.kind IN ({out_marks}) AND ({csql})
@@ -129,13 +134,68 @@ def summary(conn, start: date, end: date, filters: Filters | None = None, by: st
         result.append(SummaryRow(
             r["id"], r["code"], r["name_vi"], r["name_zh"], r["spec"], r["variant"], r["unit"], r["category"],
             None if customer_filtered else r["opening"], r["qty_in"], r["qty_out"], r["adjust"],
-            None if customer_filtered else closing,
+            None if customer_filtered else closing, stock_note=r["stock_note"],
         ))
+    revenue = _revenue(conn, start, end, f)
+    for x in result:
+        x.revenue = revenue.get(x.product_id)
     if customer_filtered:
         result = [x for x in result if x.qty_out]
     if by != "none" and result:
         _fill_buckets(conn, result, buckets(start, end, by), f)
     return result
+
+
+def _revenue(conn, start: date, end: date, f: Filters) -> dict[int, float]:
+    psql, pargs = f.product_sql()
+    csql, cargs = f.customer_sql()
+    return dict(conn.execute(
+        f"""
+        SELECT l.product_id, SUM(l.amount) FROM document_lines l
+        JOIN documents d ON d.id = l.document_id JOIN products p ON p.id = l.product_id
+        WHERE d.kind = 'delivery' AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND l.amount IS NOT NULL
+          AND {psql} AND {csql}
+        GROUP BY l.product_id
+        """,
+        [start.isoformat(), end.isoformat(), *pargs, *cargs],
+    ).fetchall())
+
+
+@dataclass
+class Money:
+    orders: int        # active orders in the period (with a line in scope)
+    goods: float       # sum of line amounts
+    fees: float | None  # other fees of those orders; None when products or groups are filtered (fees have none)
+    unpriced: int      # orders with a line whose price is unknown
+
+    @property
+    def total(self) -> float:
+        return self.goods + (self.fees or 0)
+
+
+def money(conn, start: date, end: date, filters: Filters | None = None) -> Money:
+    """Revenue of the period. With no product/group filter, goods + fees = the order totals
+    (the same as the customer window for that customer and period)."""
+    f = filters or Filters()
+    psql, pargs = f.product_sql()
+    csql, cargs = f.customer_sql()
+    r = conn.execute(
+        f"""
+        SELECT COUNT(DISTINCT d.id) AS orders, COALESCE(SUM(l.amount), 0) AS goods,
+               COUNT(DISTINCT CASE WHEN l.amount IS NULL THEN d.id END) AS unpriced
+        FROM document_lines l
+        JOIN documents d ON d.id = l.document_id JOIN products p ON p.id = l.product_id
+        WHERE d.kind = 'delivery' AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND {psql} AND {csql}
+        """,
+        [start.isoformat(), end.isoformat(), *pargs, *cargs],
+    ).fetchone()
+    fees = None
+    if not (f.product_ids or f.categories):
+        fees = conn.execute(
+            f"""SELECT COALESCE(SUM(d.fee_amount), 0) FROM documents d WHERE d.kind = 'delivery'
+                AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND {csql}""",
+            [start.isoformat(), end.isoformat(), *cargs]).fetchone()[0]
+    return Money(r["orders"], r["goods"], fees, r["unpriced"])
 
 
 def _fill_buckets(conn, rows: list[SummaryRow], bks: list[Bucket], f: Filters) -> None:
@@ -193,7 +253,8 @@ def customer_product(conn, start: date, end: date, filters: Filters | None = Non
     return conn.execute(
         f"""
         SELECT c.name AS customer_name, p.code, p.name_vi, p.spec, p.variant, p.unit,
-               SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date
+               SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date,
+               SUM(l.amount) AS revenue
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN products p ON p.id = l.product_id
@@ -207,7 +268,9 @@ def customer_product(conn, start: date, end: date, filters: Filters | None = Non
 
 
 def detail_lines(conn, start: date, end: date, filters: Filters | None = None):
-    """Every movement in the period with its document — sheet 'Chi tiết phiếu'."""
+    """Every movement in the period with its document — sheet 'Chi tiết phiếu'. A delivery movement gets the
+    price of its own line: movements and lines of a document are written in the same order, so the n-th
+    movement of a product is its n-th line (a product twice on one note keeps both prices apart)."""
     f = filters or Filters()
     psql, pargs = f.product_sql()
     csql, cargs = f.customer_sql()
@@ -215,15 +278,23 @@ def detail_lines(conn, start: date, end: date, filters: Filters | None = None):
     customer_args = [*OUT_KINDS, *cargs] if f.customer_ids else []
     return conn.execute(
         f"""
-        SELECT m.occurred_on, m.kind, m.qty, d.code, d.kind AS doc_kind, d.receipt_source, c.name AS customer_name,
-               p.code AS product_code, p.name_vi, p.spec, p.variant, p.unit,
-               (SELECT note FROM document_lines l WHERE l.document_id = d.id AND l.product_id = p.id LIMIT 1) AS note
-        FROM stock_movements m
+        WITH mv AS (SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.document_id, m.product_id, m.kind
+                                                   ORDER BY m.id) AS n FROM stock_movements m),
+             ln AS (SELECT l.*, ROW_NUMBER() OVER (PARTITION BY l.document_id, l.product_id ORDER BY l.id) AS n
+                    FROM document_lines l)
+        SELECT m.occurred_on, m.kind, m.qty, m.location_id, d.code, d.kind AS doc_kind, d.receipt_source,
+               c.name AS customer_name, p.code AS product_code, p.name_vi, p.spec, p.variant, p.unit,
+               COALESCE(x.note, (SELECT note FROM document_lines l WHERE l.document_id = d.id
+                                 AND l.product_id = p.id LIMIT 1)) AS note,
+               x.unit_price, x.amount
+        FROM mv m
+        LEFT JOIN ln x ON m.kind = 'delivery_out' AND x.document_id = m.document_id AND x.product_id = m.product_id
+                       AND x.n = m.n
         JOIN documents d ON d.id = m.document_id
         JOIN products p ON p.id = m.product_id
         LEFT JOIN customers c ON c.id = d.customer_id
         WHERE m.occurred_on BETWEEN ? AND ? AND {psql} {customer_clause}
-        ORDER BY m.occurred_on, d.id, p.name_vi
+        ORDER BY m.occurred_on, d.id, p.name_vi, m.id
         """,
         [start.isoformat(), end.isoformat(), *pargs, *customer_args],
     ).fetchall()

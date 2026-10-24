@@ -23,9 +23,9 @@
 
 Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc phiếu, trừ tồn kho, ghi lại đơn hàng và khách hàng. Không phải gõ lại số liệu.
 
-- 📦 **Xem tồn kho** từng mặt hàng; hàng sắp hết tô vàng, tồn âm tô đỏ.
+- 📦 **Xem tồn kho** từng mặt hàng, chia theo **Kho tổng** và **Văn phòng**; hàng dưới 30 tô cam kèm ghi "Sắp hết — nên đặt hàng", tồn âm tô đỏ; **ghi chú** cho từng mặt hàng (thùng lỗi, in lệch, hết hạn…).
 - 📥 **Nhập hàng về** trong một cửa sổ: từ cửa khẩu / công ty mẹ, hoặc khách trả lại.
-- 🔢 **Kiểm kê:** gõ số đếm thực tế, app ghi phần chênh lệch.
+- 🔢 **Kiểm kê** từng nơi (Kho tổng, Văn phòng): gõ số đếm thực tế, app ghi phần chênh lệch. **Chuyển hàng** giữa hai nơi.
 - 🔎 **Tra cứu** mặt hàng, khách, số điện thoại, mã phiếu; gõ không dấu hay tiếng Trung đều được.
 - 💰 **Doanh thu theo khách:** tổng tiền, mặt hàng khách hay mua, từng đơn với đơn giá và thành tiền, lọc theo khoảng thời gian.
 - 📊 **Thống kê** theo ngày, tháng, quý, năm và **xuất ra Excel**.
@@ -121,6 +121,8 @@ Làm 4 bước này một lần, theo thứ tự.
 
 > Lăn chuột để cuộn trang **không** làm đổi lựa chọn hay con số. Cùng một tên hàng có ở nhiều đơn thì chọn ở một đơn, các đơn kia theo luôn.
 
+6. Phiếu không ghi hàng lấy ở đâu, nên mỗi đơn mới hiện trong **Cần xử lý → Đơn chưa chọn nơi lấy hàng**. Chọn **Kho tổng** hoặc **Văn phòng** cho từng đơn rồi bấm **Lưu nơi lấy hàng**. Trong lúc chờ, hàng được tạm trừ ở Kho tổng (tổng tồn đã đúng). Chọn nhầm thì đổi lại ở ô **Lấy hàng từ** trong chi tiết đơn.
+
 ### 2. Hàng về
 
 <img src="docs/images/hang-ve.png" alt="Cửa sổ Nhập hàng về" width="760">
@@ -132,7 +134,8 @@ Làm 4 bước này một lần, theo thứ tự.
 3. App gợi ý sẵn 3 mặt hàng. Gõ **số lượng** cho từng dòng; dòng để trống số lượng sẽ bị bỏ qua.
    - Đổi mặt hàng: bấm vào tên mặt hàng → **🔍 Chọn mặt hàng trong kho…** hoặc **★ Mặt hàng mới (chưa có trong kho)…**.
    - Cần thêm dòng: bấm **＋ Thêm dòng**.
-4. Bấm **Lưu phiếu hàng về**, đọc lại bảng tóm tắt rồi đồng ý. Tồn tăng, phiếu có mã (HV001, HV002…) và một file Excel của phiếu được lưu trong `output/hang-ve/`.
+4. Chọn **Nhập vào**: Kho tổng hoặc Văn phòng.
+5. Bấm **Lưu phiếu hàng về**, đọc lại bảng tóm tắt rồi đồng ý. Tồn tăng, phiếu có mã (HV001, HV002…) và một file Excel của phiếu được lưu trong `output/hang-ve/`.
 
 Nhập nhầm? Bấm **↶ Hoàn tác** ngay, hoặc chọn phiếu trong danh sách rồi bấm **Sửa phiếu đã chọn…**. Phiếu cũ vẫn còn trong lịch sử với trạng thái "đã thay".
 
@@ -140,19 +143,22 @@ File hàng về dạng cũ (file mẫu đã điền) vẫn nhập được bằn
 
 ### 3. Kiểm kê
 
-Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế, bấm **Lưu kiểm kê**. App chỉ ghi phần chênh lệch giữa số đếm và số trên app, nên lịch sử vẫn rõ ràng.
+Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàng **Đếm được: Kho tổng** và **Đếm được: Văn phòng**, bấm **Lưu kiểm kê**. Nơi nào để trống thì giữ nguyên. App chỉ ghi phần chênh lệch giữa số đếm và số trên app, nên lịch sử vẫn rõ ràng.
+
+- **Chuyển hàng…**: mang hàng giữa Kho tổng và Văn phòng. Chọn nơi chuyển đi, nơi nhận, gõ số lượng rồi bấm **Lưu phiếu chuyển**. Tổng tồn không đổi, chỉ đổi số ở từng nơi (phiếu CH001, CH002…).
+- Cột **Ghi chú tồn kho** (giống ở trang Tồn kho): nháy đúp để ghi, ví dụ "3 thùng in lệch, 2 thùng hết hạn 12/2026". Ghi chú được lưu ngay, đi theo gói dữ liệu sang máy khác và có trong file Excel.
 
 ### 4. Tra cứu
 
-- **Tồn kho:** dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **vàng** = sắp hết. Nháy đúp một mặt hàng để xem lịch sử nhập, xuất.
+- **Tồn kho:** cột **Kho tổng**, **Văn phòng** và tổng. Dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **cam** + chữ "⚠ Sắp hết — nên đặt hàng" = dưới mức báo động (mặc định **30**, đổi ở **Cài đặt → Danh mục mặt hàng → Báo động khi tồn dưới**). Tick **Chỉ hiện hàng sắp hết** để có danh sách cần đặt. Nháy đúp ô **Ghi chú tồn kho** để ghi chú; nháy đúp chỗ khác để xem lịch sử nhập, xuất và số ở từng nơi.
 - **Tra cứu** (phím **Ctrl+F**): một ô tìm cho mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**.
 - Mở **một đơn hàng**: khách, các dòng hàng với **Đơn giá** và **Thành tiền**, tiền hàng + phí khác = tổng tiền, **Mở file gốc**, **Đọc lại phiếu**, **Huỷ phiếu**.
-- Mở **một khách hàng**: **Doanh thu**, các mặt hàng khách hay mua (doanh thu, giá bán), và **từng đơn với giá đầy đủ bên dưới**. Bỏ tick **Mọi thời gian** rồi chọn **Từ … đến …** để xem khách mua gì, giá bao nhiêu trong khoảng thời gian đó.
+- Mở **một khách hàng**: **Doanh thu**, các mặt hàng khách hay mua (doanh thu, giá bán), và **từng đơn với giá đầy đủ bên dưới**. Bỏ tick **Mọi thời gian** rồi chọn **Từ … đến …** để xem khách mua gì, giá bao nhiêu trong khoảng thời gian đó. Bấm **Xuất Excel…** để lưu đúng nội dung đó (từng đơn với giá, các mặt hàng đã mua) ra file trong `output/`.
 - Giá lấy từ cột đơn giá / thành tiền trên phiếu. Phiếu không ghi giá thì ô đó để trống (—) và không tính vào doanh thu.
 
 ### 5. Thống kê và xuất Excel
 
-**Tra cứu → Thống kê và xuất Excel**: chọn kỳ (ngày, tháng, quý, năm, hoặc từ ngày – đến ngày) và mặt hàng, nhóm hàng, khách cần xem. Bảng hiện tồn đầu, nhập, xuất, tồn cuối, kèm mặt hàng bán chạy và biểu đồ. Bấm **Xuất Excel…** để lưu file vào thư mục `output/`.
+**Tra cứu → Thống kê và xuất Excel**: chọn kỳ (ngày, tháng, quý, năm, hoặc từ ngày – đến ngày) và mặt hàng, nhóm hàng, khách cần xem. Bảng hiện tồn đầu, nhập, xuất, tồn cuối, **doanh thu** và ghi chú tồn kho, kèm mặt hàng bán chạy và biểu đồ; dòng trên bảng ghi doanh thu của kỳ = tiền hàng + phí khác. Bấm **Xuất Excel…** để lưu file vào thư mục `output/` (có cột đơn giá, thành tiền, doanh thu, nơi, ghi chú).
 
 ### 6. Danh mục mặt hàng
 

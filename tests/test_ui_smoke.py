@@ -219,7 +219,8 @@ def test_undo_buttons(app, ws, monkeypatch):
     app.processEvents()
     assert all(tree.topLevelItem(i).childCount() == 1 for i in range(tree.topLevelItemCount()) if
                tree.topLevelItem(i).childCount())
-    assert "(2)" in win.nav.item(1).text()  # both notes with the forgotten name wait under "Cần xử lý"
+    # both notes with the forgotten name wait under "Cần xử lý", and the third one for its place
+    assert "(3)" in win.nav.item(1).text()
     assert "Quên" in win.undo_btn.text()
     win.close()
 

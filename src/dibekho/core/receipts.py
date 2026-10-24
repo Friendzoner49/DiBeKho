@@ -16,7 +16,7 @@ from pathlib import Path
 from dibekho import db
 from dibekho.core import catalog
 from dibekho.core.deliveries import file_hash
-from dibekho.core.stock import Line, close_document, insert_document
+from dibekho.core.stock import MAIN, Line, close_document, insert_document, low_stock_default
 from dibekho.core.text import clean, unaccent
 from dibekho.core.workspace import Workspace
 
@@ -58,6 +58,7 @@ class ReceiptInput:
     ref_code: str = ""            # source 'return': the order the goods came back from (optional)
     note: str = ""
     lines: list[ReceiptLineInput] = field(default_factory=list)
+    location_id: int = MAIN       # where the goods are put: Kho tổng / Văn phòng
 
     def filled(self) -> list[ReceiptLineInput]:
         """Lines that will be recorded: a product (or a new one) and a quantity above 0."""
@@ -104,6 +105,7 @@ def suggestions(conn, source: str, supplier_name: str = "", customer_id: int | N
             "JOIN products p ON p.id = l.product_id "
             "WHERE d.kind = 'receipt' AND d.status = 'active' AND p.active = 1")
     found: list[int] = []
+    default = float(low_stock_default(conn))
     if supplier_name:
         found = _first(conn.execute(
             base + " AND d.supplier_id IN (SELECT id FROM suppliers WHERE unaccent(name) = ?) "
@@ -111,11 +113,12 @@ def suggestions(conn, source: str, supplier_name: str = "", customer_id: int | N
             (unaccent(clean(supplier_name)),)), n)
     for sql in (
         base + " GROUP BY l.product_id ORDER BY COUNT(*) DESC, MAX(d.doc_date) DESC",
-        # running out: below 0, or at the 'báo sắp hết' level; the lowest first
-        """SELECT p.id FROM products p LEFT JOIN stock_movements m ON m.product_id = p.id WHERE p.active = 1
+        # running out: below 0, or at the alarm level (its own, else the default, stock.is_low); the lowest first
+        f"""SELECT p.id FROM products p LEFT JOIN stock_movements m ON m.product_id = p.id WHERE p.active = 1
            GROUP BY p.id
            HAVING COALESCE(SUM(m.qty), 0) < 0 OR (p.min_stock > 0 AND COALESCE(SUM(m.qty), 0) <= p.min_stock)
-           ORDER BY COALESCE(SUM(m.qty), 0) - p.min_stock, p.code""",
+               OR (p.min_stock = 0 AND COALESCE(SUM(m.qty), 0) < {default})
+           ORDER BY COALESCE(SUM(m.qty), 0) - (CASE WHEN p.min_stock > 0 THEN p.min_stock ELSE {default} END), p.code""",
         # what went out most in the last 90 days
         """SELECT l.product_id FROM document_lines l JOIN documents d ON d.id = l.document_id
            JOIN products p ON p.id = l.product_id
@@ -226,7 +229,7 @@ def save(conn, data: ReceiptInput, replaces: int | None = None, ws: Workspace | 
                                                     category=n.category, variant=n.variant)
             lines.append(Line(product_id, ln.qty, note=clean(ln.note)))
         doc_id = insert_document(conn, "receipt", data.doc_date, lines, code=code, code_norm=code,
-                                 customer_id=customer_id, note=clean(data.note))
+                                 customer_id=customer_id, note=clean(data.note), location_id=data.location_id)
         conn.execute("UPDATE documents SET receipt_source = ?, supplier_id = ?, ref_code = ? WHERE id = ?",
                      (data.source, supplier_id, clean(data.ref_code) if data.source == RETURN else "", doc_id))
         db.log(conn, "receipt_edited" if replaces else "receipt_entered", f"{code} #{doc_id}")
@@ -243,7 +246,8 @@ def load(conn, doc_id: int) -> ReceiptInput:
         "SELECT * FROM document_lines WHERE document_id = ? ORDER BY line_no", (doc_id,))]
     return ReceiptInput(date.fromisoformat(d["doc_date"]), d["receipt_source"] or SUPPLIER,
                         supplier_name=d["supplier_name"] or "", customer_name=d["customer_name"] or "",
-                        customer_id=d["customer_id"], ref_code=d["ref_code"], note=d["note"], lines=lines)
+                        customer_id=d["customer_id"], ref_code=d["ref_code"], note=d["note"], lines=lines,
+                        location_id=d["location_id"])
 
 
 def export_file(conn, ws: Workspace, doc_id: int) -> Path:

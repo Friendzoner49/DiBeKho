@@ -132,7 +132,8 @@ def test_report_export(conn, ws, tmp_path):
     wb = openpyxl.load_workbook(path)
     assert len(wb.sheetnames) == 4
     text = " ".join(str(c.value) for ws_ in wb.worksheets for row in ws_.iter_rows() for c in row if c.value)
-    assert "VND" not in text and "giá" not in text.lower()
+    assert "VND" not in text  # selling prices are in their own columns, never in the text
+    assert "Doanh thu" in text and "Đơn giá" in text and "Thành tiền" in text
 
 
 def test_transfer_roundtrip(tmp_path):

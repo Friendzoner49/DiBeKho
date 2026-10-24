@@ -1,6 +1,6 @@
 """Detail windows: order (document), customer, product. They link to each other."""
 
-from datetime import date
+from datetime import date, datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -19,8 +19,9 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import deliveries, queries, receipts
-from dibekho.core.stock import close_document
+from dibekho.core import activity, deliveries, queries, receipts
+from dibekho.excel import report
+from dibekho.core.stock import MAIN, close_document, set_location
 from dibekho.core.text import fmt_money, fmt_qty
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -36,6 +37,8 @@ from dibekho.ui.common import (
     hint_label,
     info,
     kind_text,
+    location_combo,
+    location_name,
     make_table,
     money_item,
     num_item,
@@ -108,6 +111,21 @@ class DocumentDialog(_Base):
             form.addRow(t("col.contact") + ":", _selectable(head["contact"]))
             form.addRow(t("col.phone") + ":", _selectable(head["phone"]))
             form.addRow(t("col.address") + ":", _selectable(head["address"]))
+        if kind == "delivery":
+            self.location = location_combo(head["location_id"])
+            self.location.setEnabled(head["status"] == "active")
+            self.location.currentIndexChanged.connect(self.change_location)
+            place = QHBoxLayout()
+            place.addWidget(self.location)
+            if not head["location_set"] and head["status"] == "active":
+                place.addWidget(hint_label(t("doc.location_unset")))
+            place.addStretch()
+            form.addRow(t("loc.taken_from") + ":", place)
+        elif kind == "receipt":
+            form.addRow(t("loc.put_in") + ":", QLabel(location_name(head["location_id"])))
+        elif kind == "transfer":
+            form.addRow(t("transfer.from") + ":", QLabel(location_name(head["location_id"])))
+            form.addRow(t("transfer.to") + ":", QLabel(location_name(head["to_location_id"])))
         if kind == "receipt" and head["receipt_source"]:
             form.addRow(t("receipt_form.source") + ":",
                         QLabel(t(f"receipt_form.source_short_{head['receipt_source']}")))
@@ -127,10 +145,12 @@ class DocumentDialog(_Base):
 
         if kind == "stock_count":
             diffs = queries.count_differences(ctx.conn, doc_id)
-            headers = [t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.counted"),
-                       t("col.difference")]
-            rows = [[ln["code"], ln["name_vi"], ln["spec"], ln["variant"], num_item(ln["qty"]),
-                     num_item(diffs.get(ln["product_id"], 0))] for ln in lines]
+            headers = [t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.place"),
+                       t("col.counted"), t("col.difference")]
+            rows = [[ln["code"], ln["name_vi"], ln["spec"], ln["variant"],
+                     location_name(ln["location_id"]) if ln["location_id"] else t("loc.total"),
+                     num_item(ln["qty"]), num_item(diffs.get((ln["product_id"], ln["location_id"] or MAIN), 0))]
+                    for ln in lines]
         elif kind == "delivery":
             headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.qty"),
                        t("col.unit"), t("col.unit_price"), t("col.amount"), t("col.note")]
@@ -146,7 +166,7 @@ class DocumentDialog(_Base):
         fill_table(self.table, rows, ids=[ln["product_id"] for ln in lines])
         self.table.doubleClicked.connect(lambda idx: self.open_product(row_id(self.table, idx.row())))
         self.layout_.addWidget(self.table)
-        if kind in ("delivery", "receipt"):
+        if kind in ("delivery", "receipt", "transfer"):
             total = sum(ln["qty"] for ln in lines)
             self.layout_.addWidget(hint_label(t("doc.total", lines=len(lines), qty=fmt_qty(total))))
         if kind == "delivery" and head["order_total"] is not None:
@@ -189,6 +209,12 @@ class DocumentDialog(_Base):
 
     def open_customer(self):
         CustomerDialog(self.ctx, self.head["customer_id"], self).exec()
+
+    def change_location(self):
+        self.ctx.undo_point("places")
+        with db.transaction(self.ctx.conn):
+            set_location(self.ctx.conn, self.doc_id, self.location.currentData())
+        self.ctx.notify()
 
     def open_product(self, product_id):
         if product_id:
@@ -279,6 +305,10 @@ class CustomerDialog(_Base):
         bar.addWidget(QLabel(t("filter.to")))
         bar.addWidget(self.date_to)
         bar.addStretch()
+        export = QPushButton(t("cust.export"))
+        export.setToolTip(t("cust.export_tip"))
+        export.clicked.connect(self.export)
+        bar.addWidget(export)
         self.layout_.addLayout(bar)
         for sig in (self.all_time.toggled, self.date_from.dateChanged, self.date_to.dateChanged):
             sig.connect(self.refresh)
@@ -363,6 +393,22 @@ class CustomerDialog(_Base):
         for c in range(self.orders.columnCount()):
             self.orders.resizeColumnToContents(c)
 
+    def export(self):
+        """The orders and products of this customer in the chosen period, with prices, to output/."""
+        start, end = self._range()
+        label = t("filter.all_time") if start is None else f"{fmt_date(start)} – {fmt_date(end)}"
+        name = queries.customer(self.ctx.conn, self.customer_id)["name"]
+        safe = "".join(ch if ch.isalnum() else "-" for ch in f"{name}_{label}").strip("-")[:80]
+        path = self.ctx.ws.output / f"KhachHang_{safe}_{datetime.now():%Y%m%d-%H%M%S}.xlsx"
+        try:
+            report.export_customer(path, self.ctx.conn, self.customer_id, start, end, label)
+        except PermissionError:
+            error(self, t("stats.export_locked"))
+            return
+        activity.log("export", path.name)
+        if ask(self, t("stats.exported", path=str(path))):
+            open_path(path)
+
     def open_order(self, item, _column=0):
         doc_id = item.data(0, Qt.UserRole)
         if doc_id:
@@ -395,16 +441,22 @@ class ProductDialog(_Base):
         font.setPointSize(font.pointSize() + 3)
         stock.setFont(font)
         form.addRow(t("col.stock") + ":", stock)
+        form.addRow(t("prod.places") + ":", QLabel(t("prod.places_value", main=fmt_qty(p["stock_main"]),
+                                                     office=fmt_qty(p["stock_office"]), unit=p["unit"])))
+        if p["stock_note"]:
+            note = _selectable(p["stock_note"])
+            note.setStyleSheet(f"color: {theme_color('warn')}; font-weight: bold;")
+            form.addRow(t("col.stock_note") + ":", note)
         self.layout_.addLayout(form)
 
         box1 = QGroupBox(t("prod.history_title"))
         l1 = QVBoxLayout(box1)
         self.history = make_table([t("col.date"), t("col.kind"), t("col.doc_code"), t("col.customer"),
-                                   t("col.qty_change"), t("col.balance")], stretch=3)
+                                   t("col.place"), t("col.qty_change"), t("col.balance")], stretch=3)
         rows, ids, colors = [], [], []
         for m in reversed(queries.product_history(ctx.conn, product_id)):
             rows.append([date_item(m["occurred_on"]), t(f"move.{m['kind']}"), m["code"], m["customer_name"],
-                         num_item(m["qty"]), num_item(m["balance"])])
+                         location_name(m["location_id"]), num_item(m["qty"]), num_item(m["balance"])])
             ids.append(m["document_id"])
             colors.append(RED if m["balance"] < 0 else None)
         fill_table(self.history, rows, ids=ids, colors=colors)

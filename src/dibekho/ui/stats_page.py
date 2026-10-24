@@ -37,6 +37,8 @@ from dibekho.ui.common import (
     fit_window,
     from_qdate,
     make_table,
+    money_item,
+    money_text,
     num_item,
     open_path,
     row_id,
@@ -208,7 +210,7 @@ class StatsPage(Page):
         top_lay.setContentsMargins(0, 0, 0, 0)
         top_lay.addWidget(QLabel(t("stats.top_title")))
         self.top = make_table([t("col.rank"), t("col.product"), t("col.spec"), t("col.variant"), t("col.out"),
-                               t("col.unit")], stretch=1)
+                               t("col.unit"), t("col.revenue")], stretch=1)
         top_lay.addWidget(self.top)
         bottom.addWidget(top_box)
         self.chart = QChartView()
@@ -304,6 +306,7 @@ class StatsPage(Page):
         headers += [t("col.in"), t("col.out"), t("col.adjust")]
         if not customer_filtered:
             headers.append(t("col.closing"))
+        headers += [t("col.revenue"), t("col.stock_note")]
         for lb in labels:
             headers += [f"{t('col.in')} {lb}", f"{t('col.out')} {lb}"]
         self.table.setColumnCount(len(headers))
@@ -317,6 +320,7 @@ class StatsPage(Page):
             cells += [num_item(r.qty_in or None), num_item(r.qty_out or None), num_item(r.adjust or None)]
             if not customer_filtered:
                 cells.append(num_item(r.closing))
+            cells += [money_item(r.revenue) if r.revenue is not None else "", r.stock_note]
             for lb in labels:
                 qin, qout = r.per_bucket.get(lb, (0, 0))
                 cells += [num_item(qin or None), num_item(qout or None)]
@@ -326,12 +330,16 @@ class StatsPage(Page):
 
         total_out = sum(r.qty_out for r in rows)
         total_in = sum(r.qty_in for r in rows)
-        self.caption.setText(t("stats.caption", period=label, products=len(rows),
-                               qty_in=num_item(total_in).text(), qty_out=num_item(total_out).text()))
+        caption = t("stats.caption", period=label, products=len(rows),
+                    qty_in=num_item(total_in).text(), qty_out=num_item(total_out).text())
+        money = stats.money(self.ctx.conn, start, end, f)
+        caption += "\n" + money_text(money)
+        self.caption.setText(caption)
 
         top = sorted((r for r in rows if r.qty_out > 0), key=lambda r: r.qty_out, reverse=True)[:10]
-        fill_table(self.top, [[i, r.name_vi, r.spec, r.variant, num_item(r.qty_out), r.unit] for i, r in enumerate(top, 1)],
-                   ids=None)
+        fill_table(self.top, [[i, r.name_vi, r.spec, r.variant, num_item(r.qty_out), r.unit,
+                               money_item(r.revenue) if r.revenue is not None else ""]
+                              for i, r in enumerate(top, 1)], ids=None)
         self._draw_chart(start, end, f)
 
     def _draw_chart(self, start: date, end: date, f: stats.Filters):
