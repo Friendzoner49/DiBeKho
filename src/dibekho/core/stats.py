@@ -2,8 +2,8 @@
 
 Dates are business dates (date on the delivery note / receipt), not import time.
 Transfers between Kho tổng and Văn phòng are neither in nor out (net zero per product).
-Revenue = selling prices read from the delivery notes: goods (line amounts) per product, plus other fees per
-order (shipping...), which belong to no product. Active orders only; a line without a price counts nothing.
+Revenue = selling prices read from the delivery notes: goods (line amounts) only. Shipping and other fees per
+order are shown apart and never added (the user's rule). Active orders only; a line without a price counts nothing.
 """
 
 import calendar
@@ -170,12 +170,13 @@ class Money:
 
     @property
     def total(self) -> float:
-        return self.goods + (self.fees or 0)
+        """Revenue: the goods only, fees are apart."""
+        return self.goods
 
 
 def money(conn, start: date, end: date, filters: Filters | None = None) -> Money:
-    """Revenue of the period. With no product/group filter, goods + fees = the order totals
-    (the same as the customer window for that customer and period)."""
+    """Revenue of the period (goods; the same as the customer window for that customer and period) and the
+    fees apart (None when products or groups are filtered)."""
     f = filters or Filters()
     psql, pargs = f.product_sql()
     csql, cargs = f.customer_sql()

@@ -79,7 +79,7 @@ class OrdersPage(Page):
         self.count = QLabel()
         self.layout_.addWidget(self.count)
         self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.place"),
-                                 t("col.lines"), t("col.total_qty"), t("col.order_total"), t("col.status"),
+                                 t("col.lines"), t("col.total_qty"), t("col.goods"), t("col.fees"), t("col.status"),
                                  t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
         self.layout_.addWidget(self.table)
@@ -121,7 +121,8 @@ class OrdersPage(Page):
             rows.append([date_item(d["doc_date"]), d["code"], d["customer_name"], _place(d),
                          num_item(d["line_count"]),
                          num_item(d["total_qty"]),
-                         money_item(d["order_total"]) if d["kind"] == "delivery" else "",
+                         money_item(d["goods_amount"]) if d["kind"] == "delivery" else "",
+                         money_item(d["fee_amount"]) if d["kind"] == "delivery" and d["fee_amount"] else "",
                          status_text(d["status"]), d["source_file"]])
             colors.append(GREY if d["status"] != "active" else None)
         fill_table(self.table, rows, ids=[d["id"] for d in docs])

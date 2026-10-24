@@ -197,16 +197,18 @@ def export_customer(path: Path, conn, customer_id: int, start: date | None, end:
                            ln["qty"], ln["unit"], ln["unit_price"], ln["amount"], ln["note"]],
                    money_cols=(10, 11), date_cols=(1,))
             r += 1
-        if d["fee_amount"]:
-            _write(ws, r, [day, d["code"], None, t("cust.fees"), None, None, None, None, None, None, d["fee_amount"]],
-                   money_cols=(11,), date_cols=(1,))
-            r += 1
         _write(ws, r, [day, d["code"], None, t("report.order_total"), None, None, None, d["total_qty"], None, None,
-                       d["order_total"]], money_cols=(11,), date_cols=(1,))
+                       d["goods_amount"]], money_cols=(11,), date_cols=(1,))
         for col in range(1, len(headers) + 1):
             ws.cell(row=r, column=col).font = _BOLD
             ws.cell(row=r, column=col).fill = _ORDER_FILL
         r += 1
+        if d["fee_amount"]:  # apart, not in the revenue
+            _write(ws, r, [day, d["code"], None, t("cust.fees"), None, None, None, None, None, None, d["fee_amount"]],
+                   money_cols=(11,), date_cols=(1,))
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=r, column=col).font = Font(italic=True, color="777777")
+            r += 1
     _widths(ws, [11, 9, 9, 40, 20, 16, 14, 8, 8, 13, 15, 30])
 
     headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.total_qty"),

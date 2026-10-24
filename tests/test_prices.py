@@ -69,14 +69,14 @@ def test_revenue_per_customer_products_and_period(conn, ws):
     known(conn, ws)
     cust = doc(conn, "1")["customer_id"]
     money = queries.customer_money(conn, cust)
-    assert (money["orders"], money["goods"], money["fees"], money["total"]) == (2, 5650000, 190000, 5840000)
+    assert (money["orders"], money["goods"], money["fees"], money["total"]) == (2, 5650000, 190000, 5650000)  # revenue = goods, fees apart
     paint = {p["name_vi"]: p for p in queries.customer_products(conn, cust)}["vữa chống thấm"]
     assert (paint["total_qty"], paint["revenue"], paint["min_price"], paint["max_price"]) == (6, 4350000, 700000, 750000)
     october = queries.customer_lines(conn, cust, date(2026, 10, 1), date(2026, 10, 31))
     assert [(ln["code"], ln["unit_price"], ln["amount"]) for ln in october] == [("2", 750000, 2250000)]
     assert queries.customer_money(conn, cust, date(2026, 10, 1), date(2026, 10, 31))["total"] == 2250000
     by_name = {c["name"]: c["revenue"] for c in queries.customers(conn)}
-    assert by_name == {"Công ty A": 5840000, "Công ty B": 2100000}
+    assert by_name == {"Công ty A": 5650000, "Công ty B": 2100000}
 
 
 def test_cancelled_orders_and_unknown_prices_are_not_revenue(conn, ws):
@@ -198,7 +198,7 @@ def test_customer_window_lists_orders_with_their_prices(qtbot_free_app, ws):
     known(ctx.conn, ws)
     cust = doc(ctx.conn, "1")["customer_id"]
     dlg = CustomerDialog(ctx, cust)
-    assert "5.840.000" in dlg.money.text()
+    assert "5.650.000" in dlg.money.text() and "190.000" in dlg.money.text()
     tree = dlg.orders
     assert tree.topLevelItemCount() == 2
     newest = tree.topLevelItem(0)

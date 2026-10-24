@@ -33,7 +33,7 @@ You drop Excel delivery notes into a folder. The app reads them, takes the goods
 - 💾 **Automatic daily backups**; **move all data** to another computer with one file.
 - 🌐 Interface in **Vietnamese, English and Chinese**.
 
-> The app reads the **selling prices** on the delivery notes (unit price, amount, shipping fee) to work out revenue; it has no purchase prices, so it does not compute profit. Your data stays on your computer and is never sent anywhere.
+> The app reads the **selling prices** on the delivery notes (unit price, amount, shipping fee) to work out revenue. **Revenue counts the goods only**; shipping and other fees are shown apart. It has no purchase prices, so it does not compute profit. Your data stays on your computer and is never sent anywhere.
 
 ## Download and install
 
@@ -160,7 +160,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 
 ### 5. Statistics and Excel export
 
-**Search → Statistics and Excel export**: choose the period (day, month, quarter, year, or from – to) and the products, categories or customers to include. The table shows opening stock, in, out, closing stock, **revenue** and the stock note, with best sellers and a chart; the line above it gives the revenue of the period = goods + other fees. Click **Export to Excel…** to save a file in `output/` (with unit price, amount, revenue, place and note columns).
+**Search → Statistics and Excel export**: choose the period (day, month, quarter, year, or from – to) and the products, categories or customers to include. The table shows opening stock, in, out, closing stock, **revenue** and the stock note, with best sellers and a chart; the line above it gives the revenue of the period (goods only) and the shipping and other fees apart. Click **Export to Excel…** to save a file in `output/` (with unit price, amount, revenue, place and note columns).
 
 ### 6. Product catalog
 

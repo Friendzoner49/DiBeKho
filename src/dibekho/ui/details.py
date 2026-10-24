@@ -369,7 +369,7 @@ class CustomerDialog(_Base):
         for d in docs:
             head = QTreeWidgetItem([t("cust.order_head", date=fmt_date(d["doc_date"]), code=d["code"]), "",
                                     t("cust.order_lines", count=d["line_count"]), "", "",
-                                    fmt_money(d["order_total"]), ""])
+                                    fmt_money(d["goods_amount"]), ""])  # goods only: fees are apart
             head.setData(0, Qt.UserRole, d["id"])
             font = head.font(0)
             font.setBold(True)

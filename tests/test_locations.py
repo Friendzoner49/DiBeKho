@@ -257,7 +257,7 @@ def test_period_revenue_matches_the_customer_window(conn, ws):
     a, b = two_notes(conn, ws)
     start, end = date(2026, 10, 1), date(2026, 10, 31)
     m = stats.money(conn, start, end)
-    assert (m.orders, m.goods, m.fees, m.total) == (2, 5500000, 190000, 5690000)
+    assert (m.orders, m.goods, m.fees, m.total) == (2, 5500000, 190000, 5500000)  # revenue = goods; shipping apart
     cust = doc(conn, "1")["customer_id"]
     cm = queries.customer_money(conn, cust, start, end)
     assert stats.money(conn, start, end, stats.Filters(customer_ids=[cust])).total == cm["total"]
@@ -267,7 +267,7 @@ def test_period_revenue_matches_the_customer_window(conn, ws):
     assert rows == {a: 4200000, b: 1300000}
     with db.transaction(conn):
         close_document(conn, doc(conn, "2")["id"])
-    assert stats.money(conn, start, end).total == 3590000  # cancelled orders are no revenue
+    assert stats.money(conn, start, end).total == 3400000  # cancelled orders are no revenue
 
 
 def test_details_sheet_keeps_two_prices_of_one_product_on_one_note(conn, ws):
@@ -287,7 +287,7 @@ def test_statistics_file_has_money_places_and_notes(conn, ws, tmp_path):
                          set(report.SHEETS), "10/2026", "Tất cả")
     wb = openpyxl.load_workbook(path)
     text = " ".join(str(c.value) for s in wb.worksheets for row in s.iter_rows() for c in row if c.value)
-    assert "5.690.000" in text and "1 thùng hết hạn" in text and "Kho tổng" in text
+    assert "5.500.000" in text and "190.000" in text and "1 thùng hết hạn" in text and "Kho tổng" in text
     summary = wb.worksheets[0]
     head = [c.value for c in summary[6]]
     revenue = [r[head.index("Doanh thu")] for r in summary.iter_rows(min_row=7, values_only=True)]
@@ -302,8 +302,8 @@ def test_customer_file_lists_each_order_with_its_prices(conn, ws, tmp_path):
     wb = openpyxl.load_workbook(path)
     orders = [r for r in wb.worksheets[0].iter_rows(min_row=7, values_only=True)]
     assert [(r[1], r[3], r[10]) for r in orders] == [
-        ("1", "vữa chống thấm", 2100000), ("1", "chất cố định cát", 1300000), ("1", i18n.t("cust.fees"), 190000),
-        ("1", "Tổng tiền đơn", 3590000)]  # order 2 is after the period
+        ("1", "vữa chống thấm", 2100000), ("1", "chất cố định cát", 1300000), ("1", "Tiền hàng của đơn", 3400000),
+        ("1", i18n.t("cust.fees"), 190000)]  # fees apart, after the goods; order 2 is after the period
     products = list(wb.worksheets[1].iter_rows(min_row=7, values_only=True))
     assert len(products) == 2 and {p[7] for p in products} == {2100000, 1300000}
 

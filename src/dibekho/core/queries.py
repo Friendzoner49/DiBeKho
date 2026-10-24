@@ -10,7 +10,8 @@ def _iso(d: date | None) -> str | None:
 
 
 # Money of one delivery note (alias d), as correlated subqueries so joins with its lines never multiply it.
-# order total = goods (sum of line amounts) + fees; NULL when the note has no price at all.
+# order total = goods (sum of line amounts) + fees, as printed on the note; NULL when the note has no price.
+# Revenue counts the goods only: shipping and other fees are shown apart (the user's rule, 24/10/2026).
 _GOODS = "(SELECT SUM(x.amount) FROM document_lines x WHERE x.document_id = d.id)"
 _UNPRICED = "(SELECT COUNT(*) FROM document_lines x WHERE x.document_id = d.id AND x.amount IS NULL)"
 _TOTAL = f"(CASE WHEN {_GOODS} IS NULL AND d.fee_amount IS NULL THEN NULL " \
@@ -111,7 +112,7 @@ def customers(conn, text=""):
     return conn.execute(
         f"""
         SELECT c.*, COUNT(d.id) AS order_count, MIN(d.doc_date) AS first_order, MAX(d.doc_date) AS last_order,
-               SUM({_TOTAL}) AS revenue
+               SUM({_GOODS}) AS revenue
         FROM customers c
         LEFT JOIN documents d ON d.customer_id = c.id AND d.kind = 'delivery' AND d.status = 'active'
         {where}
@@ -135,13 +136,13 @@ def customer(conn, customer_id: int):
 
 
 def customer_money(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
-    """Orders, goods, fees and total (revenue) of a customer in a period; unpriced = orders with a line
+    """Orders, goods, fees and revenue ('total' = goods only; fees apart) of a customer in a period; unpriced = orders with a line
     whose price is unknown (their known lines still count)."""
     where, args = ["d.customer_id = ?", "d.kind = 'delivery'", "d.status = 'active'"], [customer_id]
     _period(where, args, date_from, date_to)
     return conn.execute(
         f"""
-        SELECT COUNT(*) AS orders, SUM({_GOODS}) AS goods, SUM(d.fee_amount) AS fees, SUM({_TOTAL}) AS total,
+        SELECT COUNT(*) AS orders, SUM({_GOODS}) AS goods, SUM(d.fee_amount) AS fees, SUM({_GOODS}) AS total,
                SUM(CASE WHEN {_UNPRICED} > 0 THEN 1 ELSE 0 END) AS unpriced
         FROM documents d WHERE {' AND '.join(where)}
         """,
