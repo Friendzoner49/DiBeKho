@@ -1,3 +1,4 @@
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton
 
 from dibekho.core import catalog
@@ -121,5 +122,7 @@ class StockPage(Page):
             ProductDialog(self.ctx, row_id(self.table, idx.row()), self).exec()
 
     def _note_edited(self, item):
-        if item.column() == NOTE:
-            save_stock_note(self.ctx, row_id(self.table, item.row()), item.text())
+        # the table is rebuilt after the edit is committed, not inside it (the edited item would be replaced)
+        if item.column() == NOTE and save_stock_note(self.ctx, row_id(self.table, item.row()), item.text(),
+                                                     notify=False):
+            QTimer.singleShot(0, self.ctx.notify)

@@ -538,5 +538,6 @@
   "undo.places": "Chọn nơi lấy hàng",
   "undo.transfer": "Chuyển hàng",
   "undo.stock_note": "Ghi chú tồn kho",
-  "undo.low_default": "Mức báo động"
+  "undo.low_default": "Mức báo động",
+  "doc.location_change_hint": "Đổi nơi ở đây nếu chọn nhầm. Nếu đã kiểm kê sau ngày của đơn, số từng nơi sẽ lệch khỏi số đã đếm: kiểm kê lại nơi đó."
 }

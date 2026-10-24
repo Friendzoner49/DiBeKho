@@ -31,6 +31,15 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
     cfg = Config(workspace=str(ws.root), language=lang, device_id="x", device_name="test")
     ctx = AppContext(cfg, ws)
     setup_notes(ctx.conn, ws)
+    from datetime import date
+
+    from dibekho import db
+    from dibekho.core.stock import MAIN, OFFICE, Line, stock_count, transfer
+
+    prod = ctx.conn.execute("SELECT id FROM products LIMIT 1").fetchone()[0]
+    with db.transaction(ctx.conn):  # a count per place and a transfer, so their windows are opened too
+        count_doc = stock_count(ctx.conn, date(2026, 10, 5), {(prod, MAIN): 9, (prod, OFFICE): 1, prod + 1: 3})
+        transfer_doc = transfer(ctx.conn, date(2026, 10, 6), MAIN, OFFICE, [Line(prod, 2)])
     win = MainWindow(ctx)
     win.show()
     win.rescan()
@@ -40,8 +49,10 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
 
     doc = ctx.conn.execute("SELECT id FROM documents LIMIT 1").fetchone()[0]
     cust = ctx.conn.execute("SELECT id FROM customers LIMIT 1").fetchone()[0]
-    prod = ctx.conn.execute("SELECT id FROM products LIMIT 1").fetchone()[0]
-    for dlg in (DocumentDialog(ctx, doc, win), CustomerDialog(ctx, cust, win), ProductDialog(ctx, prod, win)):
+    from dibekho.ui.count_page import TransferDialog
+
+    for dlg in (DocumentDialog(ctx, doc, win), CustomerDialog(ctx, cust, win), ProductDialog(ctx, prod, win),
+                DocumentDialog(ctx, count_doc, win), DocumentDialog(ctx, transfer_doc, win), TransferDialog(ctx, win)):
         dlg.show()
         app.processEvents()
         dlg.close()
@@ -77,6 +88,12 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
     for key, make in (("search.orders_btn", OrdersPage), ("search.customers_btn", CustomersPage)):
         win.search.open_window(key, make)
         app.processEvents()
+        page = win.search.windows[key].page
+        if key == "search.orders_btn":  # every kind of document, transfers included
+            for k in range(page.kind.count()):
+                page.kind.setCurrentIndex(k)
+                app.processEvents()
+            assert page.table.rowCount() == 1  # the transfer
         win.search.windows[key].close()
     stats_win = win.search.open_window("search.stats_btn", StatsPage)
     app.processEvents()

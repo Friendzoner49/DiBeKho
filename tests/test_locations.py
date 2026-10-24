@@ -107,6 +107,37 @@ def test_a_new_note_waits_for_its_place_and_keeps_it_when_read_again(conn, ws):
     assert places(conn, a) == (-3, 0) and places(conn, b) == (0, 0)
 
 
+def test_a_reused_order_code_does_not_take_the_place_of_an_old_order(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="1", day="02-10-2025", lines=[PAINT])
+    known(conn, ws)
+    old = doc(conn, "1")["id"]
+    with db.transaction(conn):
+        set_location(conn, old, OFFICE)
+    deliveries.reread_document(conn, ws, old)  # old order replaced...
+    (ws.deliveries / "a.xlsx").unlink(missing_ok=True)
+    for f in ws.deliveries_done.rglob("*.xlsx"):
+        f.unlink()
+    deliveries.scan(conn, ws)
+    make_note(ws.deliveries / "b.xlsx", code="1", day="02-10-2026", lines=[SAND])  # ...a new order, same code
+    known(conn, ws)
+    assert doc(conn, "1")["location_set"] == 0  # asked again
+
+
+def test_an_edited_note_keeps_the_place_of_the_version_it_replaces(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="3", lines=[PAINT])
+    known(conn, ws)
+    with db.transaction(conn):
+        set_location(conn, doc(conn, "3")["id"], OFFICE)
+    for f in list(ws.deliveries.rglob("*.xlsx")):
+        f.unlink()
+    make_note(ws.deliveries / "a.xlsx", code="3", lines=[(*PAINT[:2], 5, "")])  # edited: another file
+    deliveries.scan(conn, ws)
+    [row] = [r for r in deliveries.pending_files(conn) if r["status"] == "changed"]
+    deliveries.replace_changed(conn, ws, row["hash"])
+    d = doc(conn, "3")
+    assert (d["location_id"], d["location_set"]) == (OFFICE, 1)
+
+
 def test_lines_added_later_go_to_the_place_of_their_order(conn, ws):
     make_note(ws.deliveries / "a.xlsx", code="9", lines=[PAINT, SAND])
     deliveries.scan(conn, ws)
@@ -330,8 +361,17 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
 
     row = next(r for r in range(stock.table.rowCount()) if stock.table.item(r, 10).text() == "背水涂")
     assert stock.alarm.isVisible() and "Sắp hết" in stock.table.item(row, ALARM).text()  # 23: below 30
-    stock.table.item(row, NOTE).setText("2 thùng in lệch")  # typed in the cell: saved at once
+    from PySide6.QtWidgets import QAbstractItemDelegate, QLineEdit
+
+    stock.table.editItem(stock.table.item(row, NOTE))  # the way a double-click types into the cell
+    editor = stock.table.viewport().findChild(QLineEdit)
+    editor.setText("2 thùng in lệch")
+    stock.table.commitData(editor)
+    stock.table.closeEditor(editor, QAbstractItemDelegate.NoHint)
+    app.processEvents()
     assert ctx.conn.execute("SELECT stock_note FROM products WHERE id = ?", (paint,)).fetchone()[0] == "2 thùng in lệch"
+    row = next(r for r in range(stock.table.rowCount()) if stock.table.item(r, 10).text() == "背水涂")
+    assert stock.table.item(row, NOTE).text() == "2 thùng in lệch"  # the table was rebuilt after the edit
     assert not stock.table.item(row, 1).flags() & count_mod.Qt.ItemIsEditable
 
     count = win.stack.widget(4)

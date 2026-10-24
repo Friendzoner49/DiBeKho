@@ -538,5 +538,6 @@
   "undo.places": "Places of orders",
   "undo.transfer": "Transfer",
   "undo.stock_note": "Stock note",
-  "undo.low_default": "Alert level"
+  "undo.low_default": "Alert level",
+  "doc.location_change_hint": "Change the place here if it was wrong. If a count was made after the date of this order, each place moves away from what was counted: count that place again."
 }

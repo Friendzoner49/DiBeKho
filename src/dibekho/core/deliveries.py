@@ -260,18 +260,22 @@ def _add_known_lines(conn, doc_id: int, note: DeliveryNote) -> None:
         db.log(conn, "delivery_lines_added", f"{note.code}: {len(new)}")
 
 
-def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNote) -> int:
+def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNote, replaces: int | None = None) -> int:
     ws.originals.mkdir(parents=True, exist_ok=True)
     copy = ws.originals / f"{h}.xlsx"
     if not copy.exists():
         shutil.copy2(path, copy)
     customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
     lines = _note_lines(conn, note)
-    # a note read again (or its edited version) keeps the place chosen for it; a new one waits for the user
-    # in Cần xử lý, its goods taken from Kho tổng meanwhile, so stock is right in total from the start
-    prev = conn.execute(
-        "SELECT location_id, location_set FROM documents WHERE kind = 'delivery' AND code_norm = ? "
-        "AND status = 'replaced' ORDER BY id DESC LIMIT 1", (note.code_norm,)).fetchone()
+    # a note read again (same file) or its edited version (replaces) keeps the place chosen for it; a new one
+    # waits for the user in Cần xử lý, its goods taken from Kho tổng meanwhile, so the total is right at once.
+    # Not by order code alone: a code may come back years later on another order.
+    if replaces is not None:
+        prev = conn.execute("SELECT location_id, location_set FROM documents WHERE id = ?", (replaces,)).fetchone()
+    else:
+        prev = conn.execute(
+            "SELECT location_id, location_set FROM documents WHERE kind = 'delivery' AND source_hash = ? "
+            "AND status = 'replaced' ORDER BY id DESC LIMIT 1", (h,)).fetchone()
     doc_id = insert_document(
         conn, "delivery", note.doc_date, lines, code=note.code, code_norm=note.code_norm,
         customer_id=customer_id, source_file=rel, source_hash=h,
@@ -679,7 +683,7 @@ def replace_changed(conn, ws: Workspace, h: str) -> None:
         old = _active_delivery(conn, note.code_norm)
         if old is not None:
             close_document(conn, old["id"], "replaced")
-        doc_id = _import(conn, ws, path, row["rel_path"], h, note)
+        doc_id = _import(conn, ws, path, row["rel_path"], h, note, replaces=old["id"] if old is not None else None)
         if unknown:
             _record(conn, h, row["rel_path"], "needs_mapping", f"{len(unknown)} dòng hàng chưa nhận ra", doc_id)
 

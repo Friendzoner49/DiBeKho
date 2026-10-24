@@ -119,6 +119,8 @@ class DocumentDialog(_Base):
             place.addWidget(self.location)
             if not head["location_set"] and head["status"] == "active":
                 place.addWidget(hint_label(t("doc.location_unset")))
+            else:
+                place.addWidget(hint_label(t("doc.location_change_hint")))
             place.addStretch()
             form.addRow(t("loc.taken_from") + ":", place)
         elif kind == "receipt":

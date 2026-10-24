@@ -538,5 +538,6 @@
   "undo.places": "选择出货地点",
   "undo.transfer": "调拨",
   "undo.stock_note": "库存备注",
-  "undo.low_default": "提醒值"
+  "undo.low_default": "提醒值",
+  "doc.location_change_hint": "如选错可在此修改。若在此订单日期之后已盘点，各处数量会偏离盘点数：请重新盘点该处。"
 }
