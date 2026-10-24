@@ -13,13 +13,15 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
 )
 
 from dibekho import db
 from dibekho.core import deliveries, queries, receipts
 from dibekho.core.stock import close_document
-from dibekho.core.text import fmt_qty
+from dibekho.core.text import fmt_money, fmt_qty
 from dibekho.i18n import t
 from dibekho.ui.common import (
     RED,
@@ -35,6 +37,7 @@ from dibekho.ui.common import (
     info,
     kind_text,
     make_table,
+    money_item,
     num_item,
     open_path,
     row_id,
@@ -128,6 +131,11 @@ class DocumentDialog(_Base):
                        t("col.difference")]
             rows = [[ln["code"], ln["name_vi"], ln["spec"], ln["variant"], num_item(ln["qty"]),
                      num_item(diffs.get(ln["product_id"], 0))] for ln in lines]
+        elif kind == "delivery":
+            headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.qty"),
+                       t("col.unit"), t("col.unit_price"), t("col.amount"), t("col.note")]
+            rows = [[ln["code"], ln["name_vi"], ln["name_zh"], ln["spec"], ln["variant"], num_item(ln["qty"]), ln["unit"],
+                     money_item(ln["unit_price"]), money_item(ln["amount"]), ln["note"]] for ln in lines]
         else:
             headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.qty"),
                        t("col.unit"),
@@ -141,6 +149,15 @@ class DocumentDialog(_Base):
         if kind in ("delivery", "receipt"):
             total = sum(ln["qty"] for ln in lines)
             self.layout_.addWidget(hint_label(t("doc.total", lines=len(lines), qty=fmt_qty(total))))
+        if kind == "delivery" and head["order_total"] is not None:
+            self.layout_.addWidget(QLabel(t("doc.money", goods=fmt_money(head["goods_amount"] or 0),
+                                            fees=fmt_money(head["fee_amount"] or 0),
+                                            total=fmt_money(head["order_total"]))))
+            printed = head["note_total"]
+            if printed is not None and abs(printed - head["order_total"]) >= 1:
+                self.layout_.addWidget(hint_label(t("doc.money_printed", total=fmt_money(printed))))
+        if kind == "delivery" and head["unpriced_lines"]:
+            self.layout_.addWidget(hint_label(t("doc.unpriced", count=head["unpriced_lines"])))
         self.layout_.addWidget(hint_label(t("doc.hint_open_product")))
 
         buttons = QHBoxLayout()
@@ -240,7 +257,11 @@ class CustomerDialog(_Base):
         form.addRow(t("cust.summary") + ":", QLabel(t("cust.summary_value", count=c["order_count"],
                                                          first=fmt_date(c["first_order"]),
                                                          last=fmt_date(c["last_order"]))))
+        self.money = QLabel()
+        form.addRow(t("cust.money") + ":", self.money)
+        self.unpriced = hint_label("")
         self.layout_.addLayout(form)
+        self.layout_.addWidget(self.unpriced)
 
         bar = QHBoxLayout()
         self.all_time = QCheckBox(t("filter.all_time"))
@@ -265,19 +286,21 @@ class CustomerDialog(_Base):
         box1 = QGroupBox(t("cust.products_title"))
         l1 = QVBoxLayout(box1)
         self.products = make_table([t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
-                                    t("col.total_qty"),
-                                    t("col.unit"), t("col.times"), t("col.last_date")], stretch=0)
+                                    t("col.total_qty"), t("col.unit"), t("col.revenue"), t("col.price_range"),
+                                    t("col.times"), t("col.last_date")], stretch=0)
         self.products.doubleClicked.connect(
             lambda idx: ProductDialog(self.ctx, row_id(self.products, idx.row()), self).exec())
         l1.addWidget(self.products)
         box2 = QGroupBox(t("cust.orders_title"))
         l2 = QVBoxLayout(box2)
-        self.orders = make_table([t("col.date"), t("col.doc_code"), t("col.lines"), t("col.total_qty"),
-                                  t("col.file")], stretch=4)
-        self.orders.doubleClicked.connect(self.open_order)
+        self.orders = QTreeWidget()
+        self.orders.setHeaderLabels([t("col.order_or_product"), t("col.spec"), t("col.qty"), t("col.unit"),
+                                     t("col.unit_price"), t("col.amount"), t("col.note")])
+        self.orders.setAlternatingRowColors(True)
+        self.orders.itemDoubleClicked.connect(self.open_order)
         l2.addWidget(self.orders)
-        self.layout_.addWidget(box1, 3)
-        self.layout_.addWidget(box2, 2)
+        self.layout_.addWidget(box1, 2)
+        self.layout_.addWidget(box2, 3)
         self.add_close()
         self.refresh()
 
@@ -290,20 +313,68 @@ class CustomerDialog(_Base):
         self.date_from.setEnabled(not self.all_time.isChecked())
         self.date_to.setEnabled(not self.all_time.isChecked())
         start, end = self._range()
+        money = queries.customer_money(self.ctx.conn, self.customer_id, start, end)
+        self.money.setText(t("cust.money_value", total=fmt_money(money["total"] or 0), orders=money["orders"],
+                             goods=fmt_money(money["goods"] or 0), fees=fmt_money(money["fees"] or 0)))
+        self.unpriced.setText(t("cust.unpriced", count=money["unpriced"]) if money["unpriced"] else "")
+        self.unpriced.setVisible(bool(money["unpriced"]))
         prods = queries.customer_products(self.ctx.conn, self.customer_id, start, end)
         fill_table(self.products,
-                   [[p["name_vi"], p["name_zh"], p["spec"], p["variant"], num_item(p["total_qty"]), p["unit"], num_item(p["times"]),
+                   [[p["name_vi"], p["name_zh"], p["spec"], p["variant"], num_item(p["total_qty"]), p["unit"],
+                     money_item(p["revenue"]), _price_range(p["min_price"], p["max_price"]), num_item(p["times"]),
                      date_item(p["last_date"])] for p in prods],
                    ids=[p["id"] for p in prods])
-        docs = queries.documents(self.ctx.conn, "delivery", start, end, customer_id=self.customer_id)
-        fill_table(self.orders,
-                   [[date_item(d["doc_date"]), d["code"], num_item(d["line_count"]), num_item(d["total_qty"]),
-                     d["source_file"]] for d in docs],
-                   ids=[d["id"] for d in docs])
+        self._fill_orders(start, end)
 
-    def open_order(self, idx):
-        DocumentDialog(self.ctx, row_id(self.orders, idx.row()), self).exec()
-        self.refresh()
+    def _fill_orders(self, start, end):
+        """Each order (newest first) with its lines and prices underneath, then its other fees."""
+        docs = queries.documents(self.ctx.conn, "delivery", start, end, customer_id=self.customer_id)
+        lines: dict[int, list] = {}
+        for ln in queries.customer_lines(self.ctx.conn, self.customer_id, start, end):
+            lines.setdefault(ln["document_id"], []).append(ln)
+        right = Qt.AlignRight | Qt.AlignVCenter
+        self.orders.clear()
+        for d in docs:
+            head = QTreeWidgetItem([t("cust.order_head", date=fmt_date(d["doc_date"]), code=d["code"]), "",
+                                    t("cust.order_lines", count=d["line_count"]), "", "",
+                                    fmt_money(d["order_total"]), ""])
+            head.setData(0, Qt.UserRole, d["id"])
+            font = head.font(0)
+            font.setBold(True)
+            for c in (0, 5):
+                head.setFont(c, font)
+            head.setTextAlignment(5, right)
+            for ln in lines.get(d["id"], []):
+                name = " · ".join(x for x in (ln["name_vi"], ln["variant"]) if x)
+                child = QTreeWidgetItem([name, ln["spec"], fmt_qty(ln["qty"]), ln["unit"],
+                                         fmt_money(ln["unit_price"]), fmt_money(ln["amount"]), ln["note"]])
+                child.setData(0, Qt.UserRole, d["id"])
+                child.setToolTip(0, ln["name_zh"])
+                for c in (2, 4, 5):
+                    child.setTextAlignment(c, right)
+                head.addChild(child)
+            if d["fee_amount"]:
+                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", fmt_money(d["fee_amount"]), ""])
+                fee.setData(0, Qt.UserRole, d["id"])
+                fee.setTextAlignment(5, right)
+                head.addChild(fee)
+            self.orders.addTopLevelItem(head)
+        self.orders.expandAll()
+        for c in range(self.orders.columnCount()):
+            self.orders.resizeColumnToContents(c)
+
+    def open_order(self, item, _column=0):
+        doc_id = item.data(0, Qt.UserRole)
+        if doc_id:
+            DocumentDialog(self.ctx, doc_id, self).exec()
+            self.refresh()
+
+
+def _price_range(low, high) -> str:
+    """'1.200.000', or '1.100.000 – 1.200.000' when the price changed over the period."""
+    if low is None:
+        return fmt_money(None)
+    return fmt_money(low) if abs(high - low) < 0.5 else f"{fmt_money(low)} – {fmt_money(high)}"
 
 
 # ---- product ---------------------------------------------------------------
@@ -343,11 +414,12 @@ class ProductDialog(_Base):
 
         box2 = QGroupBox(t("prod.customers_title"))
         l2 = QVBoxLayout(box2)
-        self.customers = make_table([t("col.customer"), t("col.total_qty"), t("col.times"), t("col.last_date")],
-                                    stretch=0)
+        self.customers = make_table([t("col.customer"), t("col.total_qty"), t("col.revenue"), t("col.times"),
+                                     t("col.last_date")], stretch=0)
         tops = queries.product_top_customers(ctx.conn, product_id)
         fill_table(self.customers,
-                   [[c["name"], num_item(c["total_qty"]), num_item(c["times"]), date_item(c["last_date"])]
+                   [[c["name"], num_item(c["total_qty"]), money_item(c["revenue"]), num_item(c["times"]),
+                     date_item(c["last_date"])]
                     for c in tops],
                    ids=[c["id"] for c in tops])
         self.customers.doubleClicked.connect(

@@ -26,8 +26,9 @@ def ws(tmp_path) -> Workspace:
 
 def make_note(path: Path, code="101", day="05-10-2026", customer="Công ty A", phone="0901 234 567",
               lines=(("背水涂\nvữa chống thấm (BACKWATER COATING)", "10KG/thùng", 3, ""),),
-              extra_top_row=False, extra_rows=()) -> Path:
-    """Build a workbook shaped like the customer's PHIẾU GIAO HÀNG."""
+              extra_top_row=False, extra_rows=(), total=None) -> Path:
+    """Build a workbook shaped like the customer's PHIẾU GIAO HÀNG. A line may carry a 5th item, its unit
+    price (default 100000); the amount column is left empty like a formula without a cached value."""
     wb = openpyxl.Workbook()
     ws = wb.active
     rows = [
@@ -45,10 +46,10 @@ def make_note(path: Path, code="101", day="05-10-2026", customer="Công ty A", p
         ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND",
          "金 额\nVND", "备 注\nGhi chú"],
     ]
-    for i, (name, spec, qty, note) in enumerate(lines, start=1):
-        rows.append([i, name, spec, qty, 100000, None, note])
+    for i, (name, spec, qty, note, *price) in enumerate(lines, start=1):
+        rows.append([i, name, spec, qty, price[0] if price else 100000, None, note])
     rows += [list(r) for r in extra_rows]
-    rows.append(["总计大写\n (Tổng cộng viết bằng chữ)", "MỘT TRIỆU"])
+    rows.append(["总计大写\n (Tổng cộng viết bằng chữ)", "MỘT TRIỆU", None, "页小计\n( Tổng số lượng )", None, total])
     rows.append(["送货单位及经手人（盖章）：Người giao hàng"])
     for r in rows:
         ws.append(r)

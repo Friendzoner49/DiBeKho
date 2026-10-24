@@ -12,6 +12,7 @@ from dibekho.ui.common import (
     fill_table,
     from_qdate,
     make_table,
+    money_item,
     num_item,
     row_id,
     status_text,
@@ -68,7 +69,7 @@ class OrdersPage(Page):
         self.count = QLabel()
         self.layout_.addWidget(self.count)
         self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.lines"),
-                                 t("col.total_qty"), t("col.status"), t("col.file")], stretch=2)
+                                 t("col.total_qty"), t("col.order_total"), t("col.status"), t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
         self.layout_.addWidget(self.table)
 
@@ -107,7 +108,9 @@ class OrdersPage(Page):
         rows, colors = [], []
         for d in docs:
             rows.append([date_item(d["doc_date"]), d["code"], d["customer_name"], num_item(d["line_count"]),
-                         num_item(d["total_qty"]), status_text(d["status"]), d["source_file"]])
+                         num_item(d["total_qty"]),
+                         money_item(d["order_total"]) if d["kind"] == "delivery" else "",
+                         status_text(d["status"]), d["source_file"]])
             colors.append(GREY if d["status"] != "active" else None)
         fill_table(self.table, rows, ids=[d["id"] for d in docs])
         for r, color in enumerate(colors):
@@ -129,7 +132,8 @@ class CustomersPage(Page):
         self.text.textChanged.connect(self.refresh)
         self.layout_.addWidget(self.text)
         self.table = make_table([t("col.customer"), t("col.contact"), t("col.phone"), t("col.address"),
-                                 t("col.orders"), t("col.first_order"), t("col.last_order")], stretch=3)
+                                 t("col.orders"), t("col.revenue"), t("col.first_order"), t("col.last_order")],
+                                stretch=3)
         self.table.doubleClicked.connect(
             lambda idx: CustomerDialog(self.ctx, row_id(self.table, idx.row()), self).exec())
         self.layout_.addWidget(self.table)
@@ -138,5 +142,6 @@ class CustomersPage(Page):
         rows = queries.customers(self.ctx.conn, self.text.text().strip())
         fill_table(self.table,
                    [[c["name"], c["contact"], c["phone"], c["address"], num_item(c["order_count"]),
+                     money_item(c["revenue"]),
                      date_item(c["first_order"]), date_item(c["last_order"])] for c in rows],
                    ids=[c["id"] for c in rows])

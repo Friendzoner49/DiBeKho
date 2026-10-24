@@ -163,6 +163,12 @@ def test_code_of_a_receipt_undone_is_not_given_again(conn, ws):
     assert conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "HV005"
 
 
+# migration 007 (prices): a database written by 0.3.0 or earlier has none of these
+PRICE_COLUMNS_DROP = ("ALTER TABLE document_lines DROP COLUMN unit_price", "ALTER TABLE document_lines DROP COLUMN amount",
+                      "ALTER TABLE documents DROP COLUMN fee_amount", "ALTER TABLE documents DROP COLUMN note_total",
+                      "ALTER TABLE documents DROP COLUMN prices_read")
+
+
 def old_package(tmp_path):
     """A data package as DiBeKho 0.2.0 wrote it (schema 5: no suppliers, no receipt source)."""
     import json
@@ -176,7 +182,7 @@ def old_package(tmp_path):
         a = catalog.create_product(conn, "Sơn A", "涂料A", "20KG", unit="thùng")
         insert_document(conn, "receipt", date(2026, 9, 1), [Line(a, 30)], note="quý 3")
         insert_document(conn, "delivery", date(2026, 9, 5), [Line(a, 4)], code="7", code_norm="7")
-    for sql in ("ALTER TABLE documents DROP COLUMN ref_code", "ALTER TABLE documents DROP COLUMN supplier_id",
+    for sql in (*PRICE_COLUMNS_DROP, "ALTER TABLE documents DROP COLUMN ref_code", "ALTER TABLE documents DROP COLUMN supplier_id",
                 "ALTER TABLE documents DROP COLUMN receipt_source", "DROP TABLE suppliers", "PRAGMA user_version = 5"):
         conn.execute(sql)
     conn.close()

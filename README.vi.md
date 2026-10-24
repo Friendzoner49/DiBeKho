@@ -27,12 +27,13 @@ Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc 
 - 📥 **Nhập hàng về** trong một cửa sổ: từ cửa khẩu / công ty mẹ, hoặc khách trả lại.
 - 🔢 **Kiểm kê:** gõ số đếm thực tế, app ghi phần chênh lệch.
 - 🔎 **Tra cứu** mặt hàng, khách, số điện thoại, mã phiếu; gõ không dấu hay tiếng Trung đều được.
+- 💰 **Doanh thu theo khách:** tổng tiền, mặt hàng khách hay mua, từng đơn với đơn giá và thành tiền, lọc theo khoảng thời gian.
 - 📊 **Thống kê** theo ngày, tháng, quý, năm và **xuất ra Excel**.
 - ↶ **Hoàn tác:** làm nhầm thì bấm một nút là quay lại như cũ.
 - 💾 **Sao lưu tự động** mỗi ngày; **chuyển dữ liệu** sang máy khác bằng một file.
 - 🌐 Giao diện **tiếng Việt, tiếng Anh, tiếng Trung**.
 
-> App **không lưu giá tiền**, chỉ theo dõi số lượng. Dữ liệu nằm trên máy của bạn, không gửi đi đâu.
+> App đọc **giá bán** (đơn giá, thành tiền, phí vận chuyển) ghi trên phiếu giao hàng để tính doanh thu; app không có giá nhập nên không tính lãi. Dữ liệu nằm trên máy của bạn, không gửi đi đâu.
 
 ## Tải và cài đặt
 
@@ -145,8 +146,9 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế, bấm **Lưu ki�
 
 - **Tồn kho:** dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **vàng** = sắp hết. Nháy đúp một mặt hàng để xem lịch sử nhập, xuất.
 - **Tra cứu** (phím **Ctrl+F**): một ô tìm cho mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**.
-- Mở **một đơn hàng**: khách, các dòng hàng, **Mở file gốc**, **Đọc lại phiếu**, **Huỷ phiếu**.
-- Mở **một khách hàng**: mọi đơn của khách và các mặt hàng khách hay mua.
+- Mở **một đơn hàng**: khách, các dòng hàng với **Đơn giá** và **Thành tiền**, tiền hàng + phí khác = tổng tiền, **Mở file gốc**, **Đọc lại phiếu**, **Huỷ phiếu**.
+- Mở **một khách hàng**: **Doanh thu**, các mặt hàng khách hay mua (doanh thu, giá bán), và **từng đơn với giá đầy đủ bên dưới**. Bỏ tick **Mọi thời gian** rồi chọn **Từ … đến …** để xem khách mua gì, giá bao nhiêu trong khoảng thời gian đó.
+- Giá lấy từ cột đơn giá / thành tiền trên phiếu. Phiếu không ghi giá thì ô đó để trống (—) và không tính vào doanh thu.
 
 ### 5. Thống kê và xuất Excel
 

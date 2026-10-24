@@ -29,6 +29,8 @@ class Line:
     raw_spec: str = ""
     note: str = ""
     line_no: int | None = None  # delivery notes: the Excel row, so lines added later can be told apart
+    unit_price: float | None = None  # delivery notes only; None = unknown
+    amount: float | None = None
 
 
 def insert_document(conn, kind, doc_date: date, lines: list[Line], code="", code_norm="",
@@ -59,9 +61,10 @@ def add_lines(conn, doc_id: int, lines: list[Line]) -> None:
 def _insert_lines(conn, doc_id, lines, movement_kind, sign, occurred_on) -> None:
     for i, line in enumerate(lines, start=1):
         conn.execute(
-            "INSERT INTO document_lines(document_id, line_no, product_id, qty, raw_name, raw_spec, note) "
-            "VALUES(?,?,?,?,?,?,?)",
-            (doc_id, line.line_no or i, line.product_id, line.qty, line.raw_name, line.raw_spec, line.note),
+            "INSERT INTO document_lines(document_id, line_no, product_id, qty, raw_name, raw_spec, note, unit_price, "
+            "amount) VALUES(?,?,?,?,?,?,?,?,?)",
+            (doc_id, line.line_no or i, line.product_id, line.qty, line.raw_name, line.raw_spec, line.note,
+             line.unit_price, line.amount),
         )
         _move(conn, line.product_id, sign * line.qty, doc_id, movement_kind, occurred_on)
     db.touch(conn)

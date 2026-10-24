@@ -9,6 +9,23 @@ def _iso(d: date | None) -> str | None:
     return d.isoformat() if d else None
 
 
+# Money of one delivery note (alias d), as correlated subqueries so joins with its lines never multiply it.
+# order total = goods (sum of line amounts) + fees; NULL when the note has no price at all.
+_GOODS = "(SELECT SUM(x.amount) FROM document_lines x WHERE x.document_id = d.id)"
+_UNPRICED = "(SELECT COUNT(*) FROM document_lines x WHERE x.document_id = d.id AND x.amount IS NULL)"
+_TOTAL = f"(CASE WHEN {_GOODS} IS NULL AND d.fee_amount IS NULL THEN NULL " \
+         f"ELSE COALESCE({_GOODS}, 0) + COALESCE(d.fee_amount, 0) END)"
+
+
+def _period(where: list, args: list, date_from: date | None, date_to: date | None, column="d.doc_date") -> None:
+    if date_from:
+        where.append(f"{column} >= ?")
+        args.append(_iso(date_from))
+    if date_to:
+        where.append(f"{column} <= ?")
+        args.append(_iso(date_to))
+
+
 # ---- documents -------------------------------------------------------------
 
 def documents(conn, kind="delivery", date_from: date | None = None, date_to: date | None = None,
@@ -35,7 +52,8 @@ def documents(conn, kind="delivery", date_from: date | None = None, date_to: dat
     return conn.execute(
         f"""
         SELECT d.*, c.name AS customer_name, s.name AS supplier_name,
-               COUNT(l.id) AS line_count, COALESCE(SUM(l.qty), 0) AS total_qty
+               COUNT(l.id) AS line_count, COALESCE(SUM(l.qty), 0) AS total_qty,
+               {_GOODS} AS goods_amount, {_TOTAL} AS order_total, {_UNPRICED} AS unpriced_lines
         FROM documents d
         LEFT JOIN customers c ON c.id = d.customer_id
         LEFT JOIN suppliers s ON s.id = d.supplier_id
@@ -50,8 +68,9 @@ def documents(conn, kind="delivery", date_from: date | None = None, date_to: dat
 
 def document(conn, doc_id: int):
     head = conn.execute(
-        """
-        SELECT d.*, c.name AS customer_name, c.contact, c.phone, c.address, s.name AS supplier_name
+        f"""
+        SELECT d.*, c.name AS customer_name, c.contact, c.phone, c.address, s.name AS supplier_name,
+               {_GOODS} AS goods_amount, {_TOTAL} AS order_total, {_UNPRICED} AS unpriced_lines
         FROM documents d LEFT JOIN customers c ON c.id = d.customer_id
         LEFT JOIN suppliers s ON s.id = d.supplier_id
         WHERE d.id = ?
@@ -90,7 +109,8 @@ def customers(conn, text=""):
         args = [like, like, f"%{''.join(ch for ch in text if ch.isdigit()) or '#'}%", like]
     return conn.execute(
         f"""
-        SELECT c.*, COUNT(d.id) AS order_count, MIN(d.doc_date) AS first_order, MAX(d.doc_date) AS last_order
+        SELECT c.*, COUNT(d.id) AS order_count, MIN(d.doc_date) AS first_order, MAX(d.doc_date) AS last_order,
+               SUM({_TOTAL}) AS revenue
         FROM customers c
         LEFT JOIN documents d ON d.customer_id = c.id AND d.kind = 'delivery' AND d.status = 'active'
         {where}
@@ -113,19 +133,48 @@ def customer(conn, customer_id: int):
     ).fetchone()
 
 
-def customer_products(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
-    """What this customer buys: total quantity, number of orders, last purchase."""
+def customer_money(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
+    """Orders, goods, fees and total (revenue) of a customer in a period; unpriced = orders with a line
+    whose price is unknown (their known lines still count)."""
     where, args = ["d.customer_id = ?", "d.kind = 'delivery'", "d.status = 'active'"], [customer_id]
-    if date_from:
-        where.append("d.doc_date >= ?")
-        args.append(_iso(date_from))
-    if date_to:
-        where.append("d.doc_date <= ?")
-        args.append(_iso(date_to))
+    _period(where, args, date_from, date_to)
+    return conn.execute(
+        f"""
+        SELECT COUNT(*) AS orders, SUM({_GOODS}) AS goods, SUM(d.fee_amount) AS fees, SUM({_TOTAL}) AS total,
+               SUM(CASE WHEN {_UNPRICED} > 0 THEN 1 ELSE 0 END) AS unpriced
+        FROM documents d WHERE {' AND '.join(where)}
+        """,
+        args,
+    ).fetchone()
+
+
+def customer_lines(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
+    """Every line this customer bought in a period, newest order first, with its price."""
+    where, args = ["d.customer_id = ?", "d.kind = 'delivery'", "d.status = 'active'"], [customer_id]
+    _period(where, args, date_from, date_to)
+    return conn.execute(
+        f"""
+        SELECT d.id AS document_id, d.doc_date, d.code, d.fee_amount, l.product_id, l.qty, l.unit_price, l.amount,
+               l.note, p.code AS product_code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit
+        FROM document_lines l
+        JOIN documents d ON d.id = l.document_id
+        JOIN products p ON p.id = l.product_id
+        WHERE {' AND '.join(where)}
+        ORDER BY d.doc_date DESC, d.id DESC, l.line_no
+        """,
+        args,
+    ).fetchall()
+
+
+def customer_products(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
+    """What this customer buys: total quantity, money, number of orders, price range, last purchase."""
+    where, args = ["d.customer_id = ?", "d.kind = 'delivery'", "d.status = 'active'"], [customer_id]
+    _period(where, args, date_from, date_to)
     return conn.execute(
         f"""
         SELECT p.id, p.code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
-               SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date
+               SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date,
+               SUM(l.amount) AS revenue, MIN(l.unit_price) AS min_price, MAX(l.unit_price) AS max_price
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN products p ON p.id = l.product_id
@@ -177,7 +226,8 @@ def product_history(conn, product_id: int, date_from: date | None = None, date_t
 def product_top_customers(conn, product_id: int, limit=10):
     return conn.execute(
         """
-        SELECT c.id, c.name, SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date
+        SELECT c.id, c.name, SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date,
+               SUM(l.amount) AS revenue
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN customers c ON c.id = d.customer_id

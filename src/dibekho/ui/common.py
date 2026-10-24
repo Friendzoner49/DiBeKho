@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import activity, undo
-from dibekho.core.text import fmt_qty, parse_number
+from dibekho.core.text import fmt_money, fmt_qty, parse_number
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
 
@@ -210,6 +210,13 @@ class SortItem(QTableWidgetItem):
 
 def num_item(value) -> SortItem:
     item = SortItem(fmt_qty(value) if value is not None else "", value)
+    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+    return item
+
+
+def money_item(value) -> SortItem:
+    """Amount in VND; an unknown price shows '—' and sorts first."""
+    item = SortItem(fmt_money(value), value)
     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
     return item
 

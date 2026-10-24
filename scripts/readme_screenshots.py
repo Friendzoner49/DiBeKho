@@ -63,6 +63,16 @@ NOTES = [  # code, day, customer, [(product index, qty, note)]
     ("109", "09-10-2026", 3, [(2, 6, ""), (6, 2, "")]),
 ]
 
+# made-up selling prices (VND) per product; the October notes of customer 0 get 5% off, so prices vary
+PRICES = [1320000, 660000, 1430000, 820000, 450000, 1200000, 980000, 860000, 39000]
+
+
+def price(i, customer, day):
+    return round(PRICES[i] * (0.95 if customer == 0 and day[3:5] == "10" else 1), -3)
+
+
+SHIPPING = ("", "Phí vận chuyển", None, None, None, 190000, None)
+
 app = QApplication([])
 app.setStyle("Fusion")
 f = app.font()
@@ -94,7 +104,8 @@ receipts.save(conn, receipts.ReceiptInput(
 for code, day, c, lines in NOTES:
     name, phone = CUSTOMERS[c]
     make_note(ws.deliveries / f"2026-{day[3:5]}" / f"phieu-{code}.xlsx", code=code, day=day, customer=name,
-              phone=phone, lines=[(NOTE_NAMES[i], SPECS[i], q, n) for i, q, n in lines])
+              phone=phone, lines=[(NOTE_NAMES[i], SPECS[i], q, n, price(i, c, day)) for i, q, n in lines],
+              extra_rows=[SHIPPING] if code in ("104", "108") else ())
 deliveries.scan(conn, ws)
 def spec_key(spec):
     return spec.split("/")[0].strip().lower()
@@ -145,7 +156,7 @@ shot(d, "chi-tiet-don.png")
 d.close()
 cust = conn.execute("SELECT id FROM customers WHERE name LIKE 'Công ty Xây%'").fetchone()[0]
 d = CustomerDialog(ctx, cust, win)
-d.resize(1100, 640)
+d.resize(1150, 820)
 d.show()
 shot(d, "chi-tiet-khach.png")
 d.close()

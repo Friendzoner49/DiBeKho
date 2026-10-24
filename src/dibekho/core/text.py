@@ -82,6 +82,13 @@ def parse_number(text) -> float:
     return float(s)
 
 
+def fmt_money(value) -> str:
+    """VND, no decimals, dots between thousands like quantities: 1188000 -> '1.188.000'. Unknown -> '—'."""
+    if value is None:
+        return "—"
+    return f"{round(float(value)):,}".replace(",", ".")
+
+
 def fmt_qty(value) -> str:
     """Show 5.0 as '5' and 2.5 as '2.5'."""
     if value is None:

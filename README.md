@@ -27,12 +27,13 @@ You drop Excel delivery notes into a folder. The app reads them, takes the goods
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
 - 🔢 **Stock count:** type what you counted, the app records the difference.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
+- 💰 **Revenue per customer:** total, the products they buy most, every order with unit prices and amounts, for any period.
 - 📊 **Statistics** by day, month, quarter or year, and **export to Excel**.
 - ↶ **Undo:** a mistake is put right with one button.
 - 💾 **Automatic daily backups**; **move all data** to another computer with one file.
 - 🌐 Interface in **Vietnamese, English and Chinese**.
 
-> The app **stores no prices**, only quantities. Your data stays on your computer and is never sent anywhere.
+> The app reads the **selling prices** on the delivery notes (unit price, amount, shipping fee) to work out revenue; it has no purchase prices, so it does not compute profit. Your data stays on your computer and is never sent anywhere.
 
 ## Download and install
 
@@ -147,8 +148,9 @@ Open **Stock count**, pick the date, type what you counted and click **Save coun
 
 - **Stock:** **red** rows = negative stock (a goods in or a stock count is missing); **yellow** rows = running low. Double-click a product to see everything that came in and went out.
 - **Search** (**Ctrl+F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
-- Open **an order**: customer, lines, **Open original file**, **Read note again**, **Cancel document**.
-- Open **a customer**: all their orders and the products they buy most.
+- Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Read note again**, **Cancel document**.
+- Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period.
+- Prices come from the unit price / amount columns of the note. A note without a price leaves the cell empty (—) and it is not counted in revenue.
 
 ### 5. Statistics and Excel export
 

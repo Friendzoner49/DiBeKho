@@ -131,6 +131,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
             conn.execute("DELETE FROM scanned_files WHERE hash = ?", (row["hash"],))
     sort_files(conn, ws, found)
     backfill_customers(conn, ws)
+    backfill_prices(conn, ws)
     result.pending = pending_count(conn)
     return result
 
@@ -225,6 +226,7 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partia
     if existing is not None:  # this very file was imported before, maybe only partly: add what is known now
         with db.transaction(conn):
             _add_known_lines(conn, existing["id"], note)
+            set_money(conn, existing["id"], note)
             _record(conn, h, rel, "needs_mapping" if unknown else "imported", waiting if unknown else "",
                     existing["id"])
         return False
@@ -245,7 +247,8 @@ def _note_lines(conn, note: DeliveryNote, rows=()) -> list[Line]:
     for ln in goods_lines(conn, note):
         pid = catalog.alias_product(conn, ln.key)
         if pid is not None and ln.row not in rows:
-            lines.append(Line(pid, ln.qty, ln.raw_name, ln.spec, ln.note, line_no=ln.row))
+            lines.append(Line(pid, ln.qty, ln.raw_name, ln.spec, ln.note, line_no=ln.row,
+                              unit_price=ln.unit_price, amount=ln.amount))
     return lines
 
 
@@ -272,9 +275,54 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
         if catalog.is_ignored(conn, ln.key):
             conn.execute("INSERT INTO document_skipped_lines(document_id, key, raw_name) VALUES(?,?,?)",
                          (doc_id, ln.key, ln.raw_name))
+    set_money(conn, doc_id, note)
     _record(conn, h, rel, "imported", "", doc_id)
     db.log(conn, "delivery_imported", f"{note.code} ({rel})")
     return doc_id
+
+
+def set_money(conn, doc_id: int, note: DeliveryNote) -> None:
+    """Prices of a recorded delivery note, from the note itself: each document line gets the unit price and
+    amount of its line on the note, the document its fees (rows that are not goods) and the printed total.
+    A document line is matched by name + packing + quantity (Excel row only to break ties: notes recorded by
+    early versions numbered their lines 1..n); a line that matches nothing keeps NULL prices."""
+    priced = note.total is not None or note.fees or any(ln.amount is not None for ln in note.lines)
+    fees = sum(a for _, a in note.fees) + sum(ln.amount or 0 for ln in note.lines if catalog.is_ignored(conn, ln.key))
+    conn.execute("UPDATE documents SET fee_amount = ?, note_total = ?, prices_read = 1 WHERE id = ?",
+                 (fees if priced else None, note.total, doc_id))
+    free = list(note.lines)
+    for row in conn.execute("SELECT id, line_no, qty, raw_name, raw_spec FROM document_lines WHERE document_id = ? "
+                            "ORDER BY line_no", (doc_id,)).fetchall():
+        key = match_key(row["raw_name"], row["raw_spec"])
+        same = [ln for ln in free if ln.key == key and abs(ln.qty - row["qty"]) < 1e-9]
+        if not same:
+            continue
+        ln = next((x for x in same if x.row == row["line_no"]), same[0])
+        free.remove(ln)
+        conn.execute("UPDATE document_lines SET unit_price = ?, amount = ? WHERE id = ?",
+                     (ln.unit_price, ln.amount, row["id"]))
+
+
+def backfill_prices(conn, ws: Workspace) -> int:
+    """Notes recorded before prices were read (version 0.3.0 and earlier, or a data package from it): read their
+    stored copies once. A note without a stored copy is marked so it is not tried again. Returns the number
+    of notes read."""
+    done = 0
+    for d in conn.execute(
+        "SELECT id, source_hash FROM documents WHERE kind = 'delivery' AND prices_read = 0"
+    ).fetchall():
+        path = original_copy(ws, d["source_hash"]) if d["source_hash"] else None
+        try:
+            note = read_delivery_note(path) if path else None
+        except (OSError, NotDeliveryNote, DeliveryNoteError):
+            note = None
+        with db.transaction(conn):
+            if note is None:
+                conn.execute("UPDATE documents SET prices_read = -1 WHERE id = ?", (d["id"],))
+            else:
+                set_money(conn, d["id"], note)
+                done += 1
+    return done
 
 
 def goods_lines(conn, note: DeliveryNote):
