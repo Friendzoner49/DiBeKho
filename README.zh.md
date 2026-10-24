@@ -235,7 +235,7 @@ DiBeKho/
   </tr>
   <tr>
     <td><img src="docs/images/zh/thong-ke.png" alt="统计"><br><b>统计：</b>按期间统计入库、出库和库存，导出 Excel</td>
-    <td><img src="docs/images/zh/chi-tiet-khach.png" alt="客户详情"><br><b>客户详情：</b>常买商品和历史订单</td>
+    <td><img src="docs/images/zh/chi-tiet-khach.png" alt="客户详情"><br><b>客户详情：</b>销售额、常买商品、每张订单及价格</td>
   </tr>
 </table>
 

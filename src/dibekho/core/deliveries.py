@@ -286,7 +286,7 @@ def set_money(conn, doc_id: int, note: DeliveryNote) -> None:
     amount of its line on the note, the document its fees (rows that are not goods) and the printed total.
     A document line is matched by name + packing + quantity (Excel row only to break ties: notes recorded by
     early versions numbered their lines 1..n); a line that matches nothing keeps NULL prices."""
-    priced = note.total is not None or note.fees or any(ln.amount is not None for ln in note.lines)
+    priced = bool(note.fees) or any(ln.amount is not None for ln in note.lines)  # a printed 0 over empty cells is no price
     fees = sum(a for _, a in note.fees) + sum(ln.amount or 0 for ln in note.lines if catalog.is_ignored(conn, ln.key))
     conn.execute("UPDATE documents SET fee_amount = ?, note_total = ?, prices_read = 1 WHERE id = ?",
                  (fees if priced else None, note.total, doc_id))

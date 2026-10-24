@@ -94,6 +94,14 @@ def test_cancelled_orders_and_unknown_prices_are_not_revenue(conn, ws):
     assert head["order_total"] is None and head["unpriced_lines"] == 1
 
 
+def test_a_printed_total_of_0_over_empty_prices_is_no_price(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="000", lines=[(*SAND[:4], "")], total=0)
+    known(conn, ws)
+    d = doc(conn, "000")
+    head, _ = queries.document(conn, d["id"])
+    assert d["note_total"] == 0 and d["fee_amount"] is None and head["order_total"] is None
+
+
 def test_a_line_decided_later_gets_its_price_and_a_dropped_line_is_a_fee(conn, ws):
     fee_line = ("运费\nphí giao hàng tận nơi", "chuyến", 1, "", 300000)
     make_note(ws.deliveries / "a.xlsx", code="9", lines=[PAINT, SAND, fee_line])

@@ -246,7 +246,7 @@ DiBeKho/
   </tr>
   <tr>
     <td><img src="docs/images/en/thong-ke.png" alt="Statistics"><br><b>Statistics:</b> in, out and stock per period, Excel export</td>
-    <td><img src="docs/images/en/chi-tiet-khach.png" alt="Customer details"><br><b>Customer details:</b> products they buy most, their orders</td>
+    <td><img src="docs/images/en/chi-tiet-khach.png" alt="Customer details"><br><b>Customer details:</b> revenue, products they buy most, every order with its prices</td>
   </tr>
 </table>
 
