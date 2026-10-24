@@ -8,7 +8,7 @@
 
 **根据 Excel 送货单自动跟踪库存：在自己的电脑上运行，无需联网，零运行成本。**
 
-[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
 <img src="docs/images/zh/ton-kho.png" alt="库存页面" width="860">
@@ -47,8 +47,8 @@
 
 ### Windows
 
-1. 点击页面顶部的 **Windows** 按钮，会下载 `DiBeKho-windows-setup.exe`。
-2. 打开该文件。如果出现蓝色的“Windows 已保护你的电脑”窗口，点击 **更多信息** → **仍要运行**。（应用没有购买代码签名，所以 Windows 会提示；应用是安全的。）
+1. 点击页面顶部的 **Windows** 按钮，会下载 `DiBeKho-windows-setup.zip`。
+2. 打开下载的 `.zip`（在浏览器的下载列表中点击它），然后 **双击其中的 `DiBeKho-windows-setup.exe`**。如果出现蓝色的“Windows 已保护你的电脑”窗口，点击 **更多信息** → **仍要运行**。（应用没有购买代码签名，所以 Windows 会提示；应用是安全的。）
 3. 一直点击 **Next**，直到 **Finish**。不需要管理员权限。
 4. 从“开始”菜单或桌面图标打开 **DiBeKho**。
 
@@ -196,6 +196,8 @@
 **为什么会出现负库存？** 应用不阻止负库存，因为送货单记录的是已经发生的事。通常是缺少到货单或还没有盘点。
 
 **更改语言？** **设置 → 常规 → 语言**。
+
+**Edge 提示“DiBeKho-windows-setup.exe 通常不会被下载”并取消下载？** 这是直接下载 `.exe`（旧链接）时出现的。最快的办法：用页面顶部的 **Windows** 按钮重新下载（`.zip` 文件不会被拦截）。如要保留被拦截的 `.exe`：在 Edge 的下载列表中，把鼠标移到该文件上 → 点击 **…** → 选择保留（*Keep*）→ 显示更多（*Show more*）→ 仍然保留（*Keep anyway*）。应用没有付费代码签名，所以 Edge 会提示；从本页下载的文件是安全的。
 
 **文字和按钮太小或太大？** **设置 → 常规 → 文字和按钮大小**（100–150%），然后关闭并重新打开应用。
 

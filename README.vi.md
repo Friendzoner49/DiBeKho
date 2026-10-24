@@ -8,7 +8,7 @@
 
 **Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: chạy ngay trên máy, không cần internet, chi phí 0₫.**
 
-[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
 <img src="docs/images/ton-kho.png" alt="Màn hình Tồn kho" width="860">
@@ -45,8 +45,8 @@ Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc 
 
 ### Windows
 
-1. Bấm nút **Windows** ở đầu trang. Máy tải file `DiBeKho-windows-setup.exe`.
-2. Mở file vừa tải. Nếu Windows hiện khung xanh "Windows đã bảo vệ PC của bạn": bấm **Thông tin thêm** → **Vẫn chạy**. (App chưa mua chữ ký số nên Windows cảnh báo; app không có hại.)
+1. Bấm nút **Windows** ở đầu trang. Máy tải file `DiBeKho-windows-setup.zip`.
+2. Mở file `.zip` vừa tải (bấm vào nó trong danh sách tải xuống của trình duyệt), rồi **nháy đúp vào `DiBeKho-windows-setup.exe`** bên trong. Nếu Windows hiện khung xanh "Windows đã bảo vệ PC của bạn": bấm **Thông tin thêm** → **Vẫn chạy**. (App chưa mua chữ ký số nên Windows cảnh báo; app không có hại.)
 3. Bấm **Next** cho tới **Finish**. Không cần quyền quản trị.
 4. Mở **DiBeKho** từ menu Start hoặc biểu tượng trên màn hình.
 
@@ -194,6 +194,8 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 **Tồn kho bị âm?** App không chặn, vì phiếu ghi việc đã xảy ra. Tồn âm thường do thiếu phiếu hàng về hoặc chưa kiểm kê.
 
 **Đổi ngôn ngữ?** **Cài đặt → Chung → Ngôn ngữ**.
+
+**Trình duyệt Edge báo "DiBeKho-windows-setup.exe thường không được tải xuống" và huỷ tải?** Đó là khi tải file `.exe` trực tiếp (link cũ). Cách nhanh nhất: tải lại bằng nút **Windows** ở đầu trang (file `.zip`, không bị chặn). Muốn giữ file `.exe` đã bị chặn: trong danh sách tải xuống của Edge, rê chuột lên file → bấm nút **…** → chọn giữ lại (*Keep*) → **Hiển thị thêm** (*Show more*) → vẫn giữ lại (*Keep anyway*). App chưa có chữ ký số nên Edge cảnh báo; file tải từ trang này là an toàn.
 
 **Chữ và nút quá nhỏ hoặc quá to?** **Cài đặt → Chung → Cỡ chữ và nút** (100–150%), tắt và mở lại app.
 

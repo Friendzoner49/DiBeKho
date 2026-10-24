@@ -8,7 +8,7 @@
 
 **Automatic stock tracking from Excel delivery notes: runs on your own computer, no internet needed, zero running cost.**
 
-[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
 <img src="docs/images/en/ton-kho.png" alt="Stock screen" width="860">
@@ -47,8 +47,8 @@ Button names in this guide are those of the English interface. Vietnamese users:
 
 ### Windows
 
-1. Click the **Windows** button at the top of this page. The file `DiBeKho-windows-setup.exe` is downloaded.
-2. Open it. If a blue "Windows protected your PC" box appears, click **More info** → **Run anyway**. (The app has no paid code signature, so Windows warns; it is safe.)
+1. Click the **Windows** button at the top of this page. The file `DiBeKho-windows-setup.zip` is downloaded.
+2. Open the `.zip` (click it in the browser's download list), then **double-click `DiBeKho-windows-setup.exe`** inside. If a blue "Windows protected your PC" box appears, click **More info** → **Run anyway**. (The app has no paid code signature, so Windows warns; it is safe.)
 3. Click **Next** until **Finish**. No administrator rights are needed.
 4. Open **DiBeKho** from the Start menu or the desktop icon.
 
@@ -207,6 +207,8 @@ The app writes what you do and every error into a log (1 MB at most; when full, 
 **Why is a stock negative?** The app does not block it, because a note records what really happened. It usually means a goods in or a stock count is missing.
 
 **Change the language?** **Settings → General → Language**.
+
+**Edge says "DiBeKho-windows-setup.exe isn't commonly downloaded" and cancels the download?** That happens when the `.exe` is downloaded directly (old link). Quickest: download again with the **Windows** button at the top (a `.zip`, which is not blocked). To keep the blocked `.exe`: in Edge's download list, hover over the file → click **…** → **Keep** → **Show more** → **Keep anyway**. The app has no paid code signature, so Edge warns; files downloaded from this page are safe.
 
 **Text and buttons too small or too big?** **Settings → General → Text and button size** (100–150%), then close and reopen the app.
 

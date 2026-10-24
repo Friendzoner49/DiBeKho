@@ -56,10 +56,12 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-      # Fixed names for the README links (the version is in the release title).
+      # Fixed names for the README links (the version is in the release title). The installer is also
+      # zipped: browsers (Edge SmartScreen) block an unsigned, rarely downloaded .exe, not a .zip.
       - run: |
           cp artifacts/*-mac-arm64.dmg DiBeKho-mac-arm64.dmg
           cp artifacts/*-windows-setup.exe DiBeKho-windows-setup.exe
+          zip -j DiBeKho-windows-setup.zip DiBeKho-windows-setup.exe
           ls -la
       # Only once both builds succeeded: remove the old release with this tag (and its files) and every
       # earlier run of this workflow (and its artifacts). The tag itself is kept.
@@ -75,3 +77,4 @@ jobs:
           files: |
             DiBeKho-mac-arm64.dmg
             DiBeKho-windows-setup.exe
+            DiBeKho-windows-setup.zip
