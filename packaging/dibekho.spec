@@ -15,6 +15,7 @@ datas = [
     (str(SRC / "db" / "migrations" / "*.sql"), "dibekho/db/migrations"),
     (str(SRC / "i18n" / "*.json"), "dibekho/i18n"),
     (str(SRC / "ui" / "icon.png"), "dibekho/ui"),
+    (str(SRC / "licenses" / "LICENSES.txt"), "dibekho/licenses"),  # MIT + third-party (Qt: LGPLv3)
 ]
 
 # Qt modules the app never uses; keeps the bundle small.

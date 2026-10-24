@@ -85,8 +85,10 @@ def self_test() -> int:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = QApplication(sys.argv)
     from dibekho.ui.common import AppContext
+    from dibekho.ui.license_dialog import license_text
     from dibekho.ui.main_window import MainWindow
 
+    assert "GNU LESSER GENERAL PUBLIC LICENSE" in license_text()  # shipped with the build (Qt is LGPLv3)
     with tempfile.TemporaryDirectory() as tmp:
         ws = Workspace(Path(tmp) / APP_NAME)
         ws.ensure()

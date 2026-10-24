@@ -258,4 +258,11 @@ uv run ruff check src tests --select F,E9
 - **Build and release:** push a `v*` tag → GitHub Actions builds the Mac and Windows versions and publishes them under **Releases**. Building on your own machine: [docs/chay-thu-va-build.md](docs/chay-thu-va-build.md) (Vietnamese).
 - **Source:** `src/dibekho/` has `db/` (SQLite, migrations), `core/` (business logic), `excel/` (Excel reading and writing), `ui/` (PySide6) and `i18n/`. `core/`, `excel/` and `db/` never import Qt, so they are tested with pytest without opening a window.
 - **Rule:** stock = the sum of stock movements and is never edited directly; cancelling a note adds the opposite movements.
+- **Licenses:** after changing a dependency, run `uv run python scripts/make_licenses.py` (a test checks the versions).
 - **Privacy:** real customer Excel files and `.dibekho` packages are never committed (`samples/`, root `*.xlsx` and `*.dibekho` are in `.gitignore`).
+
+## License
+
+DiBeKho is open-source software under the [MIT License](LICENSE): you may use, copy, change and share it freely, keeping the copyright notice.
+
+The app ships with third-party software under its own licenses, notably **Qt for Python (PySide6), under the GNU LGPL v3**, plus openpyxl (MIT) and Python (PSF). The full list and texts are in the app (**Settings → General → Open-source licenses…**) and in [src/dibekho/licenses/LICENSES.txt](src/dibekho/licenses/LICENSES.txt).

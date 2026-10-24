@@ -47,6 +47,7 @@ from dibekho.ui.common import (
     row_id,
     selected_id,
 )
+from dibekho.ui.license_dialog import LicenseDialog
 from dibekho.ui.log_dialog import LogDialog, TripleClickLabel
 from dibekho.ui.page import Page
 from dibekho.ui.transfer_page import TransferPanel
@@ -176,6 +177,9 @@ class SettingsPage(Page):
         self.version.revealed.connect(lambda: self.log_btn.setVisible(True))
         version_row.addWidget(self.version)
         version_row.addWidget(self.log_btn)
+        licenses = QPushButton(t("license.button"))
+        licenses.clicked.connect(lambda: LicenseDialog(self).exec())
+        version_row.addWidget(licenses)
         version_row.addStretch()
         form.addRow(t("settings.version") + ":", version_row)
         general_lay.addWidget(general)

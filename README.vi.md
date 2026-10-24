@@ -245,4 +245,11 @@ uv run ruff check src tests --select F,E9
 - **Build và phát hành:** đẩy tag `v*` lên GitHub → GitHub Actions build bản Mac + Windows và đăng lên **Releases**. Build trên máy mình: [docs/chay-thu-va-build.md](docs/chay-thu-va-build.md).
 - **Mã nguồn:** `src/dibekho/` gồm `db/` (SQLite, migrations), `core/` (nghiệp vụ), `excel/` (đọc/ghi Excel), `ui/` (PySide6), `i18n/`. `core/`, `excel/`, `db/` không import Qt nên test được bằng pytest không cần cửa sổ.
 - **Nguyên tắc:** tồn = tổng các dòng biến động, không bao giờ sửa trực tiếp; huỷ phiếu = ghi biến động ngược.
+- **Giấy phép:** đổi phiên bản thư viện thì chạy `uv run python scripts/make_licenses.py` (có test kiểm tra phiên bản).
 - **Quyền riêng tư:** file Excel thật của khách và gói `.dibekho` không bao giờ được commit (`samples/`, `*.xlsx` ở thư mục gốc, `*.dibekho` nằm trong `.gitignore`).
+
+## Giấy phép
+
+DiBeKho là phần mềm mã nguồn mở theo [giấy phép MIT](LICENSE): được tự do dùng, sao chép, sửa và chia sẻ, chỉ cần giữ dòng ghi bản quyền.
+
+App có kèm phần mềm của bên thứ ba theo giấy phép riêng, quan trọng nhất là **Qt for Python (PySide6) theo GNU LGPL v3**, cùng openpyxl (MIT) và Python (PSF). Danh sách và toàn văn giấy phép có trong app (**Cài đặt → Chung → Giấy phép mã nguồn mở…**) và trong [src/dibekho/licenses/LICENSES.txt](src/dibekho/licenses/LICENSES.txt).

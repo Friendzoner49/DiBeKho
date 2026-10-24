@@ -463,5 +463,8 @@
   "log.empty": "The log is empty.",
   "log.copied": "Log copied.",
   "log.saved": "A copy of the log was saved:\n{path}\n\nOpen its folder?",
-  "log.confirm_clear": "Clear the whole activity log? Stock data is not affected."
+  "log.confirm_clear": "Clear the whole activity log? Stock data is not affected.",
+  "license.button": "Open-source licenses…",
+  "license.title": "Open-source licenses",
+  "license.hint": "DiBeKho is open-source software under the MIT License. The app uses the software below, each under its own license (Qt for Python is LGPLv3)."
 }

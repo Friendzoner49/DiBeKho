@@ -463,5 +463,8 @@
   "log.empty": "日志为空。",
   "log.copied": "已复制日志。",
   "log.saved": "日志副本已保存：\n{path}\n\n打开所在文件夹？",
-  "log.confirm_clear": "清空全部操作日志？库存数据不受影响。"
+  "log.confirm_clear": "清空全部操作日志？库存数据不受影响。",
+  "license.button": "开源许可…",
+  "license.title": "开源许可",
+  "license.hint": "DiBeKho 是采用 MIT 许可的开源软件。应用使用了以下软件，各自遵循其许可（Qt for Python 采用 LGPLv3）。"
 }

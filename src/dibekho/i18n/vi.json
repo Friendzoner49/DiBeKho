@@ -463,5 +463,8 @@
   "log.empty": "Nhật ký trống.",
   "log.copied": "Đã sao chép nhật ký.",
   "log.saved": "Đã lưu bản sao nhật ký:\n{path}\n\nMở thư mục chứa file?",
-  "log.confirm_clear": "Xoá toàn bộ nhật ký thao tác? Dữ liệu kho không bị ảnh hưởng."
+  "log.confirm_clear": "Xoá toàn bộ nhật ký thao tác? Dữ liệu kho không bị ảnh hưởng.",
+  "license.button": "Giấy phép mã nguồn mở…",
+  "license.title": "Giấy phép mã nguồn mở",
+  "license.hint": "DiBeKho là phần mềm mã nguồn mở theo giấy phép MIT. App có dùng các phần mềm dưới đây, mỗi phần mềm theo giấy phép riêng (Qt for Python theo LGPLv3)."
 }

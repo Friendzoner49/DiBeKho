@@ -247,4 +247,11 @@ uv run ruff check src tests --select F,E9
 - **构建与发布：** 推送 `v*` 标签 → GitHub Actions 构建 Mac 和 Windows 版本并发布到 **Releases**。在自己电脑上构建：[docs/chay-thu-va-build.md](docs/chay-thu-va-build.md)（越南文）。
 - **源码：** `src/dibekho/` 包含 `db/`（SQLite、迁移）、`core/`（业务逻辑）、`excel/`（读写 Excel）、`ui/`（PySide6）和 `i18n/`。`core/`、`excel/`、`db/` 不导入 Qt，可以用 pytest 测试而无需打开窗口。
 - **原则：** 库存 = 所有库存变动之和，从不直接修改；作废单据 = 记录相反的变动。
+- **许可：** 更改依赖版本后运行 `uv run python scripts/make_licenses.py`（有测试检查版本）。
 - **隐私：** 真实的客户 Excel 文件和 `.dibekho` 数据包永远不会提交（`samples/`、根目录的 `*.xlsx` 和 `*.dibekho` 已在 `.gitignore` 中）。
+
+## 许可
+
+DiBeKho 是采用 [MIT 许可](LICENSE) 的开源软件：可以自由使用、复制、修改和分享，只需保留版权声明。
+
+应用附带的第三方软件遵循各自的许可，最重要的是 **Qt for Python（PySide6），采用 GNU LGPL v3**，另有 openpyxl（MIT）和 Python（PSF）。完整列表和许可全文见应用内（**设置 → 常规 → 开源许可…**）以及 [src/dibekho/licenses/LICENSES.txt](src/dibekho/licenses/LICENSES.txt)。
