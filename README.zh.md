@@ -8,7 +8,7 @@
 
 **根据 Excel 送货单自动跟踪库存：在自己的电脑上运行，无需联网，零运行成本。**
 
-[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip)
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
 <img src="docs/images/zh/ton-kho.png" alt="库存页面" width="860">
@@ -45,10 +45,20 @@
 | **Windows** | Windows 10 或 11，64 位 |
 | **Mac** | 使用 **Apple 芯片**（M1、M2、M3、M4…）的 Mac，macOS 13 或更高版本。**不支持** Intel 芯片的 Mac |
 
+### 下载文件
+
+所有文件都在 [**下载（Releases）**](https://github.com/Friendzoner49/DiBeKho/releases/latest) 页面。任选其一：
+
+| 电脑 | 文件 | 何时使用 |
+|---|---|---|
+| Windows | [**安装程序** `DiBeKho-windows-setup.exe`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe) | 默认（页面顶部的 **Windows** 按钮） |
+| Windows | [压缩的安装程序 `DiBeKho-windows-setup.zip`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip) | 浏览器拦截 `.exe` 时（见下文）。里面是同一个安装程序 |
+| Mac | [`DiBeKho-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg) | 使用 Apple 芯片的 Mac（页面顶部的 **macOS** 按钮） |
+
 ### Windows
 
-1. 点击页面顶部的 **Windows** 按钮，会下载 `DiBeKho-windows-setup.zip`。
-2. 打开下载的 `.zip`（在浏览器的下载列表中点击它），然后 **双击其中的 `DiBeKho-windows-setup.exe`**。如果出现蓝色的“Windows 已保护你的电脑”窗口，点击 **更多信息** → **仍要运行**。（应用没有购买代码签名，所以 Windows 会提示；应用是安全的。）
+1. 点击页面顶部的 **Windows** 按钮，会下载安装程序 `DiBeKho-windows-setup.exe`。如果浏览器提示该文件“通常不会被下载”并取消下载：请下载上表中的 **`.zip`**，打开后双击其中的 `DiBeKho-windows-setup.exe`。
+2. 打开安装程序。如果出现蓝色的“Windows 已保护你的电脑”窗口，点击 **更多信息** → **仍要运行**。（应用没有购买代码签名，所以 Windows 会提示；应用是安全的。）
 3. 一直点击 **Next**，直到 **Finish**。不需要管理员权限。
 4. 从“开始”菜单或桌面图标打开 **DiBeKho**。
 
@@ -197,7 +207,7 @@
 
 **更改语言？** **设置 → 常规 → 语言**。
 
-**Edge 提示“DiBeKho-windows-setup.exe 通常不会被下载”并取消下载？** 这是直接下载 `.exe`（旧链接）时出现的。最快的办法：用页面顶部的 **Windows** 按钮重新下载（`.zip` 文件不会被拦截）。如要保留被拦截的 `.exe`：在 Edge 的下载列表中，把鼠标移到该文件上 → 点击 **…** → 选择保留（*Keep*）→ 显示更多（*Show more*）→ 仍然保留（*Keep anyway*）。应用没有付费代码签名，所以 Edge 会提示；从本页下载的文件是安全的。
+**Edge 提示“DiBeKho-windows-setup.exe 通常不会被下载”并取消下载？** 这是因为安装程序没有代码签名（应用是安全的）。最快的办法：下载 [下载文件](#下载文件) 表中的 **`.zip`**，打开后双击其中的安装程序。或者保留被拦截的文件：在 Edge 的下载列表中，把鼠标移到该文件上 → 点击 **…** → 选择保留（*Keep*）→ 显示更多（*Show more*）→ 仍然保留（*Keep anyway*）。
 
 **文字和按钮太小或太大？** **设置 → 常规 → 文字和按钮大小**（100–150%），然后关闭并重新打开应用。
 

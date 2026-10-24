@@ -44,7 +44,7 @@ File `.github/workflows/build.yml` build cả bản Mac (máy Apple Silicon củ
 1. Đẩy code lên một repo GitHub **private**.
 2. **Phát hành:** đẩy tag phiên bản, ví dụ `git tag -a v0.1.1 -m "DiBeKho 0.1.1" && git push origin v0.1.1`.
    Khoảng 10 phút sau, bản Mac và bộ cài Windows tự xuất hiện ở mục **Releases** với tên cố định
-   `DiBeKho-mac-arm64.dmg`, `DiBeKho-windows-setup.exe` và `DiBeKho-windows-setup.zip` (bộ cài nén zip, để Edge không chặn file .exe chưa ký) → hai nút tải ở đầu README (Windows trỏ tới bản .zip) luôn trỏ tới bản mới nhất.
+   `DiBeKho-mac-arm64.dmg`, `DiBeKho-windows-setup.exe` và `DiBeKho-windows-setup.zip` (bộ cài nén zip, để Edge không chặn file .exe chưa ký) → hai nút tải ở đầu README (Windows: bộ cài .exe; bản .zip nằm trong bảng "Các bản tải về") luôn trỏ tới bản mới nhất.
 3. **Chỉ build thử** (không phát hành): tab **Actions** → **build** → **Run workflow** → tải ở mục **Artifacts** của lần chạy đó.
 
 Chi phí: repo private có 2.000 phút miễn phí/tháng, phút trên máy Mac tính gấp 10 → khoảng 20–40 lần build Mac/tháng, đủ dùng.
