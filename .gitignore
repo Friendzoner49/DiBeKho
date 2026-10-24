@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Build output
+build/
+dist/
+
+# Customer data: real names and phone numbers, never commit
+samples/
+/*.xlsx
+*.dibekho
+
+# OS
+.DS_Store
+Thumbs.db
+.ruff_cache/
+
+# Excel lock files
+~$*
+
+# project brief for the AI assistant: kept on this computer only
+CLAUDE*.md
+# private notes kept on this computer only
+02-nghien-cuu-huong-phat-trien-wms.md
+*.bundle
