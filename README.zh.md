@@ -11,6 +11,8 @@
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
+📖 **[详细使用指南（分步骤，附截图）](docs/user-guide.zh.md)**
+
 <img src="docs/images/zh/ton-kho.png" alt="库存页面" width="860">
 
 </div>
@@ -27,7 +29,7 @@
 - 📥 **登记到货**：在一个窗口中完成，来源可以是口岸 / 母公司，或客户退货。
 - 🔢 **盘点**：按存放处（总仓、办公室）填写实盘数量，应用记录差额。两处之间可 **调拨**。
 - 🔎 **查询**商品、客户、电话、单号；越南文可不输入声调，也支持中文。
-- 💰 **按客户统计销售额：** 总额、最常买的商品、每张订单的单价和金额，可按期间筛选。
+- 💰 **按客户统计销售额：** 只计货款（运费另计）、最常买的商品、每张订单的单价和金额，可按期间筛选。
 - 📊 **统计**：按日、月、季度、年统计，并 **导出到 Excel**。
 - ↶ **撤销**：操作失误时，点一个按钮即可恢复。
 - 💾 **每天自动备份**；用一个文件把数据 **迁移到另一台电脑**。
@@ -104,6 +106,8 @@
 **4. 读取第一批送货单：** 见下面的 [每天：送货单](#1-每天送货单)。
 
 ## 使用指南
+
+> 📖 完整的分步骤指南，每个界面都有截图：**[详细使用指南](docs/user-guide.zh.md)**。以下为摘要。
 
 ### 1. 每天：送货单
 
@@ -242,6 +246,10 @@ DiBeKho/
   <tr>
     <td><img src="docs/images/zh/thong-ke.png" alt="统计"><br><b>统计：</b>按期间统计入库、出库和库存，导出 Excel</td>
     <td><img src="docs/images/zh/chi-tiet-khach.png" alt="客户详情"><br><b>客户详情：</b>销售额、常买商品、每张订单及价格</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/zh/kiem-ke.png" alt="盘点"><br><b>盘点：</b>按存放处（总仓、办公室）清点</td>
+    <td><img src="docs/images/zh/chuyen-hang.png" alt="调拨"><br><b>调拨：</b>总仓与办公室之间</td>
   </tr>
 </table>
 

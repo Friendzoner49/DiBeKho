@@ -11,6 +11,8 @@
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
+📖 **[Detailed user guide (step by step, with pictures)](docs/user-guide.md)**
+
 <img src="docs/images/en/ton-kho.png" alt="Stock screen" width="860">
 
 </div>
@@ -27,7 +29,7 @@ You drop Excel delivery notes into a folder. The app reads them, takes the goods
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
 - 🔢 **Stock count** per place (main warehouse, office): type what you counted, the app records the difference. **Transfer** goods between the two.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
-- 💰 **Revenue per customer:** total, the products they buy most, every order with unit prices and amounts, for any period.
+- 💰 **Revenue per customer:** goods only (shipping apart), the products they buy most, every order with unit prices and amounts, for any period.
 - 📊 **Statistics** by day, month, quarter or year, and **export to Excel**.
 - ↶ **Undo:** a mistake is put right with one button.
 - 💾 **Automatic daily backups**; **move all data** to another computer with one file.
@@ -104,6 +106,8 @@ Do these 4 steps once, in this order.
 **4. Read your first delivery notes:** see [Delivery notes every day](#1-delivery-notes-every-day) just below.
 
 ## User guide
+
+> 📖 The full step-by-step guide, with a picture of every screen: **[Detailed user guide](docs/user-guide.md)**. Below is a summary.
 
 ### 1. Delivery notes every day
 
@@ -253,6 +257,10 @@ DiBeKho/
   <tr>
     <td><img src="docs/images/en/thong-ke.png" alt="Statistics"><br><b>Statistics:</b> in, out and stock per period, Excel export</td>
     <td><img src="docs/images/en/chi-tiet-khach.png" alt="Customer details"><br><b>Customer details:</b> revenue, products they buy most, every order with its prices</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/en/kiem-ke.png" alt="Stock count"><br><b>Stock count:</b> per place, main warehouse and office</td>
+    <td><img src="docs/images/en/chuyen-hang.png" alt="Transfer"><br><b>Transfer:</b> between the main warehouse and the office</td>
   </tr>
 </table>
 

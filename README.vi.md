@@ -11,6 +11,8 @@
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
 
+📖 **[Hướng dẫn sử dụng chi tiết (từng bước, có ảnh)](docs/huong-dan-su-dung.md)**
+
 <img src="docs/images/ton-kho.png" alt="Màn hình Tồn kho" width="860">
 
 </div>
@@ -27,7 +29,7 @@ Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc 
 - 📥 **Nhập hàng về** trong một cửa sổ: từ cửa khẩu / công ty mẹ, hoặc khách trả lại.
 - 🔢 **Kiểm kê** từng nơi (Kho tổng, Văn phòng): gõ số đếm thực tế, app ghi phần chênh lệch. **Chuyển hàng** giữa hai nơi.
 - 🔎 **Tra cứu** mặt hàng, khách, số điện thoại, mã phiếu; gõ không dấu hay tiếng Trung đều được.
-- 💰 **Doanh thu theo khách:** tổng tiền, mặt hàng khách hay mua, từng đơn với đơn giá và thành tiền, lọc theo khoảng thời gian.
+- 💰 **Doanh thu theo khách:** tiền hàng (phí vận chuyển tính riêng), mặt hàng khách hay mua, từng đơn với đơn giá và thành tiền, lọc theo khoảng thời gian.
 - 📊 **Thống kê** theo ngày, tháng, quý, năm và **xuất ra Excel**.
 - ↶ **Hoàn tác:** làm nhầm thì bấm một nút là quay lại như cũ.
 - 💾 **Sao lưu tự động** mỗi ngày; **chuyển dữ liệu** sang máy khác bằng một file.
@@ -102,6 +104,8 @@ Làm 4 bước này một lần, theo thứ tự.
 **4. Đọc phiếu giao hàng đầu tiên:** xem mục [Phiếu giao hàng hằng ngày](#1-phiếu-giao-hàng-hằng-ngày) ngay dưới đây.
 
 ## Hướng dẫn sử dụng
+
+> 📖 Bản đầy đủ từng bước, có ảnh cho mọi màn hình: **[Hướng dẫn sử dụng chi tiết](docs/huong-dan-su-dung.md)**. Dưới đây là bản tóm tắt.
 
 ### 1. Phiếu giao hàng hằng ngày
 
@@ -240,6 +244,10 @@ DiBeKho/
   <tr>
     <td><img src="docs/images/thong-ke.png" alt="Thống kê"><br><b>Thống kê:</b> nhập, xuất, tồn theo kỳ, xuất ra Excel</td>
     <td><img src="docs/images/chi-tiet-khach.png" alt="Chi tiết khách"><br><b>Chi tiết khách:</b> doanh thu, mặt hàng hay mua, từng đơn kèm giá</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/kiem-ke.png" alt="Kiểm kê"><br><b>Kiểm kê:</b> đếm từng nơi, Kho tổng và Văn phòng</td>
+    <td><img src="docs/images/chuyen-hang.png" alt="Chuyển hàng"><br><b>Chuyển hàng:</b> giữa Kho tổng và Văn phòng</td>
   </tr>
 </table>
 

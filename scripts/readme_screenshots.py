@@ -14,6 +14,7 @@ from pathlib import Path
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 if sys.platform == "win32":
     os.environ["QT_QPA_FONTDIR"] = "C:/Windows/Fonts"
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dibekho import db, i18n  # noqa: E402
@@ -142,6 +143,9 @@ shot(win, "ton-kho.png")
 make_note(ws.deliveries / "2026-10" / "phieu-110.xlsx", code="110", day="10-10-2026", customer=CUSTOMERS[1][0],
           phone=CUSTOMERS[1][1], lines=[(NOTE_NAMES[0], SPECS[0], 4, ""), ("冷底油\nSơn lót gốc dầu", "15KG/thùng", 2, ""),
                                         ("运费\nPhí vận chuyển", "", 1, "")])
+# and one with known names only: read at once, then waits for its place (Kho tổng / Văn phòng)
+make_note(ws.deliveries / "2026-10" / "phieu-111.xlsx", code="111", day="10-10-2026", customer=CUSTOMERS[2][0],
+          phone=CUSTOMERS[2][1], lines=[(NOTE_NAMES[1], SPECS[1], 3, "", price(1, 2, "10-10-2026"))])
 win.rescan()
 win.nav.setCurrentRow(PENDING)
 shot(win, "can-xu-ly.png")
@@ -150,6 +154,29 @@ win.nav.setCurrentRow(SEARCH)
 win.search.box.setText("an phat")
 win.search.refresh()
 shot(win, "tra-cuu.png")
+
+# Kiểm kê: counts typed for two products, one note
+from dibekho.ui import count_page  # noqa: E402
+
+count = win.stack.widget(4)
+win.nav.setCurrentRow(4)
+app.processEvents()
+for r in range(count.table.rowCount()):
+    pid = count.table.item(r, 0).data(Qt.UserRole)
+    if pid == ids[0]:
+        count.table.item(r, count_page.COUNT_MAIN).setText("20")
+        count.table.item(r, count_page.COUNT_OFFICE).setText("4")
+    elif pid == ids[2]:
+        count.table.item(r, count_page.COUNT_MAIN).setText("18")
+shot(win, "kiem-ke.png")
+dlg = count_page.TransferDialog(ctx, win)
+dlg.resize(980, 560)
+for r in range(dlg.table.rowCount()):
+    if dlg.table.item(r, 0).data(Qt.UserRole) == ids[5]:
+        dlg.table.item(r, 6).setText("2")
+dlg.show()
+shot(dlg, "chuyen-hang.png")
+dlg.done(0)
 
 stats = win.search.open_window(*WINDOWS[2])
 stats.resize(1280, 760)
