@@ -1,6 +1,7 @@
 import json
+import os
 import re
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import openpyxl
@@ -172,11 +173,39 @@ def test_transfer_roundtrip(tmp_path):
     assert stock_levels(conn_b) == levels_a
 
 
-def test_daily_backup_keeps_14(conn, ws):
+def test_daily_backup_keeps_10(conn, ws):
     for day in range(1, 20):
         backup.daily_backup(conn, ws, date(2026, 9, day))
-    assert len(list(ws.backups.glob("DiBeKho_*.sqlite"))) == 14
+    assert len(list(ws.backups.glob("DiBeKho_*.sqlite"))) == backup.KEEP
     assert backup.daily_backup(conn, ws, date(2026, 9, 19)) is None
+
+
+def test_backup_older_than_30_days_is_pruned(conn, ws, monkeypatch):
+    # well under KEEP (10): only the age rule can explain the removal
+    old = backup.snapshot(conn, ws.backups / "DiBeKho_2026-01-01.sqlite")
+    recent = [backup.snapshot(conn, ws.backups / f"DiBeKho_2026-09-{d:02d}.sqlite") for d in range(15, 20)]
+    old_time = (datetime.now() - timedelta(days=31)).timestamp()
+    os.utime(old, (old_time, old_time))
+    backup._prune(ws)
+    assert not old.exists()
+    assert all(p.exists() for p in recent)
+
+
+def test_backup_floor_keeps_newest_3_even_if_old(conn, ws):
+    paths = [backup.snapshot(conn, ws.backups / f"DiBeKho_2026-01-{d:02d}.sqlite") for d in range(1, 4)]
+    old_time = (datetime.now() - timedelta(days=60)).timestamp()
+    for p in paths:
+        os.utime(p, (old_time, old_time))
+    backup._prune(ws)
+    assert all(p.exists() for p in paths)
+
+
+def test_maintenance_runs_every_two_weeks(conn, ws):
+    cfg = Config.create(ws.root)
+    assert backup.maintenance_due(cfg)
+    backup.run_maintenance(conn, ws, cfg)
+    assert cfg.last_cleanup == date.today().isoformat()
+    assert not backup.maintenance_due(cfg)
 
 
 def test_every_translation_key_exists():
@@ -302,6 +331,92 @@ def test_a_deleted_code_is_never_given_again(conn):
     new = catalog.create_product(conn, "D")
     codes = [r[0] for r in conn.execute("SELECT code FROM products ORDER BY code")]
     assert codes == ["SP001", "SP004"] and new != first
+
+
+def test_merge_products_keeps_smaller_code_and_frees_the_larger(conn):
+    from dibekho.core.stock import Line, insert_document
+
+    keep = catalog.create_product(conn, "Sơn A", spec="20KG")  # SP001
+    drop = catalog.create_product(conn, "Sơn A", spec="20KG")  # SP002, a duplicate
+    insert_document(conn, "delivery", date(2026, 10, 1), [Line(drop, 3)], code="1", code_norm="1")
+    catalog.set_alias(conn, "son a|20kg", drop, "Sơn A")
+    survivor = catalog.merge_products(conn, drop, keep)  # order given does not matter
+    assert survivor == keep
+    assert conn.execute("SELECT COUNT(*) FROM products WHERE id = ?", (drop,)).fetchone()[0] == 0
+    assert conn.execute("SELECT product_id FROM document_lines").fetchone()[0] == keep
+    assert conn.execute("SELECT product_id FROM stock_movements").fetchone()[0] == keep
+    assert catalog.alias_product(conn, "son a|20kg") == keep
+    new = catalog.create_product(conn, "Sơn B")  # the freed SP002 is given out again
+    assert conn.execute("SELECT code FROM products WHERE id = ?", (new,)).fetchone()[0] == "SP002"
+
+
+def test_restore_deleted_product_from_backup(conn, ws):
+    pid = catalog.create_product(conn, "Sơn thừa", "涂料", "5KG", unit="thùng", category="Sơn", min_stock=10)
+    catalog.update_product(conn, pid, stock_note="Hộp bị lỗi")
+    backup.named_backup(conn, ws, "truoc-xoa")
+    catalog.delete_product(conn, pid)
+    found = catalog.deleted_products(conn, ws)
+    assert [d.code for d in found] == ["SP001"]
+    data = found[0]
+    assert (data.name_vi, data.name_zh, data.spec, data.unit, data.category, data.min_stock, data.stock_note) == (
+        "Sơn thừa", "涂料", "5KG", "thùng", "Sơn", 10, "Hộp bị lỗi")
+    new_id = catalog.restore_product(conn, data.code, data)
+    assert catalog.find_merge_candidates(conn, new_id, data) == []  # nothing else to confuse it with
+    row = conn.execute("SELECT * FROM products WHERE id = ?", (new_id,)).fetchone()
+    assert row["code"] == "SP001" and row["name_vi"] == "Sơn thừa"
+
+
+def test_find_merge_candidates_via_an_old_alias_key(conn, ws):
+    """The deleted product had a learned name (but, unusually, no document yet -- the only way it could be
+    deleted) pointing to it; by the time it is restored, that same name has been relearned onto a different
+    product. That is the strongest sign of all that the two are the same item."""
+    pid = catalog.create_product(conn, "Sơn thừa", spec="5KG")
+    catalog.set_alias(conn, "son thua|5kg", pid, "Sơn thừa")
+    backup.named_backup(conn, ws, "truoc-xoa")
+    catalog.delete_product(conn, pid)
+    again = catalog.create_product(conn, "Sơn thừa khác chữ", "甲", spec="5KG")  # name_vi alone would miss this
+    catalog.set_alias(conn, "son thua|5kg", again, "Sơn thừa")
+    data = catalog.deleted_products(conn, ws)[0]
+    assert data.alias_keys == ("son thua|5kg",)
+    new_id = catalog.restore_product(conn, data.code, data)
+    candidates = catalog.find_merge_candidates(conn, new_id, data)
+    assert candidates and candidates[0]["id"] == again
+
+
+def test_find_merge_candidates_falls_back_to_the_fuzzy_matcher(conn, ws):
+    """The usual case: a catalog product nobody ever recognised on a note (no alias) is deleted by mistake,
+    then re-created from a note whose own wording does not exactly match the restored product's."""
+    pid = catalog.create_product(conn, "Sơn FS-101", "雨堡垒FS-101防水涂料", "20KG", unit="thùng", variant="Trắng")
+    backup.named_backup(conn, ws, "truoc-xoa")
+    catalog.delete_product(conn, pid)
+    again = catalog.create_product(conn, "Sơn chống thấm FS-101", "雨堡垒FS-101防水涂料（白色）", "20KG/thùng")
+    data = catalog.deleted_products(conn, ws)[0]
+    assert data.alias_keys == ()  # it never had one
+    assert catalog.find_same(conn, data.name_vi, data.spec, data.variant) is None  # the exact match misses too
+    new_id = catalog.restore_product(conn, data.code, data)
+    candidates = catalog.find_merge_candidates(conn, new_id, data)
+    assert any(c["id"] == again for c in candidates)
+
+
+def test_merge_products_fills_empty_fields_from_the_dropped_product(conn):
+    keep = catalog.create_product(conn, "Sơn A", spec="20KG")  # SP001, no notes typed yet
+    drop = catalog.create_product(conn, "Sơn A", "涂料A", "20KG", category="Sơn")
+    catalog.update_product(conn, drop, stock_note="2 thùng in lệch", min_stock=15)
+    catalog.merge_products(conn, keep, drop)
+    row = conn.execute("SELECT * FROM products WHERE id = ?", (keep,)).fetchone()
+    assert (row["name_zh"], row["category"], row["stock_note"], row["min_stock"]) == ("涂料A", "Sơn", "2 thùng in lệch", 15)
+
+
+def test_deleted_products_are_found_in_an_undo_snapshot_and_file_is_untouched(conn, ws):
+    from dibekho.core import undo
+
+    pid = catalog.create_product(conn, "Sơn riêng")
+    point = undo.mark(conn, ws, "delete_product")
+    catalog.delete_product(conn, pid)
+    before = point.stat().st_mtime
+    codes = [d.code for d in catalog.deleted_products(conn, ws)]
+    assert codes == ["SP001"]
+    assert point.stat().st_mtime == before
 
 
 def test_config_keeps_ui_scale(tmp_path, monkeypatch):

@@ -3,6 +3,7 @@
 from dataclasses import replace
 from datetime import datetime
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush
 from PySide6.QtWidgets import (
     QComboBox,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import backup, catalog, deliveries, transfer
+from dibekho.core.stock import stock_levels
 from dibekho.excel import master_data
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -188,6 +190,102 @@ def import_master_file(ctx, parent, path, data=None) -> bool:
     return True
 
 
+class RestoreProductDialog(QDialog):
+    """Products found in a backup but missing from the catalog now (core.catalog.deleted_products),
+    with a checkbox per row."""
+
+    def __init__(self, found: list[catalog.DeletedProduct], parent=None):
+        super().__init__(parent)
+        self.found = found
+        self.setWindowTitle(t("restore.title"))
+        fit_window(self, 1000, 560)
+        lay = QVBoxLayout(self)
+        lay.addWidget(hint_label(t("restore.hint")))
+        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"),
+                                 t("col.variant"), t("col.unit"), t("col.category"), t("restore.col_backup")],
+                                stretch=2)
+        fill_table(self.table, [[d.code, d.name_vi, d.name_zh, d.spec, d.variant, d.unit, d.category,
+                                 d.backup_at.strftime("%d/%m/%Y %H:%M")] for d in found])
+        self.table.setSortingEnabled(False)
+        for r in range(self.table.rowCount()):
+            first = self.table.item(r, 0)
+            first.setFlags((first.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable)
+            first.setCheckState(Qt.Unchecked)
+        lay.addWidget(self.table)
+        box = QDialogButtonBox()
+        box.addButton(t("restore.restore"), QDialogButtonBox.AcceptRole)
+        box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+
+    def selected(self) -> list[catalog.DeletedProduct]:
+        return [self.found[r] for r in range(self.table.rowCount())
+                if self.table.item(r, 0).checkState() == Qt.Checked]
+
+
+class MergeDuplicateDialog(QDialog):
+    """The product just restored might be the same item as one or more already in the catalog (e.g. one
+    created by re-reading a note after the accidental delete). Tick the one row that is really the same
+    product, then 'Gộp' -- the smaller code survives, every document line and stock movement moves onto it,
+    and empty fields are filled from the other side -- or 'Giữ riêng' if none of them actually match."""
+
+    def __init__(self, ctx, restored_row, candidates: list, parent=None):
+        super().__init__(parent)
+        self.candidates = candidates
+        self.setWindowTitle(t("restore.duplicate_title"))
+        fit_window(self, 1000, 360)
+        lay = QVBoxLayout(self)
+        lay.addWidget(hint_label(t("restore.duplicate_hint")))
+        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"),
+                                 t("col.variant"), t("col.stock"), t("restore.col_docs"), t("col.stock_note")],
+                                stretch=2)
+        levels = stock_levels(ctx.conn)
+        rows = [restored_row, *candidates]
+        fill_table(self.table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"],
+                                 num_item(levels.get(p["id"], 0)), num_item(catalog.product_documents(ctx.conn, p["id"])),
+                                 p["stock_note"]] for p in rows])
+        self.table.setSortingEnabled(False)
+        self.table.item(0, 0).setToolTip(t("restore.duplicate_restored"))
+        for r in range(1, self.table.rowCount()):
+            first = self.table.item(r, 0)
+            first.setFlags((first.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable)
+            first.setCheckState(Qt.Unchecked)
+        self.table.itemChanged.connect(self._radio)
+        lay.addWidget(self.table)
+        row = QHBoxLayout()
+        row.addStretch()
+        keep_both = QPushButton(t("restore.duplicate_keep_both"))
+        keep_both.clicked.connect(self.reject)
+        row.addWidget(keep_both)
+        merge = QPushButton(t("restore.duplicate_merge"))
+        merge.clicked.connect(self._try_accept)
+        row.addWidget(merge)
+        lay.addLayout(row)
+
+    def _radio(self, item):
+        if item.column() != 0 or item.row() == 0 or item.checkState() != Qt.Checked:
+            return
+        self.table.blockSignals(True)
+        for r in range(1, self.table.rowCount()):
+            if r != item.row():
+                self.table.item(r, 0).setCheckState(Qt.Unchecked)
+        self.table.blockSignals(False)
+
+    def chosen(self):
+        """The candidate the user picked to merge with, or None."""
+        for r in range(1, self.table.rowCount()):
+            if self.table.item(r, 0).checkState() == Qt.Checked:
+                return self.candidates[r - 1]
+        return None
+
+    def _try_accept(self):
+        if self.chosen() is None:
+            error(self, t("restore.duplicate_pick_first"))
+            return
+        self.accept()
+
+
 class TransferPanel(QWidget):
     """Refreshed by the settings page that contains it."""
 
@@ -236,9 +334,11 @@ class TransferPanel(QWidget):
         now.clicked.connect(self.backup_now)
         restore = QPushButton(t("backup.restore"))
         restore.clicked.connect(self.restore)
+        restore_products = QPushButton(t("restore.button"))
+        restore_products.clicked.connect(self.restore_products)
         folder = QPushButton(t("backup.open_folder"))
         folder.clicked.connect(lambda: open_path(self.ctx.ws.backups))
-        for b in (now, restore, folder):
+        for b in (now, restore, restore_products, folder):
             row2.addWidget(b)
         row2.addStretch()
         lay2.addLayout(row2)
@@ -302,3 +402,31 @@ class TransferPanel(QWidget):
         finally:
             self.ctx.reopen()
         info(self, t("backup.restored"))
+
+    def restore_products(self):
+        found = catalog.deleted_products(self.ctx.conn, self.ctx.ws)
+        if not found:
+            info(self, t("restore.none"))
+            return
+        dlg = RestoreProductDialog(found, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        chosen = dlg.selected()
+        if not chosen:
+            error(self, t("restore.pick_first"))
+            return
+        self.ctx.undo_point("restore_product")
+        merged = 0
+        for data in chosen:
+            with db.transaction(self.ctx.conn):
+                new_id = catalog.restore_product(self.ctx.conn, data.code, data)
+            candidates = catalog.find_merge_candidates(self.ctx.conn, new_id, data)
+            if candidates:
+                restored = self.ctx.conn.execute("SELECT * FROM products WHERE id = ?", (new_id,)).fetchone()
+                dlg = MergeDuplicateDialog(self.ctx, restored, candidates, self)
+                if dlg.exec() == QDialog.Accepted:
+                    with db.transaction(self.ctx.conn):
+                        catalog.merge_products(self.ctx.conn, new_id, dlg.chosen()["id"])
+                    merged += 1
+        self.ctx.notify()
+        info(self, t("restore.done", restored=len(chosen), merged=merged))

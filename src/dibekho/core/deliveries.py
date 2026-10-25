@@ -657,6 +657,43 @@ def reread_document(conn, ws: Workspace, doc_id: int) -> None:
         db.log(conn, "delivery_reread", f"{doc['code']} ({rel})")
 
 
+def _order_keys(conn, doc_id: int) -> set[str]:
+    return {match_key(r["raw_name"], r["raw_spec"]) for r in conn.execute(
+        "SELECT raw_name, raw_spec FROM document_lines WHERE document_id = ?", (doc_id,))}
+
+
+def documents_sharing_names(conn, doc_id: int) -> list[int]:
+    """Other active delivery notes that share at least one learned name with this one: forget_order() rereads
+    them too, because forgetting a name is global, not per-order. Shown in the confirm dialog before acting."""
+    docs: set[int] = set()
+    for key in _order_keys(conn, doc_id):
+        docs.update(documents_with_key(conn, key))
+    docs.discard(doc_id)
+    return sorted(docs)
+
+
+def forget_order(conn, ws: Workspace, doc_id: int) -> int:
+    """Forget every name learned from this note's goods lines ('not goods' lines are left alone -- unignoring
+    a fee like 'Phí vận chuyển' would reread nearly every order) and read every active note containing any of
+    those names again, including this one. Returns the number of notes re-read.
+
+    This is what makes 'Đọc lại phiếu' actually change something: read alone, with the names unchanged, it
+    only reproduces the same note (see doc.confirm_reread before this existed)."""
+    backfill_skipped_lines(conn, ws)
+    doc = conn.execute(
+        "SELECT 1 FROM documents WHERE id = ? AND kind = 'delivery' AND status = 'active'", (doc_id,)
+    ).fetchone()
+    if doc is None:
+        raise ValueError("Chỉ đọc lại được phiếu giao hàng đang hiệu lực.")
+    keys = _order_keys(conn, doc_id)
+    docs = {doc_id} | {d for key in keys for d in documents_with_key(conn, key)}
+    for key in keys:
+        catalog.forget_alias(conn, key)
+    for d in sorted(docs):
+        reread_document(conn, ws, d)
+    return len(docs)
+
+
 def forget_name(conn, ws: Workspace, key: str) -> int:
     """Forget a learned name and read again the notes containing it. Returns the number of notes."""
     backfill_skipped_lines(conn, ws)

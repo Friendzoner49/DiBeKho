@@ -2,6 +2,7 @@
 
 import os
 import platform
+import sqlite3
 import sys
 import traceback
 from importlib import resources
@@ -156,8 +157,10 @@ def main() -> int:
     ctx = AppContext(cfg, ws)
     try:
         backup.daily_backup(ctx.conn, ws)
-    except OSError:
-        pass  # a failed backup must not block daily work; it is retried next start
+        if backup.maintenance_due(cfg):
+            backup.run_maintenance(ctx.conn, ws, cfg)
+    except (OSError, sqlite3.DatabaseError):
+        pass  # a failed backup/cleanup must not block daily work; it is retried next start
 
     window = MainWindow(ctx)
     window.show()

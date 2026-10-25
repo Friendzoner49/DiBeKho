@@ -1,13 +1,18 @@
 """Products, aliases and customers."""
 
 import difflib
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, datetime
 import re
 import sqlite3
+from pathlib import Path
+from urllib.parse import quote
 
 from dibekho import db
+from dibekho.core import backup, undo
 from dibekho.core.stock import stock_count
 from dibekho.core.text import clean, normalize_phone, unaccent
+from dibekho.core.workspace import Workspace
 
 
 def guess_unit(spec: str) -> str:
@@ -21,9 +26,32 @@ def guess_unit(spec: str) -> str:
 
 # highest SPxxx number ever given out: a deleted product's code is never given to another product
 CODE_MAX_KEY = "product_code_max"
+# codes freed by merge_products() (comma-separated, smallest first): given out again before a new one.
+# Kept in meta, not a table, so it travels with data packages and rolls back with Hoàn tác like CODE_MAX_KEY.
+FREED_CODES_KEY = "freed_codes"
+
+
+def _freed_codes(conn) -> list[str]:
+    raw = db.get_meta(conn, FREED_CODES_KEY, "")
+    return [c for c in raw.split(",") if c]
+
+
+def _free_a_code(conn, code: str) -> None:
+    codes = _freed_codes(conn)
+    if code not in codes:
+        db.set_meta(conn, FREED_CODES_KEY, ",".join(codes + [code]))
+
+
+def _consume_freed_code(conn, code: str) -> None:
+    codes = [c for c in _freed_codes(conn) if c != code]
+    db.set_meta(conn, FREED_CODES_KEY, ",".join(codes))
 
 
 def next_product_code(conn: sqlite3.Connection) -> str:
+    """A code freed by merge_products() is given out first (smallest one); otherwise the next SPxxx."""
+    freed = _freed_codes(conn)
+    if freed:
+        return min(freed, key=lambda c: int(c[2:]))
     row = conn.execute(
         "SELECT MAX(CAST(SUBSTR(code, 3) AS INTEGER)) FROM products WHERE code GLOB 'SP[0-9]*'"
     ).fetchone()
@@ -32,12 +60,14 @@ def next_product_code(conn: sqlite3.Connection) -> str:
 
 
 def create_product(conn, name_vi, name_zh="", spec="", unit="", category="", min_stock=0, variant="") -> int:
+    code = next_product_code(conn)
     cur = conn.execute(
         "INSERT INTO products(code, name_vi, name_zh, spec, unit, category, min_stock, variant) "
         "VALUES(?,?,?,?,?,?,?,?)",
-        (next_product_code(conn), clean(name_vi), clean(name_zh), clean(spec),
+        (code, clean(name_vi), clean(name_zh), clean(spec),
          clean(unit) or guess_unit(spec), clean(category), float(min_stock or 0), clean(variant)),
     )
+    _consume_freed_code(conn, code)
     db.touch(conn)
     return cur.lastrowid
 
@@ -76,6 +106,152 @@ def delete_product(conn, product_id) -> None:
     conn.execute("DELETE FROM product_aliases WHERE product_id = ?", (product_id,))
     conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
     db.touch(conn)
+
+
+def _code_num(code: str) -> int:
+    m = re.fullmatch(r"SP(\d+)", code or "")
+    return int(m.group(1)) if m else -1  # a code outside the SPxxx scheme never loses a merge
+
+
+def merge_products(conn, product_id_a: int, product_id_b: int) -> int:
+    """Two products that turned out to be the same item (typically: one restored from a backup after being
+    deleted by mistake, next to a duplicate created in the meantime). Every document line, stock movement
+    and alias of the one with the larger code is moved onto the one with the smaller code; any field left
+    empty on the surviving product (name_zh, category, min_stock, stock_note) is filled from the other one,
+    so a note typed on either side is not lost. The larger one is then deleted and its code freed for the
+    next new product. Returns the id that survived."""
+    a = conn.execute("SELECT * FROM products WHERE id = ?", (product_id_a,)).fetchone()
+    b = conn.execute("SELECT * FROM products WHERE id = ?", (product_id_b,)).fetchone()
+    keep, drop = (a, b) if _code_num(a["code"]) <= _code_num(b["code"]) else (b, a)
+    conn.execute("UPDATE document_lines SET product_id = ? WHERE product_id = ?", (keep["id"], drop["id"]))
+    conn.execute("UPDATE stock_movements SET product_id = ? WHERE product_id = ?", (keep["id"], drop["id"]))
+    conn.execute("UPDATE product_aliases SET product_id = ? WHERE product_id = ?", (keep["id"], drop["id"]))
+    fill = {}
+    for field in ("name_zh", "category", "stock_note"):
+        if not (keep[field] or "").strip() and (drop[field] or "").strip():
+            fill[field] = drop[field]
+    if not (keep["min_stock"] or 0) and (drop["min_stock"] or 0):
+        fill["min_stock"] = drop["min_stock"]
+    if fill:
+        update_product(conn, keep["id"], **fill)
+    conn.execute("DELETE FROM products WHERE id = ?", (drop["id"],))
+    if re.fullmatch(r"SP\d+", drop["code"] or ""):
+        _free_a_code(conn, drop["code"])
+    db.touch(conn)
+    return keep["id"]
+
+
+# ---- restoring a deleted product from a backup -----------------------------
+
+_PRODUCT_COLUMNS = ("code", "name_vi", "name_zh", "spec", "unit", "category", "min_stock", "variant", "stock_note")
+
+
+@dataclass
+class DeletedProduct:
+    code: str
+    name_vi: str
+    name_zh: str
+    spec: str
+    unit: str
+    category: str
+    min_stock: float
+    variant: str
+    stock_note: str
+    backup_at: datetime  # of the newest backup that still has it
+    alias_keys: tuple = ()  # delivery-note names it used to be recognised by, read from that same backup
+
+
+def _open_readonly(path: Path) -> sqlite3.Connection:
+    p = quote(str(path.resolve()).replace("\\", "/"), safe="/:")
+    return sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+
+
+def _backup_files(ws: Workspace) -> list[Path]:
+    """Every backup that might still have a deleted product's row, oldest first (so the newest one read
+    for a given code wins): daily/named backups and Hoàn tác snapshots (the one just before a delete)."""
+    files = backup.list_backups(ws) + [p.path for p in undo.points(ws)]
+    return sorted(set(files), key=lambda p: p.stat().st_mtime)
+
+
+def deleted_products(conn, ws: Workspace) -> list[DeletedProduct]:
+    """Products found in some backup but missing from the catalog now (deleted, by mistake or not).
+    A code already waiting in the freed pool (merged away on purpose) is not offered again.
+    Never writes to a backup file. Old backups (schema before 'variant'/'stock_note' existed) are read too."""
+    current = {r[0] for r in conn.execute("SELECT code FROM products")} | set(_freed_codes(conn))
+    found: dict[str, DeletedProduct] = {}
+    for path in _backup_files(ws):
+        try:
+            b = _open_readonly(path)
+        except sqlite3.Error:
+            continue
+        try:
+            cols = {r[1] for r in b.execute("PRAGMA table_info(products)")}
+            present = [c for c in _PRODUCT_COLUMNS if c in cols]
+            if "code" not in present or "name_vi" not in present:
+                continue
+            has_aliases = bool(b.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'product_aliases'").fetchone())
+            at = datetime.fromtimestamp(path.stat().st_mtime)
+            for row in b.execute(f"SELECT id, {', '.join(present)} FROM products").fetchall():
+                data = dict(zip(("id", *present), row))
+                if data["code"] in current:
+                    continue
+                keys = tuple(r[0] for r in b.execute(
+                    "SELECT key FROM product_aliases WHERE product_id = ?", (data["id"],))) if has_aliases else ()
+                found[data["code"]] = DeletedProduct(
+                    code=data["code"], name_vi=data["name_vi"], name_zh=data.get("name_zh", ""),
+                    spec=data.get("spec", ""), unit=data.get("unit", ""), category=data.get("category", ""),
+                    min_stock=data.get("min_stock", 0) or 0, variant=data.get("variant", ""),
+                    stock_note=data.get("stock_note", ""), backup_at=at, alias_keys=keys,
+                )
+        except sqlite3.Error:
+            continue
+        finally:
+            b.close()
+    return sorted(found.values(), key=lambda p: p.code)
+
+
+def restore_product(conn, code: str, data: DeletedProduct) -> int:
+    """Re-create a deleted product with its original code (freed by delete_product so nothing else could
+    have taken it). It has no stock movements: a product can only be deleted when no document uses it."""
+    cur = conn.execute(
+        "INSERT INTO products(code, name_vi, name_zh, spec, unit, category, min_stock, variant, stock_note) "
+        "VALUES(?,?,?,?,?,?,?,?,?)",
+        (code, data.name_vi, data.name_zh, data.spec, data.unit, data.category, data.min_stock, data.variant,
+         data.stock_note),
+    )
+    _consume_freed_code(conn, code)
+    db.touch(conn)
+    return cur.lastrowid
+
+
+def find_merge_candidates(conn, new_id: int, data: DeletedProduct) -> list[sqlite3.Row]:
+    """Products that might be the same item as the one just restored, best evidence first -- never the
+    restored product itself:
+    1. a product that now owns one of the delivery-note names this one used to be recognised by (read from
+       the same backup): the near-certain sign of a duplicate created by re-reading a note after the mistake;
+    2. an exact name + packing + type match;
+    3. the fuzzy matcher 'Cần xử lý' uses for a line it does not recognise.
+    The caller shows these next to the restored product and merges with merge_products() if the user picks
+    one; it decides which code survives."""
+    seen = {new_id}
+    result = []
+    for key in data.alias_keys:
+        pid = alias_product(conn, key)
+        if pid is not None and pid not in seen:
+            seen.add(pid)
+            row = conn.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
+            if row is not None:
+                result.append(row)
+    same = find_same(conn, data.name_vi, data.spec, data.variant)
+    if same is not None and same["id"] not in seen:
+        seen.add(same["id"])
+        result.append(same)
+    for p in suggest_products(conn, data.name_zh or data.name_vi, data.spec):
+        if p["id"] not in seen:
+            seen.add(p["id"])
+            result.append(p)
+    return result
 
 
 def products(conn, include_inactive=False) -> list[sqlite3.Row]:
@@ -352,6 +528,7 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
                 (code, fields["name_vi"], fields["name_zh"], fields["spec"], fields["unit"], fields["category"],
                  fields["min_stock"], fields["active"], fields["variant"], p.created_at),
             )
+            _consume_freed_code(conn, code)
             row_ids[p.row] = cur.lastrowid
             result["products_new"] += 1
         for c in customers:

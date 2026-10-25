@@ -286,6 +286,48 @@ def test_forget_works_for_notes_read_by_an_older_version(conn, ws):
     assert deliveries.forget_name(conn, ws, dropped.key) == 1
 
 
+def test_forget_order_rereads_the_whole_note_and_notes_sharing_a_name(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A, LINE_B])
+    make_note(ws.deliveries / "b.xlsx", code="2", lines=[LINE_B])
+    map_everything(conn, ws)
+    doc_a = conn.execute("SELECT id FROM documents WHERE code = '1'").fetchone()[0]
+    doc_b = conn.execute("SELECT id FROM documents WHERE code = '2'").fetchone()[0]
+    assert deliveries.documents_sharing_names(conn, doc_a) == [doc_b]
+    assert deliveries.forget_order(conn, ws, doc_a) == 2  # a (its own lines) and b (shares LINE_B)
+    deliveries.scan(conn, ws)
+    unknown = {u.name_vi for u in deliveries.unknown_lines(conn, ws)}
+    assert unknown == {"vữa chống thấm", "chất cố định cát"}
+    files = sorted({f for u in deliveries.unknown_lines(conn, ws) for f in u.files})
+    assert files == ["a.xlsx", "b.xlsx"]
+
+
+def test_forget_order_leaves_fee_lines_dropped(conn, ws):
+    fee = ("运费\nPhí vận chuyển", "", 1, "")
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A, fee])
+    deliveries.scan(conn, ws)
+    for u in deliveries.unknown_lines(conn, ws):
+        (deliveries.ignore_unknown if u.is_fee else deliveries.create_product_for_line)(conn, u)
+    deliveries.scan(conn, ws)
+    doc_a = conn.execute("SELECT id FROM documents").fetchone()[0]
+    assert deliveries.forget_order(conn, ws, doc_a) == 1
+    deliveries.scan(conn, ws)
+    assert [u.name_vi for u in deliveries.unknown_lines(conn, ws)] == ["vữa chống thấm"]  # the fee stays dropped
+
+
+def test_forget_order_refuses_a_cancelled_document(conn, ws):
+    import pytest
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])
+    map_everything(conn, ws)
+    doc_a = conn.execute("SELECT id FROM documents").fetchone()[0]
+    with db.transaction(conn):
+        from dibekho.core.stock import close_document
+
+        close_document(conn, doc_a, "cancelled")
+    with pytest.raises(ValueError):
+        deliveries.forget_order(conn, ws, doc_a)
+
+
 LINE_NEW = ("新产品\nHàng chưa duyệt", "5KG/thùng", 4, "")
 
 

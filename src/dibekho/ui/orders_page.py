@@ -2,7 +2,8 @@
 
 from datetime import date, timedelta
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDateEdit, QGridLayout, QLabel, QLineEdit
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDateEdit, QGridLayout, QLabel, QLineEdit, QMenu
 
 from dibekho.core import catalog, queries
 from dibekho.i18n import t
@@ -15,6 +16,7 @@ from dibekho.ui.common import (
     make_table,
     money_item,
     num_item,
+    reread_whole_note,
     row_id,
     status_text,
     to_qdate,
@@ -82,6 +84,8 @@ class OrdersPage(Page):
                                  t("col.lines"), t("col.total_qty"), t("col.goods"), t("col.fees"), t("col.status"),
                                  t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._context_menu)
         self.layout_.addWidget(self.table)
 
         for sig in (self.kind.currentIndexChanged, self.all_time.toggled, self.date_from.dateChanged,
@@ -134,6 +138,22 @@ class OrdersPage(Page):
 
     def open_doc(self, idx):
         DocumentDialog(self.ctx, row_id(self.table, idx.row()), self).exec()
+
+    def _context_menu(self, pos):
+        idx = self.table.indexAt(pos)
+        if not idx.isValid():
+            return
+        doc_id = row_id(self.table, idx.row())
+        row = self.ctx.conn.execute("SELECT kind, status FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if row is None or row["kind"] != "delivery" or row["status"] != "active":
+            return
+        menu = QMenu(self)
+        menu.addAction(t("btn.reread_doc"), lambda: self._reread(doc_id))
+        menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def _reread(self, doc_id):
+        if reread_whole_note(self.ctx, self, doc_id):
+            self._load()
 
 
 class CustomersPage(Page):

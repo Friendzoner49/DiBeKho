@@ -35,7 +35,6 @@ from dibekho.ui.common import (
     fmt_date,
     from_qdate,
     hint_label,
-    info,
     kind_text,
     location_combo,
     location_name,
@@ -43,6 +42,7 @@ from dibekho.ui.common import (
     money_item,
     num_item,
     open_path,
+    reread_whole_note,
     row_id,
     status_text,
     theme_color,
@@ -254,18 +254,8 @@ class DocumentDialog(_Base):
             self.accept()
 
     def reread_doc(self):
-        if not ask(self, t("doc.confirm_reread")):
-            return
-        self.ctx.undo_point("reread")
-        try:
-            deliveries.reread_document(self.ctx.conn, self.ctx.ws, self.doc_id)
-            result = deliveries.scan(self.ctx.conn, self.ctx.ws)
-        except Exception as exc:
-            error(self, str(exc))
-            return
-        self.ctx.notify()
-        info(self, t("doc.reread_done") if result.imported else t("doc.reread_pending"))
-        self.accept()
+        if reread_whole_note(self.ctx, self, self.doc_id):
+            self.accept()
 
 
 # ---- customer --------------------------------------------------------------

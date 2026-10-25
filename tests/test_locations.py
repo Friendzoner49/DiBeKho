@@ -327,11 +327,13 @@ def window(ws):
 
 
 def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
+    import dibekho.ui.common as common_mod
     import dibekho.ui.count_page as count_mod
     import dibekho.ui.details as details_mod
 
-    for mod in (count_mod, details_mod):
+    for mod in (count_mod, details_mod, common_mod):
         monkeypatch.setattr(mod, "ask", lambda *a, **k: True)
+    for mod in (count_mod, common_mod):
         monkeypatch.setattr(mod, "info", lambda *a, **k: None)
     make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT, SAND])
     ctx, win = window(ws)

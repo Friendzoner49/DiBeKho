@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QTabWidget,
     QTreeWidget,
@@ -46,6 +47,7 @@ from dibekho.ui.common import (
     make_table,
     num_item,
     open_path,
+    reread_whole_note,
     row_id,
     selected_id,
 )
@@ -230,6 +232,8 @@ class SettingsPage(Page):
         self.learned.setAlternatingRowColors(True)
         self.learned.header().setSectionResizeMode(QHeaderView.Interactive)
         self.learned.header().setStretchLastSection(False)
+        self.learned.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.learned.customContextMenuRequested.connect(self._learned_context_menu)
         lay.addWidget(self.learned)
         products_lay.addWidget(learned, 2)
 
@@ -298,6 +302,21 @@ class SettingsPage(Page):
             head.setExpanded(head.data(0, Qt.UserRole) in expanded)  # collapsed: click an order to open it
         for col, width in ((0, 420), (1, 60), (2, 360), (3, 170)):
             self.learned.setColumnWidth(col, width)
+
+    def _learned_context_menu(self, pos):
+        item = self.learned.itemAt(pos)
+        if item is None or item.parent() is not None:  # a line, not an order heading
+            return
+        doc_id = item.data(0, Qt.UserRole)
+        if not doc_id:  # the 'names learned but no longer in any order' heading
+            return
+        menu = QMenu(self)
+        menu.addAction(t("btn.reread_doc"), lambda: self._reread_order(doc_id))
+        menu.exec(self.learned.viewport().mapToGlobal(pos))
+
+    def _reread_order(self, doc_id):
+        if reread_whole_note(self.ctx, self, doc_id):
+            self.refresh()
 
     def forget(self, line):
         orders = [r[0] for r in self.ctx.conn.execute(

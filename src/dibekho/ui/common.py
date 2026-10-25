@@ -20,13 +20,14 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QMessageBox,
+    QTableView,
     QTableWidget,
     QTableWidgetItem,
     QWidget,
 )
 
 from dibekho import db
-from dibekho.core import activity, undo
+from dibekho.core import activity, deliveries, undo
 from dibekho.core.text import fmt_money, fmt_qty, parse_number
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
@@ -371,6 +372,32 @@ def save_stock_note(ctx: "AppContext", product_id: int, text: str, notify=True) 
         db.log(ctx.conn, "stock_note", row["code"])
     if notify:
         ctx.notify()
+    return True
+
+
+def reread_whole_note(ctx: "AppContext", parent: QWidget, doc_id: int) -> bool:
+    """Forget every learned name used by this delivery note and read it (and any other active note sharing
+    those names) again from scratch. Shared by the order detail window, Settings → 'Tên trên phiếu đã học'
+    and the Đơn hàng list, so a wrong choice can be fixed from wherever the user happens to see the order."""
+    others = deliveries.documents_sharing_names(ctx.conn, doc_id)
+    if others:
+        codes = [r[0] for r in ctx.conn.execute(
+            f"SELECT code FROM documents WHERE id IN ({','.join('?' * len(others))}) ORDER BY doc_date",
+            others)]
+        text = t("doc.confirm_reread_others", orders=", ".join(codes))
+    else:
+        text = t("doc.confirm_reread")
+    if not ask(parent, text):
+        return False
+    ctx.undo_point("reread")
+    try:
+        deliveries.forget_order(ctx.conn, ctx.ws, doc_id)
+        result = deliveries.scan(ctx.conn, ctx.ws)
+    except Exception as exc:
+        error(parent, str(exc))
+        return False
+    ctx.notify()
+    info(parent, t("doc.reread_done") if result.imported else t("doc.reread_pending"))
     return True
 
 

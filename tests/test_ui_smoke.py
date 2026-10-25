@@ -201,12 +201,14 @@ def test_undo_the_last_apply(app, ws, monkeypatch):
 
 
 def test_undo_buttons(app, ws, monkeypatch):
-    """'Đọc lại phiếu' in the order window and 'Quên và đọc lại' in settings (grouped by order)."""
+    """'Đọc lại cả phiếu' in the order window and 'Quên và đọc lại' in settings (grouped by order)."""
+    import dibekho.ui.common as common_mod
     import dibekho.ui.details as details_mod
     import dibekho.ui.settings_page as settings_mod
 
-    for mod in (details_mod, settings_mod):
+    for mod in (details_mod, settings_mod, common_mod):
         monkeypatch.setattr(mod, "ask", lambda *a, **k: True)
+    for mod in (settings_mod, common_mod):
         monkeypatch.setattr(mod, "info", lambda *a, **k: None)
     i18n.set_language("vi")
     from dibekho.ui.common import AppContext
@@ -214,13 +216,23 @@ def test_undo_buttons(app, ws, monkeypatch):
     from dibekho.ui.main_window import MainWindow
 
     ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
-    setup_notes(ctx.conn, ws)
+    a, b = setup_notes(ctx.conn, ws)
     win = MainWindow(ctx)
     win.show()
     doc = ctx.conn.execute("SELECT id FROM documents WHERE code = '1'").fetchone()[0]
     DocumentDialog(ctx, doc, win).reread_doc()
+    # the whole order's names are forgotten: every active note sharing one (orders 2 and 3 too, via A)
+    # comes back to Cần xử lý, not just order 1
     assert ctx.conn.execute("SELECT status FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "replaced"
-    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE code = '1' AND status = 'active'").fetchone()[0] == 1
+    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[0] == 0
+    assert "Đọc lại cả phiếu" in win.undo_btn.text()
+
+    # choose the same products again, so the rest of this test can exercise the per-line 'Quên và đọc lại'
+    from dibekho.core import deliveries
+
+    for u in deliveries.unknown_lines(ctx.conn, ws):
+        deliveries.map_line(ctx.conn, u.key, a if "背水涂" in u.name_zh else b, deliveries.line_label(u))
+    deliveries.scan(ctx.conn, ws)
 
     settings = win.stack.widget(win.stack.count() - 1)
     win.nav.setCurrentRow(win.stack.count() - 1)
