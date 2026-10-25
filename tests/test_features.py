@@ -226,6 +226,18 @@ def test_daily_backup_keeps_10(conn, ws):
     assert backup.daily_backup(conn, ws, date(2026, 9, 19)) is None
 
 
+def test_prune_counts_daily_and_named_backups_together(conn, ws):
+    """"Chỉ để 10 bản sao lưu gần nhất" means 10 in total, not 10 of each kind: a mix of daily and named
+    (thu-cong, truoc-khoi-phuc...) backups must still add up to no more than KEEP."""
+    for day in range(1, 9):  # 8 daily
+        backup.daily_backup(conn, ws, date(2026, 9, day))
+    for i in range(6):  # 6 named, each a distinct file with its own mtime
+        p = backup.snapshot(conn, ws.backups / f"thu-cong_2026-09-{10 + i:02d}_000000.sqlite")
+        os.utime(p, ((datetime.now() + timedelta(seconds=i)).timestamp(),) * 2)
+    backup._prune(ws)
+    assert len(list(ws.backups.glob("*.sqlite"))) == backup.KEEP
+
+
 def test_backup_older_than_30_days_is_pruned(conn, ws, monkeypatch):
     # well under KEEP (10): only the age rule can explain the removal
     old = backup.snapshot(conn, ws.backups / "DiBeKho_2026-01-01.sqlite")

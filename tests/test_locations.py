@@ -446,6 +446,8 @@ def test_pinning_stays_visible_when_the_leftover_is_enough(app):
     """Real product names (SP page caps them at 180/150/100/90/110/60 -- see stock_page.py) leave about 200px
     to scroll to at the window size the app actually opens at (measured against a copy of a real exported
     package with fonts loaded, 25/10/2026); this test uses the same 6x100 shape with plenty of room."""
+    from PySide6.QtWidgets import QAbstractItemView
+
     from dibekho.ui.common import FrozenColumns, freeze_columns
 
     table = _fixed_width_table(app, 6, 100)  # 600px of content, 200px pinned
@@ -454,6 +456,9 @@ def test_pinning_stays_visible_when_the_leftover_is_enough(app):
     app.processEvents()
     frozen = freeze_columns(table, [0, 1], side="left")
     app.processEvents()
+    # per-pixel, not per-column, scrolling: any column can be brought fully into the scrollable strip next
+    # to the pinned pane, not just whichever one happens to land at x=0 after a column-sized jump
+    assert table.horizontalScrollMode() == QAbstractItemView.ScrollPerPixel
     assert table.horizontalScrollBar().maximum() > 0
     leftover = table.viewport().width() - 200
     assert leftover >= FrozenColumns.MIN_SCROLLABLE, leftover  # plenty of room: comfortably visible

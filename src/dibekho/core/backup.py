@@ -58,21 +58,20 @@ def restore(ws: Workspace, backup: Path) -> None:
 
 
 def _prune(ws: Workspace) -> None:
-    """Keep at most the newest KEEP backups of each kind (daily / named), and drop anything older than
-    MAX_AGE_DAYS -- except the newest KEEP_FLOOR, so a machine left off for a month still opens with
-    more than today's single copy."""
-    daily = sorted(ws.backups.glob(f"{DAILY_PREFIX}*.sqlite"), reverse=True)
-    others = sorted(set(ws.backups.glob("*.sqlite")) - set(daily), key=lambda p: p.stat().st_mtime, reverse=True)
+    """Keep at most the newest KEEP backups in total (daily and named together -- the user asked for "10
+    bản gần nhất", not 10 of each kind), and drop anything older than MAX_AGE_DAYS -- except the newest
+    KEEP_FLOOR, so a machine left off for a month still opens with more than today's single copy. Hoàn tác
+    snapshots live in their own sub-folder (sao-luu/hoan-tac/) and keep their own separate limit (core.undo)."""
+    files = sorted(ws.backups.glob("*.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True)
     cutoff = datetime.now().timestamp() - MAX_AGE_DAYS * 86400
-    for group in (daily, others):
-        for i, p in enumerate(group):
-            if i < KEEP_FLOOR:
-                continue
-            if i >= KEEP or p.stat().st_mtime < cutoff:
-                try:
-                    p.unlink()
-                except OSError:
-                    pass
+    for i, p in enumerate(files):
+        if i < KEEP_FLOOR:
+            continue
+        if i >= KEEP or p.stat().st_mtime < cutoff:
+            try:
+                p.unlink()
+            except OSError:
+                pass
 
 
 def maintenance_due(cfg) -> bool:

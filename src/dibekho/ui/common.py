@@ -402,6 +402,10 @@ def freeze_columns(table: Table, columns: list[int], side: str = "left", editabl
     the table is built and its edit triggers set. Visibility is left to place() (called in __init__ and on
     every resize/scroll-range change) -- never force .show() here, or a table too narrow to pin anything
     would have its overlay forced visible again, covering the columns it was supposed to leave scrollable."""
+    # per-column scrolling (the default on Windows) would only ever line a column's left edge up at x=0,
+    # under the overlay -- which column ends up inside the scrollable strip next to it would be down to
+    # luck. Per-pixel scrolling lets any column be brought fully into view.
+    table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
     frozen = FrozenColumns(table, columns, side, editable)
     table._frozen.append(frozen)
     return frozen
