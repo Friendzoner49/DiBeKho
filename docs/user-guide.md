@@ -152,7 +152,7 @@ Column order: Code, Product, Chinese name, Packing, Type/colour, Category, Unit,
 | **Last out** | Date of the last delivery |
 
 - A product running low (below its alert level) is shaded **orange**; negative stock is **red**. The line at the top of the page says how many products are running low.
-- The columns from Code through Stock **stay pinned** while you scroll the table sideways (drag the scrollbar under the table to see Main warehouse/Office/Last out without losing sight of the name and the total).
+- The **Stock** column **sticks to the left edge** once you scroll the table sideways past it (drag the scrollbar under the table to see Main warehouse/Office/Last out without losing sight of the running total).
 - The **Filter by name…** box finds products quickly. **Category** shows one group only.
 
 ### 4.2. Making the list to order
@@ -220,6 +220,7 @@ A stock count = count the real goods and record them. The app records only the *
 
 - The **Stock note** column at the end is the same as on the Stock page: double-click to note damaged or expired boxes while counting. It is saved at once and does **not** clear the numbers you are typing.
 - The app scans delivery notes before showing the numbers, so no note is counted twice.
+- Two buttons at the top, **Transfers…** and **Stock counts…**, open a list of past ones (double-click to view).
 
 ---
 
@@ -237,7 +238,7 @@ For goods carried from one place to the other, e.g. 5 boxes of paint from the ma
 
 The source does not have enough according to the app? You can still save, with a warning; that place goes negative until its next count.
 
-To see or cancel a transfer: **Search → Order list**, set **Document type** to **Transfers**, double-click it → **Cancel document**.
+To see, edit or cancel a transfer: **Stock count → Transfers…** (or **Search → Order list**, set **Document type** to **Transfers**). Double-click it to see the details, with an **Edit…** button (reopens it to change products/quantities, the old one stays in the history) and **Cancel document**; the list also has an **Edit selected…** button for the highlighted row.
 
 ---
 
@@ -352,7 +353,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 **A product's own level:** select it → **Edit product…** → **Low-stock alert at**. E.g. 5 for something sold by the roll: at 5 or less it warns. A product's own level always wins over the common one.
 
 **Other buttons:**
-- **Add product**, **Edit product…** (or double-click a row): Vietnamese and Chinese name, packing, type/colour, unit, category.
+- **Add product**, **Edit product…** (or double-click a row): Vietnamese and Chinese name, packing, type/colour, unit, category. When **adding** one, if it looks like a product that already exists (checked by Vietnamese and Chinese name and packing), the app asks before creating it, to avoid a duplicate. The same prompt can appear when choosing "Create new product" in To do, or when entering goods in.
 - **Delete product**: only for products in no document. A product already used can be set *inactive* (hidden, old documents unchanged). Codes of deleted products are never given again.
 - **Import catalog from Excel…**: add products from the monthly sheet.
 - **Learned names on notes**: names the app has learned, grouped by order. Click an order to see them; **Forget and read again…** to choose the product for **one name** again.

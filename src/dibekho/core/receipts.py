@@ -169,13 +169,15 @@ def problems(data: ReceiptInput) -> list[str]:
 
 
 def same_as_existing(conn, data: ReceiptInput) -> list[tuple[ReceiptLineInput, object]]:
-    """New products that are already in the catalog (same name, packing and type): the user should pick those."""
+    """New products that may already be in the catalog (exact match, or a close fuzzy one): the user should
+    pick those instead of creating a duplicate."""
     out = []
     for ln in data.filled():
         if ln.new:
-            row = catalog.find_same(conn, ln.new.name_vi, ln.new.spec, ln.new.variant)
-            if row is not None:
-                out.append((ln, row))
+            candidates = catalog.find_possible_duplicates(conn, ln.new.name_vi, ln.new.name_zh, ln.new.spec,
+                                                           ln.new.variant)
+            if candidates:
+                out.append((ln, candidates[0]))
     return out
 
 

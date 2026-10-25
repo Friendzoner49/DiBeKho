@@ -151,10 +151,11 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 
 - **Chuyển hàng…**: mang hàng giữa Kho tổng và Văn phòng. Chọn nơi chuyển đi, nơi nhận, gõ số lượng (cột Tên Trung, Nhóm hàng giúp phân biệt mặt hàng giống nhau; 2 cột số lượng tự ghim bên phải) rồi bấm **Lưu phiếu chuyển**. Tổng tồn không đổi, chỉ đổi số ở từng nơi (phiếu CH001, CH002…).
 - Cột **Ghi chú tồn kho** (giống ở trang Tồn kho): nháy đúp để ghi, ví dụ "3 thùng in lệch, 2 thùng hết hạn 12/2026". Ghi chú được lưu ngay, đi theo gói dữ liệu sang máy khác và có trong file Excel.
+- Nút **Phiếu chuyển hàng…** và **Phiếu kiểm kê…** liệt kê các lần đã làm trước đó; nháy đúp để xem, phiếu chuyển hàng còn **Sửa…** được (mở lại để sửa mặt hàng/số lượng, phiếu cũ vẫn giữ trong lịch sử).
 
 ### 4. Tra cứu
 
-- **Tồn kho:** cột **Kho tổng**, **Văn phòng** và tổng (các cột từ Mã đến Tồn tự ghim lại khi kéo bảng sang ngang). Dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **cam** = dưới mức báo động (mặc định **30**, đổi ở **Cài đặt → Danh mục mặt hàng → Báo động khi tồn dưới**). Tick **Chỉ hiện hàng sắp hết** để có danh sách cần đặt. Nháy đúp ô **Ghi chú tồn kho** để ghi chú; nháy đúp chỗ khác để xem lịch sử nhập, xuất và số ở từng nơi.
+- **Tồn kho:** cột **Kho tổng**, **Văn phòng** và tổng (cột **Tồn** tự dính vào mép trái khi kéo bảng sang ngang, để vẫn thấy tổng tồn). Dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **cam** = dưới mức báo động (mặc định **30**, đổi ở **Cài đặt → Danh mục mặt hàng → Báo động khi tồn dưới**). Tick **Chỉ hiện hàng sắp hết** để có danh sách cần đặt. Nháy đúp ô **Ghi chú tồn kho** để ghi chú; nháy đúp chỗ khác để xem lịch sử nhập, xuất và số ở từng nơi.
 - **Tra cứu** (phím **Ctrl+F**): một ô tìm cho mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**.
 - Mở **một đơn hàng**: khách, các dòng hàng với **Đơn giá** và **Thành tiền**, tiền hàng + phí khác = tổng tiền, **Mở file gốc**, **Đọc lại cả phiếu** (nhấn chuột phải vào tên đơn ở danh sách đơn hàng để làm nhanh cho cả đơn), **Huỷ phiếu**.
 - Mở **một khách hàng**: **Doanh thu**, các mặt hàng khách hay mua (doanh thu, giá bán), và **từng đơn với giá đầy đủ bên dưới**. Bỏ tick **Mọi thời gian** rồi chọn **Từ … đến …** để xem khách mua gì, giá bao nhiêu trong khoảng thời gian đó. Bấm **Xuất Excel…** để lưu đúng nội dung đó (từng đơn với giá, các mặt hàng đã mua) ra file trong `output/`.

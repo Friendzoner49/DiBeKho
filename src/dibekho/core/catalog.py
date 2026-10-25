@@ -260,6 +260,42 @@ def find_merge_candidates(conn, new_id: int, data: DeletedProduct) -> tuple[list
     return result, alias_matches
 
 
+def find_possible_duplicates(conn, name_vi, name_zh="", spec="", variant="", category="") -> list[sqlite3.Row]:
+    """Existing products that might already be this one, before a brand-new one is created -- best evidence
+    first: an exact name + packing + type match, then the same fuzzy matcher suggest_product() uses to
+    pre-fill a single best guess in 'Cần xử lý' (score >= 0.5). Both Vietnamese and Chinese names are passed
+    to the matcher together: scoring weighs the Chinese-character overlap heavily, so a Vietnamese-only query
+    would never reach a Chinese-named candidate even when it is the same item. A fuzzy candidate whose spec,
+    variant OR category conflicts with the one given (both set, and different) is dropped: a different
+    packing/weight/size is a different item on its own (match_score's own penalty for it only covers
+    patterns like "20KG" or "1m*20m", not every way a spec is written, e.g. a pipe-wrap diameter range) --
+    and a different colour or Nhóm hàng is deliberately a different variant, which the customer also uses to
+    tell items apart (mục 9.4b). Checked against a real exported catalog (25/10/2026, 58 products): without
+    any of this, 17 products flagged another one (same Chinese name + category, only the packing differs --
+    e.g. SBS membrane 3mm vs 4mm, or pipe-wrap 32-50 vs 50-75); with it, 4 -- the rest share the exact same
+    spec and category too (closer to a real near-duplicate), or are against a product with no spec/variant/
+    category recorded at all (an empty field never counts as a conflict, same as find_same)."""
+    seen, result = set(), []
+    same = find_same(conn, name_vi, spec, variant, category or None)
+    if same is not None:
+        seen.add(same["id"])
+        result.append(same)
+    variant_norm = unaccent(clean(variant))
+    category_norm = unaccent(clean(category))
+    for score, p in _ranked(conn, f"{name_zh} {name_vi}", spec):
+        if score < 0.5 or p["id"] in seen:
+            continue
+        if _spec_conflicts(spec, p["spec"]):
+            continue
+        if variant_norm and p["variant"] and unaccent(clean(p["variant"])) != variant_norm:
+            continue
+        if category_norm and p["category"] and unaccent(clean(p["category"])) != category_norm:
+            continue
+        seen.add(p["id"])
+        result.append(p)
+    return result
+
+
 def products(conn, include_inactive=False) -> list[sqlite3.Row]:
     sql = "SELECT * FROM products"
     if not include_inactive:
@@ -382,6 +418,24 @@ def _features(text: str) -> dict:
         "kg": {m.replace(",", ".").rstrip("0").rstrip(".") for m in _KG.findall(text)},
         "dims": {f"{a}*{b}".lower() for a, b in _DIM.findall(text)},
     }
+
+
+def _spec_conflicts(a: str, b: str) -> bool:
+    """True when both are given and clearly describe different packaging. A delivery note's raw spec text
+    ("10KG/thùng") is not in the same format as a catalog product's own spec field ("10KG"), so this is not
+    plain string equality: same weight/size (the kg/dims match_score already extracts, robust to the format
+    difference) never conflicts; otherwise neither containing the other (allowing that format difference)
+    is treated as a conflict -- so "3mm" vs "4mm", or "32-50" vs "50-75" (a pipe-wrap diameter range, too
+    plain a pattern for the kg/dims features), are correctly told apart."""
+    a, b = unaccent(clean(a)), unaccent(clean(b))
+    if not a or not b:
+        return False
+    fa, fb = _features(a), _features(b)
+    if fa["kg"] and fb["kg"]:
+        return not (fa["kg"] & fb["kg"])
+    if fa["dims"] and fb["dims"]:
+        return not (fa["dims"] & fb["dims"])
+    return a not in b and b not in a
 
 
 def match_score(note_text: str, note_spec: str, p, labels: bool = False) -> float:

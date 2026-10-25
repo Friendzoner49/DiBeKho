@@ -374,6 +374,14 @@ class PendingPage(Page):
 
     def apply_mapping(self, confirm=True):
         conn = self.ctx.conn
+        if confirm:  # ask() would hang a test running offscreen: skipped along with the final confirm below
+            for key, u in self._unknown.items():
+                if self.choice(key) != NEW:
+                    continue
+                dups = catalog.find_possible_duplicates(conn, u.name_vi or u.raw_name, u.name_zh, u.spec)
+                if dups and ask(self, t("pending.looks_duplicate", name=deliveries.line_label(u),
+                                        code=dups[0]["code"], product=catalog.long_label(dups[0]))):
+                    self.set_choice(key, dups[0]["id"])
         choices = [(u, self.choice(key)) for key, u in self._unknown.items()]
         openings = {}
         for u, choice in choices:

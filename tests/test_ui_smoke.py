@@ -344,6 +344,68 @@ def test_apply_imports_approved_lines_and_keeps_the_rest_waiting(app, ws, monkey
     win.close()
 
 
+def test_apply_warns_about_a_likely_duplicate_before_creating_a_new_product(app, ws, monkeypatch):
+    """Explicitly choosing 'Tạo mặt hàng mới' for a line that still looks like an existing product (the
+    suggestion was not picked, or none was strong enough to pre-select) is a safety net against creating a
+    duplicate by mistake: saying yes to the warning maps the line onto the existing product instead."""
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    from dibekho import db
+    from dibekho.core import catalog
+    import dibekho.ui.pending_page as pending_mod
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import PENDING, MainWindow
+    from dibekho.ui.pending_page import NEW
+    from tests.conftest import make_note
+
+    make_note(ws.deliveries / "a.xlsx", code="74", lines=[("背水涂\nvữa chống thấm", "10KG/thùng", 3, "")])
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    with db.transaction(ctx.conn):
+        existing = catalog.create_product(ctx.conn, "Vữa chống thấm cũ", "背水涂", "10KG", unit="thùng")
+    win = MainWindow(ctx)
+    win.show()
+    win.rescan()
+    win.nav.setCurrentRow(PENDING)
+    app.processEvents()
+    page = win.pending
+    key = key_of(page, "vữa chống thấm")
+    page.set_choice(key, NEW)
+    monkeypatch.setattr(pending_mod, "ask", lambda *a, **k: True)
+    page.apply_mapping()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 1  # no duplicate created
+    assert ctx.conn.execute("SELECT product_id FROM document_lines").fetchone()[0] == existing
+    win.close()
+
+
+def test_adding_a_product_warns_about_a_likely_duplicate(app, ws, monkeypatch):
+    """Adding a product that looks like one already in the catalog offers to open that one instead of
+    creating a duplicate; declining still creates the new product as typed."""
+    import dibekho.ui.settings_page as settings_mod
+    from dibekho.core import catalog
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.settings_page import ProductEditor
+
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    catalog.create_product(ctx.conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Trắng")
+    monkeypatch.setattr(settings_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(settings_mod.ProductEditor, "exec", lambda self: 1)  # the existing product's own editor
+    dlg = ProductEditor(ctx, None)
+    dlg.name_vi.setText("Sơn chống thấm FS-101")
+    dlg.name_zh.setText("FS-101防水涂料")
+    dlg.spec.setText("20KG")
+    dlg.variant.setText("Trắng")
+    dlg.save()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 1  # no duplicate created
+
+    monkeypatch.setattr(settings_mod, "ask", lambda *a, **k: False)  # "no, it is a different product"
+    dlg2 = ProductEditor(ctx, None)
+    dlg2.name_vi.setText("Sơn chống thấm FS-101")
+    dlg2.name_zh.setText("FS-101防水涂料")
+    dlg2.spec.setText("20KG")
+    dlg2.variant.setText("Trắng")
+    dlg2.save()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2  # created as typed
+
+
 def test_settings_edit_and_delete_buttons(app, ws, monkeypatch):
     import dibekho.ui.settings_page as settings_mod
 

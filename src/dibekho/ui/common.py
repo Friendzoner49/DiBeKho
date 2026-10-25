@@ -18,11 +18,14 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMenu,
     QMessageBox,
+    QStyledItemDelegate,
     QTableView,
     QTableWidget,
     QTableWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -276,6 +279,41 @@ def fit_window(widget: QWidget, width: int, height: int) -> None:
     widget.resize(width, height)
 
 
+class PageWindow(QDialog):
+    """A screen shown in its own (non-modal) window instead of the navigation list."""
+
+    def __init__(self, page, parent):
+        super().__init__(parent)
+        self.page = page
+        self.setWindowTitle(page.title_text)
+        self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
+        fit_window(self, 1200, 760)
+        QVBoxLayout(self).addWidget(page)
+
+
+class _NumericCellDelegate(QStyledItemDelegate):
+    """A cell editor restricted to digits/decimals, with the system input method switched off.
+
+    On macOS a Vietnamese or Chinese input source can still treat a typed digit as composing text that
+    is only resolved when Enter commits the cell, landing the same keystroke twice in a plain QLineEdit
+    editor. There is no `active`/digits-only input method hint applied to a default item-view editor, so
+    the OS has no reason to skip composition for it -- this delegate gives it one."""
+
+    def createEditor(self, parent, option, index):
+        editor = super().createEditor(parent, option, index)
+        if isinstance(editor, QLineEdit):
+            editor.setAttribute(Qt.WA_InputMethodEnabled, False)
+            editor.setInputMethodHints(Qt.ImhFormattedNumbersOnly)
+        return editor
+
+
+def numeric_cell_delegate(table: QAbstractItemView, column: int) -> None:
+    """Make one column's cell editor digits/decimal-only on `table` (a QTableWidget or a FrozenColumns
+    pinned overlay -- apply to every view that can open its own editor for that column, they don't share
+    delegates even when they share a model)."""
+    table.setItemDelegateForColumn(column, _NumericCellDelegate(table))
+
+
 class Table(QTableWidget):
     """Every column can be dragged wider (or double-click its border to fit its contents).
     The 'stretch' column also takes the spare width when the window is wider than the columns."""
@@ -309,14 +347,21 @@ class FrozenColumns(QTableView):
     only_editable, row_id, sorting...) keeps working unchanged on both the pinned and the scrolling columns.
 
     `table`'s edit triggers must already exclude CurrentChanged (make_table()'s default does) before this
-    is created: with it included, a click on a shared cell would open an editor on each view at once."""
+    is created: with it included, a click on a shared cell would open an editor on each view at once.
+
+    `sticky=True` is for a pinned column that does NOT touch the table's own edge (e.g. a single column
+    in the middle, like Tồn kho's Tồn): drawing it flush against the edge the whole time, as the plain
+    (non-sticky) mode does, would permanently cover the real columns in front of it. Sticky mode instead
+    behaves like a "position: sticky" table column -- invisible (the real cell shows through normally)
+    until scrolling would carry it past the edge, then it snaps to the edge and stays there."""
 
     MIN_SCROLLABLE = 120  # below this much leftover width, not even one narrow scrolling column (Kho tổng,
     # Văn phòng: ~70-80px each on real data) would be readable
 
-    def __init__(self, table: Table, columns: list[int], side: str = "left", editable: bool = False):
+    def __init__(self, table: Table, columns: list[int], side: str = "left", editable: bool = False,
+                 sticky: bool = False):
         super().__init__(table)
-        self.host, self.columns, self.side = table, columns, side
+        self.host, self.columns, self.side, self.sticky = table, columns, side, sticky
         self._guard = False
         self.setModel(table.model())
         self.setSelectionModel(table.selectionModel())
@@ -342,6 +387,8 @@ class FrozenColumns(QTableView):
         self.horizontalHeader().sortIndicatorChanged.connect(self._sort_from_here)
         table.horizontalHeader().sortIndicatorChanged.connect(self._sort_from_host)
         table.horizontalScrollBar().rangeChanged.connect(lambda *_: self.place())
+        if sticky:  # visibility depends on the current scroll position, not just whether scrolling is possible
+            table.horizontalScrollBar().valueChanged.connect(lambda *_: self.place())
         self.doubleClicked.connect(table.doubleClicked)
         if editable:  # arrowing onto a pinned cell from the host must not leave its (hidden) editor open there
             self.selectionModel().currentChanged.connect(self._follow_focus)
@@ -381,14 +428,24 @@ class FrozenColumns(QTableView):
             self.setFocus(Qt.OtherFocusReason)
 
     def place(self) -> None:
-        """Hidden unless `table` actually needs to scroll sideways, or the pinned columns alone would cover
-        leaves less than MIN_SCROLLABLE for the rest of the table (long real names on a very narrow window:
-        at that point even one scrolling column could no longer be seen, so plain scrolling serves better).
-        Otherwise sized and positioned over its pinned columns, using the viewport's own geometry (not
-        `table`'s outer size, which ignores its frame and scrollbars)."""
+        """Hidden unless `table` actually needs to scroll sideways, or the pinned columns alone would leave
+        less than MIN_SCROLLABLE for the rest of the table (long real names on a very narrow window: at that
+        point even one scrolling column could no longer be seen, so plain scrolling serves better). In sticky
+        mode, also hidden until the real column has actually scrolled past the edge it sticks to -- otherwise
+        visible and positioned over its pinned columns, using the viewport's own geometry (not `table`'s
+        outer size, which ignores its frame and scrollbars)."""
         vp = self.host.viewport()
         width = sum(self.host.columnWidth(c) for c in self.columns)
-        if self.host.horizontalScrollBar().maximum() <= 0 or vp.width() - width < self.MIN_SCROLLABLE:
+        if self.sticky:
+            if self.side == "left":
+                past_edge = self.host.columnViewportPosition(min(self.columns)) < 0
+            else:
+                last = max(self.columns)
+                past_edge = self.host.columnViewportPosition(last) + self.host.columnWidth(last) > vp.width()
+            visible = past_edge and vp.width() - width >= self.MIN_SCROLLABLE
+        else:
+            visible = self.host.horizontalScrollBar().maximum() > 0 and vp.width() - width >= self.MIN_SCROLLABLE
+        if not visible:
             self.setVisible(False)
             return
         self.setVisible(True)
@@ -397,16 +454,18 @@ class FrozenColumns(QTableView):
         self.setGeometry(x, 0, width, height)
 
 
-def freeze_columns(table: Table, columns: list[int], side: str = "left", editable: bool = False) -> FrozenColumns:
+def freeze_columns(table: Table, columns: list[int], side: str = "left", editable: bool = False,
+                    sticky: bool = False) -> FrozenColumns:
     """Pin `columns` of `table` (built by make_table()) to its left or right edge. Call once, right after
     the table is built and its edit triggers set. Visibility is left to place() (called in __init__ and on
     every resize/scroll-range change) -- never force .show() here, or a table too narrow to pin anything
-    would have its overlay forced visible again, covering the columns it was supposed to leave scrollable."""
+    would have its overlay forced visible again, covering the columns it was supposed to leave scrollable.
+    `sticky`: see FrozenColumns -- use it when `columns` does not include the table's own edge column."""
     # per-column scrolling (the default on Windows) would only ever line a column's left edge up at x=0,
     # under the overlay -- which column ends up inside the scrollable strip next to it would be down to
     # luck. Per-pixel scrolling lets any column be brought fully into view.
     table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-    frozen = FrozenColumns(table, columns, side, editable)
+    frozen = FrozenColumns(table, columns, side, editable, sticky)
     table._frozen.append(frozen)
     return frozen
 

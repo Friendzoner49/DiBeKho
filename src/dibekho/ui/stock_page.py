@@ -22,8 +22,8 @@ from dibekho.ui.common import (
 from dibekho.ui.details import ProductDialog
 from dibekho.ui.page import Page
 
-# Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn kho are pinned (0..STOCK) so they
-# stay visible while scrolling to the detail-by-place columns near the end.
+# Only Tồn kho (the total) sticks to the left edge once scrolled past, so the detail-by-place columns
+# near the end can be reached without losing sight of the running total -- see FrozenColumns(sticky=True).
 CODE, NAME, ZH, SPEC, VARIANT, CATEGORY, UNIT, STOCK, MIN_STOCK, NOTE, MAIN, OFFICE, LAST_OUT = range(13)
 
 
@@ -75,7 +75,7 @@ class StockPage(Page):
         self.table.doubleClicked.connect(self._open)
         self.table.itemChanged.connect(self._note_edited)
         self.layout_.addWidget(self.table)
-        freeze_columns(self.table, list(range(STOCK + 1)), side="left")
+        freeze_columns(self.table, [STOCK], side="left", sticky=True)
 
     def refresh(self):
         current = self.category.currentData()
@@ -118,8 +118,7 @@ class StockPage(Page):
             for col in (NAME, ZH, SPEC, VARIANT, CATEGORY):
                 item = self.table.item(r, col)
                 item.setToolTip(item.text())
-        # capped tightly so the pinned columns (Mã..Tồn) leave real room to scroll to on the customer's own
-        # (narrower) screen, with real (long) product names -- see FrozenColumns.MIN_SCROLLABLE
+        # capped so real (long) product names don't balloon the table width on their own
         for col, width in ((NAME, 180), (ZH, 150), (SPEC, 100), (VARIANT, 90), (CATEGORY, 110), (UNIT, 60)):
             self.table.setColumnWidth(col, min(self.table.columnWidth(col), width))
         self.table.setColumnWidth(NOTE, 160)  # long notes: elided, hover to read in full

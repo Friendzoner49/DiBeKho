@@ -143,14 +143,28 @@ def stock_levels(conn, as_of: date | None = None, by_location=False) -> dict:
     return {r[0]: r[1] or 0.0 for r in rows}
 
 
-def transfer(conn, doc_date: date, from_location: int, to_location: int, lines: list[Line], note="") -> int:
-    """Goods moved from one place to the other: the total does not change. Code CH001, CH002..."""
+def next_transfer_code(conn) -> str:
+    """CH001, CH002... Based on the highest number in use, not a count: once an edited transfer's old
+    document is replaced (same code, new row), counting rows would skip numbers."""
+    row = conn.execute(
+        "SELECT MAX(CAST(SUBSTR(code, 3) AS INTEGER)) FROM documents WHERE kind = 'transfer' AND code GLOB 'CH[0-9]*'"
+    ).fetchone()
+    return f"CH{(row[0] or 0) + 1:03d}"
+
+
+def transfer(conn, doc_date: date, from_location: int, to_location: int, lines: list[Line], note="",
+             replaces: int | None = None) -> int:
+    """Goods moved from one place to the other: the total does not change. Code CH001, CH002...
+    replaces: the transfer being edited (marked 'replaced', the new one keeps its code)."""
     if from_location == to_location or from_location not in LOCATIONS or to_location not in LOCATIONS:
         raise ValueError("Nơi chuyển đi và nơi nhận phải khác nhau.")
     if not lines:
         raise ValueError("Phiếu chuyển hàng chưa có dòng nào.")
-    n = conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'transfer'").fetchone()[0] + 1
-    code = f"CH{n:03d}"
+    code = next_transfer_code(conn)
+    if replaces:
+        old = conn.execute("SELECT code FROM documents WHERE id = ?", (replaces,)).fetchone()
+        close_document(conn, replaces, "replaced")
+        code = old["code"] or code
     cur = conn.execute(
         "INSERT INTO documents(kind, code, code_norm, doc_date, note, location_id, to_location_id) "
         "VALUES('transfer', ?, ?, ?, ?, ?, ?)",
@@ -163,7 +177,8 @@ def transfer(conn, doc_date: date, from_location: int, to_location: int, lines: 
         _move(conn, line.product_id, -line.qty, doc_id, "transfer_out", doc_date.isoformat(), from_location)
         _move(conn, line.product_id, line.qty, doc_id, "transfer_in", doc_date.isoformat(), to_location)
     db.touch(conn)
-    db.log(conn, "transfer", f"{code} {LOCATION_CODES[from_location]}->{LOCATION_CODES[to_location]}")
+    db.log(conn, "transfer_edited" if replaces else "transfer",
+           f"{code} {LOCATION_CODES[from_location]}->{LOCATION_CODES[to_location]}")
     return doc_id
 
 

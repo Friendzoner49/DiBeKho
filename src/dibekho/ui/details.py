@@ -201,6 +201,11 @@ class DocumentDialog(_Base):
             b.setToolTip(t("receipts.edit_tip"))
             b.clicked.connect(self.edit_receipt)
             buttons.addWidget(b)
+        if kind == "transfer" and head["status"] == "active":
+            b = QPushButton(t("transfer.edit"))
+            b.setToolTip(t("transfer.edit_tip"))
+            b.clicked.connect(self.edit_transfer)
+            buttons.addWidget(b)
         if head["status"] == "active":
             b = QPushButton(t("btn.cancel_doc"))
             b.clicked.connect(self.cancel_doc)
@@ -251,6 +256,12 @@ class DocumentDialog(_Base):
         from dibekho.ui.receipt_form import open_receipt_form
 
         if open_receipt_form(self.ctx, self, self.doc_id):
+            self.accept()
+
+    def edit_transfer(self):
+        from dibekho.ui.count_page import open_transfer_dialog
+
+        if open_transfer_dialog(self.ctx, self, self.doc_id):
             self.accept()
 
     def reread_doc(self):

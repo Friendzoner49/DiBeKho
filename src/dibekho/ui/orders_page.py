@@ -3,12 +3,23 @@
 from datetime import date, timedelta
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDateEdit, QGridLayout, QLabel, QLineEdit, QMenu
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDateEdit,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QPushButton,
+)
 
 from dibekho.core import catalog, queries
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
+    error,
     location_name,
     date_item,
     fill_table,
@@ -25,6 +36,7 @@ from dibekho.ui.details import CustomerDialog, DocumentDialog
 from dibekho.ui.page import Page
 
 KINDS = ("delivery", "receipt", "stock_count", "transfer")
+GOODS_COL, FEES_COL = 6, 7  # table columns hidden when fixed_kind is set: always blank outside 'delivery'
 
 
 def _place(d) -> str:
@@ -37,13 +49,16 @@ def _place(d) -> str:
 
 
 class OrdersPage(Page):
-    def __init__(self, ctx):
-        super().__init__(ctx, t("nav.orders"), t("orders.hint"))
+    def __init__(self, ctx, fixed_kind: str | None = None):
+        title = t(f"kind.{fixed_kind}_plural") if fixed_kind else t("nav.orders")
+        super().__init__(ctx, title, t("orders.hint"))
+        self.fixed_kind = fixed_kind
         grid = QGridLayout()
         self.kind = QComboBox()
         for k in KINDS:
             self.kind.addItem(t(f"kind.{k}_plural"), k)
         self.all_time = QCheckBox(t("filter.all_time"))
+        self.all_time.setChecked(bool(fixed_kind))  # a transfer/count is rare; don't hide one past 90 days
         self.date_from, self.date_to = QDateEdit(), QDateEdit()
         for w in (self.date_from, self.date_to):
             w.setCalendarPopup(True)
@@ -61,14 +76,16 @@ class OrdersPage(Page):
         self.text.setClearButtonEnabled(True)
         self.closed = QCheckBox(t("orders.include_cancelled"))
 
-        grid.addWidget(QLabel(t("orders.kind")), 0, 0)
+        self.kind_label = QLabel(t("orders.kind"))
+        grid.addWidget(self.kind_label, 0, 0)
         grid.addWidget(self.kind, 0, 1)
         grid.addWidget(QLabel(t("filter.from")), 0, 2)
         grid.addWidget(self.date_from, 0, 3)
         grid.addWidget(QLabel(t("filter.to")), 0, 4)
         grid.addWidget(self.date_to, 0, 5)
         grid.addWidget(self.all_time, 0, 6)
-        grid.addWidget(QLabel(t("col.customer")), 1, 0)
+        self.customer_label = QLabel(t("col.customer"))
+        grid.addWidget(self.customer_label, 1, 0)
         grid.addWidget(self.customer, 1, 1, 1, 2)
         grid.addWidget(QLabel(t("col.product")), 1, 3)
         grid.addWidget(self.product, 1, 4, 1, 2)
@@ -78,14 +95,28 @@ class OrdersPage(Page):
         grid.setColumnStretch(5, 1)
         self.layout_.addLayout(grid)
 
+        if fixed_kind:
+            self.kind.setCurrentIndex(max(self.kind.findData(fixed_kind), 0))
+            for w in (self.kind_label, self.kind, self.customer_label, self.customer):
+                w.setVisible(False)
+
+        top = QHBoxLayout()
         self.count = QLabel()
-        self.layout_.addWidget(self.count)
+        top.addWidget(self.count, 1)
+        if fixed_kind == "transfer":
+            edit = QPushButton(t("transfer.edit_selected"))
+            edit.clicked.connect(self.edit_transfer_selected)
+            top.addWidget(edit)
+        self.layout_.addLayout(top)
         self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.place"),
                                  t("col.lines"), t("col.total_qty"), t("col.goods"), t("col.fees"), t("col.status"),
                                  t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._context_menu)
+        if fixed_kind:
+            self.table.setColumnHidden(GOODS_COL, True)
+            self.table.setColumnHidden(FEES_COL, True)
         self.layout_.addWidget(self.table)
 
         for sig in (self.kind.currentIndexChanged, self.all_time.toggled, self.date_from.dateChanged,
@@ -153,6 +184,21 @@ class OrdersPage(Page):
 
     def _reread(self, doc_id):
         if reread_whole_note(self.ctx, self, doc_id):
+            self._load()
+
+    def edit_transfer_selected(self):
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            error(self, t("orders.select_first"))
+            return
+        doc_id = row_id(self.table, rows[0].row())
+        status = self.ctx.conn.execute("SELECT status FROM documents WHERE id = ?", (doc_id,)).fetchone()[0]
+        if status != "active":
+            error(self, t("orders.not_active"))
+            return
+        from dibekho.ui.count_page import open_transfer_dialog
+
+        if open_transfer_dialog(self.ctx, self, doc_id):
             self._load()
 
 

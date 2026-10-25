@@ -152,7 +152,7 @@ Thứ tự cột: Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm h�
 | **Xuất gần nhất** | Ngày giao hàng gần nhất |
 
 - Mặt hàng sắp hết (dưới mức báo động) tô **cam**; tồn âm tô **đỏ**. Dòng đầu trang cho biết có bao nhiêu mặt hàng sắp hết.
-- Các cột từ Mã đến Tồn **tự ghim lại** khi kéo bảng sang ngang (kéo thanh cuộn dưới bảng để xem Kho tổng/Văn phòng/Xuất gần nhất mà vẫn thấy tên và tổng tồn).
+- Cột **Tồn tự dính vào mép trái** khi kéo bảng sang ngang quá nó (kéo thanh cuộn dưới bảng để xem Kho tổng/Văn phòng/Xuất gần nhất mà vẫn thấy tổng tồn).
 - Ô **Lọc theo tên…**: gõ để tìm nhanh (không dấu cũng được). Ô **Nhóm hàng**: chỉ xem một nhóm.
 
 ### 4.2. Lập danh sách cần đặt hàng
@@ -220,6 +220,7 @@ Kiểm kê = đếm hàng thật rồi ghi vào app. App chỉ ghi **phần chê
 
 - Cột **Ghi chú tồn kho** ở cuối bảng giống hệt cột ở trang Tồn kho: nháy đúp để ghi thùng lỗi, hết hạn… trong lúc đếm. Ghi chú lưu ngay và **không** làm mất các số bạn đang gõ.
 - App tự quét phiếu giao hàng trước khi hiện số, để phiếu đã có không bị tính hai lần.
+- 2 nút **Phiếu chuyển hàng…** và **Phiếu kiểm kê…** ở đầu trang mở danh sách các lần đã làm trước đó (nháy đúp để xem lại).
 
 ---
 
@@ -237,7 +238,7 @@ Dùng khi mang hàng từ nơi này sang nơi kia, ví dụ chở 5 thùng sơn 
 
 Nơi chuyển đi không đủ hàng theo app? App vẫn cho lưu nhưng báo trước; số ở nơi đó sẽ âm cho tới lần kiểm kê sau.
 
-Xem lại hoặc huỷ phiếu chuyển: **Tra cứu → Danh sách đơn hàng**, ở ô **Loại phiếu** chọn **Phiếu chuyển hàng**, nháy đúp phiếu → **Huỷ phiếu**.
+Xem lại, sửa hoặc huỷ phiếu chuyển: **Kiểm kê → Phiếu chuyển hàng…** (hoặc **Tra cứu → Danh sách đơn hàng**, ở ô **Loại phiếu** chọn **Phiếu chuyển hàng**). Nháy đúp phiếu để xem chi tiết, có nút **Sửa phiếu…** (mở lại để sửa mặt hàng/số lượng, phiếu cũ vẫn giữ trong lịch sử) và **Huỷ phiếu**; trong danh sách còn có nút **Sửa phiếu đã chọn…** để sửa ngay phiếu đang bôi đen.
 
 ---
 
@@ -352,7 +353,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 **Mức riêng cho một mặt hàng:** chọn mặt hàng → **Sửa mặt hàng…** → ô **Báo sắp hết khi còn**. Ví dụ đặt 5 cho hàng bán theo cuộn: còn 5 trở xuống thì báo. Mức riêng luôn được ưu tiên hơn mức chung.
 
 **Các nút khác:**
-- **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên Việt, tên Trung, quy cách, loại/màu, đơn vị, nhóm hàng.
+- **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên Việt, tên Trung, quy cách, loại/màu, đơn vị, nhóm hàng. Khi **thêm mới**, nếu trông giống một mặt hàng đã có (so cả tên Việt lẫn tên Trung, quy cách), app hỏi lại trước khi tạo — tránh tạo trùng. Lời nhắc tương tự cũng hiện khi chọn "Tạo mặt hàng mới" ở Cần xử lý hoặc khi nhập hàng về.
 - **Xoá mặt hàng**: chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - **Nhập danh mục từ Excel…**: nạp thêm mặt hàng từ file thống kê tháng.
 - **Tên trên phiếu đã học**: danh sách tên hàng app đã học, nhóm theo đơn. Bấm vào đơn để xem; **Quên và đọc lại…** để chọn lại mặt hàng cho **một tên**.

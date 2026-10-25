@@ -191,6 +191,69 @@ def test_count_per_place_and_transfer(conn):
             move_goods(conn, date(2026, 10, 4), MAIN, MAIN, [Line(p, 1)])
 
 
+def test_editing_a_transfer_keeps_its_code_and_the_old_one_is_replaced(conn):
+    with db.transaction(conn):
+        p = catalog.create_product(conn, "Sơn A", spec="20KG")
+        stock_count(conn, date(2026, 10, 1), {(p, MAIN): 50})
+    with db.transaction(conn):
+        t_id = move_goods(conn, date(2026, 10, 2), MAIN, OFFICE, [Line(p, 10)])
+    assert places(conn, p) == (40, 10)
+    with db.transaction(conn):
+        t2_id = move_goods(conn, date(2026, 10, 2), MAIN, OFFICE, [Line(p, 15)], replaces=t_id)
+    assert places(conn, p) == (35, 15)  # the edit replaces the movement, it does not add to it
+    old = conn.execute("SELECT status, code FROM documents WHERE id = ?", (t_id,)).fetchone()
+    new = conn.execute("SELECT status, code FROM documents WHERE id = ?", (t2_id,)).fetchone()
+    assert old["status"] == "replaced" and new["status"] == "active"
+    assert old["code"] == new["code"] == "CH001"
+    # a replaced document keeping its old number must not make a later transfer skip one
+    with db.transaction(conn):
+        t3_id = move_goods(conn, date(2026, 10, 3), MAIN, OFFICE, [Line(p, 1)])
+    head3, _ = queries.document(conn, t3_id)
+    assert head3["code"] == "CH002"
+
+
+def test_find_possible_duplicates(conn):
+    with db.transaction(conn):
+        white = catalog.create_product(conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Trắng")
+        grey = catalog.create_product(conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Xám")
+    # exact match (same name + packing + colour): only the one with the same colour
+    dups = catalog.find_possible_duplicates(conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", "Trắng")
+    assert [p["id"] for p in dups] == [white]
+    # no colour given: the fuzzy matcher (same Chinese name + packing) finds both
+    dups = catalog.find_possible_duplicates(conn, "Sơn FS101 mới", "FS-101防水涂料", "20KG")
+    assert {white, grey} <= {p["id"] for p in dups}
+    # a different colour of the same base item is a different product on purpose, not a duplicate
+    dups = catalog.find_possible_duplicates(conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Xanh")
+    assert white not in {p["id"] for p in dups} and grey not in {p["id"] for p in dups}
+    # nothing at all close: no candidates
+    assert catalog.find_possible_duplicates(conn, "Keo dán gạch", "瓷砖胶", "25KG") == []
+
+
+def test_find_possible_duplicates_skips_a_different_category_too(conn):
+    """The customer also tells variants apart by Nhóm hàng, not only Loại/màu (mục 9.4b) -- two products
+    with the same name/packing but a different category on purpose must not be flagged as duplicates."""
+    a = catalog.create_product(conn, "Màng PPE 18.5KG", "高分子聚乙烯涤纶防水卷材", "18.5KG", category="瑞德牌")
+    b = catalog.create_product(conn, "Màng PPE 18.5KG", "高分子聚乙烯涤纶防水卷材", "18.5KG", category="纯白色")
+    dups = catalog.find_possible_duplicates(conn, "Màng PPE mới", "高分子聚乙烯涤纶防水卷材", "18.5KG", category="瑞德牌")
+    assert a in {p["id"] for p in dups} and b not in {p["id"] for p in dups}
+
+
+def test_find_possible_duplicates_tolerates_a_raw_note_spec_but_not_a_real_one(conn):
+    """A delivery-note line's raw spec text ("10KG/thùng") is not in the catalog's own format ("10KG") --
+    that difference alone must not hide a real duplicate (regression: an earlier, stricter exact-spec check
+    broke this exact case, found via Cần xử lý's own duplicate check). A genuinely different packing (3mm vs
+    4mm) must still be told apart, even though neither pattern is a plain "20KG" weight the kg/dims features
+    would catch on their own."""
+    with db.transaction(conn):
+        thin = catalog.create_product(conn, "Vữa chống thấm cũ", "背水涂", "10KG", unit="thùng")
+        a = catalog.create_product(conn, "Màng SBS", "SBS自粘膜", "3mm")
+        catalog.create_product(conn, "Màng SBS", "SBS自粘膜", "4mm")
+    dups = catalog.find_possible_duplicates(conn, "Vữa chống thấm mới", "背水涂", "10KG/thùng")
+    assert thin in {p["id"] for p in dups}
+    dups = catalog.find_possible_duplicates(conn, "Màng SBS mới", "SBS自粘膜", "3mm")
+    assert [p["id"] for p in dups] == [a]
+
+
 def test_a_receipt_goes_where_it_was_put_and_keeps_it_when_edited(conn, ws):
     with db.transaction(conn):
         p = catalog.create_product(conn, "Sơn A")
@@ -409,7 +472,7 @@ def test_dragging_a_pinned_column_wider_resizes_the_real_table(app, ws):
     """Dragging a column border on the frozen pane must resize the real (host) column too, not just the
     overlay's own copy of the header -- host.horizontalHeader() must not be blockSignals()-ed in the process,
     or the table stops redrawing/scrolling correctly after the drag."""
-    from dibekho.ui.stock_page import MIN_STOCK, NAME
+    from dibekho.ui.stock_page import MIN_STOCK, STOCK
 
     make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
     ctx, win = window(ws)
@@ -421,9 +484,9 @@ def test_dragging_a_pinned_column_wider_resizes_the_real_table(app, ws):
     stock = win.stack.widget(0)
     frozen = stock.table._frozen[0]
     before = stock.table.horizontalHeader().sectionPosition(MIN_STOCK)
-    frozen.horizontalHeader().resizeSection(NAME, 300)
+    frozen.horizontalHeader().resizeSection(STOCK, 200)
     app.processEvents()
-    assert stock.table.columnWidth(NAME) == 300
+    assert stock.table.columnWidth(STOCK) == 200
     assert stock.table.horizontalHeader().sectionPosition(MIN_STOCK) != before
     win.close()
 
@@ -480,6 +543,185 @@ def test_pinning_hides_itself_when_the_leftover_is_too_small(app):
     assert table.horizontalScrollBar().maximum() > 0  # still needs to scroll
     assert not frozen.isVisible()
     table.close()
+
+
+def test_sticky_pin_only_shows_once_scrolled_past_its_real_column(app):
+    """Tồn kho pins only the Tồn column, in the middle of the table -- unlike an edge pin (always drawn at
+    the edge whenever scrolling is possible), a sticky pin must stay invisible (the real cell shows through)
+    until scrolling would actually carry that column past the edge."""
+    from dibekho.ui.common import freeze_columns
+
+    table = _fixed_width_table(app, 6, 100)  # 600px of content; column 2 is the one pinned
+    table.resize(310, 200)  # narrow enough that scrolling is needed
+    table.show()
+    app.processEvents()
+    frozen = freeze_columns(table, [2], side="left", sticky=True)
+    app.processEvents()
+    assert table.horizontalScrollBar().maximum() > 0
+    assert not frozen.isVisible()  # column 2 is still in its natural place at scroll 0
+    table.horizontalScrollBar().setValue(table.horizontalScrollBar().maximum())
+    app.processEvents()
+    assert frozen.isVisible()
+    assert frozen.geometry().x() == table.viewport().x()  # stuck at the left edge
+    table.close()
+
+
+def test_numeric_cell_delegate_disables_the_input_method(app):
+    """On macOS, a Chinese or Vietnamese input source left enabled on a plain text cell editor can still
+    treat a typed digit as composing text that only resolves when Enter commits it, landing the keystroke
+    twice. numeric_cell_delegate() turns the input method off for that one editor."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLineEdit, QStyleOptionViewItem
+
+    from dibekho.ui.common import fill_table, make_table, numeric_cell_delegate
+
+    table = make_table(["a", "b"], stretch=None)
+    fill_table(table, [["1", "2"]])
+    table.item(0, 1).setFlags(table.item(0, 1).flags() | Qt.ItemIsEditable)
+    numeric_cell_delegate(table, 1)
+    delegate = table.itemDelegateForColumn(1)
+    editor = delegate.createEditor(table, QStyleOptionViewItem(), table.model().index(0, 1))
+    assert isinstance(editor, QLineEdit)
+    assert editor.testAttribute(Qt.WA_InputMethodEnabled) is False
+    assert bool(editor.inputMethodHints() & Qt.ImhFormattedNumbersOnly)
+    editor.deleteLater()
+
+
+def test_orders_page_fixed_kind_hides_filters_and_offers_to_edit(app, ws, monkeypatch):
+    """Opened from Kiểm kê (Phiếu chuyển hàng / Phiếu kiểm kê): the kind and customer filters are pointless
+    (there is only one kind, and transfers/counts have no customer) and the money columns are always blank
+    for these kinds, so all four are hidden; a transfer list also gets an edit-selected button."""
+    import dibekho.ui.orders_page as orders_mod
+
+    ctx, win = window(ws)
+    with db.transaction(ctx.conn):
+        p = catalog.create_product(ctx.conn, "Sơn A", spec="20KG")
+        stock_count(ctx.conn, date(2026, 10, 1), {(p, MAIN): 10})
+        move_goods(ctx.conn, date(2026, 10, 2), MAIN, OFFICE, [Line(p, 3)])
+
+    page = orders_mod.OrdersPage(ctx, fixed_kind="transfer")
+    page.refresh()
+    assert page.kind.currentData() == "transfer"
+    for w in (page.kind_label, page.kind, page.customer_label, page.customer):
+        assert not w.isVisible()
+    assert page.table.isColumnHidden(orders_mod.GOODS_COL) and page.table.isColumnHidden(orders_mod.FEES_COL)
+    assert page.table.rowCount() == 1 and page.table.item(0, 1).text() == "CH001"
+
+    # nothing selected: a clear message, not a crash
+    errors = []
+    monkeypatch.setattr(orders_mod, "error", lambda parent, text: errors.append(text))
+    page.edit_transfer_selected()
+    assert errors
+
+    page.table.selectRow(0)
+    import dibekho.ui.count_page as count_mod
+    monkeypatch.setattr(count_mod.TransferDialog, "exec", lambda self: 1)  # Accepted, without a real modal
+    page.edit_transfer_selected()  # must not crash, even though the patched exec() never calls save()
+    win.close()
+
+
+def test_count_page_history_buttons_open_cached_windows(app, ws):
+    """'Phiếu chuyển hàng…' and 'Phiếu kiểm kê…' open the same list used from Tra cứu, fixed to that one
+    kind; re-clicking reuses the same window instead of opening another one."""
+    ctx, win = window(ws)
+    win.show()
+    app.processEvents()
+    count = win.stack.widget(4)
+    win.nav.setCurrentRow(win.stack.indexOf(count))
+    app.processEvents()
+    count.open_history("transfer")
+    first = count._history_windows["transfer"]
+    assert first.page.fixed_kind == "transfer"
+    count.open_history("transfer")
+    assert count._history_windows["transfer"] is first  # cached, not rebuilt
+    count.open_history("stock_count")
+    assert count._history_windows["stock_count"].page.fixed_kind == "stock_count"
+    for w in count._history_windows.values():
+        w.close()
+    win.close()
+
+
+def test_transfer_dialog_prefills_and_saves_an_edit(app, ws, monkeypatch):
+    """Opening TransferDialog with doc_id pre-fills the old transfer's fields and quantities, shows the
+    source place as if that transfer had not happened yet (so re-saving the same or a larger quantity is
+    never blocked by its own prior move), and saving replaces the old document under the same code."""
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    with db.transaction(ctx.conn):  # after the note's own date (05-10-2026), so the count absorbs its effect
+        stock_count(ctx.conn, date(2026, 10, 6), {(paint, MAIN): 20})
+    with db.transaction(ctx.conn):
+        t_id = move_goods(ctx.conn, date(2026, 10, 7), MAIN, OFFICE, [Line(paint, 10)], note="ghi chú")
+    assert places(ctx.conn, paint) == (10, 10)
+
+    dlg = count_mod.TransferDialog(ctx, win, t_id)
+    assert dlg.from_loc.currentData() == MAIN and dlg.to_loc.currentData() == OFFICE
+    assert dlg.note.text() == "ghi chú"
+    assert dlg._typed().get(paint) == 10
+    # as if the 10 already moved were still at Kho tổng: editing up to 18 (8 more than really there) is fine
+    assert dlg.levels.get((paint, MAIN)) == 20
+
+    monkeypatch.setattr(count_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(count_mod, "info", lambda *a, **k: None)
+    r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+    dlg.table.item(r, count_mod.TRANS_QTY).setText("18")
+    dlg.save()
+    assert places(ctx.conn, paint) == (2, 18)
+    old = ctx.conn.execute("SELECT status, code FROM documents WHERE id = ?", (t_id,)).fetchone()
+    assert old["status"] == "replaced"
+    new = ctx.conn.execute("SELECT id, status, code FROM documents WHERE code = ? AND status = 'active'",
+                           (old["code"],)).fetchone()
+    assert new["id"] != t_id
+    win.close()
+
+
+def test_transfer_dialog_prefills_the_other_direction_too(app, ws):
+    """Office -> Kho tổng (not the combos' own default Kho tổng -> Office): setting from_loc to a value that
+    differs from its default fires currentIndexChanged while the dialog is still being built -- must not
+    reach _fill() before self.table/self.products exist."""
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    with db.transaction(ctx.conn):
+        stock_count(ctx.conn, date(2026, 10, 6), {(paint, OFFICE): 20})
+    with db.transaction(ctx.conn):
+        t_id = move_goods(ctx.conn, date(2026, 10, 7), OFFICE, MAIN, [Line(paint, 10)])
+    dlg = count_mod.TransferDialog(ctx, win, t_id)
+    assert dlg.from_loc.currentData() == OFFICE and dlg.to_loc.currentData() == MAIN
+    assert dlg._typed().get(paint) == 10
+    win.close()
+
+
+def test_the_opened_editor_has_the_input_method_off(app, ws):
+    """Qt resets WA_InputMethodEnabled on the VIEW itself back to True as soon as an editable cell becomes
+    current (confirmed empirically -- the view-level setAttribute() in TransferDialog does not survive
+    that), so what actually has to hold is the per-editor setting numeric_cell_delegate() applies when
+    editing starts -- that one is a separate QLineEdit the view-level reset does not touch."""
+    from PySide6.QtWidgets import QAbstractItemDelegate, QLineEdit
+
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    dlg = count_mod.TransferDialog(ctx, win)
+    r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+    index = dlg.frozen.model().index(r, count_mod.TRANS_QTY)
+    dlg.frozen.setCurrentIndex(index)
+    dlg.frozen.edit(index)
+    editor = dlg.frozen.viewport().findChild(QLineEdit)
+    assert editor is not None
+    assert editor.testAttribute(count_mod.Qt.WA_InputMethodEnabled) is False
+    assert bool(editor.inputMethodHints() & count_mod.Qt.ImhFormattedNumbersOnly)
+    dlg.frozen.closeEditor(editor, QAbstractItemDelegate.NoHint)
+    win.close()
 
 
 def test_transfer_dialog_edits_through_the_frozen_pane(app, ws):

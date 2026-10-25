@@ -116,6 +116,14 @@ class ProductEditor(QDialog):
             self.name_vi.setFocus()
             return
         fields = self.fields()
+        if self.product is None:
+            dups = catalog.find_possible_duplicates(self.ctx.conn, fields["name_vi"], fields["name_zh"],
+                                                     fields["spec"], fields["variant"])
+            if dups and ask(self, t("settings.product_duplicate", code=dups[0]["code"],
+                                    product=catalog.label(dups[0]))):
+                self.accept()
+                ProductEditor(self.ctx, dups[0], self.parent()).exec()
+                return
         self.ctx.undo_point("product_edit" if self.product else "product_add")
         with db.transaction(self.ctx.conn):
             if self.product:

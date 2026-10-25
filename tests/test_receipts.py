@@ -93,6 +93,17 @@ def test_what_cannot_be_saved(conn):
     assert row["id"] == a
 
 
+def test_same_as_existing_also_catches_a_fuzzy_match(conn):
+    """Not just an exact name + packing + type match: a new product whose Vietnamese name differs but whose
+    Chinese name, packing and colour closely match an existing one is pointed out too."""
+    existing = catalog.create_product(conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Trắng")
+    dup = ReceiptInput(date.today(), SUPPLIER, supplier_name="X",
+                       lines=[ReceiptLineInput(1, new=NewProduct("Sơn trắng mới nhập", "FS-101防水涂料",
+                                                                 spec="20KG", variant="Trắng"))])
+    [(line, row)] = receipts.same_as_existing(conn, dup)
+    assert row["id"] == existing
+
+
 def test_exported_file_cannot_be_imported_twice(conn, ws):
     a, *_ = products(conn)
     doc = receipts.save(conn, ReceiptInput(date(2026, 10, 15), SUPPLIER, supplier_name="Công ty mẹ",
