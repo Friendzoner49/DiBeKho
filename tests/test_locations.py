@@ -357,12 +357,11 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
     stock = win.stack.widget(0)
     win.nav.setCurrentRow(0)
     app.processEvents()
-    from dibekho.ui.stock_page import NOTE
+    from dibekho.ui.common import ORANGE
+    from dibekho.ui.stock_page import NOTE, ZH
 
-    from dibekho.ui.stock_page import ALARM
-
-    row = next(r for r in range(stock.table.rowCount()) if stock.table.item(r, 10).text() == "背水涂")
-    assert stock.alarm.isVisible() and "Sắp hết" in stock.table.item(row, ALARM).text()  # 23: below 30
+    row = next(r for r in range(stock.table.rowCount()) if stock.table.item(r, ZH).text() == "背水涂")
+    assert stock.alarm.isVisible() and stock.table.item(row, 0).background().color() == ORANGE  # 23: below 30
     from PySide6.QtWidgets import QAbstractItemDelegate, QLineEdit
 
     stock.table.editItem(stock.table.item(row, NOTE))  # the way a double-click types into the cell
@@ -372,7 +371,7 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
     stock.table.closeEditor(editor, QAbstractItemDelegate.NoHint)
     app.processEvents()
     assert ctx.conn.execute("SELECT stock_note FROM products WHERE id = ?", (paint,)).fetchone()[0] == "2 thùng in lệch"
-    row = next(r for r in range(stock.table.rowCount()) if stock.table.item(r, 10).text() == "背水涂")
+    row = next(r for r in range(stock.table.rowCount()) if stock.table.item(r, ZH).text() == "背水涂")
     assert stock.table.item(row, NOTE).text() == "2 thùng in lệch"  # the table was rebuilt after the edit
     assert not stock.table.item(row, 1).flags() & count_mod.Qt.ItemIsEditable
 
@@ -389,7 +388,7 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
 
     dlg = count_mod.TransferDialog(ctx, win)
     r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
-    dlg.table.item(r, 6).setText("4")
+    dlg.table.item(r, count_mod.TRANS_QTY).setText("4")
     dlg.save()
     assert places(ctx.conn, paint) == (35, 1)
 
@@ -403,4 +402,38 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
     monkeypatch.setattr(details_mod, "open_path", lambda p: None)
     cd.export()
     assert list(ws.output.glob("KhachHang_*.xlsx"))
+    win.close()
+
+
+def test_transfer_dialog_edits_through_the_frozen_pane(app, ws):
+    """Số lượng is pinned on the right (frozen_columns): typing through that pane must land in the real
+    cell, not open a second, hidden editor on the cell underneath."""
+    from PySide6.QtWidgets import QAbstractItemDelegate, QLineEdit
+
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    dlg = count_mod.TransferDialog(ctx, win)
+    dlg.show()
+    dlg.resize(420, 320)  # narrow enough that Số lượng would scroll out of view without the frozen pane
+    app.processEvents()
+    assert dlg.frozen.isVisible()
+    r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+    index = dlg.frozen.model().index(r, count_mod.TRANS_QTY)
+    dlg.frozen.setCurrentIndex(index)
+    dlg.frozen.edit(index)  # the way a double-click on the overlay opens an editor
+    app.processEvents()
+    editor = dlg.frozen.viewport().findChild(QLineEdit)
+    assert editor is not None
+    # the cell under the overlay never got its own, invisible editor open at the same time
+    assert dlg.table.state() != dlg.table.State.EditingState
+    editor.setText("4")
+    dlg.frozen.commitData(editor)
+    dlg.frozen.closeEditor(editor, QAbstractItemDelegate.NoHint)
+    app.processEvents()
+    assert dlg._typed().get(paint) == 4
+    dlg.close()
     win.close()

@@ -25,7 +25,7 @@
 
 You drop Excel delivery notes into a folder. The app reads them, takes the goods off the stock, and records the orders and customers. Nothing has to be typed in again.
 
-- 📦 **See the stock** of every product, split between the **main warehouse** and the **office**; below 30 the row turns orange with "Running low — order more", negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
+- 📦 **See the stock** of every product, split between the **main warehouse** and the **office**; below 30 the row turns orange ("running low — order more"), negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
 - 🔢 **Stock count** per place (main warehouse, office): type what you counted, the app records the difference. **Transfer** goods between the two.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
@@ -151,14 +151,14 @@ Goods-in files of the old kind (a filled template) can still be imported with **
 
 Open **Stock count**, pick the date, type what you counted in the 2 yellow columns **Counted: Main warehouse** and **Counted: Office**, and click **Save count**. A place left empty stays as it is. The app only records the difference between your count and its own number, so the history stays clear.
 
-- **Transfer…**: goods carried between the main warehouse and the office. Choose from and to, type the quantities and click **Save transfer**. The total does not change, only each place (transfers CH001, CH002…).
+- **Transfer…**: goods carried between the main warehouse and the office. Choose from and to, type the quantities (Chinese name and Category columns help tell similar products apart; the two quantity columns stay pinned on the right) and click **Save transfer**. The total does not change, only each place (transfers CH001, CH002…).
 - **Stock note** column (the same as on the Stock page): double-click to write, e.g. "3 boxes misprinted, 2 expire 12/2026". It is saved at once, goes with the data package to another computer and is in the Excel files.
 
 ### 4. Looking things up
 
-- **Stock:** columns **Main warehouse**, **Office** and the total. **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows with "⚠ Running low — order more" = below the alert level (**30** by default, changed in **Settings → Products → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
+- **Stock:** columns **Main warehouse**, **Office** and the total (the columns from Code through Stock stay pinned while you scroll sideways). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Settings → Products → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
 - **Search** (**Ctrl+F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
-- Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Read note again**, **Cancel document**.
+- Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Reread the whole note** (right-click an order in the order list to do this straight from there), **Cancel document**.
 - Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period. **Export to Excel…** saves exactly that (every order with its prices, the products bought) to a file in `output/`.
 - Prices come from the unit price / amount columns of the note. A note without a price leaves the cell empty (—) and it is not counted in revenue.
 
@@ -188,7 +188,7 @@ Only **one computer** works at a time, and both need the same app version (see [
 
 ### 8. Backups
 
-The app backs up once a day when it starts and keeps the last 14 copies in `sao-luu/`. **Settings → Data transfer and backups** has **Back up now** and **Restore selected**.
+The app backs up once a day when it starts, keeps the newest 10 copies in `sao-luu/`, and drops anything over 30 days old. **Settings → Data transfer and backups** has **Back up now**, **Restore selected**, and **Restore a deleted product…** (for a product deleted by mistake).
 
 ### 9. Starting over
 
@@ -204,9 +204,11 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 |---|---|
 | You just did something wrong (Apply, stock count, goods in, editing/deleting a product, an import…) | Click **↶ Undo** at the top right: the data goes back to exactly how it was before. Click again to go further back (up to 20 steps) |
 | A line was matched to the wrong product some time ago | **Settings → Products → Learned names on notes**: click the order, then **Forget and read again…** on the wrong line. The note comes back to **To do** to choose again |
+| You want to redo a whole order at once (not line by line) | Right-click the order's name (order list, Learned names on notes, or the order's own window) → **Reread the whole note** |
 | A note was entered by mistake | Open the order, **Cancel document** (stock is given back, history kept). Deleting the file does **not** cancel it |
 | A note file was deleted from the folder | The stock does not change. **To do** offers **Restore file**, **Cancel document** or **Ignore** |
 | A note file was edited after it was read | **To do** offers **Use new version** or **Keep old version** |
+| A product was deleted by mistake | **↶ Undo** right away if you can, otherwise **Settings → Data transfer and backups → Restore a deleted product…** |
 | You want to go back to an earlier day | **Settings → Data transfer and backups**, pick a backup, **Restore selected** |
 
 ### Sending the log when something goes wrong

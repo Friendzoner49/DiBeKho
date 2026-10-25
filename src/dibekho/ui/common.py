@@ -284,6 +284,7 @@ class Table(QTableWidget):
         super().__init__(rows, columns)
         self.stretch = stretch
         self.natural = 0  # width of the stretch column before it took the spare width
+        self._frozen: list["FrozenColumns"] = []  # populated by freeze_columns()
 
     def fill_spare(self) -> None:
         if self.stretch is None or self.stretch >= self.columnCount():
@@ -295,6 +296,105 @@ class Table(QTableWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.fill_spare()
+        for frozen in self._frozen:
+            frozen.place()
+
+
+class FrozenColumns(QTableView):
+    """Pins `columns` of `table` to its left or right edge, so they stay in view while the rest of `table`
+    scrolls sideways. Hidden automatically whenever `table` is wide enough that nothing needs to scroll.
+
+    This view shares `table`'s own model and selection model -- it shows the very same QTableWidgetItems,
+    it never copies them -- so anything already wired to `table` (itemChanged, doubleClicked, fill_table,
+    only_editable, row_id, sorting...) keeps working unchanged on both the pinned and the scrolling columns.
+
+    `table`'s edit triggers must already exclude CurrentChanged (make_table()'s default does) before this
+    is created: with it included, a click on a shared cell would open an editor on each view at once."""
+
+    def __init__(self, table: Table, columns: list[int], side: str = "left", editable: bool = False):
+        super().__init__(table)
+        self.host, self.columns, self.side = table, columns, side
+        self._guard = False
+        self.setModel(table.model())
+        self.setSelectionModel(table.selectionModel())
+        self.setSelectionBehavior(table.selectionBehavior())
+        self.setSelectionMode(table.selectionMode())
+        self.setAlternatingRowColors(table.alternatingRowColors())
+        self.setWordWrap(table.wordWrap())
+        self.setEditTriggers(table.editTriggers())
+        self.setFocusPolicy(Qt.StrongFocus if editable else Qt.NoFocus)
+        self.verticalHeader().hide()
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setStyleSheet("QTableView { border: none; }")
+        for c in range(table.columnCount()):
+            self.setColumnHidden(c, c not in columns)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.horizontalHeader().setSectionsClickable(True)
+        self.horizontalHeader().setHighlightSections(False)
+        table.verticalScrollBar().valueChanged.connect(self.verticalScrollBar().setValue)
+        self.verticalScrollBar().valueChanged.connect(table.verticalScrollBar().setValue)
+        table.horizontalHeader().sectionResized.connect(self._host_resized)
+        self.horizontalHeader().sectionResized.connect(self._own_resized)
+        self.horizontalHeader().sortIndicatorChanged.connect(self._sort_from_here)
+        table.horizontalHeader().sortIndicatorChanged.connect(self._sort_from_host)
+        table.horizontalScrollBar().rangeChanged.connect(lambda *_: self.place())
+        self.doubleClicked.connect(table.doubleClicked)
+        table.viewport().stackUnder(self)
+        self.place()
+
+    def _host_resized(self, col, _old, new) -> None:
+        if col in self.columns and self.columnWidth(col) != new:
+            self.setColumnWidth(col, new)
+        self.place()
+
+    def _own_resized(self, col, _old, new) -> None:
+        if self.host.columnWidth(col) != new:
+            self.host.horizontalHeader().blockSignals(True)
+            self.host.setColumnWidth(col, new)
+            self.host.horizontalHeader().blockSignals(False)
+        self.place()
+
+    def _sort_from_here(self, col, order) -> None:
+        if self._guard:
+            return
+        self._guard = True
+        try:
+            self.host.sortByColumn(col, order)
+        finally:
+            self._guard = False
+
+    def _sort_from_host(self, col, order) -> None:
+        if self._guard:
+            return
+        self._guard = True
+        try:
+            self.horizontalHeader().setSortIndicator(col, order)
+        finally:
+            self._guard = False
+
+    def place(self) -> None:
+        """Hidden unless `table` actually needs to scroll sideways; otherwise sized and positioned over its
+        pinned columns, using the viewport's own geometry (not `table`'s outer size, which ignores its
+        frame and scrollbars)."""
+        if self.host.horizontalScrollBar().maximum() <= 0:
+            self.setVisible(False)
+            return
+        self.setVisible(True)
+        vp = self.host.viewport()
+        width = sum(self.host.columnWidth(c) for c in self.columns)
+        height = vp.height() + self.host.horizontalHeader().height()
+        x = vp.x() if self.side == "left" else vp.x() + vp.width() - width
+        self.setGeometry(x, 0, width, height)
+
+
+def freeze_columns(table: Table, columns: list[int], side: str = "left", editable: bool = False) -> FrozenColumns:
+    """Pin `columns` of `table` (built by make_table()) to its left or right edge. Call once, right after
+    the table is built and its edit triggers set."""
+    frozen = FrozenColumns(table, columns, side, editable)
+    table._frozen.append(frozen)
+    frozen.show()
+    return frozen
 
 
 def make_table(headers: list[str], stretch: int | None = 1) -> QTableWidget:

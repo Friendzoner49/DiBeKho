@@ -11,6 +11,7 @@ from dibekho.ui.common import (
     RED,
     date_item,
     fill_table,
+    freeze_columns,
     make_table,
     num_item,
     only_editable,
@@ -21,7 +22,9 @@ from dibekho.ui.common import (
 from dibekho.ui.details import ProductDialog
 from dibekho.ui.page import Page
 
-ALARM, NOTE = 8, 9  # the stock note column: typed in here or on the Kiểm kê page
+# Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn kho are pinned (0..STOCK) so they
+# stay visible while scrolling to the detail-by-place columns near the end.
+CODE, NAME, ZH, SPEC, VARIANT, CATEGORY, UNIT, STOCK, MIN_STOCK, NOTE, MAIN, OFFICE, LAST_OUT = range(13)
 
 
 class StockPage(Page):
@@ -63,13 +66,16 @@ class StockPage(Page):
 
         self.summary = QLabel()
         self.layout_.addWidget(self.summary)
-        self.table = make_table([t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.stock"),
-                                 t("loc.main"), t("loc.office"), t("col.unit"), t("col.alarm"), t("col.stock_note"),
-                                 t("col.name_zh"), t("col.min_stock"), t("col.category"), t("col.last_out")],
-                                stretch=1)
+        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"),
+                                 t("col.variant"), t("col.category"), t("col.unit"), t("col.stock"),
+                                 t("col.min_stock"), t("col.stock_note"), t("loc.main"), t("loc.office"),
+                                 t("col.last_out")], stretch=None)
+        self.table.setEditTriggers(self.table.EditTrigger.DoubleClicked | self.table.EditTrigger.EditKeyPressed
+                                   | self.table.EditTrigger.AnyKeyPressed)
         self.table.doubleClicked.connect(self._open)
         self.table.itemChanged.connect(self._note_edited)
         self.layout_.addWidget(self.table)
+        freeze_columns(self.table, list(range(STOCK + 1)), side="left")
 
     def refresh(self):
         current = self.category.currentData()
@@ -93,24 +99,22 @@ class StockPage(Page):
             haystack = unaccent(f"{p['code']} {p['name_vi']} {p['name_zh']} {p['spec']} {p['variant']}")
             if needle and needle not in haystack:
                 continue
-            color, alarm = None, ""
+            color = None
             if p["stock"] < 0:
-                color, alarm, negative = RED, t("stock.alarm_negative"), negative + 1
+                color, negative = RED, negative + 1
             elif is_low(p["stock"], p["min_stock"], default):
-                color, alarm, low = ORANGE, t("stock.alarm_low"), low + 1
+                color, low = ORANGE, low + 1
             if self.only_low.isChecked() and color is None:
                 continue
-            rows.append([p["code"], p["name_vi"], p["spec"], p["variant"], num_item(p["stock"]),
-                         num_item(p["stock_main"]), num_item(p["stock_office"]), p["unit"], alarm, p["stock_note"],
-                         p["name_zh"], num_item(p["min_stock"] or default or None), p["category"],
-                         date_item(p["last_out"])])
+            rows.append([p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["category"], p["unit"],
+                         num_item(p["stock"]), num_item(p["min_stock"] or default or None), p["stock_note"],
+                         num_item(p["stock_main"]), num_item(p["stock_office"]), date_item(p["last_out"])])
             ids.append(p["id"])
             colors.append(color)
         self.table.blockSignals(True)
         fill_table(self.table, rows, ids=ids, colors=colors)
         only_editable(self.table, {NOTE})
-        self.table.setColumnWidth(NOTE, min(max(self.table.columnWidth(NOTE), 140), 260))  # long notes: hover
-        self.table.fill_spare()
+        self.table.setColumnWidth(NOTE, 160)  # long notes: elided, hover to read in full
         self.table.blockSignals(False)
         self.empty.setVisible(not catalog.products(self.ctx.conn, include_inactive=True))
         self.alarm.setText(t("stock.alarm_banner", count=low, level=fmt_qty(default)))

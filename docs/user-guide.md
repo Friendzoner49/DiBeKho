@@ -141,17 +141,19 @@ Then click **Apply and read notes again**, read the summary and agree.
 
 ### 4.1. Reading the Stock table
 
+Column order: Code, Product, Chinese name, Packing, Type/colour, Category, Unit, Stock, Low-stock alert at, Stock note, Main warehouse, Office, Last out.
+
 | Column | Meaning |
 |---|---|
 | **Stock** | Total on hand (main warehouse + office) |
-| **Main warehouse**, **Office** | Stock at each place |
-| **Alert** | **⚠ Running low — order more** below the alert level; or negative stock |
-| **Stock note** | The product's own note (damaged, misprinted, expired boxes…) |
 | **Low-stock alert at** | The alert level used for the product |
+| **Stock note** | The product's own note (damaged, misprinted, expired boxes…); a narrow column, hover to read it in full |
+| **Main warehouse**, **Office** | Stock at each place |
 | **Last out** | Date of the last delivery |
 
+- A product running low (below its alert level) is shaded **orange**; negative stock is **red**. The line at the top of the page says how many products are running low.
+- The columns from Code through Stock **stay pinned** while you scroll the table sideways (drag the scrollbar under the table to see Main warehouse/Office/Last out without losing sight of the name and the total).
 - The **Filter by name…** box finds products quickly. **Category** shows one group only.
-- The orange band at the top says how many products are running low.
 
 ### 4.2. Making the list to order
 
@@ -229,7 +231,7 @@ For goods carried from one place to the other, e.g. 5 boxes of paint from the ma
 
 1. Open **Stock count**, click **Transfer…** (top right).
 2. Choose the **Date**, **From** and **To** (always two different places).
-3. **On hand at the source** shows what is there. Type the quantity in the yellow **Quantity to move** column for each product carried.
+3. **On hand at the source** shows what is there. Type the quantity in the yellow **Quantity to move** column for each product carried. The table also shows **Chinese name** and **Category**, to tell apart products that differ only in their Chinese name; the **On hand…** and **Quantity to move** columns stay pinned on the right while you scroll, so they are always easy to see and type into.
 4. (Optional) type a **Note**.
 5. Click **Save transfer**, read the summary and agree. Transfers get codes **CH001, CH002…**
 
@@ -280,6 +282,7 @@ Useful to send to the customer for checking, or to work out a salesperson's comm
 **Search → Order list**: every document, newest first.
 - Filter by **Document type** (delivery notes, goods in, stock counts, transfers), dates, customer, product; tick **Include cancelled** to see cancelled ones.
 - **Place** column: where goods were taken from / put in ("(?)" = not chosen yet). **Goods** and **Fees (apart)** columns.
+- **Right-click an order** (an active delivery note) → **Reread the whole note**: see section 12.
 
 **Double-click an order** for its details:
 
@@ -288,7 +291,7 @@ Useful to send to the customer for checking, or to work out a salesperson's comm
 - Customer (click the name to open it), contact, phone, address.
 - **Taken from**: change main warehouse / office if it was wrong. (If a count was made after the order's date, changing the place moves each place away from what was counted: count that place again.)
 - Lines with **Unit price**, **Amount**; the line "Goods · other fees · total" (the total matches "Tổng cộng" on the paper note).
-- **Open original file** (a read-only copy of the note), **Read note again** (with the names learned so far), **Cancel document** (gives the stock back, keeps the history).
+- **Open original file** (a read-only copy of the note), **Reread the whole note** (see section 12), **Cancel document** (gives the stock back, keeps the history).
 
 > **Deleting a note file does not cancel it.** To drop an order, open it and click **Cancel document**.
 
@@ -324,9 +327,10 @@ Choosing customers filters only the **out** quantities. Transfers between the tw
 - Click again to go further back, up to 20 steps.
 - Works for: Apply in To do, places of orders, stock counts, transfers, goods in and its edits, cancelling, reading a note again, adding/editing/deleting products, stock notes, the alert level, data imports…
 
-**Automatic backups:** every day when the app opens, 14 kept in `sao-luu/`. In **Settings → Data transfer and backups**:
+**Automatic backups:** every day when the app opens, the newest **10** are kept in `sao-luu/`, and anything over **30 days** old is dropped to save space (the app also tidies itself up every two weeks). In **Settings → Data transfer and backups**:
 - **Back up now**.
 - **Restore selected**: go back to that day's data.
+- **Restore a deleted product…**: deleted a product by mistake? The app looks through the backups for one no longer in the catalog (it must still be in a backup from the last 30 days). If it was already re-created by hand, the app offers to **merge them into one** (every document moves onto the smaller code) or **keep them separate**.
 
 **Start over:** **Settings → General → Reset data** (always backed up first):
 - **Reset stock (keep products)…**: keeps the catalog and learned names; clears notes, goods in, counts, customers; reads every note again. The orders read again need their **places chosen again**.
@@ -351,7 +355,8 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 - **Add product**, **Edit product…** (or double-click a row): Vietnamese and Chinese name, packing, type/colour, unit, category.
 - **Delete product**: only for products in no document. A product already used can be set *inactive* (hidden, old documents unchanged). Codes of deleted products are never given again.
 - **Import catalog from Excel…**: add products from the monthly sheet.
-- **Learned names on notes**: names the app has learned, grouped by order. Click an order to see them; **Forget and read again…** to choose the product for a name again.
+- **Learned names on notes**: names the app has learned, grouped by order. Click an order to see them; **Forget and read again…** to choose the product for **one name** again.
+- **Reread the whole note**: want to redo **every line** of an order at once instead of one at a time? Right-click its name here, in the Order list (section 9), or press the same button when an order is open. The app forgets the product match for every line of that order and reads it again from scratch; it (and any other active note sharing a name) shows up in To do to choose again. Old history stays, and ↶ Undo works if you change your mind.
 
 ---
 
@@ -377,6 +382,7 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 |---|---|
 | Just clicked something by mistake | **↶ Undo** |
 | Wrong product chosen for a line long ago | **Settings → Products → Learned names on notes**: click the order, **Forget and read again…** on the wrong line. The note comes back in **To do** |
+| Want to redo a whole order (several lines at once) | Right-click the order's name (Order list, Learned names on notes, or the order's own window) → **Reread the whole note** ([section 12](#12-product-catalog-and-alert-level)) |
 | An order recorded by mistake | Open it → **Cancel document** |
 | Wrong place for an order | Open it → change **Taken from** |
 | Negative stock at one place | Usually the goods came from the other place, or a transfer was not recorded. Fix the order's place, record a **Transfer…**, or count that place |
@@ -384,6 +390,7 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 | Too many "Running low" | Lower **Alert when stock is below**, or set products' own levels ([section 12](#12-product-catalog-and-alert-level)) |
 | An order without prices (—) | The paper note has no unit price / amount. Fix the file, then **Use new version** in To do |
 | A note file deleted by mistake | Stock unchanged. **To do → Restore file** |
+| A product deleted by mistake | **↶ Undo** right away if you can; otherwise **Settings → Data transfer and backups → Restore a deleted product…** (section 11) |
 | Go back to a day before | **Settings → Data transfer and backups**, choose the backup, **Restore selected** |
 | Excel export says the file is open | Close the Excel file with that name and export again |
 

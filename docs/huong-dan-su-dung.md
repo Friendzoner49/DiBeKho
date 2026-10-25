@@ -141,17 +141,19 @@ Rồi bấm **Áp dụng và đọc lại phiếu**, đọc bảng tóm tắt v�
 
 ### 4.1. Đọc bảng Tồn kho
 
+Thứ tự cột: Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn, Báo sắp hết khi còn, Ghi chú tồn kho, Kho tổng, Văn phòng, Xuất gần nhất.
+
 | Cột | Ý nghĩa |
 |---|---|
 | **Tồn** | Tổng số hiện có (Kho tổng + Văn phòng) |
-| **Kho tổng**, **Văn phòng** | Số ở từng nơi |
-| **Cảnh báo** | **⚠ Sắp hết — nên đặt hàng** khi dưới mức báo động; hoặc báo tồn âm |
-| **Ghi chú tồn kho** | Ghi chú riêng của mặt hàng (thùng lỗi, in lệch, hết hạn…) |
 | **Báo sắp hết khi còn** | Mức báo động đang áp dụng cho mặt hàng |
+| **Ghi chú tồn kho** | Ghi chú riêng của mặt hàng (thùng lỗi, in lệch, hết hạn…); cột hẹp, rê chuột để xem hết |
+| **Kho tổng**, **Văn phòng** | Số ở từng nơi |
 | **Xuất gần nhất** | Ngày giao hàng gần nhất |
 
+- Mặt hàng sắp hết (dưới mức báo động) tô **cam**; tồn âm tô **đỏ**. Dòng đầu trang cho biết có bao nhiêu mặt hàng sắp hết.
+- Các cột từ Mã đến Tồn **tự ghim lại** khi kéo bảng sang ngang (kéo thanh cuộn dưới bảng để xem Kho tổng/Văn phòng/Xuất gần nhất mà vẫn thấy tên và tổng tồn).
 - Ô **Lọc theo tên…**: gõ để tìm nhanh (không dấu cũng được). Ô **Nhóm hàng**: chỉ xem một nhóm.
-- Dải cam ở đầu trang cho biết có bao nhiêu mặt hàng sắp hết.
 
 ### 4.2. Lập danh sách cần đặt hàng
 
@@ -229,7 +231,7 @@ Dùng khi mang hàng từ nơi này sang nơi kia, ví dụ chở 5 thùng sơn 
 
 1. Vào **Kiểm kê**, bấm **Chuyển hàng…** (góc phải).
 2. Chọn **Ngày chuyển**, **Chuyển từ** và **Chuyển đến** (hai nơi luôn khác nhau).
-3. Cột **Đang có ở nơi chuyển đi** cho biết số hiện có. Gõ số lượng vào cột vàng **Số lượng chuyển** cho từng mặt hàng mang đi.
+3. Cột **Đang có ở nơi chuyển đi** cho biết số hiện có. Gõ số lượng vào cột vàng **Số lượng chuyển** cho từng mặt hàng mang đi. Bảng có thêm cột **Tên Trung** và **Nhóm hàng** để phân biệt các mặt hàng chỉ khác nhau ở tên Trung; hai cột **Đang có…** và **Số lượng chuyển** tự ghim bên phải khi kéo bảng sang ngang, tiện nhìn và nhập số.
 4. (Tuỳ chọn) gõ **Ghi chú**.
 5. Bấm **Lưu phiếu chuyển**, đọc tóm tắt và đồng ý. Phiếu có mã **CH001, CH002…**
 
@@ -280,6 +282,7 @@ Dùng để gửi khách đối chiếu, hoặc tính hoa hồng cho người b�
 **Tra cứu → Danh sách đơn hàng**: mọi phiếu, mới nhất trước.
 - Lọc theo **Loại phiếu** (Phiếu giao hàng, Phiếu hàng về, Phiếu kiểm kê, Phiếu chuyển hàng), khoảng ngày, khách, mặt hàng; tick **Gồm cả phiếu đã huỷ** để xem cả phiếu đã huỷ.
 - Cột **Nơi**: nơi lấy hàng / nơi nhập ("(?)" = chưa chọn nơi). Cột **Tiền hàng** và **Phí riêng**.
+- **Nhấn chuột phải vào một đơn** (phiếu giao hàng đang hiệu lực) → **Đọc lại cả phiếu**: xem mục 12.
 
 **Nháy đúp một đơn** để mở chi tiết:
 
@@ -288,7 +291,7 @@ Dùng để gửi khách đối chiếu, hoặc tính hoa hồng cho người b�
 - Khách (bấm tên để mở khách), người liên hệ, số điện thoại, địa chỉ.
 - Ô **Lấy hàng từ**: đổi Kho tổng / Văn phòng nếu chọn nhầm. (Nếu đã kiểm kê sau ngày của đơn, đổi nơi sẽ làm số từng nơi lệch khỏi số đã đếm: kiểm kê lại nơi đó.)
 - Các dòng hàng với **Đơn giá**, **Thành tiền**; dòng "Tiền hàng · phí khác · tổng tiền" (tổng tiền khớp dòng "Tổng cộng" trên phiếu giấy).
-- Nút **Mở file gốc** (mở bản sao chỉ đọc của phiếu), **Đọc lại phiếu** (đọc lại với các tên đã học hiện tại), **Huỷ phiếu** (trả lại tồn, giữ lịch sử).
+- Nút **Mở file gốc** (mở bản sao chỉ đọc của phiếu), **Đọc lại cả phiếu** (xem mục 12), **Huỷ phiếu** (trả lại tồn, giữ lịch sử).
 
 > **Xoá file phiếu không phải cách huỷ phiếu.** Muốn bỏ một đơn, mở đơn và bấm **Huỷ phiếu**.
 
@@ -324,9 +327,10 @@ Ghi chú: chọn khách thì chỉ số **xuất** được lọc theo khách. C
 - Bấm tiếp để lùi thêm, tối đa 20 bước.
 - Dùng được cho: Áp dụng ở Cần xử lý, chọn nơi lấy hàng, kiểm kê, chuyển hàng, nhập/sửa hàng về, huỷ phiếu, đọc lại phiếu, thêm/sửa/xoá mặt hàng, ghi chú tồn kho, mức báo động, nhập dữ liệu…
 
-**Sao lưu tự động:** mỗi ngày khi mở app, giữ 14 bản trong `sao-luu/`. Trong **Cài đặt → Chuyển dữ liệu và sao lưu**:
+**Sao lưu tự động:** mỗi ngày khi mở app, giữ **10 bản gần nhất** trong `sao-luu/`, bản nào quá **30 ngày** cũng tự xoá để đỡ tốn dung lượng (app tự dọn lại mỗi 2 tuần). Trong **Cài đặt → Chuyển dữ liệu và sao lưu**:
 - **Sao lưu ngay**: tạo một bản sao lưu lúc này.
 - **Khôi phục bản đã chọn**: quay về hẳn dữ liệu của ngày đó.
+- **Khôi phục mặt hàng đã xoá…**: lỡ xoá nhầm một mặt hàng? App dò trong các bản sao lưu, liệt kê mặt hàng nào không còn trong danh mục hiện tại để bạn chọn khôi phục (còn trong bản sao lưu nào đó trong 30 ngày gần nhất). Nếu mặt hàng đó đã được tạo lại bằng tay, app sẽ hỏi có muốn **gộp thành 1** (chuyển mọi phiếu về mã nhỏ hơn) hay **giữ riêng**.
 
 **Làm lại từ đầu:** **Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước):
 - **Đặt lại tồn kho (giữ mặt hàng)…**: giữ danh mục và tên đã học; xoá phiếu, hàng về, kiểm kê, khách; đọc lại mọi phiếu ngay. Các đơn đọc lại phải **chọn nơi lấy hàng lại**.
@@ -351,7 +355,8 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 - **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên Việt, tên Trung, quy cách, loại/màu, đơn vị, nhóm hàng.
 - **Xoá mặt hàng**: chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - **Nhập danh mục từ Excel…**: nạp thêm mặt hàng từ file thống kê tháng.
-- **Tên trên phiếu đã học**: danh sách tên hàng app đã học, nhóm theo đơn. Bấm vào đơn để xem; **Quên và đọc lại…** để chọn lại mặt hàng cho một tên.
+- **Tên trên phiếu đã học**: danh sách tên hàng app đã học, nhóm theo đơn. Bấm vào đơn để xem; **Quên và đọc lại…** để chọn lại mặt hàng cho **một tên**.
+- **Đọc lại cả phiếu**: muốn chọn lại **mọi dòng hàng** trong một đơn (không phải từng dòng một)? Nhấn **chuột phải vào tên đơn** — ở đây, hoặc ở Danh sách đơn hàng (mục 9), hoặc bấm nút cùng tên khi mở chi tiết đơn. App quên cách ghép tên cho mọi dòng trong đơn đó rồi đọc lại từ đầu; đơn (và mọi đơn khác đang dùng chung tên nào đó) hiện lại ở **Cần xử lý** để chọn lại. Lịch sử cũ vẫn giữ, bấm **↶ Hoàn tác** được nếu đổi ý.
 
 ---
 
@@ -377,6 +382,7 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 |---|---|
 | Vừa bấm nhầm | **↶ Hoàn tác** |
 | Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
+| Muốn chọn lại cả một đơn (nhiều dòng cùng lúc) | Nhấn chuột phải vào tên đơn (Đơn hàng, Tên trên phiếu đã học, hoặc chi tiết đơn) → **Đọc lại cả phiếu** ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
 | Một đơn nhập nhầm | Mở đơn → **Huỷ phiếu** |
 | Chọn nhầm nơi lấy hàng | Mở đơn → đổi ô **Lấy hàng từ** |
 | Tồn ở một nơi bị âm | Thường do hàng thực ra lấy ở nơi kia, hoặc chưa ghi chuyển hàng. Sửa nơi lấy hàng của đơn, ghi **Chuyển hàng…**, hoặc kiểm kê nơi đó |
@@ -384,6 +390,7 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 | Quá nhiều hàng báo "Sắp hết" | Hạ **Báo động khi tồn dưới**, hoặc đặt mức riêng cho từng mặt hàng ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
 | Đơn không có giá (—) | Phiếu giấy không ghi đơn giá / thành tiền. Sửa file phiếu rồi **Dùng bản mới** ở Cần xử lý |
 | Lỡ xoá file phiếu | Tồn không đổi. **Cần xử lý → Khôi phục file** |
+| Lỡ xoá nhầm một mặt hàng | Bấm **↶ Hoàn tác** ngay nếu còn kịp; nếu không, **Cài đặt → Chuyển dữ liệu và sao lưu → Khôi phục mặt hàng đã xoá…** (mục 11) |
 | Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** |
 | Mở file gốc báo lỗi | File đang mở trong Excel: đóng Excel rồi thử lại |
 | Xuất Excel báo file đang mở | Đóng file Excel cùng tên rồi xuất lại |

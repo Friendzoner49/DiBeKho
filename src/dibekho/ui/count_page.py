@@ -29,6 +29,7 @@ from dibekho.ui.common import (
     error,
     fill_table,
     fit_window,
+    freeze_columns,
     from_qdate,
     hint_label,
     info,
@@ -191,6 +192,10 @@ class CountPage(Page):
             self.ctx.notify()
 
 
+TRANS_CODE, TRANS_NAME, TRANS_ZH, TRANS_SPEC, TRANS_VARIANT, TRANS_UNIT, TRANS_CATEGORY, TRANS_AVAILABLE, \
+    TRANS_QTY = range(9)
+
+
 class TransferDialog(QDialog):
     """Goods moved between Kho tổng and Văn phòng: the total stock stays the same."""
 
@@ -198,7 +203,7 @@ class TransferDialog(QDialog):
         super().__init__(parent)
         self.ctx = ctx
         self.setWindowTitle(t("transfer.title"))
-        fit_window(self, 900, 600)
+        fit_window(self, 1000, 600)
         lay = QVBoxLayout(self)
         lay.addWidget(hint_label(t("transfer.hint")))
         form = QFormLayout()
@@ -219,12 +224,15 @@ class TransferDialog(QDialog):
 
         self.levels = stock_levels(ctx.conn, by_location=True)
         self.products = catalog.products(ctx.conn)
-        self.table = make_table([t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"),
-                                 t("transfer.available"), t("transfer.qty")], stretch=1)
-        self.table.setEditTriggers(self.table.EditTrigger.AllEditTriggers)
+        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"),
+                                 t("col.variant"), t("col.unit"), t("col.category"), t("transfer.available"),
+                                 t("transfer.qty")], stretch=TRANS_NAME)
+        self.table.setEditTriggers(self.table.EditTrigger.DoubleClicked | self.table.EditTrigger.EditKeyPressed
+                                   | self.table.EditTrigger.AnyKeyPressed)
         self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectItems)
         lay.addWidget(self.table)
         self._fill()
+        self.frozen = freeze_columns(self.table, [TRANS_AVAILABLE, TRANS_QTY], side="right", editable=True)
         box = QDialogButtonBox()
         box.addButton(t("transfer.save"), QDialogButtonBox.AcceptRole)
         box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
@@ -243,14 +251,14 @@ class TransferDialog(QDialog):
     def _fill(self):
         typed = self._typed() if self.table.rowCount() else {}
         src = self.from_loc.currentData()
-        fill_table(self.table, [[p["code"], p["name_vi"], p["spec"], p["variant"], p["unit"],
-                                 num_item(self.levels.get((p["id"], src), 0)), fmt_qty(typed[p["id"]])
-                                 if p["id"] in typed else ""] for p in self.products],
+        fill_table(self.table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"],
+                                 p["category"], num_item(self.levels.get((p["id"], src), 0)),
+                                 fmt_qty(typed[p["id"]]) if p["id"] in typed else ""] for p in self.products],
                    ids=[p["id"] for p in self.products])
         for r in range(self.table.rowCount()):
             for c in range(self.table.columnCount()):
                 item = self.table.item(r, c)
-                if c == 6:
+                if c == TRANS_QTY:
                     item.setBackground(YELLOW)
                 else:
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -260,7 +268,7 @@ class TransferDialog(QDialog):
         result = {}
         for r in range(self.table.rowCount()):
             try:
-                value = _parse(self.table.item(r, 6).text())
+                value = _parse(self.table.item(r, TRANS_QTY).text())
             except ValueError:
                 value = None
             if value:
