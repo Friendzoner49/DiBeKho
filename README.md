@@ -213,12 +213,13 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 
 ### Sending the log when something goes wrong
 
-The app writes what you do and every error into a log (1 MB at most; when full, the oldest part is dropped). When something goes wrong, send the log to whoever looks after the app, so they can see where the problem is:
+The app writes what you do and every error into a log (1 MB and 7 days at most; past that, the oldest part is dropped). When something goes wrong, send the log to whoever looks after the app, so they can see where the problem is:
 
 1. Open **Settings → General**.
 2. Click the version number **3 times quickly**. A small **Log…** button appears next to it.
-3. Click **Log…** → **Save to a file…**. The app saves `NhatKy_<date time>.log` in the `output/` folder.
-4. Send that file by Zalo or e-mail.
+3. Click **Log…**. If there is more than one machine's data (another machine's log comes along with every data package import, saved apart, never mixing with this machine's own), the dropdown at the top picks which one.
+4. **Save to a file…**. The app saves `NhatKy_<date time>.log` in the `output/` folder.
+5. Send that file by Zalo or e-mail.
 
 > ⚠ The log contains customer names and file names. Send it only to whoever looks after the app; never post it publicly.
 

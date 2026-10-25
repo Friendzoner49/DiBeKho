@@ -115,11 +115,12 @@ class StockPage(Page):
         fill_table(self.table, rows, ids=ids, colors=colors)
         only_editable(self.table, {NOTE})
         for r in range(self.table.rowCount()):  # real names can be long; always show the rest on hover
-            for col in (NAME, ZH):
+            for col in (NAME, ZH, SPEC, VARIANT, CATEGORY):
                 item = self.table.item(r, col)
                 item.setToolTip(item.text())
-        # capped so the pinned columns (Mã..Tồn) cannot grow wider than the table itself (see FrozenColumns)
-        for col, width in ((NAME, 230), (ZH, 200), (CATEGORY, 150), (VARIANT, 120)):
+        # capped tightly so the pinned columns (Mã..Tồn) leave real room to scroll to on the customer's own
+        # (narrower) screen, with real (long) product names -- see FrozenColumns.MIN_SCROLLABLE
+        for col, width in ((NAME, 180), (ZH, 150), (SPEC, 100), (VARIANT, 90), (CATEGORY, 110), (UNIT, 60)):
             self.table.setColumnWidth(col, min(self.table.columnWidth(col), width))
         self.table.setColumnWidth(NOTE, 160)  # long notes: elided, hover to read in full
         self.table.blockSignals(False)

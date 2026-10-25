@@ -57,6 +57,44 @@ def test_a_write_that_fails_is_ignored(tmp_path):
     activity.setup(None)
 
 
+def test_trim_old_drops_lines_past_7_days_keeping_tracebacks_with_their_line(log_file):
+    from datetime import date, timedelta
+
+    old = date.today() - timedelta(days=10)
+    recent = date.today() - timedelta(days=1)
+    log_file.write_text(
+        f"{old} 08:00:00 [start] cũ\n"
+        f"{old} 08:00:01 [error] lỗi cũ\n    Traceback...\n    ValueError\n"
+        f"{recent} 09:00:00 [start] gần đây\n"
+        f"{recent} 09:00:01 [error] lỗi gần đây\n    Traceback...\n    KeyError\n",
+        encoding="utf-8",
+    )
+    activity.trim_old(log_file)
+    text = log_file.read_text(encoding="utf-8")
+    assert "cũ" not in text and "ValueError" not in text
+    assert "gần đây" in text and "KeyError" in text
+
+
+def test_trim_old_drops_everything_when_all_lines_are_old(log_file):
+    from datetime import date, timedelta
+
+    old = date.today() - timedelta(days=30)
+    log_file.write_text(f"{old} 08:00:00 [start] cũ\n", encoding="utf-8")
+    activity.trim_old(log_file)
+    assert log_file.read_text(encoding="utf-8") == ""
+
+
+def test_setup_trims_old_lines_on_start(tmp_path):
+    from datetime import date, timedelta
+
+    path = tmp_path / "app.log"
+    old = date.today() - timedelta(days=10)
+    path.write_text(f"{old} 08:00:00 [start] cũ\n", encoding="utf-8")
+    activity.setup(path)
+    assert "cũ" not in activity.read()
+    activity.setup(None)
+
+
 def test_db_log_also_goes_to_the_file(log_file):
     from dibekho import db
 

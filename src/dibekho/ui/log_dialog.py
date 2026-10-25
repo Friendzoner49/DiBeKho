@@ -1,5 +1,9 @@
 """The activity log window, and the hidden way to it: click the version number 3 times in Settings → Chung,
-a small 'Nhật ký…' button appears next to it (until the app is closed)."""
+a small 'Nhật ký…' button appears next to it (until the app is closed).
+
+From 25/10/2026 a data package carries the sending machine's own log along (core.transfer), saved here as
+data/nhat-ky-<máy>.log, one file per machine ever imported from (replaced, not added to, on a later import
+from the same machine). The dropdown at the top switches between this machine's own log and any of those."""
 
 import shutil
 import time
@@ -7,7 +11,7 @@ from datetime import datetime
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFontDatabase, QGuiApplication
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout
 
 from dibekho.core import activity
 from dibekho.i18n import t
@@ -43,7 +47,14 @@ class LogDialog(QDialog):
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
         fit_window(self, 1100, 680)
         lay = QVBoxLayout(self)
-        lay.addWidget(hint_label(t("log.hint", path=str(activity.path() or ""), size=activity.MAX_BYTES // 1000)))
+        picker = QHBoxLayout()
+        picker.addWidget(QLabel(t("log.which")))
+        self.which = QComboBox()
+        self.which.currentIndexChanged.connect(self._show_selected)
+        picker.addWidget(self.which, 1)
+        lay.addLayout(picker)
+        self.hint = hint_label("")
+        lay.addWidget(self.hint)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
         self.text.setLineWrapMode(QPlainTextEdit.NoWrap)
@@ -62,18 +73,45 @@ class LogDialog(QDialog):
         lay.addLayout(row)
         self.refresh()
 
-    def refresh(self):
-        self.text.setPlainText(activity.read() or t("log.empty"))
+    def _fill_which(self):
+        current = self.which.currentData()
+        self.which.blockSignals(True)
+        self.which.clear()
+        self.which.addItem(t("log.this_device", name=self.ctx.cfg.device_name), None)
+        for p in sorted(self.ctx.ws.data.glob("nhat-ky-*.log")) if self.ctx.ws.data.exists() else []:
+            self.which.addItem(t("log.other_device", name=p.stem[len("nhat-ky-"):]), p)
+        idx = self.which.findData(current) if current is not None else 0
+        self.which.setCurrentIndex(max(idx, 0))
+        self.which.blockSignals(False)
+
+    def _current_path(self):
+        chosen = self.which.currentData()
+        return chosen if chosen is not None else activity.path()
+
+    def _show_selected(self):
+        path = self._current_path()
+        self.hint.setText(t("log.hint", path=str(path or ""), size=activity.MAX_BYTES // 1000))
+        text = ""
+        if path is not None and path.exists():
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                text = ""
+        self.text.setPlainText(text or t("log.empty"))
         bar = self.text.verticalScrollBar()
         bar.setValue(bar.maximum())
 
+    def refresh(self):
+        self._fill_which()
+        self._show_selected()
+
     def copy(self):
-        QGuiApplication.clipboard().setText(activity.read())
+        QGuiApplication.clipboard().setText(self.text.toPlainText())
         info(self, t("log.copied"))
 
     def save(self):
         """A copy in output/, to send (Zalo, email) to whoever looks after the app."""
-        src = activity.path()
+        src = self._current_path()
         if src is None or not src.exists():
             info(self, t("log.empty"))
             return
@@ -88,7 +126,15 @@ class LogDialog(QDialog):
             open_path(activity.path().parent)
 
     def clear(self):
-        if ask(self, t("log.confirm_clear")):
+        if not ask(self, t("log.confirm_clear")):
+            return
+        path = self._current_path()
+        if path is not None and path == activity.path():
             activity.clear()
             activity.log("log", "cleared")
-            self.refresh()
+        elif path is not None:
+            try:
+                path.write_text("", encoding="utf-8")
+            except OSError:
+                pass
+        self.refresh()

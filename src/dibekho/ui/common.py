@@ -311,6 +311,9 @@ class FrozenColumns(QTableView):
     `table`'s edit triggers must already exclude CurrentChanged (make_table()'s default does) before this
     is created: with it included, a click on a shared cell would open an editor on each view at once."""
 
+    MIN_SCROLLABLE = 120  # below this much leftover width, not even one narrow scrolling column (Kho tổng,
+    # Văn phòng: ~70-80px each on real data) would be readable
+
     def __init__(self, table: Table, columns: list[int], side: str = "left", editable: bool = False):
         super().__init__(table)
         self.host, self.columns, self.side = table, columns, side
@@ -379,12 +382,13 @@ class FrozenColumns(QTableView):
 
     def place(self) -> None:
         """Hidden unless `table` actually needs to scroll sideways, or the pinned columns alone would cover
-        most of the table (long real names on a narrow window: plain scrolling beats an overlay that hides
-        everything else). Otherwise sized and positioned over its pinned columns, using the viewport's own
-        geometry (not `table`'s outer size, which ignores its frame and scrollbars)."""
+        leaves less than MIN_SCROLLABLE for the rest of the table (long real names on a very narrow window:
+        at that point even one scrolling column could no longer be seen, so plain scrolling serves better).
+        Otherwise sized and positioned over its pinned columns, using the viewport's own geometry (not
+        `table`'s outer size, which ignores its frame and scrollbars)."""
         vp = self.host.viewport()
         width = sum(self.host.columnWidth(c) for c in self.columns)
-        if self.host.horizontalScrollBar().maximum() <= 0 or width > vp.width() * 0.65:
+        if self.host.horizontalScrollBar().maximum() <= 0 or vp.width() - width < self.MIN_SCROLLABLE:
             self.setVisible(False)
             return
         self.setVisible(True)
@@ -395,10 +399,11 @@ class FrozenColumns(QTableView):
 
 def freeze_columns(table: Table, columns: list[int], side: str = "left", editable: bool = False) -> FrozenColumns:
     """Pin `columns` of `table` (built by make_table()) to its left or right edge. Call once, right after
-    the table is built and its edit triggers set."""
+    the table is built and its edit triggers set. Visibility is left to place() (called in __init__ and on
+    every resize/scroll-range change) -- never force .show() here, or a table too narrow to pin anything
+    would have its overlay forced visible again, covering the columns it was supposed to leave scrollable."""
     frozen = FrozenColumns(table, columns, side, editable)
     table._frozen.append(frozen)
-    frozen.show()
     return frozen
 
 

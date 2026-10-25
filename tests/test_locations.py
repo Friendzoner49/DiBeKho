@@ -428,6 +428,55 @@ def test_dragging_a_pinned_column_wider_resizes_the_real_table(app, ws):
     win.close()
 
 
+def _fixed_width_table(app, n, col_width):
+    """A bare table (make_table + freeze_columns) with every column forced to the same fixed width, so the
+    pinning tests below are not at the mercy of font metrics / DPI, which vary across machines and even
+    across test runs in the same process (a real word-based table's width depends on glyph rendering)."""
+    from dibekho.ui.common import fill_table, make_table
+
+    table = make_table([str(i) for i in range(n)], stretch=None)
+    fill_table(table, [[str(i) for i in range(n)]])
+    for c in range(n):
+        table.setColumnWidth(c, col_width)
+    app.processEvents()
+    return table
+
+
+def test_pinning_stays_visible_when_the_leftover_is_enough(app):
+    """Real product names (SP page caps them at 180/150/100/90/110/60 -- see stock_page.py) leave about 200px
+    to scroll to at the window size the app actually opens at (measured against a copy of a real exported
+    package with fonts loaded, 25/10/2026); this test uses the same 6x100 shape with plenty of room."""
+    from dibekho.ui.common import FrozenColumns, freeze_columns
+
+    table = _fixed_width_table(app, 6, 100)  # 600px of content, 200px pinned
+    table.resize(480, 200)  # content (600) > window: scrolling is needed
+    table.show()
+    app.processEvents()
+    frozen = freeze_columns(table, [0, 1], side="left")
+    app.processEvents()
+    assert table.horizontalScrollBar().maximum() > 0
+    leftover = table.viewport().width() - 200
+    assert leftover >= FrozenColumns.MIN_SCROLLABLE, leftover  # plenty of room: comfortably visible
+    assert frozen.isVisible()
+    table.close()
+
+
+def test_pinning_hides_itself_when_the_leftover_is_too_small(app):
+    """The opposite edge: a window too narrow for the pinned columns plus one more must fall back to plain
+    scrolling rather than cover the whole table."""
+    from dibekho.ui.common import freeze_columns
+
+    table = _fixed_width_table(app, 6, 100)  # 600px of content, 200px pinned
+    table.resize(310, 200)  # content (600) > window, and little is left over once 200px are pinned
+    table.show()
+    app.processEvents()
+    frozen = freeze_columns(table, [0, 1], side="left")
+    app.processEvents()
+    assert table.horizontalScrollBar().maximum() > 0  # still needs to scroll
+    assert not frozen.isVisible()
+    table.close()
+
+
 def test_transfer_dialog_edits_through_the_frozen_pane(app, ws):
     """Số lượng is pinned on the right (frozen_columns): typing through that pane must land in the real
     cell, not open a second, hidden editor on the cell underneath."""

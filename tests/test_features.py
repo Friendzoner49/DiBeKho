@@ -173,6 +173,52 @@ def test_transfer_roundtrip(tmp_path):
     assert stock_levels(conn_b) == levels_a
 
 
+def test_package_carries_the_senders_activity_log(tmp_path):
+    import zipfile
+
+    ws_a = Workspace(tmp_path / "A")
+    ws_a.ensure()
+    conn_a = db.connect(ws_a.db_path)
+    setup_notes(conn_a, ws_a)
+    (ws_a.data / "app.log").write_text("2026-10-20 08:00:00 [start] DiBeKho\n", encoding="utf-8")
+    cfg_a = Config(workspace=str(ws_a.root), device_id="a1", device_name="MayA")
+    pkg = transfer.export_package(conn_a, ws_a, cfg_a)
+    with zipfile.ZipFile(pkg) as z:
+        assert "data/app.log" in z.namelist()
+
+    ws_b = Workspace(tmp_path / "B")
+    ws_b.ensure()
+    (ws_b.data / "app.log").write_text("2026-10-21 09:00:00 [start] máy B riêng\n", encoding="utf-8")
+    db.connect(ws_b.db_path).close()
+    transfer.import_package(ws_b, pkg)
+    assert (ws_b.data / "nhat-ky-MayA.log").read_text(encoding="utf-8") == "2026-10-20 08:00:00 [start] DiBeKho\n"
+    assert "máy B riêng" in (ws_b.data / "app.log").read_text(encoding="utf-8")  # the receiver's own log, untouched
+
+    # importing again from the same machine replaces its saved log, not adds to it
+    (ws_a.data / "app.log").write_text("2026-10-22 10:00:00 [start] mới hơn\n", encoding="utf-8")
+    pkg2 = transfer.export_package(conn_a, ws_a, cfg_a)
+    transfer.import_package(ws_b, pkg2)
+    text = (ws_b.data / "nhat-ky-MayA.log").read_text(encoding="utf-8")
+    assert "mới hơn" in text and "DiBeKho" not in text
+    conn_a.close()
+
+
+def test_package_without_a_log_imports_fine(tmp_path):
+    """A package from before this feature (or one whose sender never wrote a log) has no data/app.log."""
+    ws_a = Workspace(tmp_path / "A")
+    ws_a.ensure()
+    conn_a = db.connect(ws_a.db_path)
+    cfg_a = Config(workspace=str(ws_a.root), device_id="a1", device_name="MayA")
+    pkg = transfer.export_package(conn_a, ws_a, cfg_a)
+    conn_a.close()
+
+    ws_b = Workspace(tmp_path / "B")
+    ws_b.ensure()
+    db.connect(ws_b.db_path).close()
+    transfer.import_package(ws_b, pkg)  # no exception
+    assert not list(ws_b.data.glob("nhat-ky-*.log"))
+
+
 def test_daily_backup_keeps_10(conn, ws):
     for day in range(1, 20):
         backup.daily_backup(conn, ws, date(2026, 9, day))

@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from dibekho import __version__, db
-from dibekho.core import backup
+from dibekho.core import activity, backup
 from dibekho.core.workspace import Config, Workspace
 
 EXTENSION = ".dibekho"
@@ -72,6 +72,9 @@ def export_package(conn, ws: Workspace, cfg: Config) -> Path:
             z.write(snap, "kho.sqlite")
             for f in original_files(ws):
                 z.write(f, f"phieu-goc/{f.name}")
+            log_path = ws.data / activity.FILE_NAME
+            if log_path.exists():
+                z.write(log_path, "data/app.log")
     return dest
 
 
@@ -127,7 +130,32 @@ def import_package(ws: Workspace, path: Path) -> Manifest:
         new_db = ws.db_path.with_suffix(".incoming")
         shutil.copy2(Path(tmp) / "kho.sqlite", new_db)
         os.replace(new_db, ws.db_path)
+    _save_sender_log(ws, path, manifest)
     return manifest
+
+
+def _safe_device_name(name: str) -> str:
+    return "".join(ch for ch in (name or "") if ch.isalnum() or ch in "-_") or "may"
+
+
+def _save_sender_log(ws: Workspace, path: Path, manifest: Manifest) -> None:
+    """The sending machine's own activity log, if the package carries one, saved apart under its own name
+    (data/nhat-ky-<máy gửi>.log) so a mistake made there can be traced -- never this machine's own app.log,
+    and replaced (not added to) by a later import from the same machine. Trimmed to the same 7 days."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            if "data/app.log" not in z.namelist():
+                return
+            text = z.read("data/app.log").decode("utf-8", errors="replace")
+    except (zipfile.BadZipFile, KeyError, OSError):
+        return
+    dest = ws.data / f"nhat-ky-{_safe_device_name(manifest.device_name)}.log"
+    try:
+        ws.data.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text, encoding="utf-8", newline="\n")
+        activity.trim_old(dest)
+    except OSError:
+        pass
 
 
 def after_import(conn, manifest: Manifest) -> None:
