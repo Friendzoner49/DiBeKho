@@ -361,7 +361,7 @@ def test_restore_deleted_product_from_backup(conn, ws):
     assert (data.name_vi, data.name_zh, data.spec, data.unit, data.category, data.min_stock, data.stock_note) == (
         "Sơn thừa", "涂料", "5KG", "thùng", "Sơn", 10, "Hộp bị lỗi")
     new_id = catalog.restore_product(conn, data.code, data)
-    assert catalog.find_merge_candidates(conn, new_id, data) == []  # nothing else to confuse it with
+    assert catalog.find_merge_candidates(conn, new_id, data) == ([], 0)  # nothing else to confuse it with
     row = conn.execute("SELECT * FROM products WHERE id = ?", (new_id,)).fetchone()
     assert row["code"] == "SP001" and row["name_vi"] == "Sơn thừa"
 
@@ -369,7 +369,8 @@ def test_restore_deleted_product_from_backup(conn, ws):
 def test_find_merge_candidates_via_an_old_alias_key(conn, ws):
     """The deleted product had a learned name (but, unusually, no document yet -- the only way it could be
     deleted) pointing to it; by the time it is restored, that same name has been relearned onto a different
-    product. That is the strongest sign of all that the two are the same item."""
+    product. That is the strongest sign of all that the two are the same item, so it is first and counted
+    as an alias match -- the caller pre-ticks it."""
     pid = catalog.create_product(conn, "Sơn thừa", spec="5KG")
     catalog.set_alias(conn, "son thua|5kg", pid, "Sơn thừa")
     backup.named_backup(conn, ws, "truoc-xoa")
@@ -379,13 +380,15 @@ def test_find_merge_candidates_via_an_old_alias_key(conn, ws):
     data = catalog.deleted_products(conn, ws)[0]
     assert data.alias_keys == ("son thua|5kg",)
     new_id = catalog.restore_product(conn, data.code, data)
-    candidates = catalog.find_merge_candidates(conn, new_id, data)
-    assert candidates and candidates[0]["id"] == again
+    candidates, alias_matches = catalog.find_merge_candidates(conn, new_id, data)
+    assert candidates and candidates[0]["id"] == again and alias_matches == 1
 
 
 def test_find_merge_candidates_falls_back_to_the_fuzzy_matcher(conn, ws):
     """The usual case: a catalog product nobody ever recognised on a note (no alias) is deleted by mistake,
-    then re-created from a note whose own wording does not exactly match the restored product's."""
+    then re-created from a note whose own wording does not exactly match the restored product's. Uses the
+    same, higher-confidence matcher as the single best guess 'Cần xử lý' pre-fills for an unrecognised
+    line (score >= 0.5), not the looser one listing a few options -- this dialog must stay rare."""
     pid = catalog.create_product(conn, "Sơn FS-101", "雨堡垒FS-101防水涂料", "20KG", unit="thùng", variant="Trắng")
     backup.named_backup(conn, ws, "truoc-xoa")
     catalog.delete_product(conn, pid)
@@ -394,7 +397,8 @@ def test_find_merge_candidates_falls_back_to_the_fuzzy_matcher(conn, ws):
     assert data.alias_keys == ()  # it never had one
     assert catalog.find_same(conn, data.name_vi, data.spec, data.variant) is None  # the exact match misses too
     new_id = catalog.restore_product(conn, data.code, data)
-    candidates = catalog.find_merge_candidates(conn, new_id, data)
+    candidates, alias_matches = catalog.find_merge_candidates(conn, new_id, data)
+    assert alias_matches == 0
     assert any(c["id"] == again for c in candidates)
 
 

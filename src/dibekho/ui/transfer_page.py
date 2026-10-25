@@ -230,7 +230,7 @@ class MergeDuplicateDialog(QDialog):
     product, then 'Gộp' -- the smaller code survives, every document line and stock movement moves onto it,
     and empty fields are filled from the other side -- or 'Giữ riêng' if none of them actually match."""
 
-    def __init__(self, ctx, restored_row, candidates: list, parent=None):
+    def __init__(self, ctx, restored_row, candidates: list, alias_matches: int = 0, parent=None):
         super().__init__(parent)
         self.candidates = candidates
         self.setWindowTitle(t("restore.duplicate_title"))
@@ -247,10 +247,12 @@ class MergeDuplicateDialog(QDialog):
                                  p["stock_note"]] for p in rows])
         self.table.setSortingEnabled(False)
         self.table.item(0, 0).setToolTip(t("restore.duplicate_restored"))
+        # a candidate from the product's own old alias key is near-certain: pre-ticked, not left for the
+        # user to notice among several rows
         for r in range(1, self.table.rowCount()):
             first = self.table.item(r, 0)
             first.setFlags((first.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable)
-            first.setCheckState(Qt.Unchecked)
+            first.setCheckState(Qt.Checked if r == 1 and alias_matches else Qt.Unchecked)
         self.table.itemChanged.connect(self._radio)
         lay.addWidget(self.table)
         row = QHBoxLayout()
@@ -420,10 +422,10 @@ class TransferPanel(QWidget):
         for data in chosen:
             with db.transaction(self.ctx.conn):
                 new_id = catalog.restore_product(self.ctx.conn, data.code, data)
-            candidates = catalog.find_merge_candidates(self.ctx.conn, new_id, data)
+            candidates, alias_matches = catalog.find_merge_candidates(self.ctx.conn, new_id, data)
             if candidates:
                 restored = self.ctx.conn.execute("SELECT * FROM products WHERE id = ?", (new_id,)).fetchone()
-                dlg = MergeDuplicateDialog(self.ctx, restored, candidates, self)
+                dlg = MergeDuplicateDialog(self.ctx, restored, candidates, alias_matches, self)
                 if dlg.exec() == QDialog.Accepted:
                     with db.transaction(self.ctx.conn):
                         catalog.merge_products(self.ctx.conn, new_id, dlg.chosen()["id"])

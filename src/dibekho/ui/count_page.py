@@ -262,6 +262,9 @@ class TransferDialog(QDialog):
                     item.setBackground(YELLOW)
                 else:
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        # capped: both are pinned (freeze_columns), and the long header label must not widen them
+        for col in (TRANS_AVAILABLE, TRANS_QTY):
+            self.table.setColumnWidth(col, min(self.table.columnWidth(col), 110))
         self.table.setSortingEnabled(False)
 
     def _typed(self) -> dict[int, float]:

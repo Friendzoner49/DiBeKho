@@ -114,6 +114,13 @@ class StockPage(Page):
         self.table.blockSignals(True)
         fill_table(self.table, rows, ids=ids, colors=colors)
         only_editable(self.table, {NOTE})
+        for r in range(self.table.rowCount()):  # real names can be long; always show the rest on hover
+            for col in (NAME, ZH):
+                item = self.table.item(r, col)
+                item.setToolTip(item.text())
+        # capped so the pinned columns (Mã..Tồn) cannot grow wider than the table itself (see FrozenColumns)
+        for col, width in ((NAME, 230), (ZH, 200), (CATEGORY, 150), (VARIANT, 120)):
+            self.table.setColumnWidth(col, min(self.table.columnWidth(col), width))
         self.table.setColumnWidth(NOTE, 160)  # long notes: elided, hover to read in full
         self.table.blockSignals(False)
         self.empty.setVisible(not catalog.products(self.ctx.conn, include_inactive=True))

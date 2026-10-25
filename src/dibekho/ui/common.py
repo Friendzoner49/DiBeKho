@@ -340,6 +340,8 @@ class FrozenColumns(QTableView):
         table.horizontalHeader().sortIndicatorChanged.connect(self._sort_from_host)
         table.horizontalScrollBar().rangeChanged.connect(lambda *_: self.place())
         self.doubleClicked.connect(table.doubleClicked)
+        if editable:  # arrowing onto a pinned cell from the host must not leave its (hidden) editor open there
+            self.selectionModel().currentChanged.connect(self._follow_focus)
         table.viewport().stackUnder(self)
         self.place()
 
@@ -350,13 +352,11 @@ class FrozenColumns(QTableView):
 
     def _own_resized(self, col, _old, new) -> None:
         if self.host.columnWidth(col) != new:
-            self.host.horizontalHeader().blockSignals(True)
-            self.host.setColumnWidth(col, new)
-            self.host.horizontalHeader().blockSignals(False)
+            self.host.setColumnWidth(col, new)  # _host_resized sees the same value already set: no loop
         self.place()
 
     def _sort_from_here(self, col, order) -> None:
-        if self._guard:
+        if self._guard or not self.host.isSortingEnabled():
             return
         self._guard = True
         try:
@@ -373,16 +373,21 @@ class FrozenColumns(QTableView):
         finally:
             self._guard = False
 
+    def _follow_focus(self, current, _previous) -> None:
+        if self.isVisible() and current.column() in self.columns:
+            self.setFocus(Qt.OtherFocusReason)
+
     def place(self) -> None:
-        """Hidden unless `table` actually needs to scroll sideways; otherwise sized and positioned over its
-        pinned columns, using the viewport's own geometry (not `table`'s outer size, which ignores its
-        frame and scrollbars)."""
-        if self.host.horizontalScrollBar().maximum() <= 0:
+        """Hidden unless `table` actually needs to scroll sideways, or the pinned columns alone would cover
+        most of the table (long real names on a narrow window: plain scrolling beats an overlay that hides
+        everything else). Otherwise sized and positioned over its pinned columns, using the viewport's own
+        geometry (not `table`'s outer size, which ignores its frame and scrollbars)."""
+        vp = self.host.viewport()
+        width = sum(self.host.columnWidth(c) for c in self.columns)
+        if self.host.horizontalScrollBar().maximum() <= 0 or width > vp.width() * 0.65:
             self.setVisible(False)
             return
         self.setVisible(True)
-        vp = self.host.viewport()
-        width = sum(self.host.columnWidth(c) for c in self.columns)
         height = vp.height() + self.host.horizontalHeader().height()
         x = vp.x() if self.side == "left" else vp.x() + vp.width() - width
         self.setGeometry(x, 0, width, height)

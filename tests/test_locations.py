@@ -405,6 +405,29 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
     win.close()
 
 
+def test_dragging_a_pinned_column_wider_resizes_the_real_table(app, ws):
+    """Dragging a column border on the frozen pane must resize the real (host) column too, not just the
+    overlay's own copy of the header -- host.horizontalHeader() must not be blockSignals()-ed in the process,
+    or the table stops redrawing/scrolling correctly after the drag."""
+    from dibekho.ui.stock_page import MIN_STOCK, NAME
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    win.show()
+    win.resize(1260, 700)
+    win.nav.setCurrentRow(0)
+    app.processEvents()
+    stock = win.stack.widget(0)
+    frozen = stock.table._frozen[0]
+    before = stock.table.horizontalHeader().sectionPosition(MIN_STOCK)
+    frozen.horizontalHeader().resizeSection(NAME, 300)
+    app.processEvents()
+    assert stock.table.columnWidth(NAME) == 300
+    assert stock.table.horizontalHeader().sectionPosition(MIN_STOCK) != before
+    win.close()
+
+
 def test_transfer_dialog_edits_through_the_frozen_pane(app, ws):
     """Số lượng is pinned on the right (frozen_columns): typing through that pane must land in the real
     cell, not open a second, hidden editor on the cell underneath."""
@@ -418,7 +441,7 @@ def test_transfer_dialog_edits_through_the_frozen_pane(app, ws):
     paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
     dlg = count_mod.TransferDialog(ctx, win)
     dlg.show()
-    dlg.resize(420, 320)  # narrow enough that Số lượng would scroll out of view without the frozen pane
+    dlg.resize(700, 320)  # narrow enough that Số lượng would scroll out of view without the frozen pane
     app.processEvents()
     assert dlg.frozen.isVisible()
     r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)

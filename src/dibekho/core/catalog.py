@@ -225,15 +225,18 @@ def restore_product(conn, code: str, data: DeletedProduct) -> int:
     return cur.lastrowid
 
 
-def find_merge_candidates(conn, new_id: int, data: DeletedProduct) -> list[sqlite3.Row]:
+def find_merge_candidates(conn, new_id: int, data: DeletedProduct) -> tuple[list[sqlite3.Row], int]:
     """Products that might be the same item as the one just restored, best evidence first -- never the
     restored product itself:
     1. a product that now owns one of the delivery-note names this one used to be recognised by (read from
        the same backup): the near-certain sign of a duplicate created by re-reading a note after the mistake;
     2. an exact name + packing + type match;
-    3. the fuzzy matcher 'Cần xử lý' uses for a line it does not recognise.
-    The caller shows these next to the restored product and merges with merge_products() if the user picks
-    one; it decides which code survives."""
+    3. the same, higher-confidence fuzzy matcher suggest_product() uses to pre-fill a single best guess for
+       a line 'Cần xử lý' does not recognise (score >= 0.5) -- not the looser one offering a few options,
+       which would make this dialog pop up on almost every restore.
+    Returns (candidates, alias_matches): the first `alias_matches` rows came from source 1, near-certain
+    enough that the caller pre-ticks the first one. The caller shows these next to the restored product and
+    merges with merge_products() if the user picks one; it decides which code survives."""
     seen = {new_id}
     result = []
     for key in data.alias_keys:
@@ -243,15 +246,18 @@ def find_merge_candidates(conn, new_id: int, data: DeletedProduct) -> list[sqlit
             row = conn.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
             if row is not None:
                 result.append(row)
+    alias_matches = len(result)
     same = find_same(conn, data.name_vi, data.spec, data.variant)
     if same is not None and same["id"] not in seen:
         seen.add(same["id"])
         result.append(same)
-    for p in suggest_products(conn, data.name_zh or data.name_vi, data.spec):
-        if p["id"] not in seen:
-            seen.add(p["id"])
-            result.append(p)
-    return result
+    # suggest_product() alone would rank the restored product against itself first (an exact match for its
+    # own name) and never reach a real duplicate, so the ranked list is walked directly, same threshold.
+    match = next((p for score, p in _ranked(conn, data.name_zh or data.name_vi, data.spec)
+                 if score >= 0.5 and p["id"] not in seen), None)
+    if match is not None:
+        result.append(match)
+    return result, alias_matches
 
 
 def products(conn, include_inactive=False) -> list[sqlite3.Row]:
