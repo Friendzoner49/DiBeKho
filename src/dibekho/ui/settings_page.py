@@ -5,6 +5,7 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -75,6 +76,7 @@ class ProductEditor(QDialog):
         self.min_stock = QDoubleSpinBox()
         self.min_stock.setRange(0, 1e6)
         self.min_stock.setDecimals(0)
+        self.min_stock.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.active = QCheckBox(t("settings.active"))
         self.active.setChecked(True)
         for box in (self.name_vi, self.name_zh, self.spec, self.variant, self.unit, self.category):
@@ -204,6 +206,7 @@ class SettingsPage(Page):
         self.low_default = NoWheelSpin()
         self.low_default.setRange(0, 1e6)
         self.low_default.setDecimals(0)
+        self.low_default.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.low_default.setValue(low_stock_default(ctx.conn))
         self.low_default.editingFinished.connect(self.change_low_default)
         alarm_row.addWidget(self.low_default)
