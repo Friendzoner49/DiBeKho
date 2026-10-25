@@ -28,7 +28,7 @@ from dibekho import APP_NAME, __version__, i18n
 from dibekho.core import activity, backup
 from dibekho.core.workspace import Config, Workspace, default_workspace
 from dibekho.i18n import LANGUAGES, t
-from dibekho.ui.common import theme_color
+from dibekho.ui.common import apply_rounded_style, theme_color
 
 
 class FirstRunDialog(QDialog):
@@ -127,6 +127,7 @@ def main() -> int:
     elif sys.platform == "darwin":
         font.setFamilies([font.family(), "PingFang SC", "Hiragino Sans GB", "STHeiti"])
     app.setFont(font)
+    apply_rounded_style(app)
     sys.excepthook = _excepthook
 
     cfg = saved

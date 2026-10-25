@@ -39,9 +39,9 @@ from dibekho.i18n import t
 # so the white text stays readable. sync_theme_colors() updates these objects in place.
 _THEMES = {
     "light": {"RED": "#fde2e1", "YELLOW": "#fff4cc", "ORANGE": "#ffd9a8", "hint": "#666666", "banner": "#eef5ff",
-              "alert": "#c0392b", "warn": "#b35900"},
+              "alert": "#c0392b", "warn": "#b35900", "border": "#c6c6c6", "hover": "#eef2f7", "pressed": "#dde4ec"},
     "dark": {"RED": "#6e2a2a", "YELLOW": "#5e4c14", "ORANGE": "#6e4210", "hint": "#a0a0a0", "banner": "#1f3550",
-             "alert": "#ff7b72", "warn": "#ffb066"},
+             "alert": "#ff7b72", "warn": "#ffb066", "border": "#55585c", "hover": "#363a3f", "pressed": "#2a2d31"},
 }
 RED = QColor(_THEMES["light"]["RED"])
 YELLOW = QColor(_THEMES["light"]["YELLOW"])
@@ -64,6 +64,91 @@ def sync_theme_colors() -> None:
     RED.setRgb(QColor(colors["RED"]).rgb())
     YELLOW.setRgb(QColor(colors["YELLOW"]).rgb())
     ORANGE.setRgb(QColor(colors["ORANGE"]).rgb())
+
+
+def _rounded_qss() -> str:
+    border, hover, pressed = theme_color("border"), theme_color("hover"), theme_color("pressed")
+    return f"""
+        /* Setting any application-wide stylesheet moves Qt to its "styled" background painting path for
+        every widget, not only the ones a rule below actually targets -- without these, a plain QWidget
+        stops following the live (light or dark) palette and falls back to a flat default. */
+        QWidget {{ background-color: palette(window); color: palette(window-text); }}
+        QAbstractItemView {{
+            background-color: palette(base);
+            alternate-background-color: palette(alternate-base);
+            color: palette(text);
+        }}
+        QLineEdit, QComboBox, QDateEdit, QAbstractSpinBox {{
+            background-color: palette(base);
+            color: palette(text);
+        }}
+        QPushButton {{
+            background-color: palette(button);
+            color: palette(button-text);
+            border: 1px solid {border};
+            border-radius: 6px;
+            padding: 5px 14px;
+        }}
+        QPushButton:hover {{ background: {hover}; }}
+        QPushButton:pressed {{ background: {pressed}; }}
+        QPushButton:default {{ border: 1px solid palette(highlight); }}
+        QLineEdit, QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox, QAbstractSpinBox {{
+            border: 1px solid {border};
+            border-radius: 6px;
+            padding: 3px 6px;
+        }}
+        QComboBox::drop-down {{ border: none; width: 20px; }}
+        QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
+            border: 1px solid palette(highlight);
+        }}
+        QGroupBox {{
+            border: 1px solid {border};
+            border-radius: 8px;
+            margin-top: 12px;
+            padding-top: 10px;
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 4px;
+        }}
+        QTabWidget::pane {{
+            border: 1px solid {border};
+            border-radius: 8px;
+        }}
+        QTabBar::tab {{
+            border: 1px solid {border};
+            border-bottom: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            padding: 5px 14px;
+            margin-right: 2px;
+        }}
+        QTabBar::tab:selected {{ background: {hover}; }}
+        QTabBar::tab:!selected {{ margin-top: 2px; }}
+        QTableView, QTreeView, QListView {{
+            border: 1px solid {border};
+            border-radius: 6px;
+        }}
+        QHeaderView::section {{
+            border: none;
+            border-bottom: 1px solid {border};
+            padding: 4px;
+        }}
+    """
+
+
+def apply_rounded_style(app: QApplication) -> None:
+    """A softer look for buttons, inputs, tabs and panels (the user's own words: 'bo tròn... để trông nó
+    mềm mại hơn'), while leaving the OS window frame itself untouched -- it already comes rounded on both
+    Windows 11 and macOS, and drawing a frameless window instead would lose the native minimize/maximize/
+    move behaviour. Fusion (already forced by app.setStyle) renders QSS the same way on both platforms.
+    Colours come from theme_color(), so this stays readable in dark mode; re-applied whenever the OS
+    palette changes, the same trigger sync_theme_colors() reacts to via fill_table()."""
+    app.setStyleSheet(_rounded_qss())
+    if not getattr(app, "_rounded_style_wired", False):
+        app.paletteChanged.connect(lambda *_: app.setStyleSheet(_rounded_qss()))
+        app._rounded_style_wired = True
 
 
 class AppContext(QObject):

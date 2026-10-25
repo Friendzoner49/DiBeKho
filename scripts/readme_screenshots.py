@@ -86,7 +86,9 @@ if sys.platform == "win32":  # the offscreen platform does not find .ttc fonts b
 f.setFamilies(["Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Symbol"])
 app.setFont(f)
 i18n.set_language(LANG)
-from dibekho.ui.common import AppContext  # noqa: E402
+from dibekho.ui.common import AppContext, apply_rounded_style  # noqa: E402
+
+apply_rounded_style(app)
 from dibekho.ui.details import CustomerDialog, DocumentDialog  # noqa: E402
 from dibekho.ui.main_window import PENDING, SEARCH, MainWindow  # noqa: E402
 from dibekho.ui.search_page import WINDOWS  # noqa: E402
