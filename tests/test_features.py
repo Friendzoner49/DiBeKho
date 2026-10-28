@@ -176,11 +176,13 @@ def test_transfer_roundtrip(tmp_path):
 def test_package_carries_the_senders_activity_log(tmp_path):
     import zipfile
 
+    # relative to today, so the 7-day trim (core.activity) never catches these as the date moves on
+    d1, d2, d3 = (date.today() - timedelta(days=n) for n in (3, 2, 1))
     ws_a = Workspace(tmp_path / "A")
     ws_a.ensure()
     conn_a = db.connect(ws_a.db_path)
     setup_notes(conn_a, ws_a)
-    (ws_a.data / "app.log").write_text("2026-10-20 08:00:00 [start] DiBeKho\n", encoding="utf-8")
+    (ws_a.data / "app.log").write_text(f"{d1} 08:00:00 [start] DiBeKho\n", encoding="utf-8")
     cfg_a = Config(workspace=str(ws_a.root), device_id="a1", device_name="MayA")
     pkg = transfer.export_package(conn_a, ws_a, cfg_a)
     with zipfile.ZipFile(pkg) as z:
@@ -188,14 +190,14 @@ def test_package_carries_the_senders_activity_log(tmp_path):
 
     ws_b = Workspace(tmp_path / "B")
     ws_b.ensure()
-    (ws_b.data / "app.log").write_text("2026-10-21 09:00:00 [start] máy B riêng\n", encoding="utf-8")
+    (ws_b.data / "app.log").write_text(f"{d2} 09:00:00 [start] máy B riêng\n", encoding="utf-8")
     db.connect(ws_b.db_path).close()
     transfer.import_package(ws_b, pkg)
-    assert (ws_b.data / "nhat-ky-MayA.log").read_text(encoding="utf-8") == "2026-10-20 08:00:00 [start] DiBeKho\n"
+    assert (ws_b.data / "nhat-ky-MayA.log").read_text(encoding="utf-8") == f"{d1} 08:00:00 [start] DiBeKho\n"
     assert "máy B riêng" in (ws_b.data / "app.log").read_text(encoding="utf-8")  # the receiver's own log, untouched
 
     # importing again from the same machine replaces its saved log, not adds to it
-    (ws_a.data / "app.log").write_text("2026-10-22 10:00:00 [start] mới hơn\n", encoding="utf-8")
+    (ws_a.data / "app.log").write_text(f"{d3} 10:00:00 [start] mới hơn\n", encoding="utf-8")
     pkg2 = transfer.export_package(conn_a, ws_a, cfg_a)
     transfer.import_package(ws_b, pkg2)
     text = (ws_b.data / "nhat-ky-MayA.log").read_text(encoding="utf-8")

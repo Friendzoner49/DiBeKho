@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import catalog, queries
-from dibekho.core.stock import LOCATIONS, MAIN, OFFICE, Line, stock_count, stock_levels, transfer
+from dibekho.core.stock import LOCATIONS, MAIN, OFFICE, Line, record_trial_use, stock_count, stock_levels, transfer
 from dibekho.core.text import fmt_qty, parse_number
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -45,7 +45,7 @@ from dibekho.ui.common import (
 from dibekho.ui.page import Page
 
 # in app: Kho tổng, Văn phòng, total; counted: Kho tổng, Văn phòng; difference; the stock note (as on Tồn kho)
-APP_MAIN, APP_OFFICE, APP_TOTAL, COUNT_MAIN, COUNT_OFFICE, DIFF_COL, NOTE_COL = range(5, 12)
+APP_MAIN, APP_OFFICE, APP_TOTAL, COUNT_MAIN, COUNT_OFFICE, DIFF_COL, NOTE_COL = range(6, 13)
 COUNT_COLS = {COUNT_MAIN: MAIN, COUNT_OFFICE: OFFICE}
 APP_COLS = {MAIN: APP_MAIN, OFFICE: APP_OFFICE}
 
@@ -75,22 +75,29 @@ class CountPage(Page):
         move.setToolTip(t("transfer.tip"))
         move.clicked.connect(self.open_transfer)
         bar.addWidget(move)
+        trial = QPushButton(t("trial.button"))
+        trial.setToolTip(t("trial.tip"))
+        trial.clicked.connect(self.open_trial)
+        bar.addWidget(trial)
         self.layout_.addLayout(bar)
 
         history = QHBoxLayout()
         transfers_btn = QPushButton(t("count.transfers_btn"))
         transfers_btn.clicked.connect(lambda: self.open_history("transfer"))
+        trials_btn = QPushButton(t("count.trials_btn"))
+        trials_btn.clicked.connect(lambda: self.open_history("trial"))
         counts_btn = QPushButton(t("count.counts_btn"))
         counts_btn.clicked.connect(lambda: self.open_history("stock_count"))
         history.addWidget(transfers_btn)
+        history.addWidget(trials_btn)
         history.addWidget(counts_btn)
         history.addStretch()
         self.layout_.addLayout(history)
         self._history_windows: dict[str, PageWindow] = {}
 
         main, office = location_name(MAIN), location_name(OFFICE)
-        self.table = make_table([t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"),
-                                 t("count.in_app_at", place=main), t("count.in_app_at", place=office),
+        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
+                                 t("col.unit"), t("count.in_app_at", place=main), t("count.in_app_at", place=office),
                                  t("count.in_app"), t("count.counted_at", place=main),
                                  t("count.counted_at", place=office), t("col.difference"), t("col.stock_note")],
                                 stretch=1)
@@ -123,7 +130,7 @@ class CountPage(Page):
         rows = []
         for p in self.products:
             main, office = on_hand.get((p["id"], MAIN), 0), on_hand.get((p["id"], OFFICE), 0)
-            rows.append([p["code"], p["name_vi"], p["spec"], p["variant"], p["unit"], num_item(main),
+            rows.append([p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"], num_item(main),
                          num_item(office), num_item(main + office), "", "", "", p["stock_note"]])
         fill_table(self.table, rows, ids=[p["id"] for p in self.products])
         for r in range(self.table.rowCount()):
@@ -204,6 +211,9 @@ class CountPage(Page):
 
     def open_transfer(self):
         open_transfer_dialog(self.ctx, self)
+
+    def open_trial(self):
+        open_trial_dialog(self.ctx, self)
 
     def open_history(self, kind: str) -> None:
         from dibekho.ui.orders_page import OrdersPage
@@ -356,4 +366,117 @@ class TransferDialog(QDialog):
             transfer(self.ctx.conn, from_qdate(self.date.date()), src, dst,
                      [Line(pid, q) for pid, q in typed.items()], self.note.text().strip(), replaces=self.doc_id)
         info(self, t("transfer.saved"))
+        self.accept()
+
+
+TRIAL_CODE, TRIAL_NAME, TRIAL_ZH, TRIAL_SPEC, TRIAL_VARIANT, TRIAL_UNIT, TRIAL_CATEGORY, TRIAL_AVAILABLE, \
+    TRIAL_QTY = range(9)
+
+
+def open_trial_dialog(ctx, parent) -> bool:
+    accepted = TrialUseDialog(ctx, parent).exec() == QDialog.Accepted
+    if accepted:
+        ctx.notify()
+    return accepted
+
+
+class TrialUseDialog(QDialog):
+    """Goods taken out of stock for internal trial/testing use (no customer): replaces the sham delivery
+    notes staff used to make to self-deduct stock for this. A mistake is fixed with Huỷ phiếu + Hoàn tác,
+    like a stock count -- there is no edit for this kind."""
+
+    def __init__(self, ctx, parent=None):
+        super().__init__(parent)
+        self.ctx = ctx
+        self.setWindowTitle(t("trial.title"))
+        fit_window(self, 1000, 600)
+        lay = QVBoxLayout(self)
+        lay.addWidget(hint_label(t("trial.hint")))
+
+        self.levels = stock_levels(ctx.conn, by_location=True)
+
+        form = QFormLayout()
+        self.date = QDateEdit()
+        self.date.setCalendarPopup(True)
+        self.date.setDisplayFormat("dd/MM/yyyy")
+        self.date.setDate(to_qdate(date.today()))
+        form.addRow(t("trial.date") + ":", self.date)
+        self.location = location_combo(MAIN)
+        self.location.currentIndexChanged.connect(self._fill)
+        form.addRow(t("trial.location") + ":", self.location)
+        self.note = QLineEdit()
+        form.addRow(t("col.note") + ":", self.note)
+        lay.addLayout(form)
+
+        self.products = catalog.products(ctx.conn)
+        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"),
+                                 t("col.variant"), t("col.unit"), t("col.category"), t("trial.available"),
+                                 t("trial.qty")], stretch=TRIAL_NAME)
+        self.table.setEditTriggers(self.table.EditTrigger.DoubleClicked | self.table.EditTrigger.EditKeyPressed
+                                   | self.table.EditTrigger.AnyKeyPressed)
+        self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectItems)
+        lay.addWidget(self.table)
+        self._fill()
+        self.frozen = freeze_columns(self.table, [TRIAL_AVAILABLE, TRIAL_QTY], side="right", editable=True)
+        self.table.setAttribute(Qt.WA_InputMethodEnabled, False)  # every editable cell here is numeric
+        self.frozen.setAttribute(Qt.WA_InputMethodEnabled, False)
+        numeric_cell_delegate(self.table, TRIAL_QTY)
+        numeric_cell_delegate(self.frozen, TRIAL_QTY)
+        box = QDialogButtonBox()
+        box.addButton(t("trial.save"), QDialogButtonBox.AcceptRole)
+        box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
+        box.accepted.connect(self.save)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+
+    def _fill(self):
+        typed = self._typed() if self.table.rowCount() else {}
+        loc = self.location.currentData()
+        fill_table(self.table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"],
+                                 p["category"], num_item(self.levels.get((p["id"], loc), 0)),
+                                 fmt_qty(typed[p["id"]]) if p["id"] in typed else ""] for p in self.products],
+                   ids=[p["id"] for p in self.products])
+        for r in range(self.table.rowCount()):
+            for c in range(self.table.columnCount()):
+                item = self.table.item(r, c)
+                if c == TRIAL_QTY:
+                    item.setBackground(YELLOW)
+                else:
+                    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        # capped: both are pinned (freeze_columns), and the long header label must not widen them
+        for col in (TRIAL_AVAILABLE, TRIAL_QTY):
+            self.table.setColumnWidth(col, min(self.table.columnWidth(col), 110))
+        self.table.setSortingEnabled(False)
+
+    def _typed(self) -> dict[int, float]:
+        result = {}
+        for r in range(self.table.rowCount()):
+            try:
+                value = _parse(self.table.item(r, TRIAL_QTY).text())
+            except ValueError:
+                value = None
+            if value:
+                result[self.table.item(r, 0).data(Qt.UserRole)] = value
+        return result
+
+    def save(self):
+        typed = self._typed()
+        if not typed or any(q < 0 for q in typed.values()):
+            error(self, t("trial.nothing"))
+            return
+        loc = self.location.currentData()
+        names = {p["id"]: p for p in self.products}
+        lines = "\n".join(f"• {catalog.label(names[pid])}: {fmt_qty(q)} {names[pid]['unit']}".rstrip()
+                          for pid, q in typed.items())
+        short = [catalog.label(names[pid]) for pid, q in typed.items() if q > self.levels.get((pid, loc), 0) + 1e-9]
+        text = t("trial.confirm", place=location_name(loc), lines=lines)
+        if short:
+            text += "\n\n" + t("trial.confirm_short", place=location_name(loc), names=", ".join(short))
+        if not ask(self, text):
+            return
+        self.ctx.undo_point("trial_use")
+        with db.transaction(self.ctx.conn):
+            record_trial_use(self.ctx.conn, from_qdate(self.date.date()), loc,
+                             [Line(pid, q) for pid, q in typed.items()], self.note.text().strip())
+        info(self, t("trial.saved"))
         self.accept()

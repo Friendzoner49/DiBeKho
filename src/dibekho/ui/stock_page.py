@@ -24,7 +24,7 @@ from dibekho.ui.page import Page
 
 # Only Tồn kho (the total) sticks to the left edge once scrolled past, so the detail-by-place columns
 # near the end can be reached without losing sight of the running total -- see FrozenColumns(sticky=True).
-CODE, NAME, ZH, SPEC, VARIANT, CATEGORY, UNIT, STOCK, MIN_STOCK, NOTE, MAIN, OFFICE, LAST_OUT = range(13)
+CODE, NAME, ZH, SPEC, VARIANT, CATEGORY, UNIT, STOCK, NOTE, MAIN, OFFICE, LAST_OUT = range(12)
 
 
 class StockPage(Page):
@@ -68,7 +68,7 @@ class StockPage(Page):
         self.layout_.addWidget(self.summary)
         self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"),
                                  t("col.variant"), t("col.category"), t("col.unit"), t("col.stock"),
-                                 t("col.min_stock"), t("col.stock_note"), t("loc.main"), t("loc.office"),
+                                 t("col.stock_note"), t("loc.main"), t("loc.office"),
                                  t("col.last_out")], stretch=None)
         self.table.setEditTriggers(self.table.EditTrigger.DoubleClicked | self.table.EditTrigger.EditKeyPressed
                                    | self.table.EditTrigger.AnyKeyPressed)
@@ -102,12 +102,12 @@ class StockPage(Page):
             color = None
             if p["stock"] < 0:
                 color, negative = RED, negative + 1
-            elif is_low(p["stock"], p["min_stock"], default):
+            elif is_low(p["stock"], default):
                 color, low = ORANGE, low + 1
             if self.only_low.isChecked() and color is None:
                 continue
             rows.append([p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["category"], p["unit"],
-                         num_item(p["stock"]), num_item(p["min_stock"] or default or None), p["stock_note"],
+                         num_item(p["stock"]), p["stock_note"],
                          num_item(p["stock_main"]), num_item(p["stock_office"]), date_item(p["last_out"])])
             ids.append(p["id"])
             colors.append(color)

@@ -4,7 +4,7 @@
 
 # DiBeKho
 
-**English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md)
+**English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [Русский](README.ru.md)
 
 **Automatic stock tracking from Excel delivery notes: runs on your own computer, no internet needed, zero running cost.**
 
@@ -149,7 +149,7 @@ Goods-in files of the old kind (a filled template) can still be imported with **
 
 ### 3. Stock count
 
-Open **Stock count**, pick the date, type what you counted in the 2 yellow columns **Counted: Main warehouse** and **Counted: Office**, and click **Save count**. A place left empty stays as it is. The app only records the difference between your count and its own number, so the history stays clear.
+Open **Stock count**, pick the date, type what you counted in the 2 yellow columns **Counted: Main warehouse** and **Counted: Office**, and click **Save count**. A place left empty stays as it is. The app only records the difference between your count and its own number, so the history stays clear. A **Chinese name** column helps tell apart products that share a name when you do not remember the product code.
 
 - **Transfer…**: goods carried between the main warehouse and the office. Choose from and to, type the quantities (Chinese name and Category columns help tell similar products apart; the two quantity columns stay pinned on the right) and click **Save transfer**. The total does not change, only each place (transfers CH001, CH002…).
 - **Stock note** column (the same as on the Stock page): double-click to write, e.g. "3 boxes misprinted, 2 expire 12/2026". It is saved at once, goes with the data package to another computer and is in the Excel files.
@@ -170,7 +170,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 ### 6. Product catalog
 
 **Settings → Products**:
-- **Add product**, **Edit product…** (or double-click a row): name, packing, type/colour, category, **Low-stock alert at**.
+- **Add product**, **Edit product…** (or double-click a row): name, packing, type/colour, category.
 - **Delete product** only works for a product that no note uses. A product already in use can be made *inactive* instead (hidden from lists, old notes unchanged). The code of a deleted product is never given out again.
 - Long names: drag a column border wider, or hover over a cell to read the whole name.
 

@@ -128,6 +128,8 @@ class DocumentDialog(_Base):
         elif kind == "transfer":
             form.addRow(t("transfer.from") + ":", QLabel(location_name(head["location_id"])))
             form.addRow(t("transfer.to") + ":", QLabel(location_name(head["to_location_id"])))
+        elif kind == "trial":
+            form.addRow(t("trial.location") + ":", QLabel(location_name(head["location_id"])))
         if kind == "receipt" and head["receipt_source"]:
             form.addRow(t("receipt_form.source") + ":",
                         QLabel(t(f"receipt_form.source_short_{head['receipt_source']}")))
@@ -168,7 +170,7 @@ class DocumentDialog(_Base):
         fill_table(self.table, rows, ids=[ln["product_id"] for ln in lines])
         self.table.doubleClicked.connect(lambda idx: self.open_product(row_id(self.table, idx.row())))
         self.layout_.addWidget(self.table)
-        if kind in ("delivery", "receipt", "transfer"):
+        if kind in ("delivery", "receipt", "transfer", "trial"):
             total = sum(ln["qty"] for ln in lines)
             self.layout_.addWidget(hint_label(t("doc.total", lines=len(lines), qty=fmt_qty(total))))
         if kind == "delivery" and head["order_total"] is not None:

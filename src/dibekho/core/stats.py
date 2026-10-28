@@ -1,7 +1,8 @@
 """Period statistics: opening, in, out, count adjustments, closing per product, and revenue.
 
 Dates are business dates (date on the delivery note / receipt), not import time.
-Transfers between Kho tổng and Văn phòng are neither in nor out (net zero per product).
+Transfers between Kho tổng and Văn phòng are neither in nor out (net zero per product). Trial/testing use
+(dùng thử) is counted as an adjustment, not an "out": it is not a sale.
 Revenue = selling prices read from the delivery notes: goods (line amounts) only. Shipping and other fees per
 order are shown apart and never added (the user's rule). Active orders only; a line without a price counts nothing.
 """
@@ -12,7 +13,9 @@ from datetime import date, timedelta
 
 IN_KINDS = ("receipt_in", "receipt_reverse")
 OUT_KINDS = ("delivery_out", "delivery_reverse")
-ADJ_KINDS = ("count_adjust", "count_reverse")
+# Trial use is counted here, not in OUT_KINDS: it is not a sale, and must not inflate "xuất"/top mặt hàng xuất
+# nhiều -- the whole point of this document kind is to tell it apart from real deliveries.
+ADJ_KINDS = ("count_adjust", "count_reverse", "trial_out", "trial_reverse")
 
 
 @dataclass

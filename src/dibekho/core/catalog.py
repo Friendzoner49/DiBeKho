@@ -527,6 +527,27 @@ def upsert_customer(conn, name, phone="", contact="", address="") -> int | None:
 
 
 
+def merge_customers(conn, ids: list[int], name: str) -> int:
+    """Merge several customers into one named `name` (several sham delivery notes, made under different
+    made-up names to self-deduct stock for trial use, are often tidied up this way after the fact).
+    An existing customer already named this (even one of the ones being merged) is reused; otherwise the
+    smallest id among `ids` survives, renamed. Every document of the others is moved onto the survivor, then
+    the others are deleted. Returns the surviving customer id."""
+    name = clean(name)
+    if not name or len(ids) < 2:
+        raise ValueError("Chọn từ 2 khách hàng trở lên và nhập tên khách hàng chung.")
+    existing = conn.execute("SELECT id FROM customers WHERE unaccent(name) = ?", (unaccent(name),)).fetchone()
+    keep_id = existing["id"] if existing else min(ids)
+    for cid in ids:
+        if cid != keep_id:
+            conn.execute("UPDATE documents SET customer_id = ? WHERE customer_id = ?", (keep_id, cid))
+            conn.execute("DELETE FROM customers WHERE id = ?", (cid,))
+    conn.execute("UPDATE customers SET name = ? WHERE id = ?", (name, keep_id))
+    db.touch(conn)
+    db.log(conn, "customers_merged", f"{len(ids)} -> #{keep_id} {name}")
+    return keep_id
+
+
 # ---- master data (Excel 'Dữ liệu gốc') ----------------------------------------
 
 def _free_code(conn, reserved: set[str]) -> str:
@@ -559,7 +580,7 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
     with db.transaction(conn):
         for p in products:
             fields = dict(name_vi=p.name_vi, name_zh=p.name_zh, spec=p.spec, variant=p.variant,
-                          unit=p.unit or guess_unit(p.spec), category=p.category, min_stock=float(p.min_stock or 0),
+                          unit=p.unit or guess_unit(p.spec), category=p.category,
                           active=int(bool(p.active)))
             duplicate = bool(p.code) and p.code in seen_codes
             seen_codes.add(p.code)
@@ -583,10 +604,10 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
             if duplicate:
                 result["renumbered"].append((p.row, p.code, code))
             cur = conn.execute(
-                "INSERT INTO products(code, name_vi, name_zh, spec, unit, category, min_stock, active, variant, "
-                "created_at) VALUES(?,?,?,?,?,?,?,?,?, COALESCE(NULLIF(?, ''), datetime('now','localtime')))",
+                "INSERT INTO products(code, name_vi, name_zh, spec, unit, category, active, variant, "
+                "created_at) VALUES(?,?,?,?,?,?,?,?, COALESCE(NULLIF(?, ''), datetime('now','localtime')))",
                 (code, fields["name_vi"], fields["name_zh"], fields["spec"], fields["unit"], fields["category"],
-                 fields["min_stock"], fields["active"], fields["variant"], p.created_at),
+                 fields["active"], fields["variant"], p.created_at),
             )
             _consume_freed_code(conn, code)
             row_ids[p.row] = cur.lastrowid

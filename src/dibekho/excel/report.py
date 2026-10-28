@@ -124,6 +124,7 @@ def _details(wb, conn, start, end, filters, info):
         "count_adjust": t("kind.count"), "count_reverse": t("kind.count_cancel"),
         "transfer_out": t("move.transfer_out"), "transfer_in": t("move.transfer_in"),
         "transfer_reverse": t("move.transfer_reverse"),
+        "trial_out": t("move.trial_out"), "trial_reverse": t("move.trial_reverse"),
     }
     headers = [t("col.date"), t("col.kind"), t("col.doc_code"), t("col.customer"), t("col.place"), t("col.code"),
                t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"), t("col.qty_change"),

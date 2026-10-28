@@ -34,12 +34,13 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
     from datetime import date
 
     from dibekho import db
-    from dibekho.core.stock import MAIN, OFFICE, Line, stock_count, transfer
+    from dibekho.core.stock import MAIN, OFFICE, Line, record_trial_use, stock_count, transfer
 
     prod = ctx.conn.execute("SELECT id FROM products LIMIT 1").fetchone()[0]
-    with db.transaction(ctx.conn):  # a count per place and a transfer, so their windows are opened too
+    with db.transaction(ctx.conn):  # a count per place, a transfer and a trial-use note, so their windows open too
         count_doc = stock_count(ctx.conn, date(2026, 10, 5), {(prod, MAIN): 9, (prod, OFFICE): 1, prod + 1: 3})
         transfer_doc = transfer(ctx.conn, date(2026, 10, 6), MAIN, OFFICE, [Line(prod, 2)])
+        trial_doc = record_trial_use(ctx.conn, date(2026, 10, 7), MAIN, [Line(prod, 1)])
     win = MainWindow(ctx)
     win.show()
     win.rescan()
@@ -49,10 +50,11 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
 
     doc = ctx.conn.execute("SELECT id FROM documents LIMIT 1").fetchone()[0]
     cust = ctx.conn.execute("SELECT id FROM customers LIMIT 1").fetchone()[0]
-    from dibekho.ui.count_page import TransferDialog
+    from dibekho.ui.count_page import TransferDialog, TrialUseDialog
 
     for dlg in (DocumentDialog(ctx, doc, win), CustomerDialog(ctx, cust, win), ProductDialog(ctx, prod, win),
-                DocumentDialog(ctx, count_doc, win), DocumentDialog(ctx, transfer_doc, win), TransferDialog(ctx, win)):
+                DocumentDialog(ctx, count_doc, win), DocumentDialog(ctx, transfer_doc, win),
+                DocumentDialog(ctx, trial_doc, win), TransferDialog(ctx, win), TrialUseDialog(ctx, win)):
         dlg.show()
         app.processEvents()
         dlg.close()
@@ -93,7 +95,7 @@ def test_every_screen_opens(app, ws, monkeypatch, lang):
             for k in range(page.kind.count()):
                 page.kind.setCurrentIndex(k)
                 app.processEvents()
-            assert page.table.rowCount() == 1  # the transfer
+            assert page.table.rowCount() == 1  # the trial-use note (the last kind in the combo)
         win.search.windows[key].close()
     stats_win = win.search.open_window("search.stats_btn", StatsPage)
     app.processEvents()

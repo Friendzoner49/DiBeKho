@@ -13,8 +13,8 @@ This guide goes step by step, using the exact button names on screen. Not instal
 4. [Stock, low stock and notes](#4-stock-low-stock-and-notes)
 5. [Goods in](#5-goods-in)
 6. [Counting stock at each place](#6-counting-stock-at-each-place)
-7. [Moving goods between the main warehouse and the office](#7-moving-goods-between-the-main-warehouse-and-the-office)
-8. [Customers, revenue and selling prices](#8-customers-revenue-and-selling-prices)
+7. [Moving goods between the main warehouse and the office](#7-moving-goods-between-the-main-warehouse-and-the-office) · [Trial use](#7b-trial-use)
+8. [Customers, revenue and selling prices](#8-customers-revenue-and-selling-prices) · [Merge customers](#84-merge-customers)
 9. [Orders](#9-orders)
 10. [Statistics and Excel export](#10-statistics-and-excel-export)
 11. [Mistakes: Undo and backups](#11-mistakes-undo-and-backups)
@@ -77,7 +77,7 @@ Do this once, in order.
 
 **Step 3. Opening count.** Open **Stock count**, count the goods at each place and type the numbers in the 2 yellow columns ([section 6](#6-counting-stock-at-each-place)). From now on the app matches the real stock.
 
-**Step 4. (Recommended) Check the alert level.** By default the app warns when stock is **below 30**. If many products usually have only a few boxes, lower it or give products their own level ([section 12](#12-product-catalog-and-alert-level)).
+**Step 4. (Recommended) Check the alert level.** By default the app warns when stock is **below 30**. If many products usually have only a few boxes, lower it ([section 12](#12-product-catalog-and-alert-level)).
 
 ---
 
@@ -141,12 +141,11 @@ Then click **Apply and read notes again**, read the summary and agree.
 
 ### 4.1. Reading the Stock table
 
-Column order: Code, Product, Chinese name, Packing, Type/colour, Category, Unit, Stock, Low-stock alert at, Stock note, Main warehouse, Office, Last out.
+Column order: Code, Product, Chinese name, Packing, Type/colour, Category, Unit, Stock, Stock note, Main warehouse, Office, Last out.
 
 | Column | Meaning |
 |---|---|
 | **Stock** | Total on hand (main warehouse + office) |
-| **Low-stock alert at** | The alert level used for the product |
 | **Stock note** | The product's own note (damaged, misprinted, expired boxes…); a narrow column, hover to read it in full |
 | **Main warehouse**, **Office** | Stock at each place |
 | **Last out** | Date of the last delivery |
@@ -209,6 +208,7 @@ A stock count = count the real goods and record them. The app records only the *
 
 1. Open **Stock count**. Pick the **Count date** (the day you counted).
 2. For each product there is:
+   - A **Chinese name** column next to the Vietnamese name, to tell apart products that share a name when you do not remember the product code.
    - **In app: Main warehouse / Office** and **Stock in app**: what the app has.
    - Two yellow columns **Counted: Main warehouse** and **Counted: Office**: type what you counted.
 3. Fill only the places you counted. **An empty cell leaves that place as it is.** E.g. today you counted only the office: fill only the office column.
@@ -239,6 +239,19 @@ For goods carried from one place to the other, e.g. 5 boxes of paint from the ma
 The source does not have enough according to the app? You can still save, with a warning; that place goes negative until its next count.
 
 To see, edit or cancel a transfer: **Stock count → Transfers…** (or **Search → Order list**, set **Document type** to **Transfers**). Double-click it to see the details, with an **Edit…** button (reopens it to change products/quantities, the old one stays in the history) and **Cancel document**; the list also has an **Edit selected…** button for the highlighted row.
+
+### 7b. Trial use
+
+For goods opened for in-house trial/testing, **not sold to a customer** — instead of making a sham delivery note just to deduct stock. This quantity is **not** counted as a sale in Thống kê.
+
+1. Open **Stock count**, click **Record trial use…** (next to Transfer).
+2. Choose the **Date** and **Place** (main warehouse or office).
+3. Type the quantity in the yellow **Qty used for trial** column for each product. (Optional) type a **Note** with the reason.
+4. Click **Save trial-use note**, read the summary and agree. These get codes **DT001, DT002…**
+
+Typed the wrong quantity or product? Open that note (order details) and **Cancel document**, then record a fresh one (or use **↶ Undo** right after saving).
+
+To see trial-use notes: **Stock count → Trial-use notes…** (or **Search → Order list**, set **Document type** to **Trial use**).
 
 ---
 
@@ -275,6 +288,17 @@ Click **Export to Excel…** in the customer window. A file `KhachHang_<name>_<p
 - **Products bought**: quantity, revenue, lowest and highest price, times bought.
 
 Useful to send to the customer for checking, or to work out a salesperson's commission.
+
+### 8.4. Merge customers
+
+For tidying up duplicate or unneeded customers — for example sham "customers" that were used to self-deduct stock for trial use before trial-use notes existed ([section 7b](#7b-trial-use)) — merge them all into one shared customer, e.g. "DiBeKho office".
+
+1. **Search → Customer list.**
+2. Select 2 or more customers (hold **Ctrl** or **Shift** while clicking), then click **Merge customers…**.
+3. Type the shared name (e.g. "DiBeKho office") or pick one of the names shown, then click **Save**.
+4. Read the summary and agree. Every order of the selected customers moves to the shared one; the old customers are deleted (orders and history stay the same).
+
+Merged by mistake? Click **↶ Undo** right afterwards.
 
 ---
 
@@ -346,11 +370,9 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 **Settings → Products**:
 
 **Common alert level — Alert when stock is below** (default **30**):
-- For every product **without** its own level. Stock **below** it turns the row orange with "⚠ Running low — order more".
+- For **every product**. Stock **below** it turns the row orange with "⚠ Running low — order more".
 - **0** turns it off.
 - It goes with the data package to another computer.
-
-**A product's own level:** select it → **Edit product…** → **Low-stock alert at**. E.g. 5 for something sold by the roll: at 5 or less it warns. A product's own level always wins over the common one.
 
 **Other buttons:**
 - **Add product**, **Edit product…** (or double-click a row): Vietnamese and Chinese name, packing, type/colour, unit, category. When **adding** one, if it looks like a product that already exists (checked by Vietnamese and Chinese name and packing), the app asks before creating it, to avoid a duplicate. The same prompt can appear when choosing "Create new product" in To do, or when entering goods in.
@@ -388,7 +410,7 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 | Wrong place for an order | Open it → change **Taken from** |
 | Negative stock at one place | Usually the goods came from the other place, or a transfer was not recorded. Fix the order's place, record a **Transfer…**, or count that place |
 | Negative total stock | A goods in or a stock count is missing |
-| Too many "Running low" | Lower **Alert when stock is below**, or set products' own levels ([section 12](#12-product-catalog-and-alert-level)) |
+| Too many "Running low" | Lower **Alert when stock is below** ([section 12](#12-product-catalog-and-alert-level)) |
 | An order without prices (—) | The paper note has no unit price / amount. Fix the file, then **Use new version** in To do |
 | A note file deleted by mistake | Stock unchanged. **To do → Restore file** |
 | A product deleted by mistake | **↶ Undo** right away if you can; otherwise **Settings → Data transfer and backups → Restore a deleted product…** (section 11) |

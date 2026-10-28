@@ -13,8 +13,8 @@ Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. 
 4. [Xem tồn kho, hàng sắp hết, ghi chú](#4-xem-tồn-kho-hàng-sắp-hết-ghi-chú)
 5. [Hàng về](#5-hàng-về)
 6. [Kiểm kê từng nơi](#6-kiểm-kê-từng-nơi)
-7. [Chuyển hàng giữa Kho tổng và Văn phòng](#7-chuyển-hàng-giữa-kho-tổng-và-văn-phòng)
-8. [Khách hàng, doanh thu và giá bán](#8-khách-hàng-doanh-thu-và-giá-bán)
+7. [Chuyển hàng giữa Kho tổng và Văn phòng](#7-chuyển-hàng-giữa-kho-tổng-và-văn-phòng) · [Xuất dùng thử](#7b-xuất-dùng-thử)
+8. [Khách hàng, doanh thu và giá bán](#8-khách-hàng-doanh-thu-và-giá-bán) · [Gộp khách hàng](#84-gộp-khách-hàng)
 9. [Đơn hàng](#9-đơn-hàng)
 10. [Thống kê và xuất Excel](#10-thống-kê-và-xuất-excel)
 11. [Khi làm nhầm: Hoàn tác, sao lưu](#11-khi-làm-nhầm-hoàn-tác-sao-lưu)
@@ -77,7 +77,7 @@ Chỉ làm một lần, theo thứ tự.
 
 **Bước 3. Kiểm kê đầu kỳ.** Vào **Kiểm kê**, đếm hàng thật ở từng nơi và gõ vào 2 cột vàng ([mục 6](#6-kiểm-kê-từng-nơi)). Từ đây số trên app khớp với kho thật.
 
-**Bước 4. (Nên làm) Xem mức báo động.** Mặc định app báo khi tồn **dưới 30**. Nếu nhiều mặt hàng thường chỉ có vài thùng, hãy hạ mức này hoặc đặt mức riêng cho từng mặt hàng ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)).
+**Bước 4. (Nên làm) Xem mức báo động.** Mặc định app báo khi tồn **dưới 30**. Nếu nhiều mặt hàng thường chỉ có vài thùng, hãy hạ mức này ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)).
 
 ---
 
@@ -141,12 +141,11 @@ Rồi bấm **Áp dụng và đọc lại phiếu**, đọc bảng tóm tắt v�
 
 ### 4.1. Đọc bảng Tồn kho
 
-Thứ tự cột: Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn, Báo sắp hết khi còn, Ghi chú tồn kho, Kho tổng, Văn phòng, Xuất gần nhất.
+Thứ tự cột: Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn, Ghi chú tồn kho, Kho tổng, Văn phòng, Xuất gần nhất.
 
 | Cột | Ý nghĩa |
 |---|---|
 | **Tồn** | Tổng số hiện có (Kho tổng + Văn phòng) |
-| **Báo sắp hết khi còn** | Mức báo động đang áp dụng cho mặt hàng |
 | **Ghi chú tồn kho** | Ghi chú riêng của mặt hàng (thùng lỗi, in lệch, hết hạn…); cột hẹp, rê chuột để xem hết |
 | **Kho tổng**, **Văn phòng** | Số ở từng nơi |
 | **Xuất gần nhất** | Ngày giao hàng gần nhất |
@@ -209,6 +208,7 @@ Kiểm kê = đếm hàng thật rồi ghi vào app. App chỉ ghi **phần chê
 
 1. Vào **Kiểm kê**. Chọn **Ngày kiểm kê** (ngày bạn đếm).
 2. Mỗi mặt hàng có:
+   - Cột **Tên Trung** cạnh tên Việt, để phân biệt các mặt hàng trùng tên mà không nhớ mã SP.
    - **Theo app: Kho tổng / Văn phòng** và **Tồn theo app**: số app đang tính.
    - Hai cột vàng **Đếm được: Kho tổng** và **Đếm được: Văn phòng**: gõ số bạn đếm được.
 3. Chỉ gõ những nơi đã đếm. **Ô để trống thì nơi đó giữ nguyên.** Ví dụ hôm nay chỉ đếm Văn phòng: chỉ điền cột Văn phòng.
@@ -239,6 +239,19 @@ Dùng khi mang hàng từ nơi này sang nơi kia, ví dụ chở 5 thùng sơn 
 Nơi chuyển đi không đủ hàng theo app? App vẫn cho lưu nhưng báo trước; số ở nơi đó sẽ âm cho tới lần kiểm kê sau.
 
 Xem lại, sửa hoặc huỷ phiếu chuyển: **Kiểm kê → Phiếu chuyển hàng…** (hoặc **Tra cứu → Danh sách đơn hàng**, ở ô **Loại phiếu** chọn **Phiếu chuyển hàng**). Nháy đúp phiếu để xem chi tiết, có nút **Sửa phiếu…** (mở lại để sửa mặt hàng/số lượng, phiếu cũ vẫn giữ trong lịch sử) và **Huỷ phiếu**; trong danh sách còn có nút **Sửa phiếu đã chọn…** để sửa ngay phiếu đang bôi đen.
+
+### 7b. Xuất dùng thử
+
+Dùng khi mở hàng ra thử nghiệm/dùng nội bộ, **không bán cho khách** — thay cho việc tự lập một phiếu giao hàng khống để trừ tồn. Số lượng này **không** tính là xuất bán trong Thống kê.
+
+1. Vào **Kiểm kê**, bấm **Xuất dùng thử…** (cạnh nút Chuyển hàng).
+2. Chọn **Ngày xuất** và **Nơi xuất** (Kho tổng hoặc Văn phòng).
+3. Gõ số lượng vào cột vàng **Số lượng dùng thử** cho từng mặt hàng. (Tuỳ chọn) gõ **Ghi chú** lý do dùng thử.
+4. Bấm **Lưu phiếu dùng thử**, đọc tóm tắt và đồng ý. Phiếu có mã **DT001, DT002…**
+
+Nhầm số lượng hoặc mặt hàng? Mở phiếu đó (Chi tiết đơn) và bấm **Huỷ phiếu**, rồi lập phiếu mới (hoặc dùng **↶ Hoàn tác** ngay sau khi lưu).
+
+Xem lại phiếu dùng thử: **Kiểm kê → Phiếu dùng thử…** (hoặc **Tra cứu → Danh sách đơn hàng**, ở ô **Loại phiếu** chọn **Phiếu dùng thử**).
 
 ---
 
@@ -275,6 +288,17 @@ Bấm **Xuất Excel…** trong cửa sổ khách. File `KhachHang_<tên>_<kỳ>
 - **Mặt hàng đã mua**: số lượng, doanh thu, giá thấp nhất, giá cao nhất, số lần mua.
 
 Dùng để gửi khách đối chiếu, hoặc tính hoa hồng cho người bán.
+
+### 8.4. Gộp khách hàng
+
+Dùng để dọn các khách hàng trùng/thừa, ví dụ các "khách hàng" khống đã dùng để tự trừ tồn cho hàng dùng thử trước khi có tính năng Xuất dùng thử ([mục 7b](#7b-xuất-dùng-thử)) — gộp hết về một khách chung, ví dụ "Văn phòng DiBeKho".
+
+1. **Tra cứu → Danh sách khách hàng.**
+2. Chọn từ 2 khách trở lên (giữ **Ctrl** hoặc **Shift** khi bấm chọn), rồi bấm **Gộp khách hàng…**.
+3. Gõ tên khách hàng chung (ví dụ "Văn phòng DiBeKho") hoặc chọn 1 trong các tên đang hiển thị, rồi bấm **Lưu**.
+4. Đọc tóm tắt và đồng ý. Mọi đơn của các khách đã chọn chuyển sang khách chung; các khách cũ bị xoá (đơn và lịch sử vẫn giữ nguyên).
+
+Gộp nhầm? Bấm **↶ Hoàn tác** ngay sau đó.
 
 ---
 
@@ -346,11 +370,9 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 **Cài đặt → Danh mục mặt hàng**:
 
 **Mức báo động chung — Báo động khi tồn dưới** (mặc định **30**):
-- Áp dụng cho mọi mặt hàng **không** có mức riêng. Tồn **dưới** số này thì dòng tô cam và ghi "⚠ Sắp hết — nên đặt hàng".
+- Áp dụng cho **mọi mặt hàng**. Tồn **dưới** số này thì dòng tô cam và ghi "⚠ Sắp hết — nên đặt hàng".
 - Đặt **0** để tắt.
 - Mức này đi theo gói dữ liệu sang máy khác.
-
-**Mức riêng cho một mặt hàng:** chọn mặt hàng → **Sửa mặt hàng…** → ô **Báo sắp hết khi còn**. Ví dụ đặt 5 cho hàng bán theo cuộn: còn 5 trở xuống thì báo. Mức riêng luôn được ưu tiên hơn mức chung.
 
 **Các nút khác:**
 - **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên Việt, tên Trung, quy cách, loại/màu, đơn vị, nhóm hàng. Khi **thêm mới**, nếu trông giống một mặt hàng đã có (so cả tên Việt lẫn tên Trung, quy cách), app hỏi lại trước khi tạo — tránh tạo trùng. Lời nhắc tương tự cũng hiện khi chọn "Tạo mặt hàng mới" ở Cần xử lý hoặc khi nhập hàng về.
@@ -388,7 +410,7 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 | Chọn nhầm nơi lấy hàng | Mở đơn → đổi ô **Lấy hàng từ** |
 | Tồn ở một nơi bị âm | Thường do hàng thực ra lấy ở nơi kia, hoặc chưa ghi chuyển hàng. Sửa nơi lấy hàng của đơn, ghi **Chuyển hàng…**, hoặc kiểm kê nơi đó |
 | Tổng tồn bị âm | Thiếu phiếu hàng về hoặc chưa kiểm kê |
-| Quá nhiều hàng báo "Sắp hết" | Hạ **Báo động khi tồn dưới**, hoặc đặt mức riêng cho từng mặt hàng ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
+| Quá nhiều hàng báo "Sắp hết" | Hạ **Báo động khi tồn dưới** ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
 | Đơn không có giá (—) | Phiếu giấy không ghi đơn giá / thành tiền. Sửa file phiếu rồi **Dùng bản mới** ở Cần xử lý |
 | Lỡ xoá file phiếu | Tồn không đổi. **Cần xử lý → Khôi phục file** |
 | Lỡ xoá nhầm một mặt hàng | Bấm **↶ Hoàn tác** ngay nếu còn kịp; nếu không, **Cài đặt → Chuyển dữ liệu và sao lưu → Khôi phục mặt hàng đã xoá…** (mục 11) |

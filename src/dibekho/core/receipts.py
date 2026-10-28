@@ -113,12 +113,11 @@ def suggestions(conn, source: str, supplier_name: str = "", customer_id: int | N
             (unaccent(clean(supplier_name)),)), n)
     for sql in (
         base + " GROUP BY l.product_id ORDER BY COUNT(*) DESC, MAX(d.doc_date) DESC",
-        # running out: below 0, or at the alarm level (its own, else the default, stock.is_low); the lowest first
+        # running out: below 0, or below the shared alarm level (stock.is_low); the furthest under it first
         f"""SELECT p.id FROM products p LEFT JOIN stock_movements m ON m.product_id = p.id WHERE p.active = 1
            GROUP BY p.id
-           HAVING COALESCE(SUM(m.qty), 0) < 0 OR (p.min_stock > 0 AND COALESCE(SUM(m.qty), 0) <= p.min_stock)
-               OR (p.min_stock = 0 AND COALESCE(SUM(m.qty), 0) < {default})
-           ORDER BY COALESCE(SUM(m.qty), 0) - (CASE WHEN p.min_stock > 0 THEN p.min_stock ELSE {default} END), p.code""",
+           HAVING COALESCE(SUM(m.qty), 0) < {default}
+           ORDER BY COALESCE(SUM(m.qty), 0), p.code""",
         # what went out most in the last 90 days
         """SELECT l.product_id FROM document_lines l JOIN documents d ON d.id = l.document_id
            JOIN products p ON p.id = l.product_id

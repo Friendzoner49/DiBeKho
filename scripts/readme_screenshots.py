@@ -36,16 +36,16 @@ shutil.rmtree(root, ignore_errors=True)
 ws = Workspace(root)
 ws.ensure()
 
-P = [  # name_vi, name_zh, spec, unit, category, variant, min_stock
-    ("Sơn chống thấm FS-101", "防水涂料 FS-101", "20KG", "thùng", "Sơn, vữa, keo", "Trắng", 10),
-    ("Sơn chống thấm FS-101", "防水涂料 FS-101", "10KG", "thùng", "Sơn, vữa, keo", "Xám nhạt", 10),
-    ("Sơn chống thấm gốc xi măng", "水泥基防水涂料", "20KG", "thùng", "Sơn, vữa, keo", "", 8),
-    ("Vữa chống thấm ngược", "背水涂", "10KG", "thùng", "Sơn, vữa, keo", "", 5),
-    ("Keo trám khe", "密封胶", "5KG", "thùng", "Sơn, vữa, keo", "", 0),
-    ("Màng chống thấm tự dính", "自粘防水卷材", "1.5mm 1m*20m", "cuộn", "Màng tự dính", "", 6),
-    ("Màng chống thấm PPE", "高分子防水卷材", "16.5KG", "cuộn", "Màng PPE/PPP", "Nguyên sinh", 0),
-    ("Vải polyester 65g", "聚酯布 65g", "65g 1m*100m", "cuộn", "Vải polyester", "", 3),
-    ("Bột chống thấm", "防水粉", "", "gói", "", "", 20),
+P = [  # name_vi, name_zh, spec, unit, category, variant
+    ("Sơn chống thấm FS-101", "防水涂料 FS-101", "20KG", "thùng", "Sơn, vữa, keo", "Trắng"),
+    ("Sơn chống thấm FS-101", "防水涂料 FS-101", "10KG", "thùng", "Sơn, vữa, keo", "Xám nhạt"),
+    ("Sơn chống thấm gốc xi măng", "水泥基防水涂料", "20KG", "thùng", "Sơn, vữa, keo", ""),
+    ("Vữa chống thấm ngược", "背水涂", "10KG", "thùng", "Sơn, vữa, keo", ""),
+    ("Keo trám khe", "密封胶", "5KG", "thùng", "Sơn, vữa, keo", ""),
+    ("Màng chống thấm tự dính", "自粘防水卷材", "1.5mm 1m*20m", "cuộn", "Màng tự dính", ""),
+    ("Màng chống thấm PPE", "高分子防水卷材", "16.5KG", "cuộn", "Màng PPE/PPP", "Nguyên sinh"),
+    ("Vải polyester 65g", "聚酯布 65g", "65g 1m*100m", "cuộn", "Vải polyester", ""),
+    ("Bột chống thấm", "防水粉", "", "gói", "", ""),
 ]
 NOTE_NAMES = {i: f"{zh}\n{vi}" for i, (vi, zh, *_r) in enumerate(P)}
 SPECS = ["20KG/thùng", "10KG/thùng", "20KG/thùng", "10KG/thùng", "5KG/thùng", "1m*20m/ cuộn", "cuộn", "1m*100m/ cuộn",
@@ -97,9 +97,9 @@ ctx = AppContext(Config(str(root), LANG, "demo", "MAY-VAN-PHONG"), ws)
 conn = ctx.conn
 ids = []
 with db.transaction(conn):
-    for vi, zh, spec, unit, cat, variant, mn in P:
-        ids.append(catalog.create_product(conn, vi, zh, spec, unit=unit, category=cat, min_stock=mn, variant=variant))
-stock_count(conn, date(2026, 9, 1), dict(zip(ids, [40, 30, 25, 12, 6, 20, 8, 10, 60])), "Kiểm kê đầu kỳ")
+    for vi, zh, spec, unit, cat, variant in P:
+        ids.append(catalog.create_product(conn, vi, zh, spec, unit=unit, category=cat, variant=variant))
+stock_count(conn, date(2026, 9, 1), dict(zip(ids, [70, 55, 55, 45, 6, 50, 8, 40, 90])), "Kiểm kê đầu kỳ")
 receipts.save(conn, receipts.ReceiptInput(
     date(2026, 9, 20), receipts.SUPPLIER, supplier_name="Công ty mẹ", note="Hàng về quý 3",
     lines=[receipts.ReceiptLineInput(30, ids[0]), receipts.ReceiptLineInput(15, ids[5]),

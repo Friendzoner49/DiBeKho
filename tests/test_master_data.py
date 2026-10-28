@@ -8,7 +8,7 @@ from dibekho.core import catalog
 from dibekho.excel import master_data
 from tests.test_features import setup_notes
 
-PRODUCT_COLS = "code, name_vi, name_zh, spec, variant, unit, category, min_stock, active, created_at"
+PRODUCT_COLS = "code, name_vi, name_zh, spec, variant, unit, category, active, created_at"
 CUSTOMER_COLS = "name, contact, phone, phone_norm, address"
 
 
@@ -20,7 +20,7 @@ def snapshot(conn):
 def test_export_then_import_on_an_empty_computer_gives_the_same_data(conn, ws, tmp_path):
     setup_notes(conn, ws)
     with db.transaction(conn):
-        pid = catalog.create_product(conn, "Màng PPE", "高分子防水卷材", "16.5KG", category="Màng", min_stock=5,
+        pid = catalog.create_product(conn, "Màng PPE", "高分子防水卷材", "16.5KG", category="Màng",
                                      variant="Nguyên sinh")
         catalog.update_product(conn, pid, active=0)
     path = master_data.export(tmp_path / "goc.xlsx", conn)
@@ -48,14 +48,34 @@ def test_edited_file_updates_and_never_duplicates(conn, ws, tmp_path):
     path = master_data.export(tmp_path / "goc.xlsx", conn)
     wb = openpyxl.load_workbook(path)
     sheet = wb.worksheets[0]
-    sheet.cell(5, 10).value = 12  # low-stock alert of the first product
+    sheet.cell(5, 7).value = "cuộn"  # unit of the first product, edited by hand
     sheet.append([None, "", "Sơn lót lạnh", "冷底油", "15KG"])  # new product without a code
     wb.save(path)
     result = catalog.import_master(conn, *master_data.read(path))
     assert (result["products_new"], result["products_updated"]) == (1, 2)
-    first = conn.execute("SELECT min_stock FROM products ORDER BY code LIMIT 1").fetchone()[0]
-    assert first == 12
+    first = conn.execute("SELECT unit FROM products ORDER BY code LIMIT 1").fetchone()[0]
+    assert first == "cuộn"
     assert conn.execute("SELECT code FROM products WHERE name_vi = 'Sơn lót lạnh'").fetchone()[0] == "SP003"
+
+
+def test_file_with_the_old_min_stock_column_still_reads_active_correctly(conn, ws, tmp_path):
+    """Files exported before 28/10/2026 have an extra column (the per-product alarm level, since removed)
+    between 'created' and 'active'. A product whose old min_stock happened to be 0 must not be misread as
+    inactive now that 'active' moved one column to the left."""
+    setup_notes(conn, ws)
+    path = master_data.export(tmp_path / "goc.xlsx", conn)
+    wb = openpyxl.load_workbook(path)
+    sheet = wb.worksheets[0]
+    sheet.insert_cols(10)  # min_stock, between created (col 9) and active (col 10, now 11)
+    sheet.cell(4, 10).value = "Báo sắp hết khi còn"
+    for row in sheet.iter_rows(min_row=5):
+        row[9].value = 0  # every product's old min_stock was 0 (off)
+    wb.save(path)
+    products, customers, stock = master_data.read(path)
+    assert all(p.active for p in products)
+    other = db.connect(":memory:")
+    catalog.import_master(other, products, customers, stock)
+    assert all(r[0] for r in other.execute("SELECT active FROM products"))
 
 
 def test_same_product_under_another_code_is_skipped(conn, ws, tmp_path):
@@ -182,7 +202,7 @@ def test_rows_sharing_a_code_stay_separate_products_with_their_stock(conn, ws, t
     wb = openpyxl.load_workbook(path)
     products_sheet, stock_sheet = wb.worksheets[0], wb.worksheets[2]
     products_sheet.append([3, "SP001", products_sheet["C5"].value, "", products_sheet["E5"].value, "Tái chế",
-                           "thùng", "", None, 0, "Có"])  # copy of SP001, another variant, same code
+                           "thùng", "", None, "Có"])  # copy of SP001, another variant, same code
     stock_sheet.append(["SP001", "copy", "", "Tái chế", 9])
     for row, qty in zip(stock_sheet.iter_rows(min_row=5), (11, 22, 9)):
         row[4].value = qty

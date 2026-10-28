@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -46,7 +45,6 @@ from dibekho.ui.common import (
     hint_label,
     info,
     make_table,
-    num_item,
     open_path,
     reread_whole_note,
     row_id,
@@ -73,10 +71,6 @@ class ProductEditor(QDialog):
         self.category = QComboBox()
         self.category.setEditable(True)
         self.category.addItems([""] + catalog.categories(ctx.conn))
-        self.min_stock = QDoubleSpinBox()
-        self.min_stock.setRange(0, 1e6)
-        self.min_stock.setDecimals(0)
-        self.min_stock.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.active = QCheckBox(t("settings.active"))
         self.active.setChecked(True)
         for box in (self.name_vi, self.name_zh, self.spec, self.variant, self.unit, self.category):
@@ -88,7 +82,6 @@ class ProductEditor(QDialog):
             self.variant.setText(product["variant"])
             self.unit.setText(product["unit"])
             self.category.setCurrentText(product["category"])
-            self.min_stock.setValue(product["min_stock"])
             self.active.setChecked(bool(product["active"]))
             form.addRow(t("col.code") + ":", QLabel(product["code"]))
         form.addRow(t("col.product") + ":", self.name_vi)
@@ -97,10 +90,7 @@ class ProductEditor(QDialog):
         form.addRow(t("col.variant") + ":", self.variant)
         form.addRow(t("col.unit") + ":", self.unit)
         form.addRow(t("col.category") + ":", self.category)
-        form.addRow(t("col.min_stock") + ":", self.min_stock)
         form.addRow("", self.active)
-        self.min_stock_hint = hint_label(t("settings.min_stock_hint"))
-        form.addRow(self.min_stock_hint)
         box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         box.button(QDialogButtonBox.Save).setText(t("btn.save"))
         box.button(QDialogButtonBox.Cancel).setText(t("btn.cancel"))
@@ -111,7 +101,7 @@ class ProductEditor(QDialog):
     def fields(self) -> dict:
         return dict(name_vi=self.name_vi.text().strip(), name_zh=self.name_zh.text().strip(),
                     spec=self.spec.text().strip(), variant=self.variant.text().strip(), unit=self.unit.text().strip(),
-                    category=self.category.currentText().strip(), min_stock=self.min_stock.value())
+                    category=self.category.currentText().strip())
 
     def save(self):
         if not self.name_vi.text().strip():
@@ -213,7 +203,7 @@ class SettingsPage(Page):
         alarm_row.addWidget(hint_label(t("settings.low_default_hint")), 1)
         lay.addLayout(alarm_row)
         self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
-                                 t("col.unit"), t("col.category"), t("col.min_stock"), t("settings.active")], stretch=1)
+                                 t("col.unit"), t("col.category"), t("settings.active")], stretch=1)
         self.table.doubleClicked.connect(lambda idx: self.edit(row_id(self.table, idx.row())))
         lay.addWidget(self.table)
         row = QHBoxLayout()
@@ -277,7 +267,7 @@ class SettingsPage(Page):
         self.low_default.blockSignals(False)
         rows = catalog.products(self.ctx.conn, include_inactive=True)
         fill_table(self.table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"], p["category"],
-                                 num_item(p["min_stock"]), t("btn.yes") if p["active"] else t("btn.no")]
+                                 t("btn.yes") if p["active"] else t("btn.no")]
                                 for p in rows],
                    ids=[p["id"] for p in rows])
         for r, p in enumerate(rows):

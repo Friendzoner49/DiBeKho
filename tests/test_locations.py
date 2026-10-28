@@ -18,6 +18,7 @@ from dibekho.core.stock import (
     close_document,
     is_low,
     low_stock_default,
+    record_trial_use,
     set_location,
     stock_count,
     stock_levels,
@@ -79,8 +80,9 @@ def test_a_0_3_0_database_is_upgraded_everything_in_the_main_warehouse(tmp_path)
     assert deliveries.unplaced_count(conn) == 0
     deliveries.scan(conn, ws)
     assert doc(conn, "1")["fee_amount"] == 190000  # prices read again after the rebuild
-    with db.transaction(conn):  # the new kind is allowed
+    with db.transaction(conn):  # the kinds added by 008 and 009 are both allowed after the upgrade
         move_goods(conn, date(2026, 10, 6), MAIN, OFFICE, [Line(a, 1)])
+        record_trial_use(conn, date(2026, 10, 6), MAIN, [Line(a, 1)])
 
 
 # ---- delivery notes ---------------------------------------------------------------------------------------
@@ -212,6 +214,58 @@ def test_editing_a_transfer_keeps_its_code_and_the_old_one_is_replaced(conn):
     assert head3["code"] == "CH002"
 
 
+def test_trial_use_deducts_stock_and_is_an_adjustment_not_a_sale(conn):
+    """Goods opened/used for trial purposes (28/10/2026): replaces the sham delivery notes staff made to
+    self-deduct stock for this. Must not inflate 'xuất' (qty_out) -- that is the whole point of a separate
+    document kind -- but closing stock must still balance, so it is counted as an adjustment."""
+    with db.transaction(conn):
+        p = catalog.create_product(conn, "Sơn A", spec="20KG")
+        stock_count(conn, date(2026, 9, 1), {(p, MAIN): 50})
+    with db.transaction(conn):
+        t_id = record_trial_use(conn, date(2026, 10, 2), MAIN, [Line(p, 5)], note="mở ra thử")
+    assert places(conn, p) == (45, 0) and stock_levels(conn)[p] == 45
+    head, lines = queries.document(conn, t_id)
+    assert head["kind"] == "trial" and head["code"] == "DT001" and head["customer_id"] is None
+    assert head["note"] == "mở ra thử" and lines[0]["qty"] == 5
+    [row] = stats.summary(conn, date(2026, 10, 1), date(2026, 10, 31))
+    assert (row.qty_in, row.qty_out, row.adjust, row.closing) == (0, 0, -5, 45)
+    assert stats.top_out(conn, date(2026, 10, 1), date(2026, 10, 31)) == []  # not a sale
+    with db.transaction(conn):
+        close_document(conn, t_id)  # Huỷ phiếu restores the stock (no separate edit for this kind)
+    assert places(conn, p) == (50, 0)
+    with pytest.raises(ValueError):
+        with db.transaction(conn):
+            record_trial_use(conn, date(2026, 10, 3), MAIN, [])
+
+
+def test_merge_customers_moves_documents_and_deletes_the_others(conn):
+    """Tidying up sham delivery notes made under several made-up customer names (28/10/2026): they all move
+    onto one customer, named as the user picks, and the others disappear -- but the orders themselves and
+    their history stay exactly as they were."""
+    a = catalog.upsert_customer(conn, "Khách Mẫu A")
+    b = catalog.upsert_customer(conn, "Khách Mẫu B")
+    c = catalog.upsert_customer(conn, "Khách Mẫu C")
+    p = catalog.create_product(conn, "Sơn A", spec="20KG")
+    from dibekho.core.stock import insert_document
+
+    with db.transaction(conn):
+        doc_a = insert_document(conn, "delivery", date(2026, 10, 1), [Line(p, 1)], code="1", code_norm="1",
+                                customer_id=a)
+        doc_b = insert_document(conn, "delivery", date(2026, 10, 2), [Line(p, 1)], code="2", code_norm="2",
+                                customer_id=b)
+    kept = catalog.merge_customers(conn, [a, b], "Văn phòng DiBeKho")
+    assert kept == a  # the smaller id survives when the name is brand new
+    assert conn.execute("SELECT name FROM customers WHERE id = ?", (a,)).fetchone()[0] == "Văn phòng DiBeKho"
+    assert conn.execute("SELECT id FROM customers WHERE id = ?", (b,)).fetchone() is None
+    assert conn.execute("SELECT customer_id FROM documents WHERE id = ?", (doc_a,)).fetchone()[0] == a
+    assert conn.execute("SELECT customer_id FROM documents WHERE id = ?", (doc_b,)).fetchone()[0] == a
+    # merging into a name that already exists reuses that customer, even if it is not the smallest id
+    kept2 = catalog.merge_customers(conn, [a, c], "Khách Mẫu C")
+    assert kept2 == c
+    with pytest.raises(ValueError):
+        catalog.merge_customers(conn, [a], "Một mình")  # fewer than 2 customers
+
+
 def test_find_possible_duplicates(conn):
     with db.transaction(conn):
         white = catalog.create_product(conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Trắng")
@@ -270,11 +324,10 @@ def test_a_receipt_goes_where_it_was_put_and_keeps_it_when_edited(conn, ws):
 
 # ---- alarm level ------------------------------------------------------------------------------------------
 
-def test_default_alarm_level_is_30_and_a_products_own_level_wins(conn):
+def test_default_alarm_level_is_30_and_shared_by_every_product(conn):
     assert low_stock_default(conn) == 30
-    assert is_low(29, 0, 30) and not is_low(30, 0, 30)  # 'below 30'
-    assert is_low(10, 10, 30) and not is_low(11, 10, 30)  # own level: 'at or below' (unchanged)
-    assert not is_low(5, 0, 0)  # 0 = off
+    assert is_low(29, 30) and not is_low(30, 30)  # 'below 30'
+    assert not is_low(5, 0)  # 0 = off
     with db.transaction(conn):
         db.set_meta(conn, "low_stock_default", "12")
     assert low_stock_default(conn) == 12
@@ -472,7 +525,7 @@ def test_dragging_a_pinned_column_wider_resizes_the_real_table(app, ws):
     """Dragging a column border on the frozen pane must resize the real (host) column too, not just the
     overlay's own copy of the header -- host.horizontalHeader() must not be blockSignals()-ed in the process,
     or the table stops redrawing/scrolling correctly after the drag."""
-    from dibekho.ui.stock_page import MIN_STOCK, STOCK
+    from dibekho.ui.stock_page import NOTE, STOCK
 
     make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
     ctx, win = window(ws)
@@ -483,11 +536,11 @@ def test_dragging_a_pinned_column_wider_resizes_the_real_table(app, ws):
     app.processEvents()
     stock = win.stack.widget(0)
     frozen = stock.table._frozen[0]
-    before = stock.table.horizontalHeader().sectionPosition(MIN_STOCK)
+    before = stock.table.horizontalHeader().sectionPosition(NOTE)
     frozen.horizontalHeader().resizeSection(STOCK, 200)
     app.processEvents()
     assert stock.table.columnWidth(STOCK) == 200
-    assert stock.table.horizontalHeader().sectionPosition(MIN_STOCK) != before
+    assert stock.table.horizontalHeader().sectionPosition(NOTE) != before
     win.close()
 
 

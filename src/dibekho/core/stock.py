@@ -22,6 +22,7 @@ _REVERSE = {
     "receipt": "receipt_reverse",
     "stock_count": "count_reverse",
     "transfer": "transfer_reverse",
+    "trial": "trial_reverse",
 }
 
 MAIN, OFFICE = 1, 2  # locations table; names through i18n loc.main / loc.office
@@ -182,6 +183,37 @@ def transfer(conn, doc_date: date, from_location: int, to_location: int, lines: 
     return doc_id
 
 
+def next_trial_code(conn) -> str:
+    """DT001, DT002... (dùng thử), same numbering rule as transfer codes."""
+    row = conn.execute(
+        "SELECT MAX(CAST(SUBSTR(code, 3) AS INTEGER)) FROM documents WHERE kind = 'trial' AND code GLOB 'DT[0-9]*'"
+    ).fetchone()
+    return f"DT{(row[0] or 0) + 1:03d}"
+
+
+def record_trial_use(conn, doc_date: date, location_id: int, lines: list[Line], note="") -> int:
+    """Goods taken out of stock for internal trial/testing use, with no customer -- replaces the sham
+    delivery notes staff used to make for this. Code DT001, DT002... A mistake is fixed with Huỷ phiếu
+    (cancel) and a fresh one, like a stock count; there is no separate edit for this kind."""
+    if location_id not in LOCATIONS:
+        raise ValueError("Nơi xuất dùng thử không hợp lệ.")
+    if not lines:
+        raise ValueError("Phiếu dùng thử chưa có dòng nào.")
+    code = next_trial_code(conn)
+    cur = conn.execute(
+        "INSERT INTO documents(kind, code, code_norm, doc_date, note, location_id) VALUES('trial', ?, ?, ?, ?, ?)",
+        (code, code, doc_date.isoformat(), note, location_id),
+    )
+    doc_id = cur.lastrowid
+    for i, line in enumerate(lines, start=1):
+        conn.execute("INSERT INTO document_lines(document_id, line_no, product_id, qty, note) VALUES(?,?,?,?,?)",
+                     (doc_id, i, line.product_id, line.qty, line.note))
+        _move(conn, line.product_id, -line.qty, doc_id, "trial_out", doc_date.isoformat(), location_id)
+    db.touch(conn)
+    db.log(conn, "trial_use", f"{code} {LOCATION_CODES[location_id]}")
+    return doc_id
+
+
 def set_location(conn, doc_id: int, location_id: int) -> None:
     """Where the goods of a delivery note were taken from (or a receipt put in). Its movements change place,
     the total does not change."""
@@ -212,7 +244,7 @@ def stock_table(conn) -> list[sqlite3.Row]:
 
 
 def low_stock_default(conn) -> float:
-    """Alarm level for products without their own (min_stock = 0): stock below it is 'running low'.
+    """Alarm level for every product: stock below it is 'running low'.
     Kept in meta so it travels with the data package."""
     try:
         return float(db.get_meta(conn, "low_stock_default", "30"))
@@ -220,10 +252,8 @@ def low_stock_default(conn) -> float:
         return 30.0
 
 
-def is_low(stock: float, min_stock: float, default: float) -> bool:
-    """A product's own level: stock <= min_stock (as before); otherwise stock < the default level (0 = off)."""
-    if min_stock:
-        return stock <= min_stock
+def is_low(stock: float, default: float) -> bool:
+    """Below the shared alarm level (0 = off)."""
     return bool(default) and stock < default
 
 

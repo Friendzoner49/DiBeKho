@@ -5,7 +5,9 @@ Written from Settings ('Xuất dữ liệu gốc'), readable by people, and read
 
 Layout (fixed, so the file reads back whatever the interface language was):
   sheet 1 = products, sheet 2 = customers; A1 starts with MARKER; header in row 4; data from row 5.
-  products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | min_stock | active
+  products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | active
+  (files from before 28/10/2026 have a 'min_stock' column between created and active; the per-product
+  alarm level was dropped, so it is read past and ignored -- see _read())
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
   sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock
             (| Kho tổng | Văn phòng | note, from 0.4.0: the two places are shown only, the import reads the total
@@ -61,7 +63,6 @@ class MasterProduct:
     unit: str = ""
     category: str = ""
     created_at: str = ""  # 'YYYY-MM-DD HH:MM:SS' or ''
-    min_stock: float = 0
     active: bool = True
 
 
@@ -154,13 +155,13 @@ def export(path: Path, conn) -> Path:
     ws.title = t("master.sheet_products")
     products = conn.execute("SELECT * FROM products ORDER BY code").fetchall()
     rows = [[i, p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"], p["category"],
-             _to_datetime(p["created_at"]), p["min_stock"], t("btn.yes") if p["active"] else t("btn.no")]
+             _to_datetime(p["created_at"]), t("btn.yes") if p["active"] else t("btn.no")]
             for i, p in enumerate(products, 1)]
     _sheet(ws, t("master.title_products"),
            [t("master.col_no"), t("col.code"), t("master.col_name_vi"), t("col.name_zh"), t("col.spec"),
-            t("col.variant"), t("col.unit"), t("col.category"), t("master.col_created"), t("col.min_stock"),
+            t("col.variant"), t("col.unit"), t("col.category"), t("master.col_created"),
             t("settings.active")],
-           rows, [5, 10, 42, 30, 14, 20, 8, 24, 12, 12, 9], date_col=9)
+           rows, [5, 10, 42, 30, 14, 20, 8, 24, 12, 9], date_col=9)
 
     ws2 = wb.create_sheet(t("master.sheet_customers"))
     customers = conn.execute(
@@ -250,6 +251,9 @@ def _read(wb):
     if len(sheets) < 2 or not all(str(s["A1"].value or "").startswith(MARKER) for s in sheets[:2]):
         raise NotMasterData(t("master.not_master"))
     products, customers = [], []
+    # files exported before 28/10/2026 have an extra 'min_stock' column (dropped) between created and active
+    header = [clean(c.value) for c in sheets[0][HEADER_ROW]]
+    active_idx = 10 if len([h for h in header if h]) >= 11 else 9
     for r, row in enumerate(sheets[0].iter_rows(min_row=HEADER_ROW + 1, values_only=True), HEADER_ROW + 1):
         row = list(row) + [None] * 11
         name_vi = clean(row[2])
@@ -257,7 +261,7 @@ def _read(wb):
             continue
         products.append(MasterProduct(
             r, clean(row[1]), name_vi, clean(row[3]), clean(row[4]), clean(row[5]), clean(row[6]), clean(row[7]),
-            _created(row[8]), _number(row[9]), _active(row[10]),
+            _created(row[8]), _active(row[active_idx]),
         ))
     for r, row in enumerate(sheets[1].iter_rows(min_row=HEADER_ROW + 1, values_only=True), HEADER_ROW + 1):
         row = list(row) + [None] * 6
@@ -374,13 +378,6 @@ def _created(value) -> str:
         except ValueError:
             pass
     return ""
-
-
-def _number(value) -> float:
-    try:
-        return float(str(value).replace(",", ".")) if value not in (None, "") else 0
-    except ValueError:
-        return 0
 
 
 def _active(value) -> bool:

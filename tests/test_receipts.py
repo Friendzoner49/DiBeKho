@@ -154,13 +154,12 @@ def test_first_receipt_ever_still_opens_with_3_products(conn):
 
     a, b, c, d = products(conn)
     with db.transaction(conn):
-        db.set_meta(conn, "low_stock_default", "0")  # only d has an alarm level (the default one: test_locations)
-        catalog.update_product(conn, d, min_stock=5)
+        db.set_meta(conn, "low_stock_default", "0")  # alarm off; negative stock still counts as running out
         recent = date.today() - timedelta(days=3)
         insert_document(conn, "delivery", recent, [Line(a, 2)], code="1", code_norm="1")  # a: -2, below 0
         insert_document(conn, "delivery", recent, [Line(b, 1), Line(c, 1)], code="2", code_norm="2")
     suggested = receipts.suggestions(conn, SUPPLIER, "Nhà cung cấp mới")
-    assert len(suggested) == 3 and suggested[:2] == [d, a]  # the furthest under its level first: d 5 short, a 2; then b or c
+    assert suggested == [a, b, c]  # the furthest under 0 first (a), then b/c by code; d has no alarm at all
     assert receipts.suggestions(conn, RETURN) == []  # a return waits for the customer
 
 

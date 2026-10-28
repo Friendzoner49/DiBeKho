@@ -59,9 +59,7 @@ class NewProductDialog(ProductEditor):
         super().__init__(ctx, None, parent)
         self.setWindowTitle(t("receipt_form.new_product_title"))
         form = self.layout()
-        form.setRowVisible(self.min_stock, False)
         form.setRowVisible(self.active, False)
-        form.setRowVisible(self.min_stock_hint, False)
         if draft:
             self.name_vi.setText(draft.name_vi)
             self.name_zh.setText(draft.name_zh)
@@ -75,9 +73,7 @@ class NewProductDialog(ProductEditor):
         if not self.name_vi.text().strip():
             self.name_vi.setFocus()
             return
-        f = self.fields()
-        f.pop("min_stock")
-        self.result_product = NewProduct(**f)
+        self.result_product = NewProduct(**self.fields())
         self.accept()
 
 

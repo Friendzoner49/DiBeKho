@@ -7,23 +7,30 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDateEdit,
+    QDialog,
+    QDialogButtonBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
     QPushButton,
+    QVBoxLayout,
 )
 
+from dibekho import db
 from dibekho.core import catalog, queries
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
+    ask,
     error,
     location_name,
     date_item,
     fill_table,
     from_qdate,
+    hint_label,
+    info,
     make_table,
     money_item,
     num_item,
@@ -35,7 +42,7 @@ from dibekho.ui.common import (
 from dibekho.ui.details import CustomerDialog, DocumentDialog
 from dibekho.ui.page import Page
 
-KINDS = ("delivery", "receipt", "stock_count", "transfer")
+KINDS = ("delivery", "receipt", "stock_count", "transfer", "trial")
 GOODS_COL, FEES_COL = 6, 7  # table columns hidden when fixed_kind is set: always blank outside 'delivery'
 
 
@@ -45,6 +52,8 @@ def _place(d) -> str:
         return f"{location_name(d['location_id'])} → {location_name(d['to_location_id'])}"
     if d["kind"] in ("delivery", "receipt"):
         return location_name(d["location_id"]) + ("" if d["location_set"] else " (?)")
+    if d["kind"] == "trial":
+        return location_name(d["location_id"])
     return ""
 
 
@@ -205,14 +214,21 @@ class OrdersPage(Page):
 class CustomersPage(Page):
     def __init__(self, ctx):
         super().__init__(ctx, t("nav.customers"), t("customers.hint"))
+        bar = QHBoxLayout()
         self.text = QLineEdit()
         self.text.setPlaceholderText(t("customers.filter"))
         self.text.setClearButtonEnabled(True)
         self.text.textChanged.connect(self.refresh)
-        self.layout_.addWidget(self.text)
+        bar.addWidget(self.text, 1)
+        merge = QPushButton(t("cust.merge_button"))
+        merge.setToolTip(t("cust.merge_tip"))
+        merge.clicked.connect(self.merge_selected)
+        bar.addWidget(merge)
+        self.layout_.addLayout(bar)
         self.table = make_table([t("col.customer"), t("col.contact"), t("col.phone"), t("col.address"),
                                  t("col.orders"), t("col.revenue"), t("col.first_order"), t("col.last_order")],
                                 stretch=3)
+        self.table.setSelectionMode(self.table.SelectionMode.ExtendedSelection)
         self.table.doubleClicked.connect(
             lambda idx: CustomerDialog(self.ctx, row_id(self.table, idx.row()), self).exec())
         self.layout_.addWidget(self.table)
@@ -224,3 +240,60 @@ class CustomersPage(Page):
                      money_item(c["revenue"]),
                      date_item(c["first_order"]), date_item(c["last_order"])] for c in rows],
                    ids=[c["id"] for c in rows])
+
+    def merge_selected(self):
+        rows = sorted({idx.row() for idx in self.table.selectionModel().selectedRows()})
+        if len(rows) < 2:
+            error(self, t("cust.merge_select_first"))
+            return
+        picked = [(row_id(self.table, r), self.table.item(r, 0).text(), self.table.item(r, 4).key)
+                 for r in rows]
+        dlg = _MergeCustomersDialog(self, picked)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        name = dlg.name()
+        if not name:
+            error(self, t("cust.merge_need_name"))
+            return
+        listing = "\n".join(f"• {n} ({t('cust.merge_order_count', count=int(c))})" for _, n, c in picked)
+        if not ask(self, t("cust.merge_confirm", count=len(picked), name=name, names=listing)):
+            return
+        self.ctx.undo_point("customers_merged")
+        with db.transaction(self.ctx.conn):
+            catalog.merge_customers(self.ctx.conn, [cid for cid, _, _ in picked], name)
+        self.refresh()
+        info(self, t("cust.merge_saved"))
+
+
+class _MergeCustomersDialog(QDialog):
+    """Pick the shared name the selected customers will be merged into (an existing customer, or a new one
+    such as 'Văn phòng DiBeKho')."""
+
+    def __init__(self, parent, picked: list[tuple[int, str, float]]):
+        super().__init__(parent)
+        self.setWindowTitle(t("cust.merge_title"))
+        lay = QVBoxLayout(self)
+        lay.addWidget(hint_label(t("cust.merge_hint")))
+        listing = QLabel("\n".join(f"• {n} ({t('cust.merge_order_count', count=int(c))})" for _, n, c in picked))
+        listing.setWordWrap(True)
+        lay.addWidget(listing)
+        form = QHBoxLayout()
+        form.addWidget(QLabel(t("cust.merge_name_label")))
+        self.combo = QComboBox()
+        self.combo.setEditable(True)
+        self.combo.setInsertPolicy(QComboBox.NoInsert)
+        for _, n, _ in picked:
+            self.combo.addItem(n)
+        self.combo.setCurrentText("")
+        self.combo.lineEdit().setPlaceholderText(t("cust.merge_name_placeholder"))
+        form.addWidget(self.combo, 1)
+        lay.addLayout(form)
+        box = QDialogButtonBox()
+        box.addButton(t("btn.save"), QDialogButtonBox.AcceptRole)
+        box.addButton(t("btn.cancel"), QDialogButtonBox.RejectRole)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+
+    def name(self) -> str:
+        return self.combo.currentText().strip()

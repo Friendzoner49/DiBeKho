@@ -4,7 +4,7 @@
 
 # DiBeKho
 
-[English](README.md) · **Tiếng Việt** · [中文](README.zh.md)
+[English](README.md) · **Tiếng Việt** · [中文](README.zh.md) · [Русский](README.ru.md)
 
 **Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: chạy ngay trên máy, không cần internet, chi phí 0₫.**
 
@@ -147,7 +147,7 @@ File hàng về dạng cũ (file mẫu đã điền) vẫn nhập được bằn
 
 ### 3. Kiểm kê
 
-Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàng **Đếm được: Kho tổng** và **Đếm được: Văn phòng**, bấm **Lưu kiểm kê**. Nơi nào để trống thì giữ nguyên. App chỉ ghi phần chênh lệch giữa số đếm và số trên app, nên lịch sử vẫn rõ ràng.
+Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàng **Đếm được: Kho tổng** và **Đếm được: Văn phòng**, bấm **Lưu kiểm kê**. Nơi nào để trống thì giữ nguyên. App chỉ ghi phần chênh lệch giữa số đếm và số trên app, nên lịch sử vẫn rõ ràng. Có cột **Tên Trung** để phân biệt mặt hàng trùng tên mà không nhớ mã SP.
 
 - **Chuyển hàng…**: mang hàng giữa Kho tổng và Văn phòng. Chọn nơi chuyển đi, nơi nhận, gõ số lượng (cột Tên Trung, Nhóm hàng giúp phân biệt mặt hàng giống nhau; 2 cột số lượng tự ghim bên phải) rồi bấm **Lưu phiếu chuyển**. Tổng tồn không đổi, chỉ đổi số ở từng nơi (phiếu CH001, CH002…).
 - Cột **Ghi chú tồn kho** (giống ở trang Tồn kho): nháy đúp để ghi, ví dụ "3 thùng in lệch, 2 thùng hết hạn 12/2026". Ghi chú được lưu ngay, đi theo gói dữ liệu sang máy khác và có trong file Excel.
@@ -168,7 +168,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 ### 6. Danh mục mặt hàng
 
 **Cài đặt → Danh mục mặt hàng**:
-- **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên, quy cách, loại/màu, nhóm hàng, mức **Báo sắp hết khi còn**.
+- **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên, quy cách, loại/màu, nhóm hàng.
 - **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
 
