@@ -149,9 +149,9 @@ class DocumentDialog(_Base):
 
         if kind == "stock_count":
             diffs = queries.count_differences(ctx.conn, doc_id)
-            headers = [t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.place"),
-                       t("col.counted"), t("col.difference")]
-            rows = [[ln["code"], ln["name_vi"], ln["spec"], ln["variant"],
+            headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
+                       t("col.place"), t("col.counted"), t("col.difference")]
+            rows = [[ln["code"], ln["name_vi"], ln["name_zh"], ln["spec"], ln["variant"],
                      location_name(ln["location_id"]) if ln["location_id"] else t("loc.total"),
                      num_item(ln["qty"]), num_item(diffs.get((ln["product_id"], ln["location_id"] or MAIN), 0))]
                     for ln in lines]
@@ -329,8 +329,8 @@ class CustomerDialog(_Base):
         box2 = QGroupBox(t("cust.orders_title"))
         l2 = QVBoxLayout(box2)
         self.orders = QTreeWidget()
-        self.orders.setHeaderLabels([t("col.order_or_product"), t("col.spec"), t("col.qty"), t("col.unit"),
-                                     t("col.unit_price"), t("col.amount"), t("col.note")])
+        self.orders.setHeaderLabels([t("col.order_or_product"), t("col.name_zh"), t("col.spec"), t("col.qty"),
+                                     t("col.unit"), t("col.unit_price"), t("col.amount"), t("col.note")])
         self.orders.setAlternatingRowColors(True)
         self.orders.itemDoubleClicked.connect(self.open_order)
         l2.addWidget(self.orders)
@@ -370,28 +370,27 @@ class CustomerDialog(_Base):
         right = Qt.AlignRight | Qt.AlignVCenter
         self.orders.clear()
         for d in docs:
-            head = QTreeWidgetItem([t("cust.order_head", date=fmt_date(d["doc_date"]), code=d["code"]), "",
+            head = QTreeWidgetItem([t("cust.order_head", date=fmt_date(d["doc_date"]), code=d["code"]), "", "",
                                     t("cust.order_lines", count=d["line_count"]), "", "",
                                     fmt_money(d["goods_amount"]), ""])  # goods only: fees are apart
             head.setData(0, Qt.UserRole, d["id"])
             font = head.font(0)
             font.setBold(True)
-            for c in (0, 5):
+            for c in (0, 6):
                 head.setFont(c, font)
-            head.setTextAlignment(5, right)
+            head.setTextAlignment(6, right)
             for ln in lines.get(d["id"], []):
                 name = " · ".join(x for x in (ln["name_vi"], ln["variant"]) if x)
-                child = QTreeWidgetItem([name, ln["spec"], fmt_qty(ln["qty"]), ln["unit"],
+                child = QTreeWidgetItem([name, ln["name_zh"], ln["spec"], fmt_qty(ln["qty"]), ln["unit"],
                                          fmt_money(ln["unit_price"]), fmt_money(ln["amount"]), ln["note"]])
                 child.setData(0, Qt.UserRole, d["id"])
-                child.setToolTip(0, ln["name_zh"])
-                for c in (2, 4, 5):
+                for c in (3, 5, 6):
                     child.setTextAlignment(c, right)
                 head.addChild(child)
             if d["fee_amount"]:
-                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", fmt_money(d["fee_amount"]), ""])
+                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", "", fmt_money(d["fee_amount"]), ""])
                 fee.setData(0, Qt.UserRole, d["id"])
-                fee.setTextAlignment(5, right)
+                fee.setTextAlignment(6, right)
                 head.addChild(fee)
             self.orders.addTopLevelItem(head)
         self.orders.expandAll()

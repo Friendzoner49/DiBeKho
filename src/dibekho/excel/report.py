@@ -127,7 +127,7 @@ def _details(wb, conn, start, end, filters, info):
         "trial_out": t("move.trial_out"), "trial_reverse": t("move.trial_reverse"),
     }
     headers = [t("col.date"), t("col.kind"), t("col.doc_code"), t("col.customer"), t("col.place"), t("col.code"),
-               t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"), t("col.qty_change"),
+               t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.unit"), t("col.qty_change"),
                t("col.unit_price"), t("col.amount"), t("col.note")]
     ws, r = _sheet(wb, t("sheet.details"), info, headers)
     for m in stats.detail_lines(conn, start, end, filters):
@@ -135,34 +135,34 @@ def _details(wb, conn, start, end, filters, info):
         if m["receipt_source"] == "return" and m["kind"] in ("receipt_in", "receipt_reverse"):
             kind += " · " + t("receipt_form.source_short_return")
         values = [date.fromisoformat(m["occurred_on"]), kind, m["code"], m["customer_name"], _place(m["location_id"]),
-                  m["product_code"], m["name_vi"], m["spec"], m["variant"], m["unit"], m["qty"], m["unit_price"],
-                  m["amount"], m["note"]]
-        _write(ws, r, values, money_cols=(12, 13), date_cols=(1,))
+                  m["product_code"], m["name_vi"], m["name_zh"], m["spec"], m["variant"], m["unit"], m["qty"],
+                  m["unit_price"], m["amount"], m["note"]]
+        _write(ws, r, values, money_cols=(13, 14), date_cols=(1,))
         r += 1
-    _widths(ws, [11, 16, 10, 30, 12, 9, 40, 16, 14, 8, 10, 12, 14, 30])
+    _widths(ws, [11, 16, 10, 30, 12, 9, 40, 20, 16, 14, 8, 10, 12, 14, 30])
 
 
 def _customers(wb, conn, start, end, filters, info):
-    headers = [t("col.customer"), t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"),
-               t("col.total_qty"), t("col.revenue"), t("col.times"), t("col.last_date")]
+    headers = [t("col.customer"), t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
+               t("col.unit"), t("col.total_qty"), t("col.revenue"), t("col.times"), t("col.last_date")]
     ws, r = _sheet(wb, t("sheet.customers"), info, headers)
     for row in stats.customer_product(conn, start, end, filters):
-        values = [row["customer_name"], row["code"], row["name_vi"], row["spec"], row["variant"], row["unit"],
-                  row["total_qty"], row["revenue"], row["times"], date.fromisoformat(row["last_date"])]
-        _write(ws, r, values, money_cols=(8,), date_cols=(10,))
+        values = [row["customer_name"], row["code"], row["name_vi"], row["name_zh"], row["spec"], row["variant"],
+                  row["unit"], row["total_qty"], row["revenue"], row["times"], date.fromisoformat(row["last_date"])]
+        _write(ws, r, values, money_cols=(9,), date_cols=(11,))
         r += 1
-    _widths(ws, [32, 9, 40, 16, 14, 8, 12, 14, 10, 12])
+    _widths(ws, [32, 9, 40, 20, 16, 14, 8, 12, 14, 10, 12])
 
 
 def _top(wb, conn, start, end, filters, info):
-    headers = [t("col.rank"), t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.unit"),
-               t("col.out"), t("col.revenue")]
+    headers = [t("col.rank"), t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
+               t("col.unit"), t("col.out"), t("col.revenue")]
     ws, r = _sheet(wb, t("sheet.top"), info, headers)
     for i, row in enumerate(stats.top_out(conn, start, end, filters, limit=50), start=1):
-        _write(ws, r, [i, row.code, row.name_vi, row.spec, row.variant, row.unit, row.qty_out, row.revenue],
-               money_cols=(8,))
+        _write(ws, r, [i, row.code, row.name_vi, row.name_zh, row.spec, row.variant, row.unit, row.qty_out,
+                       row.revenue], money_cols=(9,))
         r += 1
-    _widths(ws, [6, 9, 45, 16, 14, 8, 12, 14])
+    _widths(ws, [6, 9, 45, 20, 16, 14, 8, 12, 14])
 
 
 # ---- one customer ---------------------------------------------------------------------------------------------

@@ -112,7 +112,7 @@ class ProductEditor(QDialog):
             dups = catalog.find_possible_duplicates(self.ctx.conn, fields["name_vi"], fields["name_zh"],
                                                      fields["spec"], fields["variant"])
             if dups and ask(self, t("settings.product_duplicate", code=dups[0]["code"],
-                                    product=catalog.label(dups[0]))):
+                                    product=catalog.long_label(dups[0]))):
                 self.accept()
                 ProductEditor(self.ctx, dups[0], self.parent()).exec()
                 return

@@ -137,7 +137,7 @@ class OrdersPage(Page):
         conn = self.ctx.conn
         for combo, items in (
             (self.customer, [(c["name"], c["id"]) for c in queries.customers(conn)]),
-            (self.product, [(catalog.label(p), p["id"]) for p in catalog.products(conn, True)]),
+            (self.product, [(catalog.long_label(p), p["id"]) for p in catalog.products(conn, True)]),
         ):
             current = combo.currentData()
             combo.blockSignals(True)

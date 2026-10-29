@@ -256,7 +256,7 @@ def customer_product(conn, start: date, end: date, filters: Filters | None = Non
     csql, cargs = f.customer_sql()
     return conn.execute(
         f"""
-        SELECT c.name AS customer_name, p.code, p.name_vi, p.spec, p.variant, p.unit,
+        SELECT c.name AS customer_name, p.code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
                SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date,
                SUM(l.amount) AS revenue
         FROM document_lines l
@@ -287,7 +287,7 @@ def detail_lines(conn, start: date, end: date, filters: Filters | None = None):
              ln AS (SELECT l.*, ROW_NUMBER() OVER (PARTITION BY l.document_id, l.product_id ORDER BY l.id) AS n
                     FROM document_lines l)
         SELECT m.occurred_on, m.kind, m.qty, m.location_id, d.code, d.kind AS doc_kind, d.receipt_source,
-               c.name AS customer_name, p.code AS product_code, p.name_vi, p.spec, p.variant, p.unit,
+               c.name AS customer_name, p.code AS product_code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
                COALESCE(x.note, (SELECT note FROM document_lines l WHERE l.document_id = d.id
                                  AND l.product_id = p.id LIMIT 1)) AS note,
                x.unit_price, x.amount

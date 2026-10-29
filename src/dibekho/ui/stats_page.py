@@ -209,8 +209,8 @@ class StatsPage(Page):
         top_lay = QVBoxLayout(top_box)
         top_lay.setContentsMargins(0, 0, 0, 0)
         top_lay.addWidget(QLabel(t("stats.top_title")))
-        self.top = make_table([t("col.rank"), t("col.product"), t("col.spec"), t("col.variant"), t("col.out"),
-                               t("col.unit"), t("col.revenue")], stretch=1)
+        self.top = make_table([t("col.rank"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
+                               t("col.out"), t("col.unit"), t("col.revenue")], stretch=1)
         top_lay.addWidget(self.top)
         bottom.addWidget(top_box)
         self.chart = QChartView()
@@ -246,7 +246,7 @@ class StatsPage(Page):
         return w
 
     def _product_items(self):
-        return [(catalog.label(p), p["id"]) for p in catalog.products(self.ctx.conn, True)]
+        return [(catalog.long_label(p), p["id"]) for p in catalog.products(self.ctx.conn, True)]
 
     def _category_items(self):
         return [(c, c) for c in catalog.categories(self.ctx.conn)]
@@ -300,7 +300,7 @@ class StatsPage(Page):
         customer_filtered = bool(f.customer_ids)
         labels = [b.label for b in stats.buckets(start, end, by)] if by != "none" else []
 
-        headers = [t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.unit")]
+        headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.unit")]
         if not customer_filtered:
             headers.append(t("col.opening"))
         headers += [t("col.in"), t("col.out"), t("col.adjust")]
@@ -314,7 +314,7 @@ class StatsPage(Page):
 
         table_rows, colors = [], []
         for r in rows:
-            cells = [r.code, r.name_vi, r.spec, r.variant, r.unit]
+            cells = [r.code, r.name_vi, r.name_zh, r.spec, r.variant, r.unit]
             if not customer_filtered:
                 cells.append(num_item(r.opening))
             cells += [num_item(r.qty_in or None), num_item(r.qty_out or None), num_item(r.adjust or None)]
@@ -337,7 +337,7 @@ class StatsPage(Page):
         self.caption.setText(caption)
 
         top = sorted((r for r in rows if r.qty_out > 0), key=lambda r: r.qty_out, reverse=True)[:10]
-        fill_table(self.top, [[i, r.name_vi, r.spec, r.variant, num_item(r.qty_out), r.unit,
+        fill_table(self.top, [[i, r.name_vi, r.name_zh, r.spec, r.variant, num_item(r.qty_out), r.unit,
                                money_item(r.revenue) if r.revenue is not None else ""]
                               for i, r in enumerate(top, 1)], ids=None)
         self._draw_chart(start, end, f)

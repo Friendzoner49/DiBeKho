@@ -293,7 +293,7 @@ class ReceiptForm(QDialog):
         if row.new:
             return "★ " + row.new.label()
         if row.product_id and row.product_id in self.products:
-            return catalog.label(self.products[row.product_id])
+            return catalog.long_label(self.products[row.product_id])
         return ""
 
     def _show_row(self, row: _Row):
@@ -395,13 +395,13 @@ class ReceiptForm(QDialog):
             texts = []
             for key, values in found:
                 if "id" in values:
-                    values = {"product": catalog.label(self.products[values["id"]])}
+                    values = {"product": catalog.long_label(self.products[values["id"]])}
                 texts.append("• " + t(key, **values))
             error(self, t("receipt_form.cannot_save") + "\n\n" + "\n".join(dict.fromkeys(texts)))
             return
         for ln, existing in receipts.same_as_existing(self.ctx.conn, data):
             if ask(self, t("receipt_form.already_in_catalog", new=ln.new.label(), code=existing["code"],
-                           product=catalog.label(existing))):
+                           product=catalog.long_label(existing))):
                 row = next(r for r in self.rows if r.new is ln.new)
                 self._set_product(row, existing["id"])
                 self.products.setdefault(existing["id"], existing)
@@ -440,7 +440,7 @@ class ReceiptForm(QDialog):
         who += "\n" + t("loc.put_in") + ": " + location_name(data.location_id)
         lines = []
         for ln in data.filled():
-            name = ("★ " + ln.new.label()) if ln.new else catalog.label(self.products[ln.product_id])
+            name = ("★ " + ln.new.label()) if ln.new else catalog.long_label(self.products[ln.product_id])
             unit = ln.new.unit if ln.new else self.products[ln.product_id]["unit"]
             lines.append(f"• {name}: {fmt_qty(ln.qty)} {unit}".rstrip())
         skipped = sum(1 for r in self.rows if (r.product_id or r.new) and r.qty.value() <= 0)

@@ -202,9 +202,9 @@ def test_customer_window_lists_orders_with_their_prices(qtbot_free_app, ws):
     tree = dlg.orders
     assert tree.topLevelItemCount() == 2
     newest = tree.topLevelItem(0)
-    assert "2" in newest.text(0) and newest.text(5) == "2.250.000" and newest.child(0).text(4) == "750.000"
+    assert "2" in newest.text(0) and newest.text(6) == "2.250.000" and newest.child(0).text(5) == "750.000"
     oldest = tree.topLevelItem(1)
-    assert oldest.childCount() == 3 and oldest.child(2).text(5) == "190.000"  # 2 lines, then the shipping fee
+    assert oldest.childCount() == 3 and oldest.child(2).text(6) == "190.000"  # 2 lines, then the shipping fee
     dlg.all_time.setChecked(False)
     dlg.date_from.setDate(QDate(2026, 10, 1))
     dlg.date_to.setDate(QDate(2026, 10, 31))

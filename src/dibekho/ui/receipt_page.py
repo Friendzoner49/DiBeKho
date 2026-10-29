@@ -45,9 +45,9 @@ def review_receipt(ctx, parent, item) -> bool:
     lay.addWidget(QLabel(t("inbox.receipt_preview", date=fmt_date(item.receipt.doc_date))))
     if item.receipt.note:
         lay.addWidget(QLabel(f"{t('col.note')}: {item.receipt.note}"))
-    table = make_table([t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.qty"),
-                        t("col.unit")])
-    fill_table(table, [[p["code"], p["name_vi"], p["spec"], p["variant"], num_item(ln.qty), p["unit"]]
+    table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
+                        t("col.qty"), t("col.unit")])
+    fill_table(table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], num_item(ln.qty), p["unit"]]
                        for ln, p in item.resolved])
     lay.addWidget(table)
     for w in item.receipt.warnings:
