@@ -807,6 +807,75 @@ def test_current_cell_turns_off_input_method_on_the_view_itself(app, ws):
     win.close()
 
 
+def test_frozen_qty_editor_does_not_leak_a_keystroke_into_the_host_table(app, ws):
+    """29/10/2026: DIBEKHO_KEYLOG on the customer's Mac showed the SAME keystroke reaching two different
+    QLineEdit editors -- one in the pinned FrozenColumns overlay (TRANS_QTY, editable=True) and one in the
+    host Table underneath it. On AnyKeyPressed, QAbstractItemView.keyPressEvent opens an editor, forwards
+    the key to it, then ignores the event so it propagates to the parent widget -- and FrozenColumns' parent
+    IS the host Table (`super().__init__(table)`), which shares the same current index and edit triggers, so
+    it opens a SECOND editor and processes the same key again. Earlier tests opened editors programmatically
+    (dlg.frozen.edit(index)), bypassing keyPressEvent/propagation entirely, so this never showed up."""
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QLineEdit
+
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    dlg = count_mod.TransferDialog(ctx, win)
+    dlg.resize(500, 400)  # narrow enough that the pinned overlay actually shows (scrolling needed)
+    dlg.show()
+    app.processEvents()
+    assert dlg.frozen.isVisible()
+    r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+
+    dlg.frozen.setCurrentIndex(dlg.frozen.model().index(r, count_mod.TRANS_QTY))
+    QTest.keyClicks(dlg.frozen, "1")  # goes through notify(), propagating like a real click-then-type does
+    app.processEvents()
+    editors = dlg.table.viewport().findChildren(QLineEdit) + dlg.frozen.viewport().findChildren(QLineEdit)
+    assert len(editors) <= 1  # must not have opened a second, independent editor on the host table
+
+    dlg.table.setCurrentCell(r, count_mod.TRANS_CODE)  # move away without pressing Enter
+    app.processEvents()
+    assert dlg.table.item(r, count_mod.TRANS_QTY).text() == "1"
+    dlg.close()
+    win.close()
+
+
+def test_trial_use_frozen_qty_editor_does_not_double_either(app, ws):
+    """Same bug, same fix, but Xuất dùng thử (TrialUseDialog) specifically -- the dialog the customer's own
+    DIBEKHO_KEYLOG trace was taken from."""
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QLineEdit
+
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    dlg = count_mod.TrialUseDialog(ctx, win)
+    dlg.resize(500, 400)
+    dlg.show()
+    app.processEvents()
+    assert dlg.frozen.isVisible()
+    r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+
+    dlg.frozen.setCurrentIndex(dlg.frozen.model().index(r, count_mod.TRIAL_QTY))
+    QTest.keyClicks(dlg.frozen, "1")
+    app.processEvents()
+    editors = dlg.table.viewport().findChildren(QLineEdit) + dlg.frozen.viewport().findChildren(QLineEdit)
+    assert len(editors) <= 1
+
+    dlg.table.setCurrentCell(r, count_mod.TRIAL_CODE)
+    app.processEvents()
+    assert dlg.table.item(r, count_mod.TRIAL_QTY).text() == "1"
+    dlg.close()
+    win.close()
+
+
 def test_count_page_typed_value_survives_moving_to_another_cell(app, ws):
     """29/10/2026: the customer reported a typed count 'jumping' after clicking once and moving to another
     cell in Kiểm kê. Kiểm kê uses AllEditTriggers (unlike Chuyển hàng/Xuất dùng thử's AnyKeyPressed), so

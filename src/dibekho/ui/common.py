@@ -531,6 +531,19 @@ class FrozenColumns(QTableView):
         super().currentChanged(current, previous)
         self.setAttribute(Qt.WA_InputMethodEnabled, current.column() not in self.numeric_cols)
 
+    def keyPressEvent(self, event):
+        """29/10/2026 (mục 9.13): the real bug behind the "digit doubles" report, found with a key/IME
+        logger in the real packaged app, not with any Qt-level probe. On an AnyKeyPressed-triggered edit,
+        QAbstractItemView.keyPressEvent() opens an editor, forwards the key into it, and then calls
+        event.ignore() -- so Qt propagates that same key event to the parent widget. This view's parent IS
+        the host `table` (see __init__, super().__init__(table)), which shares the same current index and
+        edit triggers, so the host opens a SECOND, independent editor and processes the identical keystroke
+        again -- landing "1" in each, which then merge into "11" once the first one commits. Accepting the
+        event once an editor is open here stops it from reaching the host table at all."""
+        super().keyPressEvent(event)
+        if self.state() == QAbstractItemView.State.EditingState:
+            event.accept()
+
     def place(self) -> None:
         """Hidden unless `table` actually needs to scroll sideways, or the pinned columns alone would leave
         less than MIN_SCROLLABLE for the rest of the table (long real names on a very narrow window: at that
