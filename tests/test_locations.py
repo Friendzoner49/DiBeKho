@@ -753,9 +753,12 @@ def test_transfer_dialog_prefills_the_other_direction_too(app, ws):
 
 def test_the_opened_editor_has_the_input_method_off(app, ws):
     """Qt resets WA_InputMethodEnabled on the VIEW itself back to True as soon as an editable cell becomes
-    current (confirmed empirically -- the view-level setAttribute() in TransferDialog does not survive
-    that), so what actually has to hold is the per-editor setting numeric_cell_delegate() applies when
-    editing starts -- that one is a separate QLineEdit the view-level reset does not touch."""
+    current -- a one-off setAttribute() call right after building the dialog (as TransferDialog/TrialUseDialog
+    used to do) does not survive that. The cell editor numeric_cell_delegate() creates is a separate QLineEdit
+    the view-level reset does not touch, so it stays off once opened; see
+    test_current_cell_turns_off_input_method_on_the_view_itself for the view-level half of the fix (the
+    customer still got doubled digits on a real Mac with only this editor-level half in place -- the view
+    itself has IME back on for the first keystroke that selects a numeric cell and types into it at once)."""
     from PySide6.QtWidgets import QAbstractItemDelegate, QLineEdit
 
     import dibekho.ui.count_page as count_mod
@@ -774,6 +777,33 @@ def test_the_opened_editor_has_the_input_method_off(app, ws):
     assert editor.testAttribute(count_mod.Qt.WA_InputMethodEnabled) is False
     assert bool(editor.inputMethodHints() & count_mod.Qt.ImhFormattedNumbersOnly)
     dlg.frozen.closeEditor(editor, QAbstractItemDelegate.NoHint)
+    win.close()
+
+
+def test_current_cell_turns_off_input_method_on_the_view_itself(app, ws):
+    """29/10/2026: the customer still got doubled digits on a real Mac (Telex) in Xuất dùng thử, Chuyển hàng
+    and Kiểm kê even with the editor-level fix above. Root cause: with the AnyKeyPressed edit trigger, the
+    first keystroke that both selects a numeric cell and types into it is read off the VIEW -- no editor
+    exists yet at that point -- and Qt had already turned the view's WA_InputMethodEnabled back on as soon
+    as the cell became current. Table/FrozenColumns now override currentChanged() to keep it off while the
+    current column is one numeric_cell_delegate() was called on, and back on for every other column (Kiểm
+    kê's Ghi chú tồn kho, in the same table, still needs Vietnamese/Chinese input)."""
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    dlg = count_mod.TransferDialog(ctx, win)
+    r = next(r for r in range(dlg.table.rowCount()) if dlg.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+
+    dlg.table.setCurrentCell(r, count_mod.TRANS_QTY)
+    assert dlg.table.testAttribute(count_mod.Qt.WA_InputMethodEnabled) is False
+    dlg.frozen.setCurrentIndex(dlg.frozen.model().index(r, count_mod.TRANS_QTY))
+    assert dlg.frozen.testAttribute(count_mod.Qt.WA_InputMethodEnabled) is False
+
+    dlg.table.setCurrentCell(r, count_mod.TRANS_CODE)  # not a numeric column: IME must come back
+    assert dlg.table.testAttribute(count_mod.Qt.WA_InputMethodEnabled) is True
     win.close()
 
 

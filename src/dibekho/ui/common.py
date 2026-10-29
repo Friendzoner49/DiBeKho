@@ -395,8 +395,17 @@ class _NumericCellDelegate(QStyledItemDelegate):
 def numeric_cell_delegate(table: QAbstractItemView, column: int) -> None:
     """Make one column's cell editor digits/decimal-only on `table` (a QTableWidget or a FrozenColumns
     pinned overlay -- apply to every view that can open its own editor for that column, they don't share
-    delegates even when they share a model)."""
+    delegates even when they share a model).
+
+    Also marks the column so the view's own currentChanged() override (Table/FrozenColumns below) keeps
+    WA_InputMethodEnabled off at the VIEW level whenever this column is the current cell -- not just on
+    the cell editor. Qt turns the view's input-method attribute back on by itself whenever an editable
+    cell becomes current, before any editor exists, so the first keystroke that both selects a numeric
+    cell and types into it (the normal one-click-then-type flow, via the AnyKeyPressed edit trigger)
+    still reaches a view with IME on and gets composed/doubled by macOS Telex -- the editor-level fix
+    alone (createEditor() in _NumericCellDelegate) only protects keystrokes typed AFTER that first one."""
     table.setItemDelegateForColumn(column, _NumericCellDelegate(table))
+    table.numeric_cols.add(column)
 
 
 class Table(QTableWidget):
@@ -408,6 +417,11 @@ class Table(QTableWidget):
         self.stretch = stretch
         self.natural = 0  # width of the stretch column before it took the spare width
         self._frozen: list["FrozenColumns"] = []  # populated by freeze_columns()
+        self.numeric_cols: set[int] = set()  # populated by numeric_cell_delegate()
+
+    def currentChanged(self, current, previous):
+        super().currentChanged(current, previous)
+        self.setAttribute(Qt.WA_InputMethodEnabled, current.column() not in self.numeric_cols)
 
     def fill_spare(self) -> None:
         if self.stretch is None or self.stretch >= self.columnCount():
@@ -448,6 +462,7 @@ class FrozenColumns(QTableView):
         super().__init__(table)
         self.host, self.columns, self.side, self.sticky = table, columns, side, sticky
         self._guard = False
+        self.numeric_cols: set[int] = set()  # populated by numeric_cell_delegate()
         self.setModel(table.model())
         self.setSelectionModel(table.selectionModel())
         self.setSelectionBehavior(table.selectionBehavior())
@@ -511,6 +526,10 @@ class FrozenColumns(QTableView):
     def _follow_focus(self, current, _previous) -> None:
         if self.isVisible() and current.column() in self.columns:
             self.setFocus(Qt.OtherFocusReason)
+
+    def currentChanged(self, current, previous):
+        super().currentChanged(current, previous)
+        self.setAttribute(Qt.WA_InputMethodEnabled, current.column() not in self.numeric_cols)
 
     def place(self) -> None:
         """Hidden unless `table` actually needs to scroll sideways, or the pinned columns alone would leave

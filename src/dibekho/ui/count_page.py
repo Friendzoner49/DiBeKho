@@ -297,8 +297,6 @@ class TransferDialog(QDialog):
         lay.addWidget(self.table)
         self._fill()
         self.frozen = freeze_columns(self.table, [TRANS_AVAILABLE, TRANS_QTY], side="right", editable=True)
-        self.table.setAttribute(Qt.WA_InputMethodEnabled, False)  # every editable cell here is numeric
-        self.frozen.setAttribute(Qt.WA_InputMethodEnabled, False)
         numeric_cell_delegate(self.table, TRANS_QTY)
         numeric_cell_delegate(self.frozen, TRANS_QTY)
         box = QDialogButtonBox()
@@ -353,9 +351,9 @@ class TransferDialog(QDialog):
             return
         src, dst = self.from_loc.currentData(), self.to_loc.currentData()
         names = {p["id"]: p for p in self.products}
-        lines = "\n".join(f"• {catalog.label(names[pid])}: {fmt_qty(q)} {names[pid]['unit']}".rstrip()
+        lines = "\n".join(f"• {catalog.long_label(names[pid])}: {fmt_qty(q)} {names[pid]['unit']}".rstrip()
                           for pid, q in typed.items())
-        short = [catalog.label(names[pid]) for pid, q in typed.items() if q > self.levels.get((pid, src), 0) + 1e-9]
+        short = [catalog.long_label(names[pid]) for pid, q in typed.items() if q > self.levels.get((pid, src), 0) + 1e-9]
         text = t("transfer.confirm", src=location_name(src), dst=location_name(dst), lines=lines)
         if short:
             text += "\n\n" + t("transfer.confirm_short", place=location_name(src), names=", ".join(short))
@@ -418,8 +416,6 @@ class TrialUseDialog(QDialog):
         lay.addWidget(self.table)
         self._fill()
         self.frozen = freeze_columns(self.table, [TRIAL_AVAILABLE, TRIAL_QTY], side="right", editable=True)
-        self.table.setAttribute(Qt.WA_InputMethodEnabled, False)  # every editable cell here is numeric
-        self.frozen.setAttribute(Qt.WA_InputMethodEnabled, False)
         numeric_cell_delegate(self.table, TRIAL_QTY)
         numeric_cell_delegate(self.frozen, TRIAL_QTY)
         box = QDialogButtonBox()
@@ -466,9 +462,9 @@ class TrialUseDialog(QDialog):
             return
         loc = self.location.currentData()
         names = {p["id"]: p for p in self.products}
-        lines = "\n".join(f"• {catalog.label(names[pid])}: {fmt_qty(q)} {names[pid]['unit']}".rstrip()
+        lines = "\n".join(f"• {catalog.long_label(names[pid])}: {fmt_qty(q)} {names[pid]['unit']}".rstrip()
                           for pid, q in typed.items())
-        short = [catalog.label(names[pid]) for pid, q in typed.items() if q > self.levels.get((pid, loc), 0) + 1e-9]
+        short = [catalog.long_label(names[pid]) for pid, q in typed.items() if q > self.levels.get((pid, loc), 0) + 1e-9]
         text = t("trial.confirm", place=location_name(loc), lines=lines)
         if short:
             text += "\n\n" + t("trial.confirm_short", place=location_name(loc), names=", ".join(short))
