@@ -155,6 +155,10 @@ def main() -> int:
     activity.log("start", f"DiBeKho {__version__} · {platform.platform()} · Python {platform.python_version()} · "
                           f"Qt {qVersion()} · {cfg.language} · {cfg.ui_scale:g}x")
     app.installEventFilter(ActivityFilter(app))
+    if os.environ.get("DIBEKHO_KEYLOG"):  # throwaway diagnostic, mục 9.13 29/10/2026 -- see debug_keylog.py
+        from dibekho.ui.debug_keylog import KeyLogFilter
+
+        app.installEventFilter(KeyLogFilter(app))
     ctx = AppContext(cfg, ws)
     try:
         backup.daily_backup(ctx.conn, ws)

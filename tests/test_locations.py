@@ -807,6 +807,46 @@ def test_current_cell_turns_off_input_method_on_the_view_itself(app, ws):
     win.close()
 
 
+def test_count_page_typed_value_survives_moving_to_another_cell(app, ws):
+    """29/10/2026: the customer reported a typed count 'jumping' after clicking once and moving to another
+    cell in Kiểm kê. Kiểm kê uses AllEditTriggers (unlike Chuyển hàng/Xuất dùng thử's AnyKeyPressed), so
+    simply making a cell current already opens its editor, before any key is pressed -- exercise that real
+    editor lifecycle (not a direct item.setText(), which every other test here uses) to make sure typing one
+    digit and then moving away with setCurrentCell() commits exactly what was typed, not a doubled or empty
+    value. This cannot reproduce the Mac IME side of the report (offscreen Qt has no real input method), but
+    it does rule out an actual commit-on-move bug in CountPage itself."""
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QLineEdit
+
+    import dibekho.ui.count_page as count_mod
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[PAINT])
+    ctx, win = window(ws)
+    known(ctx.conn, ws)
+    paint = ctx.conn.execute("SELECT id FROM products WHERE name_zh = '背水涂'").fetchone()[0]
+    win.show()
+    win.rescan()
+    app.processEvents()
+    count = win.stack.widget(4)
+    win.nav.setCurrentRow(win.stack.indexOf(count))
+    app.processEvents()
+    r = next(r for r in range(count.table.rowCount()) if count.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
+
+    app_main = count.table.item(r, count_mod.APP_MAIN).key
+    count.table.setCurrentCell(r, count_mod.COUNT_MAIN)  # AllEditTriggers: this alone opens the editor
+    editor = count.table.viewport().findChild(QLineEdit)
+    assert editor is not None
+    QTest.keyClicks(editor, "1")
+    count.table.setCurrentCell(r, count_mod.NOTE_COL)  # move away without pressing Enter
+    app.processEvents()
+    assert count.table.item(r, count_mod.COUNT_MAIN).text() == "1"  # not doubled, not wiped
+    diff = 1 - app_main
+    from dibekho.core.text import fmt_qty
+
+    assert count.table.item(r, count_mod.DIFF_COL).text() == ("+" if diff > 0 else "") + fmt_qty(diff)
+    win.close()
+
+
 def test_transfer_dialog_edits_through_the_frozen_pane(app, ws):
     """Số lượng is pinned on the right (frozen_columns): typing through that pane must land in the real
     cell, not open a second, hidden editor on the cell underneath."""
