@@ -27,6 +27,10 @@ excludes = [
     "PySide6.QtDesigner", "PySide6.QtSql", "PySide6.QtTest", "PySide6.QtNetwork", "PySide6.QtBluetooth",
     "PySide6.QtPositioning", "PySide6.QtLocation", "PySide6.QtSensors", "PySide6.QtSerialPort",
     "PySide6.QtDataVisualization", "PySide6.QtGraphs", "PySide6.QtSpatialAudio", "PySide6.QtTextToSpeech",
+    # QtCharts only needs the Qt6OpenGL *DLLs* (still collected as binary deps), not these Python bindings.
+    "PySide6.QtOpenGL", "PySide6.QtOpenGLWidgets",
+    # No network/TLS: hashlib.sha256 falls back to Python's built-in, so OpenSSL (~9 MB) is not needed.
+    "ssl", "_ssl", "_hashlib",
 ]
 
 icon_win = ROOT / "resources" / "dibekho.ico"
@@ -40,9 +44,13 @@ a = Analysis(
     noarchive=False,
 )
 # Drop Qt libraries pulled in by plugins but never used (software OpenGL, QML/Quick, PDF).
+# Also: TUIO network touch plugin (the only user of Qt6Network), unused platform plugins (qoffscreen stays:
+# --self-test needs it), image formats the app never opens.
 _DROP = ("opengl32sw", "Qt6Quick", "Qt6Qml", "Qt6Pdf", "Qt6VirtualKeyboard", "qtvirtualkeyboard", "qpdf",
-         "QtQuick", "QtQml", "QtPdf")
+         "QtQuick", "QtQml", "QtPdf", "qtuiotouchplugin", "Qt6Network", "qdirect2d", "qminimal", "qwebp", "qtiff")
 a.binaries = [b for b in a.binaries if not any(x.lower() in b[0].lower() for x in _DROP)]
+# Qt's own translations (~6.6 MB): the app never loads them (its UI text comes from dibekho/i18n/*.json).
+a.datas = [d for d in a.datas if "translations" not in d[0].replace("\\", "/").split("/")]
 
 pyz = PYZ(a.pure)
 exe = EXE(
