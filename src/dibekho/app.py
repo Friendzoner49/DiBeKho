@@ -91,6 +91,11 @@ def self_test() -> int:
 
     assert "GNU LESSER GENERAL PUBLIC LICENSE" in license_text()  # shipped with the build (Qt is LGPLv3)
     with tempfile.TemporaryDirectory() as tmp:
+        from dibekho.core.deliveries import file_hash
+
+        probe = Path(tmp) / "hash-probe.bin"
+        probe.write_bytes(b"x")  # builds ship without OpenSSL: sha256 must come from Python's built-in
+        assert file_hash(probe) == "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
         ws = Workspace(Path(tmp) / APP_NAME)
         ws.ensure()
         for lang in LANGUAGES:
