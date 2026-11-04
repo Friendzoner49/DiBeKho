@@ -3,11 +3,13 @@
 import re
 import sqlite3
 import sys
+import tempfile
 import unicodedata
 from datetime import date
+from pathlib import Path
 
-from PySide6.QtCore import QDate, QEvent, QObject, Qt, QUrl, Signal
-from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPalette, QValidator
+from PySide6.QtCore import QDate, QEvent, QObject, QPointF, Qt, QUrl, Signal
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPainter, QPalette, QPixmap, QPolygonF, QValidator
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
@@ -66,8 +68,32 @@ def sync_theme_colors() -> None:
     ORANGE.setRgb(QColor(colors["ORANGE"]).rgb())
 
 
+def _arrow_urls() -> tuple[str, str]:
+    """(up, down) arrow PNG paths in the current text colour, drawn once per colour into the temp folder."""
+    folder = Path(tempfile.gettempdir()) / "dibekho-arrows"
+    folder.mkdir(exist_ok=True)
+    colour = QApplication.palette().color(QPalette.ColorRole.Text)
+    out = []
+    for name, tip_up in (("up", True), ("down", False)):
+        path = folder / f"{name}-{colour.name()[1:]}.png"
+        if not path.exists():
+            pix = QPixmap(10, 6)
+            pix.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pix)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(colour)
+            p.drawPolygon(QPolygonF([QPointF(0, 6), QPointF(10, 6), QPointF(5, 0)] if tip_up
+                                    else [QPointF(0, 0), QPointF(10, 0), QPointF(5, 6)]))
+            p.end()
+            pix.save(str(path))
+        out.append(path.as_posix())
+    return out[0], out[1]
+
+
 def _rounded_qss() -> str:
     border, hover, pressed = theme_color("border"), theme_color("hover"), theme_color("pressed")
+    up, down = _arrow_urls()
     return f"""
         /* Setting any application-wide stylesheet moves Qt to its "styled" background painting path for
         every widget, not only the ones a rule below actually targets -- without these, a plain QWidget
@@ -97,7 +123,18 @@ def _rounded_qss() -> str:
             border-radius: 6px;
             padding: 3px 6px;
         }}
-        QComboBox::drop-down {{ border: none; width: 20px; }}
+        QComboBox::drop-down, QDateEdit::drop-down {{ border: none; width: 20px; }}
+        /* A bordered QComboBox/QSpinBox no longer gets Fusion's arrows (this was a bug in every release): draw
+        them from small images made at run time in the current text colour (see _arrow_urls). */
+        QComboBox::down-arrow, QDateEdit::down-arrow, QAbstractSpinBox::down-arrow {{
+            image: url({down}); width: 10px; height: 6px;
+        }}
+        QAbstractSpinBox::up-arrow {{ image: url({up}); width: 10px; height: 6px; }}
+        QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{
+            subcontrol-origin: border; width: 18px; border: none;
+        }}
+        QAbstractSpinBox::up-button {{ subcontrol-position: top right; }}
+        QAbstractSpinBox::down-button {{ subcontrol-position: bottom right; }}
         QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
             border: 1px solid palette(highlight);
         }}
