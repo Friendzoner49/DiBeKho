@@ -23,6 +23,9 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMenu,
     QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QHBoxLayout,
     QStyledItemDelegate,
     QTableView,
     QTableWidget,
@@ -763,7 +766,38 @@ def hint_label(text: str) -> QLabel:
     return label
 
 
+def _ask_long(parent: QWidget, text: str, title: str | None) -> bool:
+    """Yes/No question with a long text: the text scrolls, the buttons stay visible (13-inch screens)."""
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(title or t("app.name"))
+    dlg.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
+    label = QLabel(text)
+    label.setWordWrap(True)
+    label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setWidget(label)
+    yes = QPushButton(t("btn.yes"))
+    no = QPushButton(t("btn.no"))
+    yes.setDefault(True)
+    yes.clicked.connect(dlg.accept)
+    no.clicked.connect(dlg.reject)
+    buttons = QHBoxLayout()
+    buttons.addStretch(1)
+    buttons.addWidget(yes)
+    buttons.addWidget(no)
+    layout = QVBoxLayout(dlg)
+    layout.addWidget(scroll, 1)
+    layout.addLayout(buttons)
+    fit_window(dlg, 720, 700)
+    return dlg.exec() == QDialog.Accepted
+
+
 def ask(parent: QWidget, text: str, title: str | None = None) -> bool:
+    if text.count("\n") > 8 or len(text) > 600:
+        answer = _ask_long(parent, text, title)
+        activity.log("ask", f"{text} → {'yes' if answer else 'no'}")
+        return answer
     box = QMessageBox(QMessageBox.Question, title or t("app.name"), text, parent=parent)
     yes = box.addButton(t("btn.yes"), QMessageBox.YesRole)
     box.addButton(t("btn.no"), QMessageBox.NoRole)
