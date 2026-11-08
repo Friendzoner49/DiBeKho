@@ -70,6 +70,17 @@ def delivery_files(ws: Workspace) -> list[Path]:
     return sorted(files)
 
 
+OLD_EXCEL_MESSAGE = ("File Excel đời cũ (.xls), app chỉ đọc được .xlsx. Hãy mở file bằng Excel, chọn Lưu thành "
+                     "(Save As) kiểu 'Excel Workbook (.xlsx)', rồi bấm Quét lại.")
+
+
+def old_excel_files(ws: Workspace) -> list[Path]:
+    """Notes saved in the Excel 97-2003 format: not readable, but the user must be told, not left wondering
+    why the order never came in."""
+    return sorted(p for p in ws.deliveries.rglob("*") if p.is_file() and p.suffix.lower() == ".xls"
+                  and not p.name.startswith(("~$", ".")))
+
+
 def note_path(ws: Workspace, rel: str) -> Path:
     """The file for a stored rel_path. rel_path is kept in NFC, but a name written in NFD (files that went
     through a Mac or a chat app) is a different name for Windows: then look the file up among the notes."""
@@ -88,12 +99,24 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     result = ScanResult()
     seen: set[str] = set()
     found: list[tuple[Path, str, str]] = []
+    unreadable = False
+    for path in old_excel_files(ws):
+        try:
+            h = file_hash(path)
+        except OSError:
+            unreadable = True
+            continue
+        seen.add(h)
+        row = conn.execute("SELECT status FROM scanned_files WHERE hash = ?", (h,)).fetchone()
+        if row is None or row["status"] == "error":
+            _record(conn, h, nfc(path.relative_to(ws.deliveries).as_posix()), "error", OLD_EXCEL_MESSAGE)
     for path in delivery_files(ws):
         rel = nfc(path.relative_to(ws.deliveries).as_posix())
         try:
             h = file_hash(path)
         except OSError:
-            continue  # file being written / locked; next scan will get it
+            unreadable = True  # being written / locked / not downloaded yet; next scan will get it
+            continue
         seen.add(h)
         found.append((path, rel, h))
         row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
@@ -113,12 +136,22 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
 
     # Imported (or partly imported) files that disappeared from the folder; their document is still active.
     # message keeps the previous status so a restored partial note asks for its remaining lines again.
+    # A file that could not be read this time may be one of them: wait for a scan that sees every file.
     for row in conn.execute(
         "SELECT s.hash FROM scanned_files s JOIN documents d ON d.id = s.document_id "
         "WHERE s.status IN ('imported', 'needs_mapping') AND d.status = 'active'"
     ).fetchall():
-        if row["hash"] not in seen:
+        if row["hash"] not in seen and not unreadable:
             conn.execute("UPDATE scanned_files SET message = status, status = 'missing' WHERE hash = ?",
+                         (row["hash"],))
+    # The old version of a note edited in Excel (its document replaced), or of a cancelled order, is no longer
+    # 'lost' nor 'waiting': nothing is left to decide about it. If it comes back it counts as done.
+    for row in conn.execute(
+        "SELECT s.hash FROM scanned_files s JOIN documents d ON d.id = s.document_id "
+        "WHERE s.status IN ('missing', 'needs_mapping') AND d.status <> 'active'"
+    ).fetchall():
+        if row["hash"] not in seen:
+            conn.execute("UPDATE scanned_files SET message = '', status = 'missing_ignored' WHERE hash = ?",
                          (row["hash"],))
     # Waiting files (unknown names, errors, edited notes) that are not in the folder any more, e.g. rows
     # that came with a data package from another computer: nothing was imported from them, so forget them.
@@ -657,6 +690,21 @@ def reread_document(conn, ws: Workspace, doc_id: int) -> None:
         db.log(conn, "delivery_reread", f"{doc['code']} ({rel})")
 
 
+def _check_rereadable(conn, ws: Workspace, doc_ids) -> None:
+    """Before forgetting anything: every note that will be read again must still have its file or its stored
+    copy, otherwise the names would be forgotten and only some of the notes read again."""
+    lost = []
+    for doc_id in sorted(doc_ids):
+        doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        row = conn.execute("SELECT rel_path FROM scanned_files WHERE document_id = ?", (doc_id,)).fetchone()
+        rel = row["rel_path"] if row else (doc["source_file"] if doc else "")
+        if doc is None or not doc["source_hash"] or not (
+                (rel and note_path(ws, rel).exists()) or original_copy(ws, doc["source_hash"])):
+            lost.append(doc["code"] if doc else f"#{doc_id}")
+    if lost:
+        raise ValueError(f"Không đọc lại được vì không còn file phiếu của đơn {', '.join(lost)}. Không có gì bị thay đổi.")
+
+
 def _order_keys(conn, doc_id: int) -> set[str]:
     return {match_key(r["raw_name"], r["raw_spec"]) for r in conn.execute(
         "SELECT raw_name, raw_spec FROM document_lines WHERE document_id = ?", (doc_id,))}
@@ -687,6 +735,7 @@ def forget_order(conn, ws: Workspace, doc_id: int) -> int:
         raise ValueError("Chỉ đọc lại được phiếu giao hàng đang hiệu lực.")
     keys = _order_keys(conn, doc_id)
     docs = {doc_id} | {d for key in keys for d in documents_with_key(conn, key)}
+    _check_rereadable(conn, ws, docs)
     for key in keys:
         catalog.forget_alias(conn, key)
     for d in sorted(docs):
@@ -698,6 +747,7 @@ def forget_name(conn, ws: Workspace, key: str) -> int:
     """Forget a learned name and read again the notes containing it. Returns the number of notes."""
     backfill_skipped_lines(conn, ws)
     docs = documents_with_key(conn, key)
+    _check_rereadable(conn, ws, docs)
     catalog.forget_alias(conn, key)
     catalog.unignore_line(conn, key)
     for doc_id in docs:
@@ -733,11 +783,15 @@ def keep_old(conn, h: str) -> None:
 
 def restore_missing(conn, ws: Workspace, h: str) -> Path:
     row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
+    original = original_copy(ws, h)
+    if original is None:
+        raise ValueError("Không còn bản sao của phiếu này trong data/phieu-goc để khôi phục. "
+                         "Nếu còn file phiếu ở nơi khác, hãy chép lại vào thư mục phiếu giao hàng.")
     target = note_path(ws, row["rel_path"])
     if target.exists():
         target = target.with_name(f"{target.stem} (khoi phuc){target.suffix}")
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ws.originals / f"{h}.xlsx", target)
+    shutil.copy2(original, target)
     conn.execute(
         "UPDATE scanned_files SET status = CASE WHEN message = 'needs_mapping' THEN 'needs_mapping' "
         "ELSE 'imported' END, message = '', rel_path = ? WHERE hash = ?",
