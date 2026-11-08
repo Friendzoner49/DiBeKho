@@ -173,6 +173,16 @@ def problems(data: ReceiptInput) -> list[str]:
     return found
 
 
+_PLACE_WORDS = ("kho", "kho tong", "van phong", "office", "main warehouse")
+
+
+def looks_like_place(supplier_name: str) -> bool:
+    """A supplier typed as 'kho', 'kho tổng', 'văn phòng'… is usually where the goods are PUT (Nhập vào), or a
+    receipt used to correct a wrong stock (a Kiểm kê job): the window asks before saving (tester log 2026-11-07)."""
+    n = unaccent(clean(supplier_name))
+    return n in _PLACE_WORDS or n.startswith("kho ")
+
+
 def same_as_existing(conn, data: ReceiptInput) -> list[tuple[ReceiptLineInput, object]]:
     """New products that may already be in the catalog (exact match, or a close fuzzy one): the user should
     pick those instead of creating a duplicate."""

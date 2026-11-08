@@ -97,9 +97,10 @@ class _Row:
 
 
 class ReceiptForm(QDialog):
-    def __init__(self, ctx, parent=None, doc_id: int | None = None):
+    def __init__(self, ctx, parent=None, doc_id: int | None = None, draft: ReceiptInput | None = None):
         super().__init__(parent)
         self.ctx, self.doc_id = ctx, doc_id
+        self.dropped = 0  # rows of a resumed draft whose product no longer exists
         self.saved_doc: int | None = None
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
         self.setWindowTitle(t("receipt_form.title_edit") if doc_id else t("receipt_form.title"))
@@ -126,6 +127,7 @@ class ReceiptForm(QDialog):
             src_row.addWidget(b)
         src_row.addStretch()
         lay.addLayout(src_row)
+        lay.addWidget(hint_label(t("receipt_form.fix_stock_hint")))
 
         form = QFormLayout()
         self.date = NoWheelDate()
@@ -191,7 +193,11 @@ class ReceiptForm(QDialog):
         cancel = QPushButton(t("btn.cancel"))
         cancel.clicked.connect(self.reject)
         self.save_btn = QPushButton(t("receipt_form.save"))
-        self.save_btn.setDefault(True)
+        # never pressed by Enter: Enter after typing a quantity used to open "save?" and, pressed again, save a
+        # half-entered receipt (tester log 07/11/2026); see keyPressEvent
+        for b in (cancel, self.save_btn):
+            b.setAutoDefault(False)
+            b.setDefault(False)
         f = self.save_btn.font()
         f.setBold(True)
         self.save_btn.setFont(f)
@@ -202,6 +208,8 @@ class ReceiptForm(QDialog):
 
         if doc_id:
             self._load(receipts.load(ctx.conn, doc_id))
+        elif draft is not None:
+            self._load(draft)
         else:
             self.src_supplier.setChecked(True)
             names = receipts.supplier_names(ctx.conn)
@@ -214,7 +222,7 @@ class ReceiptForm(QDialog):
         self.customer.currentIndexChanged.connect(lambda _: self._customer_changed())
         self.order.currentTextChanged.connect(lambda _: self._context_changed())
         self._show_source()
-        if not doc_id:
+        if not doc_id and draft is None:
             self._suggest()
         self._update_summary()
 
@@ -254,8 +262,11 @@ class ReceiptForm(QDialog):
         self.order.setCurrentText(data.ref_code)
         self.note.setText(data.note)
         for ln in data.lines:
+            if ln.product_id and ln.product_id not in self.products and not ln.new:
+                self.dropped += 1  # deleted or merged since the draft was kept
+                continue
             row = self.add_row()
-            self._set_product(row, ln.product_id)
+            self._set_product(row, ln.product_id, ln.new)
             row.qty.setValue(ln.qty)
             row.note.setText(ln.note)
 
@@ -326,10 +337,7 @@ class ReceiptForm(QDialog):
         if chosen is pick:
             from dibekho.ui.pending_page import ProductPicker
 
-            product_id = ProductPicker(self.ctx, self).choose()
-            if product_id:
-                row.suggested = False
-                self._set_product(row, product_id)
+            self._picked(row, ProductPicker(self.ctx, self).choose())
         elif chosen in (new, edit_new):
             dlg = NewProductDialog(self.ctx, row.new, self)
             if dlg.exec() == QDialog.Accepted and dlg.result_product:
@@ -338,6 +346,24 @@ class ReceiptForm(QDialog):
         elif chosen is clear:
             row.suggested = False
             self._set_product(row, None)
+
+    def _picked(self, row: _Row, product_id: int | None):
+        """A product chosen in the picker for this row."""
+        if not product_id:
+            return
+        other = next((r for r in self.rows if r is not row and r.product_id == product_id), None)
+        if other is not None and other.qty.value() > 0:
+            # the same product on two rows cannot be saved: say so now, not after the whole receipt is typed
+            info(self, t("receipt_form.already_on_row", product=self._label(other), row=self.rows.index(other) + 1))
+            other.qty.setFocus()
+            other.qty.selectAll()
+            return
+        if other is not None:  # an empty row (often one the app suggested) with the same product gives way
+            i = self.rows.index(other)
+            self.rows.pop(i)
+            self.table.removeRow(i)
+        row.suggested = False
+        self._set_product(row, product_id)
 
     def _update_summary(self):
         lines = self.data().filled()
@@ -399,6 +425,10 @@ class ReceiptForm(QDialog):
                 texts.append("• " + t(key, **values))
             error(self, t("receipt_form.cannot_save") + "\n\n" + "\n".join(dict.fromkeys(texts)))
             return
+        if (data.source == SUPPLIER and receipts.looks_like_place(data.supplier_name)
+                and not ask(self, t("receipt_form.supplier_is_place", name=data.supplier_name))):
+            self.supplier.setFocus()
+            return
         for ln, existing in receipts.same_as_existing(self.ctx.conn, data):
             if ask(self, t("receipt_form.already_in_catalog", new=ln.new.label(), code=existing["code"],
                            product=catalog.long_label(existing))):
@@ -418,6 +448,8 @@ class ReceiptForm(QDialog):
             error(self, str(exc))
             return
         self.saved_doc = doc
+        if not self.doc_id:
+            self.ctx.receipt_draft = None
         self.ctx.notify()
         code = self.ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0]
         try:
@@ -454,15 +486,50 @@ class ReceiptForm(QDialog):
             text += "\n\n" + t("receipt_form.confirm_edit")
         return text
 
+    def keyPressEvent(self, event):
+        """Enter moves on to the next row's quantity; it never saves (only a click on 'Lưu phiếu' does)."""
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            focus = self.focusWidget()
+            for i, r in enumerate(self.rows):
+                if focus is r.qty or (focus is not None and r.qty.isAncestorOf(focus)):
+                    if i + 1 < len(self.rows):
+                        self.rows[i + 1].qty.setFocus()
+                        self.rows[i + 1].qty.selectAll()
+                    break
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def reject(self):
-        if self.saved_doc is None and self.dirty() and not ask(self, t("receipt_form.confirm_close")):
+        if self.saved_doc is None and self.doc_id is None and self.dirty():
+            # a new receipt is kept, not lost: the user often closes it to fix a product in Settings first.
+            # Products by code: ids may change meanwhile (a data package or a backup put back)
+            data = self.data()
+            codes = {ln.product_id: self.products[ln.product_id]["code"] for ln in data.lines
+                     if ln.product_id in self.products}
+            self.ctx.receipt_draft = (data, codes)
+            info(self, t("receipt_form.draft_kept"))
+        elif self.saved_doc is None and self.dirty() and not ask(self, t("receipt_form.confirm_close")):
             return
         super().reject()
 
 
 def open_receipt_form(ctx, parent, doc_id: int | None = None) -> int | None:
     """Returns the id of the saved receipt, or None if the user closed the window."""
-    form = ReceiptForm(ctx, parent, doc_id)
+    draft = None
+    if doc_id is None and ctx.receipt_draft is not None:
+        kept, codes = ctx.receipt_draft
+        ctx.receipt_draft = None
+        if ask(parent, t("receipt_form.resume_draft", lines=len(kept.filled()))):
+            draft = kept
+            for ln in draft.lines:  # back to today's ids; a product gone since then is dropped by _load
+                if ln.product_id:
+                    row = ctx.conn.execute("SELECT id FROM products WHERE code = ?",
+                                           (codes.get(ln.product_id, ""),)).fetchone()
+                    ln.product_id = row[0] if row else -1
+    form = ReceiptForm(ctx, parent, doc_id, draft)
+    if form.dropped:
+        info(parent, t("receipt_form.draft_dropped", count=form.dropped))
     form.exec()
     return form.saved_doc
 

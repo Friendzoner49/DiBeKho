@@ -23,6 +23,8 @@ from dibekho.core.stock import LOCATIONS, MAIN, OFFICE, Line, record_trial_use, 
 from dibekho.core.text import fmt_qty, parse_number
 from dibekho.i18n import t
 from dibekho.ui.common import (
+    enter_moves_down,
+    no_default_buttons,
     PageWindow,
     RED,
     YELLOW,
@@ -305,6 +307,11 @@ class TransferDialog(QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
+        no_default_buttons(self)  # Enter moves down the quantities (keyPressEvent), it never saves
+
+    def keyPressEvent(self, event):
+        if not enter_moves_down(self, self.table, event):
+            super().keyPressEvent(event)
 
     def _sync(self, changed, other):
         """The two places are always different."""
@@ -424,6 +431,11 @@ class TrialUseDialog(QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
+        no_default_buttons(self)  # Enter moves down the quantities (keyPressEvent), it never saves
+
+    def keyPressEvent(self, event):
+        if not enter_moves_down(self, self.table, event):
+            super().keyPressEvent(event)
 
     def _fill(self):
         typed = self._typed() if self.table.rowCount() else {}

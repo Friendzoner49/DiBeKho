@@ -201,6 +201,7 @@ class AppContext(QObject):
         self.cfg = cfg
         self.ws = ws
         self.conn: sqlite3.Connection = db.connect(ws.db_path)
+        self.receipt_draft = None  # a new receipt closed before saving (ReceiptInput), offered again next time
 
     def notify(self) -> None:
         self.changed.emit()
@@ -642,6 +643,28 @@ def make_table(headers: list[str], stretch: int | None = 1) -> QTableWidget:
     # Keep the order the query returns until the user clicks a column header.
     header.setSortIndicator(-1, Qt.AscendingOrder)
     return table
+
+
+def enter_moves_down(dialog: QDialog, table: QTableWidget, event) -> bool:
+    """For a dialog where many quantities are typed into a table: Enter goes to the next visible row (same
+    column) and never presses the save button, which Qt would otherwise do (tester log 07/11/2026: Enter after a
+    quantity opened "save?", and Enter again saved a half-typed form). Call from keyPressEvent; True = handled.
+    Also make the dialog's buttons non-default (no_default_buttons)."""
+    if event.key() not in (Qt.Key_Return, Qt.Key_Enter):
+        return False
+    r, c = table.currentRow(), table.currentColumn()
+    for nxt in range(r + 1, table.rowCount()):
+        if not table.isRowHidden(nxt):
+            table.setCurrentCell(nxt, c)
+            break
+    event.accept()
+    return True
+
+
+def no_default_buttons(dialog: QDialog) -> None:
+    for b in dialog.findChildren(QPushButton):
+        b.setAutoDefault(False)
+        b.setDefault(False)
 
 
 def fill_table(table: QTableWidget, rows: list[list], ids: list | None = None, colors: list | None = None) -> None:
