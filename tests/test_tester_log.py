@@ -226,3 +226,30 @@ def test_global_search_finds_products_by_any_words(conn):
     a, b, c = _same_name_products(conn)
     assert [p["id"] for p in search(conn, "fs101 xam")["products"]] == [b]
     assert {p["id"] for p in search(conn, "FS-101")["products"]} == {a, b}
+
+
+def test_settings_merge_duplicate_products(app, ws, monkeypatch):
+    """Settings -> Merge duplicate products: pick one row, pick the other; the larger code goes into the smaller."""
+    from dibekho.ui import pending_page as pp
+    from dibekho.ui import settings_page as sp
+
+    ctx = _ctx(ws)
+    with db.transaction(ctx.conn):
+        a = catalog.create_product(ctx.conn, "Keo mẫu", "胶", "5KG")
+        b = catalog.create_product(ctx.conn, "Keo mẫu", "胶", "5KG")
+    page = sp.SettingsPage(ctx)
+    page.refresh()
+    shown = []
+    monkeypatch.setattr(sp, "error", lambda *x, **k: shown.append(x[1]))
+    page.merge_selected()  # nothing selected
+    assert shown and ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
+    page.table.selectRow([page.table.item(r, 0).data(Qt.UserRole) for r in range(2)].index(b))
+    monkeypatch.setattr(pp.ProductPicker, "choose", lambda self: b)  # the same one again
+    page.merge_selected()
+    assert len(shown) == 2 and ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
+    monkeypatch.setattr(pp.ProductPicker, "choose", lambda self: a)
+    monkeypatch.setattr(sp, "ask", lambda *x, **k: True)
+    monkeypatch.setattr(sp, "info", lambda *x, **k: None)
+    page.merge_selected()
+    rows = ctx.conn.execute("SELECT id FROM products").fetchall()
+    assert [r[0] for r in rows] == [a]  # SP002 merged into SP001

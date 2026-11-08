@@ -174,6 +174,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 
 **Settings → Products**:
 - **Add product**, **Edit product…** (or double-click a row): name, packing, type/colour, category.
+- **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other. Every note, stock figure and learned name goes to the one with the smaller code; the other disappears. Made a mistake? Click **↶ Undo** right after.
 - **Delete product** only works for a product that no note uses. A product already in use can be made *inactive* instead (hidden from lists, old notes unchanged). The code of a deleted product is never given out again.
 - Long names: drag a column border wider, or hover over a cell to read the whole name.
 

@@ -615,5 +615,13 @@
   "undo.customers_merged": "Gộp khách hàng",
   "doc.location_change_hint": "Đổi nơi ở đây nếu chọn nhầm. Nếu đã kiểm kê sau ngày của đơn, số từng nơi sẽ lệch khỏi số đã đếm: kiểm kê lại nơi đó.",
   "col.goods": "Tiền hàng",
-  "col.fees": "Phí riêng"
+  "col.fees": "Phí riêng",
+  "settings.merge_button": "Gộp mặt hàng trùng…",
+  "settings.merge_tip": "Hai dòng thực ra là cùng một mặt hàng (gõ trùng): chọn một dòng, bấm nút này rồi chọn dòng còn lại.",
+  "settings.merge_pick_first": "Bấm chọn một trong hai mặt hàng trùng trong danh sách trước, rồi bấm Gộp.",
+  "settings.merge_pick_other": "Chọn mặt hàng trùng còn lại",
+  "settings.merge_same": "Đó là cùng một mặt hàng. Hãy chọn một mặt hàng khác để gộp.",
+  "settings.merge_confirm": "Gộp 2 mặt hàng này thành 1?\n\nGiữ lại: {keep}\nBỏ đi: {drop}\n\nMọi phiếu, số tồn và tên đã học của mặt hàng bỏ đi sẽ chuyển sang mặt hàng giữ lại. Làm nhầm thì bấm ↶ Hoàn tác ngay sau đó.",
+  "settings.merge_done": "Đã gộp {drop} vào {keep}.",
+  "undo.product_merge": "Gộp mặt hàng trùng"
 }

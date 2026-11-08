@@ -615,5 +615,13 @@
   "undo.customers_merged": "合并客户",
   "doc.location_change_hint": "如选错可在此修改。若在此订单日期之后已盘点，各处数量会偏离盘点数：请重新盘点该处。",
   "col.goods": "货款",
-  "col.fees": "另计费用"
+  "col.fees": "另计费用",
+  "settings.merge_button": "合并重复商品…",
+  "settings.merge_tip": "两行其实是同一个商品（重复录入）：先选中一行，点此按钮，再选另一个。",
+  "settings.merge_pick_first": "请先在列表中选中两个重复商品中的一个，再点合并。",
+  "settings.merge_pick_other": "选择另一个重复商品",
+  "settings.merge_same": "这是同一个商品，请选择另一个商品来合并。",
+  "settings.merge_confirm": "将这 2 个商品合并为 1 个？\n\n保留：{keep}\n删除：{drop}\n\n被删除商品的所有单据、库存和已学名称都会转到保留的商品。如果搞错了，请马上点 ↶ 撤销。",
+  "settings.merge_done": "已将 {drop} 合并到 {keep}。",
+  "undo.product_merge": "合并重复商品"
 }

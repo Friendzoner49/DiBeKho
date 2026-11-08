@@ -172,6 +172,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 
 **Cài đặt → Danh mục mặt hàng**:
 - **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên, quy cách, loại/màu, nhóm hàng.
+- **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Làm nhầm thì bấm **↶ Hoàn tác** ngay.
 - **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
 

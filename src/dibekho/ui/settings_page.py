@@ -216,6 +216,10 @@ class SettingsPage(Page):
         delete = QPushButton(t("settings.delete_product"))
         delete.clicked.connect(self.delete_selected)
         row.addWidget(delete)
+        merge = QPushButton(t("settings.merge_button"))
+        merge.setToolTip(t("settings.merge_tip"))
+        merge.clicked.connect(self.merge_selected)
+        row.addWidget(merge)
         import_btn = QPushButton(t("catalog.import_btn"))
         import_btn.clicked.connect(lambda: start_catalog_import(self.ctx, self))
         row.addWidget(import_btn)
@@ -368,6 +372,35 @@ class SettingsPage(Page):
             catalog.delete_product(conn, product_id)
             db.log(conn, "product_deleted", catalog.label(p))
         self.ctx.notify()
+
+    def merge_selected(self):
+        """Two products that are really one (same item typed twice): pick one in the list, then the other."""
+        first_id = selected_id(self.table)
+        if first_id is None:
+            error(self, t("settings.merge_pick_first"))
+            return
+        from dibekho.ui.pending_page import ProductPicker  # here: pending_page imports this module (circular)
+
+        conn = self.ctx.conn
+        picker = ProductPicker(self.ctx, self)
+        picker.setWindowTitle(t("settings.merge_pick_other"))
+        other_id = picker.choose()
+        if other_id is None:
+            return
+        if other_id == first_id:
+            error(self, t("settings.merge_same"))
+            return
+        a = conn.execute("SELECT * FROM products WHERE id = ?", (first_id,)).fetchone()
+        b = conn.execute("SELECT * FROM products WHERE id = ?", (other_id,)).fetchone()
+        keep, drop = (a, b) if catalog._code_num(a["code"]) <= catalog._code_num(b["code"]) else (b, a)
+        if not ask(self, t("settings.merge_confirm", keep=catalog.long_label(keep), drop=catalog.long_label(drop))):
+            return
+        self.ctx.undo_point("product_merge")
+        with db.transaction(conn):
+            catalog.merge_products(conn, first_id, other_id)
+            db.log(conn, "product_merged", f"{drop['code']} -> {keep['code']}")
+        self.ctx.notify()
+        info(self, t("settings.merge_done", keep=keep["code"], drop=drop["code"]))
 
     def edit(self, product_id):
         product = None

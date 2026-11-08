@@ -383,6 +383,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 
 **Other buttons:**
 - **Add product**, **Edit product…** (or double-click a row): Vietnamese and Chinese name, packing, type/colour, unit, category. When **adding** one, if it looks like a product that already exists (checked by Vietnamese and Chinese name and packing), the app asks before creating it, to avoid a duplicate. The same prompt can appear when choosing "Create new product" in To do, or when entering goods in.
+- **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other in the list. Every document, stock figure and learned name goes to the one with the smaller code; the other disappears. Made a mistake? Click **↶ Undo** right after.
 - **Delete product**: only for products in no document. A product already used can be set *inactive* (hidden, old documents unchanged). Codes of deleted products are never given again.
 - **Import catalog from Excel…**: add products from the monthly sheet.
 - **Learned names on notes**: names the app has learned, grouped by order. Click an order to see them; **Forget and read again…** to choose the product for **one name** again.

@@ -615,5 +615,13 @@
   "undo.customers_merged": "Merge customers",
   "doc.location_change_hint": "Change the place here if it was wrong. If a count was made after the date of this order, each place moves away from what was counted: count that place again.",
   "col.goods": "Goods",
-  "col.fees": "Fees (apart)"
+  "col.fees": "Fees (apart)",
+  "settings.merge_button": "Merge duplicate products…",
+  "settings.merge_tip": "Two rows are really the same product (typed twice): select one row, click this, then pick the other.",
+  "settings.merge_pick_first": "Select one of the two duplicate products in the list first, then click Merge.",
+  "settings.merge_pick_other": "Pick the other duplicate",
+  "settings.merge_same": "That is the same product. Pick a different one to merge.",
+  "settings.merge_confirm": "Merge these 2 products into 1?\n\nKeep: {keep}\nRemove: {drop}\n\nEvery document, stock figure and learned name of the removed product moves to the one kept. If it was a mistake, click ↶ Undo right after.",
+  "settings.merge_done": "Merged {drop} into {keep}.",
+  "undo.product_merge": "Merge duplicate products"
 }
