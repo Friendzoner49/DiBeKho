@@ -664,3 +664,41 @@ def test_tc30d_separate_order_read_again_stays_separate(conn, ws):
     assert deliveries.pending_count(conn) == 0
     assert total(conn, pid_of(conn, "vữa")) == -5
     assert conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active' AND code = '1'").fetchone()[0] == 2
+
+
+def _place(conn, code, loc):
+    from dibekho.core.stock import set_location
+
+    doc = conn.execute("SELECT id FROM documents WHERE code = ? AND status = 'active'", (code,)).fetchone()[0]
+    with db.transaction(conn):
+        set_location(conn, doc, loc)
+    return doc
+
+
+def test_tc31c_keep_counted_does_not_wipe_a_receipt_entered_after_the_count(conn, ws):
+    pid = _note_after_count(conn, ws)
+    receipts.save(conn, ReceiptInput(date(2026, 10, 6), SUPPLIER, supplier_name="NCC",
+                                     lines=[ReceiptLineInput(5, pid)], location_id=MAIN))
+    doc = _place(conn, "2", MAIN)
+    assert stock_levels(conn, by_location=True)[(pid, MAIN)] == 12
+    deliveries.keep_counted(conn, doc)
+    assert stock_levels(conn, by_location=True)[(pid, MAIN)] == 15  # 10 counted + 5 received, order 2 undone
+    check_ledger(conn)
+
+
+def test_tc31d_keep_counted_leaves_the_decision_on_another_late_order(conn, ws):
+    pid = _note_after_count(conn, ws)
+    make_note(ws.deliveries / "c.xlsx", code="3", lines=[LINE_A])
+    deliveries.scan(conn, ws)
+    two, three = _place(conn, "2", MAIN), _place(conn, "3", MAIN)
+    assert len(deliveries.count_conflicts(conn)) == 2
+    deliveries.subtract_too(conn, two)
+    deliveries.keep_counted(conn, three)
+    assert stock_levels(conn, by_location=True)[(pid, MAIN)] == 7  # 10 counted − order 2
+    assert deliveries.count_conflicts(conn) == []
+
+
+def test_tc31e_order_from_a_place_that_was_not_counted_is_not_listed(conn, ws):
+    _note_after_count(conn, ws)  # only Kho tổng was counted
+    _place(conn, "2", OFFICE)
+    assert deliveries.count_conflicts(conn) == []

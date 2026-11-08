@@ -19,7 +19,7 @@ from pathlib import Path
 
 from dibekho import db
 from dibekho.core import catalog
-from dibekho.core.stock import MAIN, Line, add_lines, close_document, insert_document, stock_count
+from dibekho.core.stock import MAIN, Line, add_lines, close_document, insert_document, stock_count, stock_levels
 from dibekho.core.text import clean, fmt_qty, match_key, nfc, normalize_code, normalize_phone, unaccent
 from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
@@ -965,16 +965,20 @@ def _conflicts_of(conn, doc_id: int | None = None) -> list:
         JOIN documents c ON c.kind = 'stock_count' AND c.status = 'active' AND c.doc_date >= d.doc_date
         LEFT JOIN customers cu ON cu.id = d.customer_id
         WHERE d.kind = 'delivery' AND d.status = 'active' AND d.location_set = 1
-          -- when the order first came in (a note read again or edited later keeps its first time)
-          AND c.created_at < (SELECT MIN(x.created_at) FROM documents x
-                              WHERE x.kind = 'delivery' AND x.code_norm = d.code_norm
-                                AND (x.source_hash = d.source_hash OR x.customer_id IS d.customer_id))
-          AND EXISTS (SELECT 1 FROM document_lines dl JOIN document_lines cl ON cl.product_id = dl.product_id
-                      WHERE dl.document_id = d.id AND cl.document_id = c.id)
+          AND c.created_at < {_FIRST_IN}
+          -- the count covered where the goods were taken from: that place, or the total
+          AND EXISTS (SELECT 1 FROM stock_movements m JOIN document_lines cl ON cl.product_id = m.product_id
+                      AND (cl.location_id IS NULL OR cl.location_id = m.location_id)
+                      WHERE m.document_id = d.id AND m.kind = 'delivery_out' AND cl.document_id = c.id)
           AND (? IS NULL OR d.id = ?)
         ORDER BY d.doc_date, d.id, c.doc_date DESC, c.id DESC
-        """, (doc_id, doc_id)
+        """.format(_FIRST_IN=_FIRST_IN), (doc_id, doc_id)
     ).fetchall()
+
+
+# when an order first came into the app (a note read again or edited later keeps its first time)
+_FIRST_IN = """(SELECT MIN(x.created_at) FROM documents x WHERE x.kind = 'delivery' AND x.code_norm = d.code_norm
+                AND (x.source_hash = d.source_hash OR x.customer_id IS d.customer_id))"""
 
 
 def _mark_checked(conn, doc_id: int) -> None:
@@ -986,26 +990,32 @@ def _mark_checked(conn, doc_id: int) -> None:
 
 
 def keep_counted(conn, doc_id: int) -> None:
-    """'The count was right': for each product of this order, record again what the latest such count found,
-    on that count's day, so the order (dated before) is not subtracted on top of it."""
+    """'The count was right': give back exactly this order's quantities, product by product and place by
+    place, wherever a count made before the order came in already saw the goods gone (that place counted, or
+    the total). The correction is a count adjustment dated on the earliest such count, so receipts, other
+    orders and decisions made since stay as they are, and later counts line up by themselves."""
     code = conn.execute("SELECT code FROM documents WHERE id = ?", (doc_id,)).fetchone()["code"]
-    count_ids = [r["count_id"] for r in _conflicts_of(conn, doc_id)]  # latest first
-    done: set[int] = set()
-    per_count: list[tuple[str, dict]] = []
-    for count_id in count_ids:
-        day = conn.execute("SELECT doc_date FROM documents WHERE id = ?", (count_id,)).fetchone()["doc_date"]
-        counted = {}
-        for r in conn.execute(
-            "SELECT product_id, location_id, qty FROM document_lines WHERE document_id = ? AND product_id IN "
-            "(SELECT product_id FROM document_lines WHERE document_id = ?) ORDER BY line_no", (count_id, doc_id)):
-            if r["product_id"] not in done:
-                counted[(r["product_id"], r["location_id"]) if r["location_id"] else r["product_id"]] = r["qty"]
-        done |= {k[0] if isinstance(k, tuple) else k for k in counted}
-        if counted:
-            per_count.append((day, counted))
+    rows = conn.execute(
+        f"""
+        SELECT m.product_id, m.location_id, SUM(m.qty) AS qty,
+               (SELECT MIN(c.doc_date) FROM documents c JOIN document_lines cl ON cl.document_id = c.id
+                WHERE c.kind = 'stock_count' AND c.status = 'active' AND c.doc_date >= d.doc_date
+                  AND c.created_at < {_FIRST_IN} AND cl.product_id = m.product_id
+                  AND (cl.location_id IS NULL OR cl.location_id = m.location_id)) AS day
+        FROM stock_movements m JOIN documents d ON d.id = m.document_id
+        WHERE m.document_id = ? AND m.kind = 'delivery_out'
+        GROUP BY m.product_id, m.location_id
+        """, (doc_id,)).fetchall()
+    by_day: dict[str, list] = {}
+    for r in rows:
+        if r["day"] and r["qty"]:
+            by_day.setdefault(r["day"], []).append(r)
     with db.transaction(conn):
-        for day, counted in per_count:
+        for day, items in sorted(by_day.items()):
             d = date.fromisoformat(day)
+            placed = stock_levels(conn, as_of=d, by_location=True)
+            counted = {(r["product_id"], r["location_id"]):
+                       placed.get((r["product_id"], r["location_id"]), 0.0) - r["qty"] for r in items}
             stock_count(conn, d, counted, f"Giữ số kiểm kê ngày {d:%d/%m/%Y} (đơn {code})")
         _mark_checked(conn, doc_id)
 
