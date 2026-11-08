@@ -20,7 +20,7 @@ from pathlib import Path
 from dibekho import db
 from dibekho.core import catalog
 from dibekho.core.stock import MAIN, Line, add_lines, close_document, insert_document, stock_count
-from dibekho.core.text import fmt_qty, match_key, nfc, normalize_code, normalize_phone
+from dibekho.core.text import clean, fmt_qty, match_key, nfc, normalize_code, normalize_phone, unaccent
 from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
     DeliveryNote,
@@ -30,6 +30,8 @@ from dibekho.excel.delivery_note import (
 )
 
 PENDING_STATUSES = ("error", "needs_mapping", "changed", "missing")
+OTHER_ORDER_DAYS = 31  # an edit may fix a wrong date by a few days; further apart it is likely another order
+COUNT_CHECKED_KEY = "count_checked"  # meta: notes (by file hash) the user decided about after a stock count
 
 
 @dataclass
@@ -251,10 +253,15 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partia
     unknown = [ln for ln in goods if catalog.alias_product(conn, ln.key) is None]
     waiting = f"{len(unknown)} dòng hàng chưa nhận ra"
 
-    existing = _active_delivery(conn, note.code_norm)
+    existing = _active_delivery(conn, note.code_norm, h, note)
+    if existing is not None and existing["source_hash"] != h and _separate_code(conn, h):
+        existing = None  # recorded before as another order with this code, now read again: it stays apart
     if existing is not None and existing["source_hash"] != h:
-        _record(conn, h, rel, "changed",
-                f"Mã đơn {note.code} đã có từ file '{existing['source_file']}'", existing["id"])
+        message = f"Mã đơn {note.code} đã có từ file '{existing['source_file']}'"
+        reason = other_order_reason(existing, note)
+        if reason:
+            message += f" — nhưng {reason}: có thể là ĐƠN KHÁC trùng mã"
+        _record(conn, h, rel, "changed", message, existing["id"])
         return False
     if existing is not None:  # this very file was imported before, maybe only partly: add what is known now
         with db.transaction(conn):
@@ -293,7 +300,28 @@ def _add_known_lines(conn, doc_id: int, note: DeliveryNote) -> None:
         db.log(conn, "delivery_lines_added", f"{note.code}: {len(new)}")
 
 
-def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNote, replaces: int | None = None) -> int:
+def _separate_code(conn, h: str) -> str:
+    """The matching key of a note recorded earlier as another order with a reused code ('76#2'), if that order
+    was read again (replaced) and the key is free; '' otherwise."""
+    row = conn.execute("SELECT code_norm FROM documents WHERE kind = 'delivery' AND source_hash = ? "
+                       "AND status = 'replaced' ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+    if row is None or "#" not in row["code_norm"]:
+        return ""
+    taken = conn.execute("SELECT 1 FROM documents WHERE kind = 'delivery' AND status = 'active' AND code_norm = ?",
+                         (row["code_norm"],)).fetchone()
+    return "" if taken else row["code_norm"]
+
+
+def _free_separate_code(conn, code_norm: str) -> str:
+    n = 2
+    while conn.execute("SELECT 1 FROM documents WHERE kind = 'delivery' AND code_norm = ?",
+                       (f"{code_norm}#{n}",)).fetchone():
+        n += 1
+    return f"{code_norm}#{n}"
+
+
+def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNote, replaces: int | None = None,
+            separate: str = "") -> int:
     ws.originals.mkdir(parents=True, exist_ok=True)
     copy = ws.originals / f"{h}.xlsx"
     if not copy.exists():
@@ -304,13 +332,16 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
     # waits for the user in Cần xử lý, its goods taken from Kho tổng meanwhile, so the total is right at once.
     # Not by order code alone: a code may come back years later on another order.
     if replaces is not None:
-        prev = conn.execute("SELECT location_id, location_set FROM documents WHERE id = ?", (replaces,)).fetchone()
+        prev = conn.execute("SELECT location_id, location_set, code_norm FROM documents WHERE id = ?",
+                            (replaces,)).fetchone()
     else:
         prev = conn.execute(
             "SELECT location_id, location_set FROM documents WHERE kind = 'delivery' AND source_hash = ? "
             "AND status = 'replaced' ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+    # another order that reused a code keeps its own matching key ('76#2'); the code shown stays '76'
+    code_norm = separate or (prev["code_norm"] if replaces is not None else _separate_code(conn, h)) or note.code_norm
     doc_id = insert_document(
-        conn, "delivery", note.doc_date, lines, code=note.code, code_norm=note.code_norm,
+        conn, "delivery", note.doc_date, lines, code=note.code, code_norm=code_norm,
         customer_id=customer_id, source_file=rel, source_hash=h,
         location_id=prev["location_id"] if prev else MAIN, location_set=bool(prev and prev["location_set"]),
     )
@@ -373,11 +404,60 @@ def goods_lines(conn, note: DeliveryNote):
     return [ln for ln in note.lines if not catalog.is_ignored(conn, ln.key)]
 
 
-def _active_delivery(conn, code_norm: str):
-    return conn.execute(
-        "SELECT * FROM documents WHERE kind = 'delivery' AND status = 'active' AND code_norm = ?",
+def _active_delivery(conn, code_norm: str, h: str = "", note: DeliveryNote | None = None):
+    """The active order with this code. A code reused by another customer may have been imported as a separate
+    order ('Nhập thành đơn riêng'), so prefer the one from this very file, then the one of the same customer."""
+    rows = conn.execute(
+        "SELECT d.*, COALESCE(c.name, '') AS customer_name, COALESCE(c.phone_norm, '') AS customer_phone "
+        "FROM documents d LEFT JOIN customers c ON c.id = d.customer_id "
+        "WHERE d.kind = 'delivery' AND d.status = 'active' "
+        "AND (d.code_norm = ?1 OR substr(d.code_norm, 1, length(?1) + 1) = ?1 || '#') ORDER BY d.id DESC",
         (code_norm,),
-    ).fetchone()
+    ).fetchall()
+    if not rows:
+        return None
+    return max(rows, key=lambda r: (bool(h) and r["source_hash"] == h,
+                                    note is not None and not _other_customer(r, note)))
+
+
+def _other_customer(doc, note: DeliveryNote) -> bool:
+    name_a, name_b = unaccent(clean(doc["customer_name"])), unaccent(clean(note.customer_name))
+    phone_a, phone_b = doc["customer_phone"], normalize_phone(note.phone)
+    return bool((name_a and name_b and name_a != name_b) or (phone_a and phone_b and phone_a != phone_b))
+
+
+def other_order_reason(doc, note: DeliveryNote) -> str:
+    """Why an edited-looking note (same order code, other content) may in fact be another order: another
+    customer, or a date far from the recorded one. '' when it looks like an edit of the same order."""
+    reasons = []
+    if _other_customer(doc, note):
+        reasons.append(f"khác khách hàng ({doc['customer_name']} ≠ {note.customer_name or note.phone})")
+    if abs((note.doc_date - date.fromisoformat(doc["doc_date"])).days) > OTHER_ORDER_DAYS:
+        reasons.append(f"khác ngày ({date.fromisoformat(doc['doc_date']):%d/%m/%Y} ≠ {note.doc_date:%d/%m/%Y})")
+    return ", ".join(reasons)
+
+
+def looks_like_other_order(conn, ws: Workspace, h: str) -> bool:
+    """For Cần xử lý: offer 'Nhập thành đơn riêng' on a 'changed' note only when it looks like another order."""
+    row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
+    try:
+        note = read_delivery_note(note_path(ws, row["rel_path"]))
+    except (OSError, NotDeliveryNote, DeliveryNoteError):
+        return False
+    old = _changed_target(conn, row, note)
+    return old is not None and bool(other_order_reason(old, note))
+
+
+def _changed_target(conn, row, note: DeliveryNote):
+    """The recorded order an edited note is compared with: the one found when it was scanned, if still active."""
+    if row["document_id"]:
+        doc = conn.execute(
+            "SELECT d.*, COALESCE(c.name, '') AS customer_name, COALESCE(c.phone_norm, '') AS customer_phone "
+            "FROM documents d LEFT JOIN customers c ON c.id = d.customer_id WHERE d.id = ? AND d.status = 'active'",
+            (row["document_id"],)).fetchone()
+        if doc is not None:
+            return doc
+    return _active_delivery(conn, note.code_norm, row["hash"], note)
 
 
 def _record(conn, h, rel, status, message, document_id=None) -> None:
@@ -767,12 +847,27 @@ def replace_changed(conn, ws: Workspace, h: str) -> None:
     if goods and len(unknown) == len(goods):
         raise ValueError("Phiếu mới có dòng hàng chưa nhận ra.")
     with db.transaction(conn):
-        old = _active_delivery(conn, note.code_norm)
+        old = _changed_target(conn, row, note)
         if old is not None:
             close_document(conn, old["id"], "replaced")
         doc_id = _import(conn, ws, path, row["rel_path"], h, note, replaces=old["id"] if old is not None else None)
         if unknown:
             _record(conn, h, row["rel_path"], "needs_mapping", f"{len(unknown)} dòng hàng chưa nhận ra", doc_id)
+
+
+def import_separately(conn, ws: Workspace, h: str) -> None:
+    """User chose 'another order with the same code' for a note that looked edited: record it as a new order
+    next to the old one, which is left as it is."""
+    row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
+    path = note_path(ws, row["rel_path"])
+    note = read_delivery_note(path)
+    # unknown lines wait in Cần xử lý and are added to this order once decided (it is found by its file then)
+    unknown = [ln for ln in goods_lines(conn, note) if catalog.alias_product(conn, ln.key) is None]
+    with db.transaction(conn):
+        doc_id = _import(conn, ws, path, row["rel_path"], h, note, separate=_free_separate_code(conn, note.code_norm))
+        if unknown:
+            _record(conn, h, row["rel_path"], "needs_mapping", f"{len(unknown)} dòng hàng chưa nhận ra", doc_id)
+        db.log(conn, "delivery_separate", f"{note.code} ({row['rel_path']})")
 
 
 def keep_old(conn, h: str) -> None:
@@ -839,3 +934,84 @@ def viewing_copy(ws: Workspace, source_hash: str, name: str = "") -> Path | None
         if not target.exists():
             return src
     return target
+
+
+# ---- notes read after a stock count ------------------------------------------
+
+def _checked(conn) -> list[str]:
+    return [x for x in db.get_meta(conn, COUNT_CHECKED_KEY, "").split(",") if x]
+
+
+def count_conflicts(conn) -> list:
+    """Orders dated on or before a stock count but first read into the app after that count. If their goods
+    had already left when the shelf was counted, the count includes them and the order subtracts them a
+    second time. Only orders whose place is chosen (that is where the goods were taken from). One row per
+    order, with the latest such count; orders the user already decided about are left out."""
+    checked, seen, result = set(_checked(conn)), set(), []
+    for r in _conflicts_of(conn):
+        if r["id"] not in seen and (r["source_hash"] or f"#{r['id']}") not in checked:
+            seen.add(r["id"])
+            result.append(r)
+    return result
+
+
+def _conflicts_of(conn, doc_id: int | None = None) -> list:
+    """(order, count) pairs as described in count_conflicts, latest count first; one order or all."""
+    return conn.execute(
+        """
+        SELECT d.id, d.code, d.doc_date, d.source_hash, COALESCE(cu.name, '') AS customer,
+               c.id AS count_id, c.doc_date AS count_date
+        FROM documents d
+        JOIN documents c ON c.kind = 'stock_count' AND c.status = 'active' AND c.doc_date >= d.doc_date
+        LEFT JOIN customers cu ON cu.id = d.customer_id
+        WHERE d.kind = 'delivery' AND d.status = 'active' AND d.location_set = 1
+          -- when the order first came in (a note read again or edited later keeps its first time)
+          AND c.created_at < (SELECT MIN(x.created_at) FROM documents x
+                              WHERE x.kind = 'delivery' AND x.code_norm = d.code_norm
+                                AND (x.source_hash = d.source_hash OR x.customer_id IS d.customer_id))
+          AND EXISTS (SELECT 1 FROM document_lines dl JOIN document_lines cl ON cl.product_id = dl.product_id
+                      WHERE dl.document_id = d.id AND cl.document_id = c.id)
+          AND (? IS NULL OR d.id = ?)
+        ORDER BY d.doc_date, d.id, c.doc_date DESC, c.id DESC
+        """, (doc_id, doc_id)
+    ).fetchall()
+
+
+def _mark_checked(conn, doc_id: int) -> None:
+    doc = conn.execute("SELECT source_hash FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    key = doc["source_hash"] or f"#{doc_id}"
+    checked = _checked(conn)
+    if key not in checked:
+        db.set_meta(conn, COUNT_CHECKED_KEY, ",".join(checked + [key]))
+
+
+def keep_counted(conn, doc_id: int) -> None:
+    """'The count was right': for each product of this order, record again what the latest such count found,
+    on that count's day, so the order (dated before) is not subtracted on top of it."""
+    code = conn.execute("SELECT code FROM documents WHERE id = ?", (doc_id,)).fetchone()["code"]
+    count_ids = [r["count_id"] for r in _conflicts_of(conn, doc_id)]  # latest first
+    done: set[int] = set()
+    per_count: list[tuple[str, dict]] = []
+    for count_id in count_ids:
+        day = conn.execute("SELECT doc_date FROM documents WHERE id = ?", (count_id,)).fetchone()["doc_date"]
+        counted = {}
+        for r in conn.execute(
+            "SELECT product_id, location_id, qty FROM document_lines WHERE document_id = ? AND product_id IN "
+            "(SELECT product_id FROM document_lines WHERE document_id = ?) ORDER BY line_no", (count_id, doc_id)):
+            if r["product_id"] not in done:
+                counted[(r["product_id"], r["location_id"]) if r["location_id"] else r["product_id"]] = r["qty"]
+        done |= {k[0] if isinstance(k, tuple) else k for k in counted}
+        if counted:
+            per_count.append((day, counted))
+    with db.transaction(conn):
+        for day, counted in per_count:
+            d = date.fromisoformat(day)
+            stock_count(conn, d, counted, f"Giữ số kiểm kê ngày {d:%d/%m/%Y} (đơn {code})")
+        _mark_checked(conn, doc_id)
+
+
+def subtract_too(conn, doc_id: int) -> None:
+    """'The goods left after the count': the order stays subtracted, nothing to change."""
+    with db.transaction(conn):
+        _mark_checked(conn, doc_id)
+        db.touch(conn)

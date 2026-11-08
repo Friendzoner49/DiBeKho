@@ -540,3 +540,127 @@ def test_tc29_three_hundred_random_actions_keep_the_ledger_right(conn, ws):
             close_document(conn, doc)
     assert all(abs(v) < 1e-9 for v in stock_levels(conn).values())
     check_ledger(conn)
+
+
+# ---- decisions after the QA run (2026-11-08): reused order codes, notes read after a stock count ------------
+
+def test_tc30_reused_order_code_can_be_imported_as_another_order(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="1", customer="Công ty A", phone="0900 000 001", lines=[LINE_A])
+    learn_all(conn, ws)
+    path_b = make_note(ws.deliveries / "b.xlsx", code="1", customer="Công ty B", phone="0900 000 002",
+                       day="20-12-2026", lines=[(LINE_A[0], LINE_A[1], 2, "")])
+    deliveries.scan(conn, ws)
+    row = conn.execute("SELECT hash, message FROM scanned_files WHERE status = 'changed'").fetchone()
+    assert "ĐƠN KHÁC" in row["message"] and "khác khách hàng" in row["message"]
+    assert deliveries.looks_like_other_order(conn, ws, row["hash"])
+    deliveries.import_separately(conn, ws, row["hash"])
+    deliveries.scan(conn, ws)
+    pid = pid_of(conn, "vữa")
+    assert total(conn, pid) == -5 and deliveries.pending_count(conn) == 0
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[0] == 2
+    # B's note edited later: it replaces B's order, never A's
+    for f in ws.deliveries.rglob("b.xlsx"):
+        f.unlink()
+    make_note(path_b, code="1", customer="Công ty B", phone="0900 000 002", day="20-12-2026",
+              lines=[(LINE_A[0], LINE_A[1], 4, "")])
+    deliveries.scan(conn, ws)
+    [h] = [r[0] for r in conn.execute("SELECT hash FROM scanned_files WHERE status = 'changed'")]
+    assert not deliveries.looks_like_other_order(conn, ws, h)  # same customer: an edit
+    deliveries.replace_changed(conn, ws, h)
+    deliveries.scan(conn, ws)
+    assert total(conn, pid) == -7 and deliveries.pending_count(conn) == 0
+    customers = [r[0] for r in conn.execute(
+        "SELECT c.name FROM documents d JOIN customers c ON c.id = d.customer_id WHERE d.status = 'active' "
+        "ORDER BY c.name")]
+    assert customers == ["Công ty A", "Công ty B"]
+    check_ledger(conn)
+
+
+def test_tc30b_edit_of_the_same_order_is_not_called_another_order(conn, ws):
+    path = make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])
+    learn_all(conn, ws)
+    for f in ws.deliveries.rglob("a.xlsx"):
+        f.unlink()
+    make_note(path, code="1", day="07-10-2026", lines=[(LINE_A[0], LINE_A[1], 5, "")])
+    deliveries.scan(conn, ws)
+    row = conn.execute("SELECT hash, message FROM scanned_files WHERE status = 'changed'").fetchone()
+    assert "ĐƠN KHÁC" not in row["message"]
+    assert not deliveries.looks_like_other_order(conn, ws, row["hash"])
+
+
+def test_tc30c_another_order_with_only_unknown_names_waits_then_comes_in(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="1", customer="Công ty A", lines=[LINE_A])
+    learn_all(conn, ws)
+    make_note(ws.deliveries / "b.xlsx", code="1", customer="Công ty B", phone="0900 000 009", lines=[LINE_B])
+    deliveries.scan(conn, ws)
+    [h] = [r[0] for r in conn.execute("SELECT hash FROM scanned_files WHERE status = 'changed'")]
+    deliveries.import_separately(conn, ws, h)
+    assert deliveries.pending_count(conn) == 1
+    learn_all(conn, ws)
+    assert total(conn, pid_of(conn, "cát")) == -2 and total(conn, pid_of(conn, "vữa")) == -3
+    assert deliveries.pending_count(conn) == 0
+    check_ledger(conn)
+
+
+def _note_after_count(conn, ws):
+    """Order 1 (05/10) recorded before the count of 06/10; order 2, also dated 05/10, read after it."""
+    from dibekho.core.stock import set_location
+
+    make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])
+    learn_all(conn, ws)
+    pid = pid_of(conn, "vữa")
+    with db.transaction(conn):
+        set_location(conn, 1, MAIN)
+        conn.execute("UPDATE documents SET created_at = '2026-10-05 09:00:00'")
+        stock_count(conn, date(2026, 10, 6), {(pid, MAIN): 10})
+        conn.execute("UPDATE documents SET created_at = '2026-10-06 17:00:00' WHERE kind = 'stock_count'")
+    make_note(ws.deliveries / "b.xlsx", code="2", lines=[LINE_A])
+    deliveries.scan(conn, ws)
+    return pid
+
+
+def test_tc31_note_read_after_a_count_is_listed_and_the_count_can_win(conn, ws):
+    from dibekho.core.stock import set_location
+
+    pid = _note_after_count(conn, ws)
+    assert deliveries.count_conflicts(conn) == []  # its place is not chosen yet
+    doc = conn.execute("SELECT id FROM documents WHERE code = '2'").fetchone()[0]
+    with db.transaction(conn):
+        set_location(conn, doc, MAIN)
+    [c] = deliveries.count_conflicts(conn)
+    assert (c["code"], c["count_date"]) == ("2", "2026-10-06")
+    assert stock_levels(conn, by_location=True)[(pid, MAIN)] == 7
+    deliveries.keep_counted(conn, doc)
+    assert stock_levels(conn, by_location=True)[(pid, MAIN)] == 10
+    assert deliveries.count_conflicts(conn) == []
+    deliveries.reread_document(conn, ws, doc)  # read again later: still decided, stock unchanged
+    deliveries.scan(conn, ws)
+    assert deliveries.count_conflicts(conn) == [] and total(conn, pid) == 10
+    check_ledger(conn)
+
+
+def test_tc31b_or_the_order_stays_subtracted(conn, ws):
+    from dibekho.core.stock import set_location
+
+    pid = _note_after_count(conn, ws)
+    doc = conn.execute("SELECT id FROM documents WHERE code = '2'").fetchone()[0]
+    with db.transaction(conn):
+        set_location(conn, doc, MAIN)
+    deliveries.subtract_too(conn, doc)
+    assert deliveries.count_conflicts(conn) == [] and total(conn, pid) == 7
+
+
+def test_tc30d_separate_order_read_again_stays_separate(conn, ws):
+    make_note(ws.deliveries / "a.xlsx", code="1", customer="Công ty A", lines=[LINE_A])
+    learn_all(conn, ws)
+    make_note(ws.deliveries / "b.xlsx", code="1", customer="Công ty B", phone="0900 000 009",
+              lines=[(LINE_A[0], LINE_A[1], 2, "")])
+    deliveries.scan(conn, ws)
+    [h] = [r[0] for r in conn.execute("SELECT hash FROM scanned_files WHERE status = 'changed'")]
+    deliveries.import_separately(conn, ws, h)
+    b = conn.execute("SELECT id FROM documents WHERE source_hash = ? AND status = 'active'", (h,)).fetchone()[0]
+    deliveries.reread_document(conn, ws, b)
+    deliveries.scan(conn, ws)
+    assert deliveries.pending_count(conn) == 0
+    assert total(conn, pid_of(conn, "vữa")) == -5
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active' AND code = '1'").fetchone()[0] == 2

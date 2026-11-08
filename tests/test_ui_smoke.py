@@ -654,3 +654,43 @@ def test_stock_rows_without_code_are_checked_before_import(app, ws, tmp_path, mo
     levels = stock_levels(ctx.conn)
     got = {r["code"]: levels.get(r["id"], 0) for r in ctx.conn.execute("SELECT id, code FROM products")}
     assert got == {"SP001": 31, "SP002": 79}
+
+
+def test_pending_page_reused_code_and_note_after_count(app, ws, monkeypatch):
+    """'Nhập thành đơn riêng' is offered only for a note that looks like another order; 'Đơn đọc sau lần kiểm
+    kê' lists an order read after a count, and its button records the counted stock again."""
+    from PySide6.QtWidgets import QPushButton
+
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    i18n.set_language("vi")
+    from dibekho.core.stock import MAIN, stock_levels
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.main_window import PENDING, MainWindow
+    from tests.test_chaos import _note_after_count
+
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    pid = _note_after_count(ctx.conn, ws)
+    from tests.conftest import make_note
+
+    make_note(ws.deliveries / "c.xlsx", code="1", customer="Công ty Khác", phone="0900 000 777",
+              lines=[("背水涂\nvữa chống thấm", "10KG/thùng", 1, "")])
+    win = MainWindow(ctx)
+    win.show()
+    win.rescan()
+    win.nav.setCurrentRow(PENDING)
+    app.processEvents()
+    page = win.pending
+    texts = [b.text() for b in page.files.cellWidget(0, 3).findChildren(QPushButton)]
+    assert texts[0] == "Nhập thành đơn riêng"
+    page.save_places()
+    app.processEvents()
+    assert page.count_box.isVisibleTo(page) and page.counts.rowCount() == 1
+    page.counts.cellWidget(0, 4).findChildren(QPushButton)[0].click()  # Giữ số đã kiểm kê
+    app.processEvents()
+    assert stock_levels(ctx.conn, by_location=True)[(pid, MAIN)] == 10
+    assert page.counts.rowCount() == 0 and not page.count_box.isVisibleTo(page)
+    page.files.cellWidget(0, 3).findChildren(QPushButton)[0].click()  # Nhập thành đơn riêng
+    app.processEvents()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery' AND status = 'active'"
+                            " AND code = '1'").fetchone()[0] == 2
+    win.close()

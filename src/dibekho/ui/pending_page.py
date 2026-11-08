@@ -106,6 +106,15 @@ class PendingPage(Page):
         lay.addLayout(row)
         self.layout_.addWidget(self.unknown_box, 3)
 
+        # orders dated before a stock count but read after it: maybe subtracted twice
+        self.count_box = QGroupBox(t("pending.count_title"))
+        lay = QVBoxLayout(self.count_box)
+        lay.addWidget(hint_label(t("pending.count_hint")))
+        self.counts = make_table([t("col.doc_code"), t("col.date"), t("col.customer"), t("col.count_date"),
+                                  t("pending.actions")], stretch=2)
+        lay.addWidget(self.counts)
+        self.layout_.addWidget(self.count_box, 2)
+
         self.files_box = QGroupBox(t("pending.files_title"))
         lay = QVBoxLayout(self.files_box)
         self.files = make_table([t("col.status"), t("col.file"), t("pending.detail"), t("pending.actions")], stretch=2)
@@ -129,6 +138,7 @@ class PendingPage(Page):
         conn, ws = self.ctx.conn, self.ctx.ws
         self._fill_places(conn)
         self._fill_unknown(conn, ws)
+        self._fill_counts(conn)
 
         rows = [r for r in deliveries.pending_files(conn) if r["status"] != "needs_mapping"]
         fill_table(self.files, [[t(f"file.{r['status']}"), r["rel_path"], self._file_message(r), ""] for r in rows])
@@ -145,7 +155,24 @@ class PendingPage(Page):
         self.inbox.resizeColumnsToContents()
         self.inbox_box.setVisible(bool(self._items))
 
-        self.empty.setVisible(not (self._unknown or rows or self._items or self._unplaced))
+        self.empty.setVisible(not (self._unknown or rows or self._items or self._unplaced or self._conflicts))
+
+    # ---- orders read after a stock count -------------------------------------------
+
+    def _fill_counts(self, conn):
+        self._conflicts = deliveries.count_conflicts(conn)
+        fill_table(self.counts, [[c["code"], fmt_date(c["doc_date"]), c["customer"], fmt_date(c["count_date"]), ""]
+                                 for c in self._conflicts], ids=[c["id"] for c in self._conflicts])
+        for i, c in enumerate(self._conflicts):
+            doc_id = c["id"]
+            self.counts.setCellWidget(i, 4, _buttons(
+                (t("btn.keep_counted"),
+                 lambda _=False, d=doc_id: self._run(lambda: deliveries.keep_counted(conn, d), "count_check")),
+                (t("btn.subtract_too"),
+                 lambda _=False, d=doc_id: self._run(lambda: deliveries.subtract_too(conn, d), "count_check")),
+            ))
+        self.counts.resizeColumnsToContents()
+        self.count_box.setVisible(bool(self._conflicts))
 
     # ---- delivery notes waiting for their place ----------------------------------
 
@@ -312,11 +339,15 @@ class PendingPage(Page):
     def _file_actions(self, r) -> QWidget:
         h, conn, ws = r["hash"], self.ctx.conn, self.ctx.ws
         if r["status"] == "changed":
-            return _buttons(
+            specs = [
                 (t("btn.use_new"), lambda: self._run(lambda: deliveries.replace_changed(conn, ws, h))),
                 (t("btn.keep_old"), lambda: self._run(lambda: deliveries.keep_old(conn, h))),
                 (t("btn.open_file"), lambda: open_path(deliveries.note_path(ws, r["rel_path"]))),
-            )
+            ]
+            if deliveries.looks_like_other_order(conn, ws, h):  # another customer / far date: a reused code
+                specs.insert(0, (t("btn.import_separate"),
+                                 lambda: self._run(lambda: deliveries.import_separately(conn, ws, h))))
+            return _buttons(*specs)
         if r["status"] == "missing":
             return _buttons(
                 (t("btn.restore_file"), lambda: self._run(lambda: deliveries.restore_missing(conn, ws, h))),
