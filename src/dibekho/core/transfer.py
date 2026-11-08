@@ -8,11 +8,13 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import tempfile
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from dibekho import __version__, db
 from dibekho.core import activity, backup
@@ -49,6 +51,16 @@ def has_unsent_changes(conn) -> bool:
 
 
 def export_package(conn, ws: Workspace, cfg: Config) -> Path:
+    previous = db.get_meta(conn, "last_transfer_at")
+    try:
+        return _export_package(conn, ws, cfg)
+    except BaseException:
+        # no package was made: the work is still unsent, the warning before an import must stay
+        db.set_meta(conn, "last_transfer_at", previous)
+        raise
+
+
+def _export_package(conn, ws: Workspace, cfg: Config) -> Path:
     now = datetime.now()
     db.set_meta(conn, "last_transfer_at", now.isoformat(timespec="seconds"))
     db.log(conn, "export", cfg.device_name)
@@ -98,10 +110,12 @@ def read_manifest(path: Path) -> Manifest:
             data = json.loads(z.read("manifest.json").decode("utf-8"))
             if "kho.sqlite" not in z.namelist():
                 raise TransferError("Gói dữ liệu thiếu database.")
-    except (zipfile.BadZipFile, KeyError, ValueError) as exc:
+    except (zipfile.BadZipFile, KeyError, ValueError, OSError) as exc:
         raise TransferError(f"File gói dữ liệu bị hỏng: {exc}") from exc
+    if not isinstance(data, dict) or type(data.get("schema_version")) is not int:
+        raise TransferError("File gói dữ liệu bị hỏng: thiếu thông tin phiên bản.")
     manifest = Manifest.from_dict(data)
-    if manifest.schema_version is None or manifest.schema_version > db.schema_version():
+    if manifest.schema_version > db.schema_version():
         raise TransferError("Gói dữ liệu được tạo bởi phiên bản DiBeKho mới hơn. Hãy cập nhật app trước.")
     return manifest
 
@@ -114,6 +128,7 @@ def import_package(ws: Workspace, path: Path) -> Manifest:
     with tempfile.TemporaryDirectory() as tmp:
         with zipfile.ZipFile(path) as z:
             z.extract("kho.sqlite", tmp)
+        _check_database(Path(tmp) / "kho.sqlite", manifest)
         # a package from an older version is brought to this version's schema here, on the extracted copy:
         # if that fails, nothing on this computer has been replaced yet
         upgraded = db.connect(Path(tmp) / "kho.sqlite")
@@ -132,6 +147,24 @@ def import_package(ws: Workspace, path: Path) -> Manifest:
         os.replace(new_db, ws.db_path)
     _save_sender_log(ws, path, manifest)
     return manifest
+
+
+def _check_database(path: Path, manifest: Manifest) -> None:
+    """The database in the package must be a DiBeKho database of the version the manifest says. An empty or
+    foreign file would otherwise be 'upgraded' into a brand-new empty database and replace all local data."""
+    try:
+        check = sqlite3.connect(f"file:{quote(path.resolve().as_posix(), safe='/:')}?mode=ro", uri=True)
+        try:
+            version = check.execute("PRAGMA user_version").fetchone()[0]
+            tables = {r[0] for r in check.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            healthy = check.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+        finally:
+            check.close()
+    except sqlite3.DatabaseError as exc:
+        raise TransferError(f"File gói dữ liệu bị hỏng: {exc}") from exc
+    if version < 1 or version != manifest.schema_version or not {"products", "documents"} <= tables or not healthy:
+        raise TransferError("File gói dữ liệu bị hỏng hoặc không phải dữ liệu DiBeKho. Dữ liệu trên máy này "
+                            "không bị thay đổi.")
 
 
 def _safe_device_name(name: str) -> str:
