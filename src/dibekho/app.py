@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import APP_NAME, __version__, i18n
 from dibekho.core import activity, backup
-from dibekho.core.workspace import Config, Workspace, default_workspace
+from dibekho.core.workspace import Config, Workspace, default_workspace, workspace_missing
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.common import apply_rounded_style, theme_color
 
@@ -146,15 +146,29 @@ def main() -> int:
     i18n.set_language(cfg.language)
 
     ws = Workspace(Path(cfg.workspace))
+    if workspace_missing(ws, configured=saved is not None):
+        box = QMessageBox(QMessageBox.Warning, APP_NAME, t("app.workspace_missing", path=str(ws.root)))
+        create = box.addButton(t("app.workspace_create"), QMessageBox.AcceptRole)
+        box.addButton(t("app.quit"), QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is not create:
+            return 1
     try:
         ws.ensure()
     except OSError as exc:
         QMessageBox.critical(None, APP_NAME, t("app.folder_error", path=str(ws.root), error=str(exc)))
-        Config.remove()
+        if saved is None:  # a folder chosen just now; a configured one may only be unplugged: keep the setting
+            Config.remove()
         return 1
 
     from dibekho.ui.common import ActivityFilter, AppContext
     from dibekho.ui.main_window import MainWindow
+    from dibekho.ui.single_instance import acquire
+
+    lock = acquire(ws)  # held until the app exits
+    if lock is None:
+        QMessageBox.information(None, APP_NAME, t("app.already_running"))
+        return 0
 
     activity.setup(ws.data / activity.FILE_NAME)
     activity.log("start", f"DiBeKho {__version__} · {platform.platform()} · Python {platform.python_version()} · "

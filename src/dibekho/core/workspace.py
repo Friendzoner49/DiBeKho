@@ -87,6 +87,12 @@ class Workspace:
         return None
 
 
+def workspace_missing(ws: Workspace, configured: bool) -> bool:
+    """The app was set up with this workspace but its database is not there (USB stick or network drive not
+    plugged in, folder renamed): creating an empty one would show zero stock as if the data were lost."""
+    return configured and not ws.db_path.exists()
+
+
 def config_dir() -> Path:
     if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
