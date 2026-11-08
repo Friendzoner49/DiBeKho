@@ -417,6 +417,10 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 | Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** |
 | Mở file gốc báo lỗi | File đang mở trong Excel: đóng Excel rồi thử lại |
 | Xuất Excel báo file đang mở | Đóng file Excel cùng tên rồi xuất lại |
+| Cần xử lý báo "không đọc được số lượng" | Ô Số lượng của phiếu có chữ hoặc dấu chấm nghìn (vd. "3 thùng", "1.500"). Mở file phiếu, chỉ ghi số (1500 hoặc 2,5), lưu lại rồi bấm **⟳ Quét lại phiếu** |
+| Cần xử lý báo "File Excel đời cũ (.xls)" | Mở file bằng Excel → **Lưu thành** (Save As) kiểu *Excel Workbook (.xlsx)* → **⟳ Quét lại phiếu** |
+| Mở app báo "Không thấy dữ liệu của DiBeKho" | Thư mục làm việc nằm trên ổ USB / ổ mạng chưa cắm, hoặc đã bị đổi tên. Cắm lại hoặc đổi lại tên cũ rồi mở app. Chỉ bấm **Tạo dữ liệu mới** khi muốn bắt đầu lại từ đầu |
+| Mở app báo "DiBeKho đang mở rồi" | App đã mở ở một cửa sổ khác: tìm trên thanh tác vụ (Windows) hoặc Dock (Mac) |
 
 ### Dữ liệu nằm ở đâu
 

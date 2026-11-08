@@ -416,6 +416,10 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 | A product deleted by mistake | **↶ Undo** right away if you can; otherwise **Settings → Data transfer and backups → Restore a deleted product…** (section 11) |
 | Go back to a day before | **Settings → Data transfer and backups**, choose the backup, **Restore selected** |
 | Excel export says the file is open | Close the Excel file with that name and export again |
+| To do says a quantity cannot be read ("không đọc được số lượng") | The note's quantity cell has words or thousands dots ("3 thùng", "1.500"). Open the note, write only the number (1500 or 2,5), save, then **⟳ Rescan notes** |
+| To do says "File Excel đời cũ (.xls)" | Open the file in Excel → **Save As** *Excel Workbook (.xlsx)* → **⟳ Rescan notes** |
+| On opening: "DiBeKho's data was not found" | The workspace is on a USB stick / network drive that is not plugged in, or the folder was renamed. Plug it in or rename it back, then open the app. Choose **Create new data** only to start over |
+| On opening: "DiBeKho is already open" | The app is open in another window: look in the taskbar (Windows) or the Dock (Mac) |
 
 ### Where the data is
 
