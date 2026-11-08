@@ -69,6 +69,10 @@ def test_enter_in_a_quantity_never_saves_the_receipt(app, ws, monkeypatch):
     QTest.keyClick(form.rows[0].qty, Qt.Key_Return)
     app.processEvents()
     assert form.focusWidget() in (form.rows[1].qty, form.rows[1].qty.lineEdit())  # on to the next quantity
+    form.rows[0].qty.setFocus()  # the key may reach the box itself or the line edit inside it, on any platform
+    QTest.keyClick(form.rows[0].qty.lineEdit(), Qt.Key_Enter)
+    app.processEvents()
+    assert form.focusWidget() in (form.rows[1].qty, form.rows[1].qty.lineEdit())
     QTest.keyClick(form.rows[1].qty, Qt.Key_Return)  # and Enter again, from there
     app.processEvents()
     assert asked == [] and form.saved_doc is None  # no "save?", nothing saved

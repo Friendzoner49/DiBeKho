@@ -10,7 +10,7 @@ The same window edits a saved receipt (the old one is marked replaced).
 
 from datetime import date
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
@@ -289,6 +289,8 @@ class ReceiptForm(QDialog):
         row.remove.clicked.connect(lambda: self._remove(row))
         row.qty.valueChanged.connect(lambda _: self._update_summary())
         self.rows.append(row)
+        row.qty.installEventFilter(self)
+        row.qty.lineEdit().installEventFilter(self)
         self._show_row(row)
         if not self._loading and not suggested:
             self.table.scrollToBottom()
@@ -488,16 +490,29 @@ class ReceiptForm(QDialog):
             text += "\n\n" + t("receipt_form.confirm_edit")
         return text
 
+    def _enter_in_quantity(self, focus) -> None:
+        """Enter in a quantity box: take the typed number and go to the next row's quantity."""
+        for i, r in enumerate(self.rows):
+            if focus is r.qty or (focus is not None and r.qty.isAncestorOf(focus)):
+                r.qty.interpretText()
+                if i + 1 < len(self.rows):
+                    self.rows[i + 1].qty.setFocus()
+                    self.rows[i + 1].qty.selectAll()
+                break
+
+    def eventFilter(self, obj, event):
+        """The quantity boxes (and the line edit inside) handle Enter here, before the spin box or the dialog
+        can: not every platform passes the key on to the dialog (a Mac CI run did not), and Enter must never
+        reach the dialog's buttons."""
+        if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self._enter_in_quantity(obj)
+            return True
+        return super().eventFilter(obj, event)
+
     def keyPressEvent(self, event):
-        """Enter moves on to the next row's quantity; it never saves (only a click on 'Lưu phiếu' does)."""
+        """Enter anywhere else in the form: never saves (only a click on 'Lưu phiếu' does)."""
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            focus = self.focusWidget()
-            for i, r in enumerate(self.rows):
-                if focus is r.qty or (focus is not None and r.qty.isAncestorOf(focus)):
-                    if i + 1 < len(self.rows):
-                        self.rows[i + 1].qty.setFocus()
-                        self.rows[i + 1].qty.selectAll()
-                    break
+            self._enter_in_quantity(self.focusWidget())
             event.accept()
             return
         super().keyPressEvent(event)
