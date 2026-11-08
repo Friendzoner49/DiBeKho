@@ -1,5 +1,6 @@
 """Text normalization helpers shared by the Excel readers, matching and search."""
 
+import math
 import re
 import unicodedata
 
@@ -79,7 +80,10 @@ def parse_number(text) -> float:
     """'12', '12,5', '１２' or '１２，５' (typed with a Chinese input method) -> float. Raises ValueError."""
     s = unicodedata.normalize("NFKC", str(text)).strip().replace(" ", "").replace(",", ".")
     s = s.replace("。", ".")
-    return float(s)
+    value = float(s)
+    if not math.isfinite(value):  # 'nan', 'inf', '1e999': no quantity
+        raise ValueError(text)
+    return value
 
 
 def fmt_money(value) -> str:

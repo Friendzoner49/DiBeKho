@@ -7,6 +7,7 @@ Prices (unit price, amount, fees, the 'Tổng cộng' total) are read too, but n
 cannot be read is None with a warning. Line notes are kept for display only.
 """
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -146,15 +147,20 @@ def _parse(grid) -> DeliveryNote:
     lines: list[DeliveryLine] = []
     skipped: list[str] = []
     fees: list[tuple[str, float]] = []
+    bad_qty: list[str] = []
     total = None
     for r in range(header_row + 1, len(grid)):
         row = grid[r]
-        if any(m in unaccent(_text(v)) for v in row for m in END_MARKERS):
-            if any(TOTAL_MARKER in unaccent(_text(v)) for v in row):
+        # not the Ghi chú cell: a line noted 'người giao hàng thu tiền' is not the end of the table
+        marks = [unaccent(_text(v)) for c, v in enumerate(row) if c != columns.get("note")]
+        if any(m in text for text in marks for m in END_MARKERS):
+            if any(TOTAL_MARKER in text for text in marks):
                 total = _to_money(_cell(row, columns.get("amount")))
             break
         raw_name = _text(_cell(row, columns["name"]))
         qty_value = _cell(row, columns["qty"])
+        if isinstance(qty_value, str) and not clean(qty_value):
+            qty_value = None
         if not clean(raw_name) and qty_value in (None, ""):
             continue
         excel_row = r + 1
@@ -165,7 +171,14 @@ def _parse(grid) -> DeliveryNote:
                 fees.append((clean(raw_name), fee))
             continue
         qty = _to_number(qty_value)
-        if qty is None or qty <= 0:
+        if qty == 0:
+            warnings.append(f"Dòng {excel_row}: số lượng 0, bỏ qua.")
+            continue
+        if (qty is None or qty < 0) and clean(raw_name):
+            # never import the note without this line: its stock would be wrong without anyone knowing
+            bad_qty.append(f"{excel_row} ('{clean(_text(qty_value))}')")
+            continue
+        if qty is None or qty < 0:
             warnings.append(f"Dòng {excel_row}: số lượng không hợp lệ ({qty_value!r}), bỏ qua.")
             continue
         if not clean(raw_name):
@@ -187,6 +200,9 @@ def _parse(grid) -> DeliveryNote:
             )
         )
 
+    if bad_qty:
+        raise DeliveryNoteError(f"Dòng {', '.join(bad_qty)}: không đọc được số lượng. Hãy sửa file phiếu "
+                                f"(ô Số lượng chỉ ghi số, ví dụ 1500 hoặc 2,5) rồi bấm Quét lại.")
     if not lines:
         raise DeliveryNoteError("Phiếu không có dòng hàng nào có số lượng.")
 
@@ -271,15 +287,19 @@ def _cell(row, index):
 
 
 def _to_number(value) -> float | None:
+    """A quantity. Text with thousands dots ('1.500': 1500 or 1,5?) is not guessed: None."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
-    text = clean(_text(value)).replace(",", ".")
+        return float(value) if math.isfinite(value) else None
+    text = clean(_text(value))
+    if _GROUPED.fullmatch(text) or re.search(r"\d[.,]\d{3}[.,]", text):
+        return None
     try:
-        return float(text)
+        number = float(text.replace(",", "."))
     except ValueError:
         return None
+    return number if math.isfinite(number) else None
 
 
 def _to_money(value) -> float | None:
