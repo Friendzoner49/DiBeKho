@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
 
 from dibekho.core import catalog
 from dibekho.core.stock import is_low, low_stock_default, stock_table
-from dibekho.core.text import fmt_qty, unaccent
+from dibekho.core.text import fmt_qty, matches_words
 from dibekho.i18n import t
 from dibekho.ui.catalog_import import start_catalog_import
 from dibekho.ui.common import (
@@ -88,7 +88,7 @@ class StockPage(Page):
         self.category.setCurrentIndex(max(idx, 0))
         self.category.blockSignals(False)
 
-        needle = unaccent(self.filter.text().strip())
+        needle = self.filter.text().strip()
         category = self.category.currentData()
         default = low_stock_default(self.ctx.conn)
         rows, ids, colors = [], [], []
@@ -96,8 +96,8 @@ class StockPage(Page):
         for p in stock_table(self.ctx.conn):
             if category and p["category"] != category:
                 continue
-            haystack = unaccent(f"{p['code']} {p['name_vi']} {p['name_zh']} {p['spec']} {p['variant']}")
-            if needle and needle not in haystack:
+            haystack = f"{p['code']} {p['name_vi']} {p['name_zh']} {p['spec']} {p['variant']}"
+            if needle and not matches_words(needle, haystack):
                 continue
             color = None
             if p["stock"] < 0:

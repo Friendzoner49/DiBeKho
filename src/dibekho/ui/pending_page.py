@@ -11,8 +11,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -22,8 +20,8 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, backup, catalog, deliveries, inbox, transfer
-from dibekho.core.stock import set_location
-from dibekho.core.text import fmt_qty, parse_number, unaccent
+from dibekho.core.stock import set_location, stock_levels
+from dibekho.core.text import fmt_qty, matches_words, parse_number
 from dibekho.i18n import t
 from dibekho.ui.common import (
     GREY,
@@ -502,38 +500,65 @@ class PendingPage(Page):
 
 
 class ProductPicker(QDialog):
-    """'Chọn mặt hàng khác…': the whole catalog with a search box (Vietnamese, Chinese, code, no accents)."""
+    """'Chọn mặt hàng khác…': the whole catalog with a search box (Vietnamese, Chinese, code, no accents, any
+    words in any order). Packing, type/colour and the Chinese name have their own columns: many products share
+    one long Vietnamese name and differ only there, which a single line of text cut off (tester log 07/11/2026:
+    the wrong one picked again and again, a receipt abandoned when the product could not be found)."""
 
     def __init__(self, ctx, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("pending.other_title"))
-        fit_window(self, 760, 560)
+        fit_window(self, 1000, 600)
         lay = QVBoxLayout(self)
         self.search = QLineEdit()
         self.search.setPlaceholderText(t("pending.other_search"))
         lay.addWidget(self.search)
-        self.list = QListWidget()
-        for p in sorted(catalog.products(ctx.conn), key=lambda p: (len(p["code"]), p["code"])):
-            item = QListWidgetItem(catalog.long_label(p))
-            item.setData(Qt.UserRole, p["id"])
-            item.setData(Qt.UserRole + 1, unaccent(f"{catalog.long_label(p)} {p['name_zh']}"))
-            self.list.addItem(item)
-        lay.addWidget(self.list)
+        products = sorted(catalog.products(ctx.conn), key=lambda p: (len(p["code"]), p["code"]))
+        levels = stock_levels(ctx.conn)
+        self.table = make_table([t("col.code"), t("col.product"), t("col.spec"), t("col.variant"), t("col.name_zh"),
+                                 t("col.stock")], stretch=1)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        fill_table(self.table, [[p["code"], p["name_vi"], p["spec"], p["variant"], p["name_zh"],
+                                 fmt_qty(levels.get(p["id"], 0))] for p in products],
+                   ids=[p["id"] for p in products])
+        self.table.setSortingEnabled(False)  # rows stay in the order of self._keys
+        self.table.setWordWrap(True)
+        self.table.resizeRowsToContents()
+        self._keys = [" ".join(str(p[k] or "") for k in ("code", "name_vi", "spec", "variant", "name_zh", "category"))
+                      for p in products]
+        lay.addWidget(self.table)
         box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
         self.search.textChanged.connect(self._filter)
-        self.list.itemDoubleClicked.connect(lambda _: self.accept())
+        self.search.returnPressed.connect(self._enter)
+        self.table.cellDoubleClicked.connect(lambda *_: self.accept())
         self.search.setFocus()
 
+    def _visible(self) -> list[int]:
+        return [r for r in range(self.table.rowCount()) if not self.table.isRowHidden(r)]
+
     def _filter(self, text):
-        needle = unaccent(text)
-        for i in range(self.list.count()):
-            item = self.list.item(i)
-            item.setHidden(needle not in item.data(Qt.UserRole + 1))
+        for r, key in enumerate(self._keys):
+            self.table.setRowHidden(r, not matches_words(text, key))
+        visible = self._visible()
+        if visible and self.table.currentRow() not in visible:
+            self.table.selectRow(visible[0])
+
+    def _enter(self):
+        """Enter in the search box: one match left -> take it; otherwise go to the list to pick with the arrows."""
+        visible = self._visible()
+        if len(visible) == 1:
+            self.table.selectRow(visible[0])
+            self.accept()
+        elif visible:
+            self.table.setFocus()
 
     def choose(self) -> int | None:
-        if self.exec() != QDialog.Accepted or self.list.currentItem() is None:
+        if self.exec() != QDialog.Accepted:
             return None
-        return self.list.currentItem().data(Qt.UserRole)
+        row = self.table.currentRow()
+        if row < 0 or self.table.isRowHidden(row):
+            return None
+        return self.table.item(row, 0).data(Qt.UserRole)

@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho.core import catalog, queries, stats
-from dibekho.core.text import unaccent
+from dibekho.core.text import matches_words
 from dibekho.excel import report
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -101,10 +101,9 @@ class PickDialog(QDialog):
         lay.addWidget(box)
 
     def _filter(self, text):
-        needle = unaccent(text)
         for i in range(self.list.count()):
             it = self.list.item(i)
-            it.setHidden(bool(needle) and needle not in unaccent(it.text()))
+            it.setHidden(not matches_words(text, it.text()))
 
     def selected(self) -> list:
         return [self.list.item(i).data(Qt.UserRole) for i in range(self.list.count())

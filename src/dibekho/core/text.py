@@ -29,6 +29,18 @@ def unaccent(text) -> str:
     return s.replace("đ", "d")
 
 
+_NOT_ALNUM = re.compile(r"[\W_]+")
+
+
+def matches_words(needle: str, haystack: str) -> bool:
+    """Search boxes: every word typed must appear somewhere, in any order, without accents, ignoring spaces
+    and punctuation -- 'fs101' finds 'FS-101', 'fs-101 xam 10kg' finds '… (FS-101) … 10KG · Xám nhạt'.
+    The catalog holds many products sharing one long name, told apart only by model, colour or weight."""
+    hay = _NOT_ALNUM.sub("", unaccent(haystack))
+    words = [_NOT_ALNUM.sub("", w) for w in unaccent(needle).split()]
+    return all(w in hay for w in words if w)
+
+
 def match_key(name: str, spec: str) -> str:
     """Key used to recognise the same product line across delivery notes.
 
