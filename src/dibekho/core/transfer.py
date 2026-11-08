@@ -52,11 +52,17 @@ def has_unsent_changes(conn) -> bool:
 
 def export_package(conn, ws: Workspace, cfg: Config) -> Path:
     previous = db.get_meta(conn, "last_transfer_at")
+    started = set(ws.output.glob(f"*{EXTENSION}")) if ws.output.exists() else set()
     try:
         return _export_package(conn, ws, cfg)
     except BaseException:
         # no package was made: the work is still unsent, the warning before an import must stay
         db.set_meta(conn, "last_transfer_at", previous)
+        for half_written in set(ws.output.glob(f"*{EXTENSION}")) - started:
+            try:
+                half_written.unlink()
+            except OSError:
+                pass
         raise
 
 

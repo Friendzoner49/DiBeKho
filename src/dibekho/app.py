@@ -149,7 +149,9 @@ def main() -> int:
     if workspace_missing(ws, configured=saved is not None):
         box = QMessageBox(QMessageBox.Warning, APP_NAME, t("app.workspace_missing", path=str(ws.root)))
         create = box.addButton(t("app.workspace_create"), QMessageBox.AcceptRole)
-        box.addButton(t("app.quit"), QMessageBox.RejectRole)
+        quit_button = box.addButton(t("app.quit"), QMessageBox.RejectRole)
+        box.setDefaultButton(quit_button)  # Enter pressed by reflex must not start on empty data
+        box.setEscapeButton(quit_button)
         box.exec()
         if box.clickedButton() is not create:
             return 1

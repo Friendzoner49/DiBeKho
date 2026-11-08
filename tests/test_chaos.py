@@ -384,6 +384,14 @@ def test_tc22_failed_export_still_warns_about_unsent_work(tmp_path, monkeypatch)
     assert transfer.has_unsent_changes(conn_a)
 
 
+def test_tc22b_export_failing_halfway_leaves_no_broken_package(tmp_path, monkeypatch):
+    ws_a, _, conn_a, cfg = two_machines(tmp_path)
+    monkeypatch.setattr(transfer, "original_files", lambda ws: (_ for _ in ()).throw(OSError("disk full")))
+    with pytest.raises(OSError):
+        transfer.export_package(conn_a, ws_a, cfg)
+    assert list(ws_a.output.glob("*.dibekho")) == []
+
+
 # ---- undo, reset, start-up -----------------------------------------------------------------------------------
 
 def test_tc23_undo_pressed_25_times(tmp_path):
@@ -441,7 +449,15 @@ def test_tc26_second_copy_of_the_app_is_refused(tmp_path):
     first.unlock()
     again = acquire(ws)
     assert again is not None
+    # the workspace copied to another computer while the app was open: its lock names that computer and must
+    # not keep the app closed forever here
+    lines = (ws.data / "dibekho.lock").read_bytes().split(b"\n")
     again.unlock()
+    lines[2] = b"MAY-KHAC"
+    (ws.data / "dibekho.lock").write_bytes(b"\n".join(lines))
+    moved = acquire(ws)
+    assert moved is not None
+    moved.unlock()
 
 
 def test_tc27_old_excel_format_is_reported_not_ignored(conn, ws):
