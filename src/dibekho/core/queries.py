@@ -258,9 +258,13 @@ def search(conn, text: str, limit=50) -> dict:
         WHERE unaccent(p.name_vi) LIKE ?1 OR unaccent(p.name_zh) LIKE ?1 OR unaccent(p.code) LIKE ?1
            OR unaccent(p.spec) LIKE ?1 OR unaccent(p.category) LIKE ?1 OR unaccent(p.variant) LIKE ?1
            OR EXISTS (SELECT 1 FROM product_aliases a WHERE a.product_id = p.id AND unaccent(a.key) LIKE ?3)
+           -- any words in any order, no punctuation: 'fs101 xam' finds '… (FS-101) …, Xám nhạt'
+           OR matches_words(?5, COALESCE(p.code, '') || ' ' || COALESCE(p.name_vi, '') || ' ' ||
+                                COALESCE(p.name_zh, '') || ' ' || COALESCE(p.spec, '') || ' ' ||
+                                COALESCE(p.variant, '') || ' ' || COALESCE(p.category, ''))
         ORDER BY p.active DESC, p.name_vi LIMIT ?4
         """,
-        (like, f"%{text.strip()}%", f"%{q.replace(' ', '')}%", limit),
+        (like, f"%{text.strip()}%", f"%{q.replace(' ', '')}%", limit, text.strip()),
     ).fetchall()
     customers_ = conn.execute(
         """

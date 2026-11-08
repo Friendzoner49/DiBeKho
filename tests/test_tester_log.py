@@ -218,3 +218,11 @@ def test_multi_select_hint_names_the_mac_key():
         i18n.set_language(lang)
         assert "⌘" in i18n.t("cust.merge_select_first") and "⌘" in i18n.t("cust.merge_tip")
     i18n.set_language("vi")
+
+
+def test_global_search_finds_products_by_any_words(conn):
+    from dibekho.core.queries import search
+
+    a, b, c = _same_name_products(conn)
+    assert [p["id"] for p in search(conn, "fs101 xam")["products"]] == [b]
+    assert {p["id"] for p in search(conn, "FS-101")["products"]} == {a, b}

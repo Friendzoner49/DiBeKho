@@ -10,7 +10,7 @@ from importlib import resources
 from pathlib import Path
 
 from dibekho.core import activity
-from dibekho.core.text import unaccent
+from dibekho.core.text import matches_words, unaccent
 
 
 def _migration_files() -> list[tuple[int, str]]:
@@ -31,6 +31,7 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.create_function("unaccent", 1, unaccent, deterministic=True)
+    conn.create_function("matches_words", 2, lambda n, h: matches_words(n or "", h or ""), deterministic=True)
     migrate(conn)
     return conn
 

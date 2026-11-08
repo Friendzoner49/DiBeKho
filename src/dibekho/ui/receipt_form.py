@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from dibekho.core import activity, catalog, receipts
 from dibekho.core.receipts import RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
-from dibekho.core.text import fmt_qty
+from dibekho.core.text import fmt_qty, unaccent
 from dibekho.i18n import t
 from dibekho.ui.common import (
     NoWheelCombo,
@@ -258,6 +258,8 @@ class ReceiptForm(QDialog):
             i = self.customer.findData(data.customer_id)
             if i >= 0:
                 self.customer.setCurrentIndex(i)
+        elif data.customer_name:  # a kept draft whose customer was typed, not picked
+            self.customer.setCurrentText(data.customer_name)
         self._fill_orders()
         self.order.setCurrentText(data.ref_code)
         self.note.setText(data.note)
@@ -527,6 +529,10 @@ def open_receipt_form(ctx, parent, doc_id: int | None = None) -> int | None:
                     row = ctx.conn.execute("SELECT id FROM products WHERE code = ?",
                                            (codes.get(ln.product_id, ""),)).fetchone()
                     ln.product_id = row[0] if row else -1
+            if draft.customer_id:  # a customer return: keep the id only if it is still that customer
+                row = ctx.conn.execute("SELECT name FROM customers WHERE id = ?", (draft.customer_id,)).fetchone()
+                if row is None or unaccent(row[0]) != unaccent(draft.customer_name):
+                    draft.customer_id = None
     form = ReceiptForm(ctx, parent, doc_id, draft)
     if form.dropped:
         info(parent, t("receipt_form.draft_dropped", count=form.dropped))
