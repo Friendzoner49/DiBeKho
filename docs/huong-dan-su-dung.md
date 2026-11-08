@@ -129,6 +129,8 @@ Rồi bấm **Áp dụng và đọc lại phiếu**, đọc bảng tóm tắt v�
 | Thông báo | Ý nghĩa | Nên bấm |
 |---|---|---|
 | **Phiếu bị sửa** | File phiếu đã đọc bị sửa lại | **Dùng bản mới** (đọc lại theo file mới) hoặc **Giữ bản cũ** |
+| **Phiếu bị sửa** kèm "có thể là ĐƠN KHÁC trùng mã" | Phiếu mới cùng mã đơn nhưng khác khách hàng, hoặc ngày cách xa đơn cũ: thường là một đơn khác dùng lại mã | **Nhập thành đơn riêng** (giữ nguyên đơn cũ). Chỉ bấm **Dùng bản mới** nếu đúng là sửa đơn cũ |
+| **Đơn đọc sau lần kiểm kê** | Đơn có ngày trước (hoặc đúng) ngày kiểm kê nhưng app mới đọc sau khi kiểm kê | Lúc đếm hàng của đơn đã ra khỏi kho: **Giữ số đã kiểm kê** (không bị trừ 2 lần). Hàng lấy ra sau lúc đếm: **Trừ thêm đơn này** |
 | **File đã bị xoá/di chuyển** | File phiếu biến mất khỏi thư mục. Tồn **không đổi** | **Khôi phục file** (app còn bản sao), **Huỷ phiếu**, hoặc **Bỏ qua** |
 | **Không đọc được** | File không phải phiếu giao hàng, hoặc thiếu thông tin | Xem lý do; sửa file rồi quét lại, hoặc **Ẩn** |
 | **Thư mục input** | Có gói dữ liệu, file hàng về cũ hoặc file danh mục chờ nhập | **Nhập dữ liệu** / **Xem và nhập** |

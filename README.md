@@ -208,7 +208,11 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 | You want to redo a whole order at once (not line by line) | Right-click the order's name (order list, Learned names on notes, or the order's own window) → **Reread the whole note** |
 | A note was entered by mistake | Open the order, **Cancel document** (stock is given back, history kept). Deleting the file does **not** cancel it |
 | A note file was deleted from the folder | The stock does not change. **To do** offers **Restore file**, **Cancel document** or **Ignore** |
-| A note file was edited after it was read | **To do** offers **Use new version** or **Keep old version** |
+| A note file was edited after it was read | **To do** offers **Use new version** or **Keep old version**. If it says "có thể là ĐƠN KHÁC trùng mã" (another customer or a far date), click **Import as a separate order** |
+| **To do** shows **Orders read after a stock count** | Goods had already left when you counted: **Keep the counted stock**. Goods left after the count: **Subtract this order too** |
+| **To do** says a quantity cannot be read, or "File Excel đời cũ (.xls)" | Leave only a number in the quantity cell (1500 or 2,5), or open the file in Excel and **Save As** .xlsx, then **⟳ Rescan notes** |
+| On opening: "DiBeKho's data was not found" | Plug in the USB stick / network drive holding the workspace, or rename the folder back, then open the app again. Choose **Create new data** only to start over |
+| On opening: "DiBeKho is already open" | The app is open in another window: look in the taskbar (Windows) or the Dock (Mac) |
 | A product was deleted by mistake | **↶ Undo** right away if you can, otherwise **Settings → Data transfer and backups → Restore a deleted product…** |
 | You want to go back to an earlier day | **Settings → Data transfer and backups**, pick a backup, **Restore selected** |
 

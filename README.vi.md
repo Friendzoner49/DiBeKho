@@ -206,7 +206,11 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 | Một phiếu nhập nhầm | Mở đơn hàng, bấm **Huỷ phiếu** (tồn được trả lại, lịch sử vẫn giữ). Xoá file **không** phải cách huỷ phiếu |
 | Lỡ xoá file phiếu khỏi thư mục | Tồn không đổi. **Cần xử lý** cho chọn **Khôi phục file**, **Huỷ phiếu** hoặc **Bỏ qua** |
 | Lỡ xoá nhầm một mặt hàng | **Cài đặt → Chuyển dữ liệu và sao lưu → Khôi phục mặt hàng đã xoá…** |
-| File phiếu bị sửa sau khi đã đọc | **Cần xử lý** cho chọn **Dùng bản mới** hoặc **Giữ bản cũ** |
+| File phiếu bị sửa sau khi đã đọc | **Cần xử lý** cho chọn **Dùng bản mới** hoặc **Giữ bản cũ**. Nếu app ghi "có thể là ĐƠN KHÁC trùng mã" (khác khách hoặc ngày cách xa), bấm **Nhập thành đơn riêng** |
+| Cần xử lý có mục **Đơn đọc sau lần kiểm kê** | Lúc đếm, hàng của đơn đã ra khỏi kho: **Giữ số đã kiểm kê**. Hàng lấy ra sau lúc đếm: **Trừ thêm đơn này** |
+| Cần xử lý báo "không đọc được số lượng" hoặc "File Excel đời cũ (.xls)" | Sửa ô Số lượng chỉ còn số (1500 hoặc 2,5), hoặc mở file bằng Excel và **Lưu thành** .xlsx, rồi bấm **⟳ Quét lại phiếu** |
+| Mở app báo "Không thấy dữ liệu của DiBeKho" | Cắm lại ổ USB / ổ mạng chứa thư mục làm việc, hoặc đổi lại tên thư mục, rồi mở lại app. Chỉ bấm **Tạo dữ liệu mới** khi muốn bắt đầu lại từ đầu |
+| Mở app báo "DiBeKho đang mở rồi" | App đã mở ở cửa sổ khác: tìm trên thanh tác vụ (Windows) hoặc Dock (Mac) |
 | Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** |
 
 ## Câu hỏi thường gặp

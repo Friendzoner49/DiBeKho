@@ -129,6 +129,8 @@ Then click **Apply and read notes again**, read the summary and agree.
 | Message | Meaning | Click |
 |---|---|---|
 | **Edited note** | A note already read was edited | **Use new version** or **Keep old version** |
+| **Edited note** with "có thể là ĐƠN KHÁC trùng mã" | Same order code, but another customer or a date far from the recorded order: usually another order reusing the code | **Import as a separate order** (the old order stays). Click **Use new version** only if it really is an edit |
+| **Orders read after a stock count** | An order dated on or before a stock count, read by the app only after that count | Goods had already left when you counted: **Keep the counted stock** (not subtracted twice). Goods left after the count: **Subtract this order too** |
 | **File deleted/moved** | The note file is gone. Stock is **unchanged** | **Restore file** (the app keeps a copy), **Cancel document**, or **Ignore** |
 | **Cannot read** | Not a delivery note, or information is missing | Read the reason; fix the file and rescan, or **Hide** |
 | **Input folder** | A data package, an old goods-in file or a catalog file is waiting | **Import data** / **Review & import** |
