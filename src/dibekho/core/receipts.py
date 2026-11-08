@@ -161,9 +161,15 @@ def problems(data: ReceiptInput) -> list[str]:
             if ln.product_id in seen:
                 found.append(("receipt_form.twice", {"id": ln.product_id}))
             seen.add(ln.product_id)
+    new_seen = set()
     for ln in lines:
         if ln.new and not clean(ln.new.name_vi):
             found.append(("receipt_form.new_needs_name", {}))
+        elif ln.new:  # the same new product typed on two rows would be created twice
+            key = tuple(unaccent(clean(x)).replace(" ", "") for x in (ln.new.name_vi, ln.new.spec, ln.new.variant))
+            if key in new_seen:
+                found.append(("receipt_form.twice", {"product": ln.new.label()}))
+            new_seen.add(key)
     return found
 
 
@@ -213,7 +219,9 @@ def save(conn, data: ReceiptInput, replaces: int | None = None, ws: Workspace | 
     with db.transaction(conn):
         code = next_code(conn, ws)
         if replaces:
-            old = conn.execute("SELECT code FROM documents WHERE id = ?", (replaces,)).fetchone()
+            old = conn.execute("SELECT code, kind FROM documents WHERE id = ?", (replaces,)).fetchone()
+            if old is None or old["kind"] != "receipt":
+                raise ValueError("Chỉ sửa được phiếu hàng về.")
             close_document(conn, replaces, "replaced")
             code = old["code"] or code
         supplier_id, customer_id = None, None

@@ -122,6 +122,8 @@ def merge_products(conn, product_id_a: int, product_id_b: int) -> int:
     next new product. Returns the id that survived."""
     a = conn.execute("SELECT * FROM products WHERE id = ?", (product_id_a,)).fetchone()
     b = conn.execute("SELECT * FROM products WHERE id = ?", (product_id_b,)).fetchone()
+    if a is None or b is None or a["id"] == b["id"]:
+        raise ValueError("Chọn hai mặt hàng khác nhau để gộp.")
     keep, drop = (a, b) if _code_num(a["code"]) <= _code_num(b["code"]) else (b, a)
     conn.execute("UPDATE document_lines SET product_id = ? WHERE product_id = ?", (keep["id"], drop["id"]))
     conn.execute("UPDATE stock_movements SET product_id = ? WHERE product_id = ?", (keep["id"], drop["id"]))

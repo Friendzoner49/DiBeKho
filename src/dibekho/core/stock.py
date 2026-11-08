@@ -163,7 +163,9 @@ def transfer(conn, doc_date: date, from_location: int, to_location: int, lines: 
         raise ValueError("Phiếu chuyển hàng chưa có dòng nào.")
     code = next_transfer_code(conn)
     if replaces:
-        old = conn.execute("SELECT code FROM documents WHERE id = ?", (replaces,)).fetchone()
+        old = conn.execute("SELECT code, kind FROM documents WHERE id = ?", (replaces,)).fetchone()
+        if old is None or old["kind"] != "transfer":
+            raise ValueError("Chỉ sửa được phiếu chuyển hàng.")
         close_document(conn, replaces, "replaced")
         code = old["code"] or code
     cur = conn.execute(
