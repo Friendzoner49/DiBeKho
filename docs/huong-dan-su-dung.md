@@ -190,10 +190,15 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
    - **Khách hàng trả lại**: chọn khách, và mã đơn khách trả nếu biết.
 3. Chọn **Ngày về** và **Nhập vào**: **Kho tổng** hoặc **Văn phòng**.
 4. App gợi ý sẵn 3 mặt hàng (hàng hay về từ nhà cung cấp này, hoặc hàng sắp hết). Gõ **số lượng** cho từng dòng. Dòng để trống số lượng sẽ bị bỏ qua.
-   - Đổi mặt hàng: bấm vào tên → **🔍 Chọn mặt hàng trong kho…**.
+   - Đổi mặt hàng: bấm vào tên → **🔍 Chọn mặt hàng trong kho…**. Ô tìm nhận **vài từ bất kỳ, không cần dấu, không cần gạch nối**, ví dụ `fs101 xam 10kg`; bảng có cột riêng cho Quy cách, Loại/màu, Tên Trung và Tồn để phân biệt các mặt hàng cùng tên. Chỉ còn một mặt hàng khớp thì bấm Enter là chọn.
    - Hàng mới hoàn toàn: bấm vào tên → **★ Mặt hàng mới (chưa có trong kho)…**, điền tên, quy cách. Mặt hàng chỉ được tạo khi lưu phiếu.
    - Thêm dòng: **＋ Thêm dòng**. Xoá dòng: nút **✕** cuối dòng.
+   - Gõ xong một số lượng, bấm **Enter** để xuống dòng dưới (Enter không lưu phiếu).
+   - Chọn một mặt hàng đã có ở dòng khác: app báo ngay và đưa con trỏ tới dòng đó để sửa số lượng.
 5. Bấm **Lưu phiếu hàng về**, đọc bảng tóm tắt rồi đồng ý.
+   - Ô nhà cung cấp là **nơi gửi hàng tới** (cửa khẩu, công ty mẹ), không phải "Kho tổng". **Muốn sửa số tồn bị sai thì dùng Kiểm kê**, không dùng Hàng về.
+
+Đang nhập mà phải đóng cửa sổ (ví dụ để sang Cài đặt sửa tên một mặt hàng): phiếu chưa lưu **được giữ lại**. Bấm **＋ Nhập hàng về…** lần sau, chọn **Có** để nhập tiếp. Phiếu dở chỉ giữ tới khi tắt app.
 
 Kết quả: tồn tăng ở nơi đã chọn, phiếu có mã **HV001, HV002…**, và một file Excel của phiếu được lưu trong `output/hang-ve/` (để in hoặc gửi).
 
@@ -296,7 +301,7 @@ Dùng để gửi khách đối chiếu, hoặc tính hoa hồng cho người b�
 Dùng để dọn các khách hàng trùng/thừa, ví dụ các "khách hàng" khống đã dùng để tự trừ tồn cho hàng dùng thử trước khi có tính năng Xuất dùng thử ([mục 7b](#7b-xuất-dùng-thử)) — gộp hết về một khách chung, ví dụ "Văn phòng DiBeKho".
 
 1. **Tra cứu → Danh sách khách hàng.**
-2. Chọn từ 2 khách trở lên (giữ **Ctrl** hoặc **Shift** khi bấm chọn), rồi bấm **Gộp khách hàng…**.
+2. Chọn từ 2 khách trở lên (giữ **Ctrl** trên Windows, **⌘ Command** trên Mac, hoặc **Shift** khi bấm chọn), rồi bấm **Gộp khách hàng…**.
 3. Gõ tên khách hàng chung (ví dụ "Văn phòng DiBeKho") hoặc chọn 1 trong các tên đang hiển thị, rồi bấm **Lưu**.
 4. Đọc tóm tắt và đồng ý. Mọi đơn của các khách đã chọn chuyển sang khách chung; các khách cũ bị xoá (đơn và lịch sử vẫn giữ nguyên).
 

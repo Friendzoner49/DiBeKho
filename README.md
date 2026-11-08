@@ -138,12 +138,15 @@ Do these 4 steps once, in this order.
    - **Border gate / parent company**: type the supplier, or pick one used before.
    - **Customer return**: pick the customer, and the order if you know it.
 3. Three products are suggested. Type a **quantity** on each row; rows left without a quantity are skipped.
-   - To change a product, click its name → **🔍 Choose a product from the catalog…** or **★ New product (not in the catalog)…**.
+   - To change a product, click its name → **🔍 Choose a product from the catalog…** (type any words, e.g. `fs101 xam 10kg`) or **★ New product (not in the catalog)…**.
+   - After a quantity, **Enter** moves to the next row (Enter never saves).
    - For more rows, click **＋ Add row**.
 4. Choose **Put in**: main warehouse or office.
 5. Click **Save goods in**, read the summary and agree. The stock goes up, the receipt gets a code (HV001, HV002…) and an Excel file of it is saved in `output/hang-ve/`.
 
 A mistake? Click **↶ Undo** straight away, or select the receipt in the list and click **Edit selected…**. The old receipt stays in the history as "replaced".
+
+Closed the window before saving? The receipt is kept: click **＋ Goods in…** next time to go on. To correct a wrong stock figure use **Stock count**, not Goods in.
 
 Goods-in files of the old kind (a filled template) can still be imported with **Choose a file to import…**.
 
@@ -158,7 +161,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 ### 4. Looking things up
 
 - **Stock:** columns **Main warehouse**, **Office** and the total (the **Stock** column sticks to the left edge once you scroll past it, so the running total stays visible). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Settings → Products → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
-- **Search** (**Ctrl+F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
+- **Search** (**Ctrl+F**, on a Mac **⌘F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
 - Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Reread the whole note** (right-click an order in the order list to do this straight from there), **Cancel document**.
 - Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period. **Export to Excel…** saves exactly that (every order with its prices, the products bought) to a file in `output/`.
 - Prices come from the unit price / amount columns of the note. A note without a price leaves the cell empty (—) and it is not counted in revenue.

@@ -190,10 +190,15 @@ This note is **shared** with the note column on the Stock count page, and shows 
    - **Customer return**: pick the customer, and the order if you know it.
 3. Choose **Date in** and **Put in**: **Main warehouse** or **Office**.
 4. Three products are suggested (what usually comes from this supplier, or what is running low). Type a **quantity** on each row; rows without a quantity are skipped.
-   - Another product: click its name → **🔍 Choose a product from the catalog…**.
+   - Another product: click its name → **🔍 Choose a product from the catalog…**. The search box takes **any words, no accents or dashes needed**, e.g. `fs101 xam 10kg`; packing, type/colour, Chinese name and stock have their own columns to tell same-named products apart. One match left: press Enter to take it.
    - A brand-new product: click the name → **★ New product (not in the catalog)…**, fill in name and packing. It is created only when the receipt is saved.
    - More rows: **＋ Add row**. Remove a row: **✕** at its end.
+   - After typing a quantity, **Enter** moves to the next row (Enter never saves).
+   - Picking a product that is already on another row: the app says so at once and moves to that row.
 5. Click **Save goods in**, read the summary and agree.
+   - The supplier box is **where the goods came from** (border gate, parent company), not "Main warehouse". **To correct a wrong stock figure, use Stock count**, not Goods in.
+
+Had to close the window while typing (e.g. to fix a product's name in Settings)? The unsaved receipt **is kept**: click **＋ Goods in…** next time and choose **Yes** to go on. It is kept until the app is closed.
 
 Result: the stock goes up at the chosen place, the receipt gets a code **HV001, HV002…**, and an Excel file of it is saved in `output/hang-ve/` (to print or send).
 
@@ -296,7 +301,7 @@ Useful to send to the customer for checking, or to work out a salesperson's comm
 For tidying up duplicate or unneeded customers — for example sham "customers" that were used to self-deduct stock for trial use before trial-use notes existed ([section 7b](#7b-trial-use)) — merge them all into one shared customer, e.g. "DiBeKho office".
 
 1. **Search → Customer list.**
-2. Select 2 or more customers (hold **Ctrl** or **Shift** while clicking), then click **Merge customers…**.
+2. Select 2 or more customers (hold **Ctrl** on Windows, **⌘ Command** on a Mac, or **Shift** while clicking), then click **Merge customers…**.
 3. Type the shared name (e.g. "DiBeKho office") or pick one of the names shown, then click **Save**.
 4. Read the summary and agree. Every order of the selected customers moves to the shared one; the old customers are deleted (orders and history stay the same).
 
