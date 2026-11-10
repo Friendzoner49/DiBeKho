@@ -94,8 +94,11 @@ def self_test() -> int:
         from dibekho.core.deliveries import file_hash
 
         probe = Path(tmp) / "hash-probe.bin"
-        probe.write_bytes(b"x")  # builds ship without OpenSSL: sha256 must come from Python's built-in
+        probe.write_bytes(b"x")
         assert file_hash(probe) == "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+        import ssl  # cloud sync talks HTTPS: TLS must ship in the build (dibekho.spec keeps OpenSSL)
+
+        assert ssl.create_default_context() is not None
         ws = Workspace(Path(tmp) / APP_NAME)
         ws.ensure()
         for lang in LANGUAGES:

@@ -29,8 +29,7 @@ excludes = [
     "PySide6.QtDataVisualization", "PySide6.QtGraphs", "PySide6.QtSpatialAudio", "PySide6.QtTextToSpeech",
     # QtCharts only needs the Qt6OpenGL *DLLs* (still collected as binary deps), not these Python bindings.
     "PySide6.QtOpenGL", "PySide6.QtOpenGLWidgets",
-    # No network/TLS: hashlib.sha256 falls back to Python's built-in, so OpenSSL (~9 MB) is not needed.
-    "ssl", "_ssl", "_hashlib",
+    # OpenSSL (~9 MB) was excluded up to 0.4.5; cloud sync (HTTPS to Supabase) needs TLS, so it ships again.
 ]
 
 icon_win = ROOT / "resources" / "dibekho.ico"
