@@ -34,6 +34,7 @@ from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
+from dibekho.ui.cloud_tab import CloudTab
 from dibekho.ui.common import (
     GREY,
     NoWheelSpin,
@@ -139,6 +140,8 @@ class SettingsPage(Page):
         self.tabs.addTab(general_tab, t("settings.tab_general"))
         self.tabs.addTab(products_tab, t("settings.tab_products"))
         self.tabs.addTab(self.transfer, t("settings.tab_transfer"))
+        self.cloud = CloudTab(ctx)
+        self.tabs.addTab(self.cloud, t("settings.tab_cloud"))
 
         general = QGroupBox(t("settings.general"))
         form = QFormLayout(general)

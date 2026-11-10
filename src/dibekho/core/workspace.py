@@ -115,6 +115,12 @@ class Config:
     device_name: str = ""
     ui_scale: float = 1.2  # size of text, cells and buttons (1.2 = 120%, easier to read on a laptop)
     last_cleanup: str = ""  # ISO date of the last two-week maintenance (core.backup.run_maintenance)
+    # Cloud (Supabase). URL and publishable key are public by design; the refresh token grants the same
+    # access as the data already on this disk. The password itself is never stored.
+    cloud_url: str = ""
+    cloud_key: str = ""
+    cloud_user: str = ""
+    cloud_refresh_token: str = ""
 
     @staticmethod
     def path() -> Path:
