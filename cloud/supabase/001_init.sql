@@ -130,8 +130,8 @@ begin
             (select to_jsonb(s) from sync_state s where id));
     end if;
 
-    delete from mirror_document_lines; delete from mirror_documents;
-    delete from mirror_stock; delete from mirror_products; delete from mirror_customers;
+    -- TRUNCATE, not DELETE: Supabase preloads pg_safeupdate, which rejects DELETE without WHERE
+    truncate table mirror_document_lines, mirror_documents, mirror_stock, mirror_products, mirror_customers;
     insert into mirror_products  select * from jsonb_populate_recordset(null::mirror_products,  payload->'products');
     insert into mirror_customers select * from jsonb_populate_recordset(null::mirror_customers, payload->'customers');
     insert into mirror_documents select * from jsonb_populate_recordset(null::mirror_documents, payload->'documents');
