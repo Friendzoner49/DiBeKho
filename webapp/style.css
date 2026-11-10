@@ -56,6 +56,15 @@ table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { white-space: normal; }
 th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text); }
+th.sortable.asc::after { content: " ▲"; font-size: 10px; }
+th.sortable.desc::after { content: " ▼"; font-size: 10px; }
+
+/* kind chips on the orders tab, like the app's separate lists */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip { padding: 5px 12px; border-radius: 999px; font-size: 13px; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 tr.neg td { color: var(--red); }
 tr.closed td { color: var(--muted); text-decoration: line-through; }

@@ -8,11 +8,14 @@ const sb = supabase.createClient(DIBEKHO_CLOUD.url, DIBEKHO_CLOUD.key);
 const EMAIL_DOMAIN = "dibekho.local";
 const KIND_VI = { delivery: "Phiếu giao hàng", receipt: "Hàng về", stock_count: "Kiểm kê",
                   transfer: "Chuyển hàng", trial: "Dùng thử" };
+const KIND_ORDER = ["delivery", "receipt", "stock_count", "transfer", "trial"];
 const STATUS_VI = { active: "", cancelled: "đã huỷ", replaced: "đã thay" };
 
 const $ = (id) => document.getElementById(id);
 const data = { products: [], customers: [], documents: [], lines: [], stock: [] };
 let stockByProduct = {}, customerById = {}, productById = {}, linesByDoc = {};
+const sortState = { stock: { i: null, dir: 1 }, orders: { i: null, dir: 1 }, customers: { i: null, dir: 1 } };
+let orderKind = "all";
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -38,9 +41,35 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
-function table(headers, rows) {
-  return `<div class="scroll"><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>` +
-         `<tbody>${rows.join("")}</tbody></table></div>`;
+/* Sortable table: cols = [{label, get, num?, cls?}], rowClass/rowAttr optional per item.
+   Clicking a header sorts by that column; clicking again flips the direction. */
+function buildTable(pane, cols, items, { rowClass = () => "", rowAttr = () => "", footer = "" } = {}) {
+  const st = sortState[pane];
+  let rows = items;
+  if (st.i !== null && cols[st.i]) {
+    const c = cols[st.i];
+    rows = items.slice().sort((a, b) => {
+      const va = c.get(a), vb = c.get(b);
+      if (c.num) return ((va ?? -Infinity) - (vb ?? -Infinity)) * st.dir;
+      return String(va ?? "").localeCompare(String(vb ?? ""), "vi") * st.dir;
+    });
+  }
+  const head = cols.map((c, i) =>
+    `<th data-i="${i}" class="sortable ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${c.label}</th>`).join("");
+  const body = rows.map((item) =>
+    `<tr class="${rowClass(item)}" ${rowAttr(item)}>` +
+    cols.map((c) => `<td class="${c.cls || ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") +
+    "</tr>").join("");
+  const el = $(`tab-${pane}`);
+  el.innerHTML = `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${footer}`;
+  for (const th of el.querySelectorAll("th.sortable")) {
+    th.addEventListener("click", () => {
+      const i = Number(th.dataset.i);
+      if (st.i === i) st.dir *= -1; else { st.i = i; st.dir = 1; }
+      render();
+    });
+  }
+  return el;
 }
 
 /* ---------------------------------------------------------------- login */
@@ -117,48 +146,66 @@ function render() {
 }
 
 function renderStock(f) {
-  const rows = data.products
+  const stockOf = (p) => stockByProduct[p.id] || { total: 0, 1: 0, 2: 0 };
+  const items = data.products
     .filter((p) => p.active)
-    .filter((p) => !f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`))
-    .map((p) => {
-      const s = stockByProduct[p.id] || { total: 0, 1: 0, 2: 0 };
-      const cls = s.total < 0 ? "neg" : "";
-      return `<tr class="${cls}"><td>${esc(p.code)}</td><td>${esc(p.name_vi)}</td><td>${esc(p.name_zh)}</td>` +
-             `<td>${esc(p.spec)}</td><td>${esc(p.variant)}</td><td class="num">${fmtQty(s.total)}</td>` +
-             `<td class="num">${fmtQty(s[1])}</td><td class="num">${fmtQty(s[2])}</td>` +
-             `<td>${esc(p.unit)}</td><td>${esc(p.stock_note)}</td></tr>`;
-    });
-  $("tab-stock").innerHTML =
-    table(["Mã", "Mặt hàng", "Tên Trung", "Quy cách", "Loại/màu", "Tồn", "Kho tổng", "Văn phòng", "Đơn vị", "Ghi chú"], rows)
-    + `<p class="hint">${rows.length} mặt hàng. Tồn âm tô đỏ.</p>`;
+    .filter((p) => !f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`));
+  buildTable("stock", [
+    { label: "Mã", get: (p) => p.code },
+    { label: "Mặt hàng", get: (p) => p.name_vi },
+    { label: "Tên Trung", get: (p) => p.name_zh },
+    { label: "Quy cách", get: (p) => p.spec },
+    { label: "Loại/màu", get: (p) => p.variant },
+    { label: "Nhóm", get: (p) => p.category },
+    { label: "Tồn", get: (p) => stockOf(p).total, num: true, cls: "num", html: (p) => fmtQty(stockOf(p).total) },
+    { label: "Kho tổng", get: (p) => stockOf(p)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p)[1]) },
+    { label: "Văn phòng", get: (p) => stockOf(p)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p)[2]) },
+    { label: "Đơn vị", get: (p) => p.unit },
+    { label: "Ghi chú", get: (p) => p.stock_note },
+  ], items, {
+    rowClass: (p) => (stockOf(p).total < 0 ? "neg" : ""),
+    footer: `<p class="hint">${items.length} mặt hàng. Tồn âm tô đỏ. Bấm tiêu đề cột để sắp xếp.</p>`,
+  });
 }
 
 function renderOrders(f) {
-  const rows = data.documents
-    .filter((d) => {
-      if (!f) return true;
-      const customer = customerById[d.customer_id];
-      const inLines = (linesByDoc[d.id] || []).some((l) => {
-        const p = productById[l.product_id];
-        return p && matches(f, `${p.code} ${p.name_vi} ${p.name_zh}`);
-      });
-      return matches(f, `${d.code} ${customer ? customer.name : ""} ${KIND_VI[d.kind] || d.kind} ${d.note}`) || inLines;
-    })
-    .slice(0, 500)
-    .map((d) => {
-      const customer = customerById[d.customer_id];
-      const status = STATUS_VI[d.status] ?? d.status;
-      return `<tr class="doc ${d.status !== "active" ? "closed" : ""}" data-doc="${d.id}">` +
-             `<td>${esc(d.doc_date)}</td><td>${esc(KIND_VI[d.kind] || d.kind)}</td><td>${esc(d.code)}</td>` +
-             `<td>${esc(customer ? customer.name : "")}</td><td>${status}</td>` +
-             `<td class="num">${fmtMoney(d.note_total)}</td></tr>`;
+  const filtered = data.documents.filter((d) => {
+    if (orderKind !== "all" && d.kind !== orderKind) return false;
+    if (!f) return true;
+    const customer = customerById[d.customer_id];
+    const inLines = (linesByDoc[d.id] || []).some((l) => {
+      const p = productById[l.product_id];
+      return p && matches(f, `${p.code} ${p.name_vi} ${p.name_zh}`);
     });
-  $("tab-orders").innerHTML =
-    table(["Ngày", "Loại", "Mã", "Khách hàng", "Trạng thái", "Tổng tiền"], rows)
-    + `<p class="hint">Bấm một dòng để xem chi tiết. Hiện tối đa 500 phiếu mới nhất.</p>`;
-  for (const tr of $("tab-orders").querySelectorAll("tr.doc")) {
-    tr.addEventListener("click", () => toggleLines(tr));
+    return matches(f, `${d.code} ${customer ? customer.name : ""} ${KIND_VI[d.kind] || d.kind} ${d.note}`) || inLines;
+  });
+
+  // one chip per document kind, like the app's separate lists; counts follow the search box
+  const counts = {};
+  for (const d of data.documents) counts[d.kind] = (counts[d.kind] || 0) + 1;
+  const chips = ["all", ...KIND_ORDER.filter((k) => counts[k])].map((k) =>
+    `<button class="chip ${orderKind === k ? "active" : ""}" data-kind="${k}">` +
+    `${k === "all" ? "Tất cả" : KIND_VI[k]} (${k === "all" ? data.documents.length : counts[k]})</button>`).join("");
+
+  const showCustomer = orderKind === "all" || orderKind === "delivery" || orderKind === "receipt";
+  const cols = [
+    { label: "Ngày", get: (d) => d.doc_date },
+    ...(orderKind === "all" ? [{ label: "Loại", get: (d) => KIND_VI[d.kind] || d.kind }] : []),
+    { label: "Mã", get: (d) => d.code },
+    ...(showCustomer ? [{ label: "Khách hàng", get: (d) => (customerById[d.customer_id] || {}).name || "" }] : []),
+    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
+    { label: "Tổng tiền", get: (d) => d.note_total, num: true, cls: "num", html: (d) => fmtMoney(d.note_total) },
+  ];
+  const el = buildTable("orders", cols, filtered.slice(0, 500), {
+    rowClass: (d) => `doc ${d.status !== "active" ? "closed" : ""}`,
+    rowAttr: (d) => `data-doc="${d.id}" data-cols="${cols.length}"`,
+    footer: `<p class="hint">Bấm một dòng để xem chi tiết. Hiện tối đa 500 phiếu mới nhất.</p>`,
+  });
+  el.insertAdjacentHTML("afterbegin", `<div class="chips">${chips}</div>`);
+  for (const chip of el.querySelectorAll(".chip")) {
+    chip.addEventListener("click", () => { orderKind = chip.dataset.kind; render(); });
   }
+  for (const tr of el.querySelectorAll("tr.doc")) tr.addEventListener("click", () => toggleLines(tr));
 }
 
 function toggleLines(tr) {
@@ -174,15 +221,20 @@ function toggleLines(tr) {
   }).join("");
   const detail = document.createElement("tr");
   detail.className = "detail";
-  detail.innerHTML = `<td colspan="6">${table(["Mã", "Mặt hàng", "Quy cách", "SL", "Đơn giá", "Thành tiền", "Ghi chú"], [inner])}</td>`;
+  detail.innerHTML = `<td colspan="${tr.dataset.cols}"><div class="scroll"><table>` +
+    `<thead><tr><th>Mã</th><th>Mặt hàng</th><th>Quy cách</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th><th>Ghi chú</th></tr></thead>` +
+    `<tbody>${inner}</tbody></table></div></td>`;
   tr.after(detail);
 }
 
 function renderCustomers(f) {
-  const rows = data.customers
-    .filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`))
-    .map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.contact)}</td><td>${esc(c.phone)}</td><td>${esc(c.address)}</td></tr>`);
-  $("tab-customers").innerHTML = table(["Khách hàng", "Người liên hệ", "Điện thoại", "Địa chỉ"], rows);
+  const items = data.customers.filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`));
+  buildTable("customers", [
+    { label: "Khách hàng", get: (c) => c.name },
+    { label: "Người liên hệ", get: (c) => c.contact },
+    { label: "Điện thoại", get: (c) => c.phone },
+    { label: "Địa chỉ", get: (c) => c.address },
+  ], items);
 }
 
 /* ---------------------------------------------------------------- wiring */
