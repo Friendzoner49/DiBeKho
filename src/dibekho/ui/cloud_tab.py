@@ -10,6 +10,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from dibekho.core import activity
+from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import sync
 from dibekho.core.cloud.client import CloudClient, CloudError
 from dibekho.i18n import t
@@ -75,6 +76,10 @@ class CloudTab(QWidget):
                 if not ask(self, t("cloud.conflict", device=other.get("device_name", "?"), at=when)):
                     return
                 result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token, force=True))
+            if not result["conflict"]:
+                self._busy(lambda: cloud_inbox.finish_applied(self.ctx.conn, client, token))
+                self.ctx.web_inbox = self._busy(lambda: cloud_inbox.fetch_pending(self.ctx.conn, client, token))
+                self.ctx.notify()  # new web orders land in Cần xử lý
         except CloudError as exc:
             error(self, str(exc))
             return

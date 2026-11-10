@@ -66,6 +66,18 @@ th.sortable.desc::after { content: " ▼"; font-size: 10px; }
 .chip { padding: 5px 12px; border-radius: 999px; font-size: 13px; }
 .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+td.strong { font-weight: 700; font-size: 15px; color: var(--accent); }  /* the Tồn column stands out */
+tr.neg td.strong { color: var(--red); }
+td.qty { color: var(--muted); }
+
+/* goods-in form */
+.form { padding: 16px; margin-bottom: 20px; }
+.form h2 { margin: 0 0 4px; font-size: 18px; }
+.form label { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.form label input, .form label select { display: block; width: 100%; margin-top: 4px; }
+.form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.line { display: grid; grid-template-columns: 3fr 90px 2fr auto; gap: 6px; margin-top: 8px; }
+button.narrow { width: auto; padding: 9px 22px; }
 tr.neg td { color: var(--red); }
 tr.closed td { color: var(--muted); text-decoration: line-through; }
 tr.doc { cursor: pointer; }

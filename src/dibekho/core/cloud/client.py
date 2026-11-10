@@ -53,6 +53,10 @@ class CloudClient:
         """GET a PostgREST path, e.g. '/rest/v1/sync_state?select=*'."""
         return self._request(f"{self.base}{path}", None, access_token, "GET")
 
+    def patch(self, path: str, body: dict, access_token: str):
+        """PATCH rows a PostgREST filter selects, e.g. '/rest/v1/web_inbox?id=eq.<uuid>'."""
+        return self._request(f"{self.base}{path}", body, access_token, "PATCH")
+
     def _tokens(self, data) -> dict:
         if not isinstance(data, dict) or not data.get("access_token") or not data.get("refresh_token"):
             raise CloudError("Cloud trả về dữ liệu đăng nhập không hiểu được.")

@@ -20,6 +20,9 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, backup, catalog, deliveries, inbox, transfer
+from dibekho.core.cloud import inbox as cloud_inbox
+from dibekho.core.cloud import sync as cloud_sync
+from dibekho.core.cloud.client import CloudError
 from dibekho.core.stock import set_location, stock_levels
 from dibekho.core.text import fmt_qty, matches_words, parse_number
 from dibekho.i18n import t
@@ -113,6 +116,15 @@ class PendingPage(Page):
         lay.addWidget(self.counts)
         self.layout_.addWidget(self.count_box, 2)
 
+        # goods-in slips typed on the webapp, waiting for this machine to record them
+        self.web_box = QGroupBox(t("pending.web_title"))
+        lay = QVBoxLayout(self.web_box)
+        lay.addWidget(hint_label(t("pending.web_hint")))
+        self.web = make_table([t("col.date"), t("pending.web_source"), t("pending.web_lines"),
+                               t("pending.web_sent_at"), t("pending.actions")], stretch=1)
+        lay.addWidget(self.web)
+        self.layout_.addWidget(self.web_box, 2)
+
         self.files_box = QGroupBox(t("pending.files_title"))
         lay = QVBoxLayout(self.files_box)
         self.files = make_table([t("col.status"), t("col.file"), t("pending.detail"), t("pending.actions")], stretch=2)
@@ -145,6 +157,8 @@ class PendingPage(Page):
         self.files.resizeColumnsToContents()
         self.files_box.setVisible(bool(rows))
 
+        self._fill_web(conn)
+
         self._items = inbox.items(conn, ws)
         fill_table(self.inbox, [[t(f"inbox.{it.kind}"), it.path.name, self._inbox_message(it), ""]
                                 for it in self._items])
@@ -153,7 +167,56 @@ class PendingPage(Page):
         self.inbox.resizeColumnsToContents()
         self.inbox_box.setVisible(bool(self._items))
 
-        self.empty.setVisible(not (self._unknown or rows or self._items or self._unplaced or self._conflicts))
+        self.empty.setVisible(not (self._unknown or rows or self._items or self._unplaced or self._conflicts
+                                   or self.ctx.web_inbox))
+
+    # ---- goods-in slips from the webapp ------------------------------------------------
+
+    def _fill_web(self, conn):
+        items = self.ctx.web_inbox
+        fill_table(self.web, [[fmt_date(str((it.get("payload") or {}).get("doc_date") or "")),
+                               str((it.get("payload") or {}).get("supplier_name") or ""),
+                               str(len((it.get("payload") or {}).get("lines") or [])),
+                               str(it.get("created_at") or "")[:16].replace("T", " "), ""] for it in items])
+        for i, it in enumerate(items):
+            self.web.setCellWidget(i, 4, _buttons(
+                (t("pending.web_apply"), lambda _=False, x=it: self._web_apply(x)),
+                (t("pending.web_reject"), lambda _=False, x=it: self._web_reject(x)),
+            ))
+        self.web.resizeColumnsToContents()
+        self.web_box.setVisible(bool(items))
+
+    def _web_apply(self, item):
+        conn = self.ctx.conn
+        data, problems = cloud_inbox.check(conn, item)
+        if problems:
+            error(self, " ".join(problems))
+            return
+        text = t("pending.web_confirm", date=fmt_date(data.doc_date.isoformat()), source=data.supplier_name,
+                 lines=cloud_inbox.describe(conn, item))
+        if not ask(self, text):
+            return
+
+        def do():
+            cloud_inbox.apply_item(conn, self.ctx.ws, item)
+            self.ctx.web_inbox = [x for x in self.ctx.web_inbox if x["id"] != item["id"]]
+
+        self._run(do, "web_inbox")
+
+    def _web_reject(self, item):
+        if not ask(self, t("pending.web_reject_ask")):
+            return
+        try:
+            pair = cloud_sync.session(self.ctx.cfg)
+            if pair is None:
+                raise CloudError(t("cloud.need_password"))
+            cloud_inbox.reject(pair[0], pair[1], item["id"])
+        except CloudError as exc:
+            error(self, str(exc))
+            return
+        activity.log("action", "web_inbox_rejected")
+        self.ctx.web_inbox = [x for x in self.ctx.web_inbox if x["id"] != item["id"]]
+        self.refresh()
 
     # ---- orders read after a stock count -------------------------------------------
 

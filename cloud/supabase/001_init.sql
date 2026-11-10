@@ -82,6 +82,8 @@ alter table public.sync_state           enable row level security;
 alter table public.web_inbox            enable row level security;
 
 create policy profiles_own_read on public.profiles for select using (user_id = auth.uid());
+-- the desktop shows who sent a web_inbox item (my_role() is security definer, so no recursion here)
+create policy profiles_desktop_read on public.profiles for select using (public.my_role() = 'desktop');
 
 -- every signed-in role may read the mirror and sync state
 do $$

@@ -90,7 +90,12 @@ async function signIn() {
 async function showApp() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
+  const { data: prof } = await sb.from("profiles").select("role").maybeSingle();
+  if (prof && (prof.role === "editor" || prof.role === "desktop")) {
+    $("send-tab").classList.remove("hidden");
+  }
   await loadAll();
+  initSendForm();
 }
 
 /* ---------------------------------------------------------------- data */
@@ -157,9 +162,9 @@ function renderStock(f) {
     { label: "Quy cách", get: (p) => p.spec },
     { label: "Loại/màu", get: (p) => p.variant },
     { label: "Nhóm", get: (p) => p.category },
-    { label: "Tồn", get: (p) => stockOf(p).total, num: true, cls: "num", html: (p) => fmtQty(stockOf(p).total) },
-    { label: "Kho tổng", get: (p) => stockOf(p)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p)[1]) },
-    { label: "Văn phòng", get: (p) => stockOf(p)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p)[2]) },
+    { label: "Tồn", get: (p) => stockOf(p).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p).total) },
+    { label: "Kho tổng", get: (p) => stockOf(p)[1], num: true, cls: "num qty", html: (p) => fmtQty(stockOf(p)[1]) },
+    { label: "Văn phòng", get: (p) => stockOf(p)[2], num: true, cls: "num qty", html: (p) => fmtQty(stockOf(p)[2]) },
     { label: "Đơn vị", get: (p) => p.unit },
     { label: "Ghi chú", get: (p) => p.stock_note },
   ], items, {
@@ -237,6 +242,76 @@ function renderCustomers(f) {
   ], items);
 }
 
+/* ---------------------------------------------------------------- send goods-in (web_inbox) */
+
+let productLabels = {};  // "SP001 · name · spec" -> product id
+
+function initSendForm() {
+  $("rc-date").value = new Date().toISOString().slice(0, 10);
+  productLabels = {};
+  $("products-dl").innerHTML = data.products.filter((p) => p.active).map((p) => {
+    const label = [p.code, p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
+    productLabels[label] = p.id;
+    return `<option value="${esc(label)}">`;
+  }).join("");
+  if (!$("rc-lines").children.length) { addLine(); addLine(); addLine(); }
+  loadSent();
+}
+
+function addLine() {
+  const row = document.createElement("div");
+  row.className = "line";
+  row.innerHTML = `<input class="rc-product" list="products-dl" placeholder="Gõ mã hoặc tên hàng…">` +
+    `<input class="rc-qty" type="number" min="0" step="any" placeholder="SL">` +
+    `<input class="rc-lnote" placeholder="Ghi chú">` +
+    `<button class="flat rc-del" title="Xoá dòng">✕</button>`;
+  row.querySelector(".rc-del").addEventListener("click", () => row.remove());
+  $("rc-lines").append(row);
+}
+
+async function sendReceipt() {
+  $("rc-error").textContent = ""; $("rc-msg").textContent = "";
+  const lines = [];
+  for (const row of $("rc-lines").querySelectorAll(".line")) {
+    const label = row.querySelector(".rc-product").value.trim();
+    const qty = parseFloat(row.querySelector(".rc-qty").value.replace(",", "."));
+    if (!label && !row.querySelector(".rc-qty").value) continue;  // empty row
+    const id = productLabels[label];
+    if (!id) { $("rc-error").textContent = `Không nhận ra mặt hàng "${label}". Hãy chọn từ danh sách gợi ý.`; return; }
+    if (!(qty > 0)) { $("rc-error").textContent = `Số lượng của "${label}" phải lớn hơn 0.`; return; }
+    lines.push({ product_id: id, qty, note: row.querySelector(".rc-lnote").value.trim() });
+  }
+  if (!lines.length) { $("rc-error").textContent = "Chưa có dòng hàng nào."; return; }
+  if (!$("rc-source").value.trim()) { $("rc-error").textContent = "Hãy ghi nguồn hàng."; return; }
+  const payload = {
+    doc_date: $("rc-date").value,
+    supplier_name: $("rc-source").value.trim(),
+    location_id: Number($("rc-loc").value),
+    note: $("rc-note").value.trim(),
+    lines,
+  };
+  const { error } = await sb.from("web_inbox").insert({ kind: "receipt", payload });
+  if (error) { $("rc-error").textContent = `Không gửi được: ${error.message}`; return; }
+  $("rc-msg").textContent = "Đã gửi. Phiếu sẽ vào sổ sau khi máy chính duyệt.";
+  $("rc-lines").innerHTML = ""; addLine(); addLine(); addLine();
+  $("rc-note").value = "";
+  loadSent();
+}
+
+async function loadSent() {
+  const { data: rows, error } = await sb.from("web_inbox").select("*")
+    .order("created_at", { ascending: false }).limit(50);
+  if (error || !rows) return;
+  const label = (r) => r.status === "applied" ? `✔ Đã vào sổ${r.result && r.result.code ? ` (${r.result.code})` : ""}`
+    : r.status === "rejected" ? "✖ Bị từ chối" : "⏳ Chờ máy chính duyệt";
+  $("rc-sent").innerHTML = `<div class="scroll"><table><thead><tr>` +
+    `<th>Gửi lúc</th><th>Ngày phiếu</th><th>Nguồn</th><th>Số dòng</th><th>Trạng thái</th></tr></thead><tbody>` +
+    rows.map((r) => `<tr><td>${esc(String(r.created_at).slice(0, 16).replace("T", " "))}</td>` +
+      `<td>${esc((r.payload || {}).doc_date || "")}</td><td>${esc((r.payload || {}).supplier_name || "")}</td>` +
+      `<td class="num">${((r.payload || {}).lines || []).length}</td><td>${label(r)}</td></tr>`).join("") +
+    `</tbody></table></div>`;
+}
+
 /* ---------------------------------------------------------------- wiring */
 
 for (const btn of document.querySelectorAll(".tab")) {
@@ -246,6 +321,8 @@ for (const btn of document.querySelectorAll(".tab")) {
     $(`tab-${btn.dataset.tab}`).classList.remove("hidden");
   });
 }
+$("rc-add").addEventListener("click", addLine);
+$("rc-send").addEventListener("click", sendReceipt);
 $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());
 $("filter").addEventListener("input", render);

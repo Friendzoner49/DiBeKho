@@ -26,6 +26,7 @@
       <button data-tab="stock" class="tab active">Tồn kho</button>
       <button data-tab="orders" class="tab">Đơn hàng</button>
       <button data-tab="customers" class="tab">Khách hàng</button>
+      <button data-tab="send" class="tab hidden" id="send-tab">Gửi hàng về</button>
     </nav>
     <span id="freshness" class="freshness"></span>
     <button id="logout" class="flat">Đăng xuất</button>
@@ -40,6 +41,26 @@
     <div id="tab-stock" class="pane"></div>
     <div id="tab-orders" class="pane hidden"></div>
     <div id="tab-customers" class="pane hidden"></div>
+    <div id="tab-send" class="pane hidden">
+      <div class="card form">
+        <h2>Gửi phiếu hàng về</h2>
+        <p class="hint">Phiếu gửi đi sẽ nằm chờ; chỉ khi máy chính duyệt mới được vào sổ.</p>
+        <div class="grid">
+          <label>Ngày <input id="rc-date" type="date"></label>
+          <label>Nguồn hàng <input id="rc-source" placeholder="Cửa khẩu / công ty mẹ…"></label>
+          <label>Nhập vào <select id="rc-loc"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select></label>
+        </div>
+        <div id="rc-lines"></div>
+        <button id="rc-add" class="flat">＋ Thêm dòng</button>
+        <label>Ghi chú <input id="rc-note"></label>
+        <button id="rc-send" class="primary narrow">Gửi lên máy chính</button>
+        <p id="rc-msg" class="hint"></p>
+        <p id="rc-error" class="error"></p>
+      </div>
+      <h2>Đã gửi</h2>
+      <div id="rc-sent"></div>
+      <datalist id="products-dl"></datalist>
+    </div>
   </main>
 </div>
 

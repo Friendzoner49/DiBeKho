@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, inbox, undo
+from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud.client import CloudError
 from dibekho.i18n import t
@@ -194,24 +195,30 @@ class MainWindow(QMainWindow):
             client, token = pair
             result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token)
             if result["conflict"] and self._ask_cloud_overwrite(result):
-                cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
+                result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
+            if not result["conflict"]:
+                cloud_inbox.finish_applied(self.ctx.conn, client, token)
         except CloudError as exc:
             activity.log("error", f"cloud push on close: {exc}")
 
     def _cloud_check_on_open(self):
-        """Another machine pushed after our last push AND this machine holds unpushed changes: say so now,
-        before more work piles onto both sides. The choice itself happens at push time (ask, never silent)."""
+        """Pull the web inbox into 'Cần xử lý', and when another machine pushed after our last push AND this
+        machine holds unpushed changes, say so now, before more work piles onto both sides. The choice itself
+        happens at push time (ask, never silent)."""
         try:
-            if not cloud_sync.has_unpushed(self.ctx.conn):
-                return
             pair = cloud_sync.session(self.ctx.cfg, timeout=10)
             if pair is None:
                 return
-            state = cloud_sync.fetch_state(*pair)
-            last_seen, _ = cloud_sync.last_push(self.ctx.conn)
-            if state and state["device_id"] != self.ctx.cfg.device_id and state["last_push_id"] != last_seen:
-                when = str(state.get("last_push_at", ""))[:16].replace("T", " ")
-                info(self, t("cloud.open_conflict", device=state.get("device_name", "?"), at=when))
+            client, token = pair
+            if cloud_sync.has_unpushed(self.ctx.conn):
+                state = cloud_sync.fetch_state(client, token)
+                last_seen, _ = cloud_sync.last_push(self.ctx.conn)
+                if state and state["device_id"] != self.ctx.cfg.device_id and state["last_push_id"] != last_seen:
+                    when = str(state.get("last_push_at", ""))[:16].replace("T", " ")
+                    info(self, t("cloud.open_conflict", device=state.get("device_name", "?"), at=when))
+            self.ctx.web_inbox = cloud_inbox.fetch_pending(self.ctx.conn, client, token)
+            if self.ctx.web_inbox:
+                self.ctx.notify()
         except CloudError as exc:
             activity.log("error", f"cloud check on open: {exc}")
 
