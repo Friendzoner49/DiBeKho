@@ -119,14 +119,25 @@ class MainWindow(QMainWindow):
         if result.imported or result.pending:
             activity.log("scan", f"read {len(result.imported)}: {', '.join(result.imported)} · waiting {result.pending}"
                          if result.imported else f"waiting {result.pending}")
+        if not quiet:
+            self._cloud_pull_inbox()  # the button also refreshes orders typed on the web
         if result.imported or not quiet:
             self.ctx.notify()
         self._update_badge(result)
         return result
 
+    def _cloud_pull_inbox(self):
+        try:
+            pair = cloud_sync.session(self.ctx.cfg, timeout=10)
+            if pair is not None:
+                self.ctx.web_inbox = cloud_inbox.fetch_pending(self.ctx.conn, *pair)
+        except CloudError as exc:
+            activity.log("error", f"cloud pull inbox: {exc}")
+
     def _update_badge(self, result=None):
         pending = (deliveries.pending_count(self.ctx.conn) + deliveries.unplaced_count(self.ctx.conn)
-                   + len(deliveries.count_conflicts(self.ctx.conn)) + len(inbox.items(self.ctx.conn, self.ctx.ws)))
+                   + len(deliveries.count_conflicts(self.ctx.conn)) + len(inbox.items(self.ctx.conn, self.ctx.ws))
+                   + len(self.ctx.web_inbox))
         label = t("nav.pending") + (f"  ({pending})" if pending else "")
         self.nav.item(PENDING).setText(label)
         self.nav.item(PENDING).setForeground(Qt.red if pending else self.nav.palette().text().color())
