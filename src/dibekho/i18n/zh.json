@@ -313,6 +313,7 @@
   "cloud.need_password": "请输入密码登录云端。",
   "cloud.push_ok": "数据已上传到云端。",
   "cloud.conflict": "电脑“{device}”已于 {at} 上传数据到云端。\n继续的话，云端副本将被本机数据替换（另一台电脑上的数据不会被删除）。\n继续吗？",
+  "cloud.open_conflict": "注意：电脑“{device}”已于 {at} 上传数据到云端，而本机也有未上传的改动。\n两台电脑现在各有一个版本——建议只在一台电脑上操作。同步时应用会询问保留哪个版本。",
   "pending.confirm_apply": "即将应用：\n• 将 {mapped} 行对应到已有商品\n• 新建 {created} 个商品\n• 去掉 {skipped} 行非货物\n• {later} 行稍后处理\n\n送货单将按已确认的行入账；“稍后”的行留在这里，确认后会加入同一张订单。选错了？点上方的 ↶ 撤销。\n\n继续？",
   "pending.skip_short": "✕ 非货物（已删除此行）",
   "btn.reread_doc": "整张重新读取",

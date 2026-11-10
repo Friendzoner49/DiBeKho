@@ -313,6 +313,7 @@
   "cloud.need_password": "Enter the password to sign in to the cloud.",
   "cloud.push_ok": "Data pushed to the cloud.",
   "cloud.conflict": "Machine “{device}” pushed its data to the cloud at {at}.\nIf you continue, the cloud copy will be replaced with this machine's data (nothing is deleted on the other machine).\nContinue?",
+  "cloud.open_conflict": "Note: machine “{device}” pushed data to the cloud at {at}, and this machine also has unsent changes.\nThe two machines now hold different versions — best to work on one machine. When syncing, the app will ask which one to keep.",
   "pending.confirm_apply": "About to apply:\n• Match {mapped} lines to existing products\n• Create {created} new products\n• Drop {skipped} lines that are not goods\n• Leave {later} lines for later\n\nThe notes are recorded with the approved lines; 'Later' lines wait here and are added to the same order when you approve them. Chose wrongly? Press ↶ Undo at the top.\n\nContinue?",
   "pending.skip_short": "✕ Not goods (line dropped)",
   "btn.reread_doc": "Reread the whole note",

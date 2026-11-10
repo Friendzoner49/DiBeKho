@@ -1,4 +1,4 @@
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 
 from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, inbox, undo
+from dibekho.core.cloud import sync as cloud_sync
+from dibekho.core.cloud.client import CloudError
 from dibekho.i18n import t
 from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
 from dibekho.ui.count_page import CountPage
@@ -102,6 +104,7 @@ class MainWindow(QMainWindow):
         ctx.changed.connect(lambda: self._update_badge(self._last))
         ctx.changed.connect(self._update_undo)
         self._update_undo()
+        QTimer.singleShot(1500, self._cloud_check_on_open)  # after the window is up, not before
 
     def rescan(self, quiet: bool = False, allow_partial: bool = False):
         """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed.
@@ -173,5 +176,46 @@ class MainWindow(QMainWindow):
         self.search.focus()
 
     def closeEvent(self, event):
+        self._cloud_push_on_close()
         self.ctx.close()
         super().closeEvent(event)
+
+    # ------------------------------------------------------------ cloud (docs/cloud/04, step 6)
+
+    def _cloud_push_on_close(self):
+        """Closing a work session puts it on the cloud, so the other machine (and the web) see it next.
+        Offline or expired session: skip silently -- the next open or a manual sync catches up."""
+        try:
+            if not cloud_sync.has_unpushed(self.ctx.conn):
+                return
+            pair = cloud_sync.session(self.ctx.cfg, timeout=15)  # never keep the app hanging on exit
+            if pair is None:
+                return
+            client, token = pair
+            result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token)
+            if result["conflict"] and self._ask_cloud_overwrite(result):
+                cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
+        except CloudError as exc:
+            activity.log("error", f"cloud push on close: {exc}")
+
+    def _cloud_check_on_open(self):
+        """Another machine pushed after our last push AND this machine holds unpushed changes: say so now,
+        before more work piles onto both sides. The choice itself happens at push time (ask, never silent)."""
+        try:
+            if not cloud_sync.has_unpushed(self.ctx.conn):
+                return
+            pair = cloud_sync.session(self.ctx.cfg, timeout=10)
+            if pair is None:
+                return
+            state = cloud_sync.fetch_state(*pair)
+            last_seen, _ = cloud_sync.last_push(self.ctx.conn)
+            if state and state["device_id"] != self.ctx.cfg.device_id and state["last_push_id"] != last_seen:
+                when = str(state.get("last_push_at", ""))[:16].replace("T", " ")
+                info(self, t("cloud.open_conflict", device=state.get("device_name", "?"), at=when))
+        except CloudError as exc:
+            activity.log("error", f"cloud check on open: {exc}")
+
+    def _ask_cloud_overwrite(self, result) -> bool:
+        other = result.get("last_push") or {}
+        when = str(other.get("last_push_at", ""))[:16].replace("T", " ")
+        return ask(self, t("cloud.conflict", device=other.get("device_name", "?"), at=when))

@@ -107,6 +107,49 @@ def test_push_mirror_conflict_changes_nothing_until_forced(conn):
     assert client.calls[1][1]["force"] is True
 
 
+def test_has_unpushed_follows_touch_and_push(conn):
+    assert not sync.has_unpushed(conn)  # nothing changed yet
+    with db.transaction(conn):
+        db.touch(conn)
+    assert sync.has_unpushed(conn)
+    client = FakeClient([{"conflict": False, "push_id": 1}])
+    sync.push_mirror(conn, Cfg, client, "tok")
+    assert not sync.has_unpushed(conn)  # the push covered the change
+
+
+def test_session_none_until_cloud_configured(tmp_path, monkeypatch):
+    from dibekho.core.workspace import Config
+
+    monkeypatch.setattr(Config, "path", staticmethod(lambda: tmp_path / "config.json"))
+    cfg = Config(workspace=str(tmp_path))
+    assert sync.session(cfg) is None  # not set up: silently skip cloud work
+
+    class FakeCloudClient:
+        def __init__(self, url, key, timeout=None):
+            pass
+
+        def refresh(self, token):
+            assert token == "old"
+            return {"access_token": "A", "refresh_token": "new"}
+
+    monkeypatch.setattr(sync, "CloudClient", FakeCloudClient)
+    cfg.cloud_url, cfg.cloud_key, cfg.cloud_user, cfg.cloud_refresh_token = "u", "k", "may", "old"
+    client, token = sync.session(cfg)
+    assert token == "A"
+    assert cfg.cloud_refresh_token == "new"  # rotation saved
+    assert Config.load().cloud_refresh_token == "new"
+
+
+def test_get_and_fetch_state(monkeypatch):
+    calls = fake_urlopen(monkeypatch, lambda req: [{"device_id": "d2", "device_name": "May kia",
+                                                    "last_push_id": 9, "last_push_at": "2026-11-10T10:00:00Z"}])
+    client = CloudClient("https://xxx.supabase.co", "k")
+    state = sync.fetch_state(client, "tok")
+    assert state["device_id"] == "d2" and state["last_push_id"] == 9
+    (req,) = calls
+    assert req.get_method() == "GET" and req.full_url.endswith("/rest/v1/sync_state?select=*")
+
+
 def test_push_mirror_sends_last_seen_push_as_based_on(conn):
     with db.transaction(conn):
         db.set_meta(conn, "cloud_last_push_id", "7")

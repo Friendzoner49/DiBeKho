@@ -12,6 +12,32 @@ from dibekho.core.cloud import mirror
 from dibekho.core.cloud.client import CloudClient, CloudError
 
 
+def has_unpushed(conn) -> bool:
+    """Business data changed after the last cloud push (same ISO-string compare as
+    transfer.has_unsent_changes uses for data packages)."""
+    changed = db.get_meta(conn, "last_change_at")
+    return bool(changed) and changed > db.get_meta(conn, "cloud_last_push_at")
+
+
+def session(cfg, timeout: float | None = None) -> tuple[CloudClient, str] | None:
+    """Client + access token from the saved refresh token, for syncs with no password prompt
+    (push on close, check on open). None when the cloud is not set up on this machine.
+    Refresh tokens rotate, so the new one is saved at once. Raises CloudError when offline/expired."""
+    if not (cfg.cloud_url and cfg.cloud_key and cfg.cloud_user and cfg.cloud_refresh_token):
+        return None
+    client = CloudClient(cfg.cloud_url, cfg.cloud_key, **({"timeout": timeout} if timeout else {}))
+    tokens = client.refresh(cfg.cloud_refresh_token)
+    cfg.cloud_refresh_token = tokens["refresh_token"]
+    cfg.save()
+    return client, tokens["access_token"]
+
+
+def fetch_state(client: CloudClient, access_token: str) -> dict | None:
+    """The cloud's single sync_state row: who pushed last and when. None before the first push ever."""
+    rows = client.get("/rest/v1/sync_state?select=*", access_token)
+    return rows[0] if rows else None
+
+
 def last_push(conn) -> tuple[int | None, str]:
     """(push id this machine saw, when it pushed) -- for the status line and conflict checks."""
     raw = db.get_meta(conn, "cloud_last_push_id")
