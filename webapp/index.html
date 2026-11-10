@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DiBeKho</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Đăng nhập -->
+<div id="login" class="card login hidden">
+  <h1>DiBeKho</h1>
+  <p class="hint">Xem tồn kho và đơn hàng. Dữ liệu là bản máy chính gửi lên lần gần nhất.</p>
+  <label>Tên đăng nhập <input id="user" autocomplete="username"></label>
+  <label>Mật khẩu <input id="password" type="password" autocomplete="current-password"></label>
+  <button id="login-btn" class="primary">Đăng nhập</button>
+  <p id="login-error" class="error"></p>
+</div>
+
+<!-- Trang chính -->
+<div id="app" class="hidden">
+  <header>
+    <span class="brand">DiBeKho</span>
+    <nav>
+      <button data-tab="stock" class="tab active">Tồn kho</button>
+      <button data-tab="orders" class="tab">Đơn hàng</button>
+      <button data-tab="customers" class="tab">Khách hàng</button>
+    </nav>
+    <span id="freshness" class="freshness"></span>
+    <button id="logout" class="flat">Đăng xuất</button>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <input id="filter" placeholder="Tìm (không cần gõ dấu)…">
+      <button id="reload" class="flat" title="Tải lại dữ liệu">⟳ Tải lại</button>
+    </div>
+    <p id="load-error" class="error"></p>
+    <div id="tab-stock" class="pane"></div>
+    <div id="tab-orders" class="pane hidden"></div>
+    <div id="tab-customers" class="pane hidden"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
