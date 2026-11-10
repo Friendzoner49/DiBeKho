@@ -140,6 +140,23 @@ def test_session_none_until_cloud_configured(tmp_path, monkeypatch):
     assert Config.load().cloud_refresh_token == "new"
 
 
+def test_config_keeps_unknown_keys_on_save(tmp_path, monkeypatch):
+    """An older app version must not erase settings a newer one saved (the cloud fields were lost
+    this way once: the installed 0.4.5 rewrote config.json without them)."""
+    from dibekho.core.workspace import Config
+
+    monkeypatch.setattr(Config, "path", staticmethod(lambda: tmp_path / "config.json"))
+    (tmp_path / "config.json").write_text(
+        json.dumps({"workspace": "x", "language": "vi", "future_setting": "keep me"}), encoding="utf-8")
+    cfg = Config.load()
+    cfg.language = "en"
+    cfg.save()
+    saved = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    assert saved["future_setting"] == "keep me"
+    assert saved["language"] == "en"
+    assert not any(k.startswith("_") for k in saved)
+
+
 def test_get_and_fetch_state(monkeypatch):
     calls = fake_urlopen(monkeypatch, lambda req: [{"device_id": "d2", "device_name": "May kia",
                                                     "last_push_id": 9, "last_push_at": "2026-11-10T10:00:00Z"}])

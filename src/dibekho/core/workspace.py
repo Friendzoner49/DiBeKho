@@ -130,7 +130,11 @@ class Config:
     def load(cls) -> "Config | None":
         try:
             data = json.loads(cls.path().read_text(encoding="utf-8"))
-            return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+            cfg = cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+            # Keys this version does not know (saved by a newer one) are kept and written back on save:
+            # an old build once erased the cloud settings by rewriting config.json without them.
+            cfg._extras = {k: v for k, v in data.items() if k not in cls.__dataclass_fields__}
+            return cfg
         except (OSError, ValueError, TypeError):
             return None
 
@@ -143,8 +147,10 @@ class Config:
         )
 
     def save(self) -> None:
+        data = {**getattr(self, "_extras", {}),
+                **{k: v for k, v in self.__dict__.items() if not k.startswith("_")}}
         self.path().parent.mkdir(parents=True, exist_ok=True)
-        self.path().write_text(json.dumps(self.__dict__, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.path().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     @classmethod
     def remove(cls) -> None:
