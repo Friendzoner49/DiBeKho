@@ -1,0 +1,169 @@
+"""Runs two-way sync in the background while the app is open (cloud mode only; docs/cloud/06-cloud-la-goc.md).
+
+A round = pull (network, worker thread) -> merge (database, main thread, only at a safe moment: no dialog open and
+not on a page where the user is typing) -> push (network, worker) -> finish (main). The window never waits on the
+network. Rounds start: shortly after opening, a few seconds after any change here, and every minute (to see what
+other machines and the web wrote). Closing the app sends what is still queued, briefly."""
+
+import threading
+import time
+from datetime import datetime
+
+from PySide6.QtCore import QObject, QTimer, Signal
+
+from dibekho.core import activity
+from dibekho.core.cloud import replica, twoway
+from dibekho.core.cloud import sync as cloud_sync
+from dibekho.core.cloud.client import CloudError
+from dibekho.i18n import t
+
+PERIOD = 60_000  # ms between rounds when nothing happens here
+AFTER_CHANGE = 5_000  # ms after a change here before it is sent (several quick edits travel together)
+RETRY_UNSAFE = 15_000  # ms: the user was busy on a page, try again soon
+CLOSE_TIMEOUT = 8  # s per request while closing
+
+
+class SyncRunner(QObject):
+    _done = Signal(object, object, object)  # callback, result, error: delivered on the main thread
+    status_changed = Signal()
+
+    def __init__(self, ctx, is_safe, tell, parent=None):
+        """is_safe(): may rows change under the user now? tell(text): show the user a notice (renumbered codes...)."""
+        super().__init__(parent)
+        self.ctx, self.is_safe, self.tell = ctx, is_safe, tell
+        self.busy = False
+        self.last_ok: datetime | None = None
+        self.last_error = ""
+        self._done.connect(lambda then, result, err: then(result, err))
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.start)
+        self.timer.start(PERIOD)
+        self.soon = QTimer(self)
+        self.soon.setSingleShot(True)
+        self.soon.timeout.connect(self.start)
+        ctx.changed.connect(self._changed_here)
+
+    # ---------------------------------------------------------------- state
+    def active(self) -> bool:
+        cfg = self.ctx.cfg
+        return bool(cfg.cloud_url and cfg.cloud_refresh_token) and replica.enabled(self.ctx.conn)
+
+    def status_text(self) -> str:
+        if not replica.enabled(self.ctx.conn):
+            return ""
+        parts = []
+        conflicts = len(twoway.conflicts(self.ctx.conn))
+        if conflicts:
+            parts.append(t("sync.conflicts", n=conflicts))
+        queued = twoway.queued_count(self.ctx.conn)
+        if self.last_error:
+            parts.append(t("sync.offline", n=queued))
+        elif self.last_ok:
+            parts.append(t("sync.ok", at=self.last_ok.strftime("%H:%M")) + (f" · {t('sync.queued', n=queued)}" if queued else ""))
+        else:
+            parts.append(t("sync.waiting"))
+        return " · ".join(parts)
+
+    def _changed_here(self) -> None:
+        if self.active() and not self.busy and twoway.queued_count(self.ctx.conn):
+            self.soon.start(AFTER_CHANGE)
+
+    def _background(self, work, then) -> None:
+        def target():
+            try:
+                self._done.emit(then, work(), None)
+            except Exception as exc:  # delivered to `then`
+                self._done.emit(then, None, exc)
+        threading.Thread(target=target, daemon=True).start()
+
+    def _failed(self, err) -> None:
+        self.busy = False
+        self.last_error = str(err)
+        activity.log("error", f"cloud sync: {err}")
+        self.status_changed.emit()
+
+    # ---------------------------------------------------------------- a round
+    def start(self, tries: int = 3) -> None:
+        if self.busy or not self.active():
+            return
+        self.busy = True
+        cfg, after = self.ctx.cfg, twoway.cursor(self.ctx.conn)
+
+        def pull():
+            pair = cloud_sync.session(cfg, timeout=15)
+            if pair is None:
+                return None
+            client, token = pair
+            return client, token, twoway.fetch(client, token, after)
+
+        self._background(pull, lambda result, err: self._pulled(result, err, tries))
+
+    def _pulled(self, result, err, tries) -> None:
+        if err is not None:
+            return self._failed(err)
+        if result is None:
+            self.busy = False
+            return None
+        if not self.is_safe():
+            self.busy = False
+            self.soon.start(RETRY_UNSAFE)
+            return None
+        client, token, pulled = result
+        conn = self.ctx.conn
+        merged = twoway.merge(conn, pulled)
+        try:
+            twoway.export_renamed(conn, self.ctx.ws, merged)
+        except OSError as exc:
+            activity.log("error", f"receipt file after renumbering: {exc}")
+        if merged.applied or merged.renamed:
+            self.ctx.notify()
+        self._tell_about(merged)
+        batch, seq, hold = twoway.prepare(conn)
+        if twoway.empty(batch):
+            return self._finished()
+        expected, device = twoway.cursor(conn), self.ctx.cfg.device_id
+        self._background(lambda: twoway.send(client, token, device, expected, batch),
+                         lambda answer, e: self._sent(answer, e, seq, hold, tries))
+        return None
+
+    def _sent(self, answer, err, seq, hold, tries) -> None:
+        if err is not None:
+            return self._failed(err)
+        if answer.get("ok"):
+            twoway.finish(self.ctx.conn, seq, int(answer["max_rev"]), hold)
+            return self._finished()
+        self.busy = False  # someone wrote in between: pull again
+        if tries > 1:
+            self.start(tries - 1)
+        return None
+
+    def _finished(self) -> None:
+        self.busy = False
+        self.last_ok, self.last_error = datetime.now(), ""
+        self.status_changed.emit()
+
+    def _tell_about(self, merged) -> None:
+        lines = [t("sync.renamed", old=old, new=new) for _, old, new in merged.renamed]
+        lines += [t("sync.separated", code=code) for code in merged.separated]
+        if merged.duplicates:
+            lines.append(t("sync.duplicates", n=merged.duplicates))
+        if merged.conflicts:
+            lines.append(t("sync.new_conflicts", n=len(merged.conflicts)))
+        if lines:
+            activity.log("cloud", "; ".join(lines))
+            self.tell("\n".join(lines))
+
+    # ---------------------------------------------------------------- closing the app
+    def send_before_closing(self) -> None:
+        """Bounded: what is still queued goes now if the line allows; otherwise at the next opening."""
+        if not self.active() or not twoway.queued_count(self.ctx.conn):
+            return
+        started = time.monotonic()
+        try:
+            pair = cloud_sync.session(self.ctx.cfg, timeout=CLOSE_TIMEOUT)
+            if pair is None:
+                return
+            client, token = pair
+            twoway.sync_round(self.ctx.conn, client, token, self.ctx.cfg.device_id, tries=2)
+        except (CloudError, OSError) as exc:
+            activity.log("error", f"cloud sync on close ({time.monotonic() - started:.0f}s): {exc}")

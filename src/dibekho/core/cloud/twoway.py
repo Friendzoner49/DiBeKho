@@ -341,3 +341,43 @@ def export_renamed(conn, ws, merged: Merged) -> None:
                 old.unlink()
             except OSError:
                 pass  # open in Excel: the new file exists anyway
+
+
+# ---- turning cloud mode on ----------------------------------------------------------------------------------------
+
+def cloud_empty(pulled: dict) -> bool:
+    return not any(pulled.get("tables", {}).get(t.name) for t in SYNCED)
+
+
+def start_from_this_machine(conn) -> None:
+    """The cloud holds nothing yet: this machine's data becomes the shared data (everything queued for the push)."""
+    replica.queue_all(conn)
+    with db.transaction(conn):
+        replica.set_enabled(conn, True)
+
+
+def start_from_cloud(conn) -> None:
+    """The cloud already holds the shared data: this machine's own copy is put aside (the caller backed it up) and the
+    next round pulls everything. Scan records go too; reading the notes again finds their documents by file."""
+    with db.transaction(conn):
+        replica.set_enabled(conn, False)  # clearing is not a change to send
+        for t in reversed(SYNCED):
+            if t.name == "documents":
+                conn.execute("DELETE FROM scanned_files")
+            where = f" WHERE key IN ({', '.join('?' for _ in t.only_keys)})" if t.only_keys else ""
+            conn.execute(f"DELETE FROM {t.name}{where}", t.only_keys)
+        conn.execute("DELETE FROM sync_map")
+        conn.execute("DELETE FROM sync_outbox")
+        db.set_meta(conn, CURSOR_KEY, "0")
+        db.set_meta(conn, CONFLICTS_KEY, "[]")
+        replica.set_enabled(conn, True)
+
+
+def stop(conn) -> None:
+    """Back to working alone. Queued changes stay queued; turning it on again takes the cloud's data."""
+    with db.transaction(conn):
+        replica.set_enabled(conn, False)
+
+
+def queued_count(conn) -> int:
+    return conn.execute("SELECT COUNT(DISTINCT tbl || ':' || local_id) FROM sync_outbox").fetchone()[0]
