@@ -27,3 +27,6 @@ CLAUDE*.md
 02-nghien-cuu-huong-phat-trien-wms.md
 *.bundle
 webapp/config.js
+
+# dev-only test dependency (tests/pg)
+node_modules/

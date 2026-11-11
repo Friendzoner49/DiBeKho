@@ -1,0 +1,9 @@
+{
+  "name": "dibekho-pg-tests",
+  "private": true,
+  "description": "Dev-only: real Postgres (PGlite, WebAssembly) for testing cloud/supabase/*.sql. Not shipped with the app.",
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.12"
+  }
+}

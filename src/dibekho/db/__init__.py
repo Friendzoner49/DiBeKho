@@ -33,6 +33,9 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.create_function("unaccent", 1, unaccent, deterministic=True)
     conn.create_function("matches_words", 2, lambda n, h: matches_words(n or "", h or ""), deterministic=True)
     migrate(conn)
+    from dibekho.db.sync_schema import ensure_triggers
+
+    ensure_triggers(conn)  # after migrate: a migration that rebuilt a table dropped its triggers
     return conn
 
 

@@ -18,8 +18,16 @@
 - Kiểm kê và "đơn sau kiểm kê" (`count_conflicts`) phụ thuộc thứ tự thời gian → phải dùng giờ của máy chủ lúc ghi nhận, không dùng giờ máy khách.
 - Nhập gói `.dibekho`, Đặt lại dữ liệu, Khôi phục: thành thao tác quản trị trên cloud (hỏi 2 lần, sao lưu trước), không còn "thay file".
 
-## Luật nghiệp vụ nằm ở đâu
-Đề xuất của reviewer, chưa chốt: **hàm Postgres (RPC, security definer)** là nơi duy nhất cài luật (ghi phiếu, huỷ, chuyển hàng, kiểm kê…), cả app lẫn web đều gọi. Đọc Excel vẫn ở Python trên app, rồi gọi RPC với các dòng đã đọc.
+## Luật nghiệp vụ nằm ở đâu (sửa 11/11 sau khi chốt "ghi được khi offline")
+Máy offline không gọi được hàm trên mạng, nên **Python trên app vẫn là nơi cài luật** (giữ nguyên `core/`, đã có hàng trăm test). Web phải chạy được khi không app nào mở, nên web ghi qua **hàm Postgres (RPC)** cài lại đúng các luật đó; mỗi RPC có **test song song** với Python (cùng đầu vào → cùng phiếu, dòng, biến động). Đọc Excel vẫn ở Python.
+
+## Mô hình đồng bộ (bước 1–2)
+- **Trên máy:** SQLite vẫn là bản làm việc (và hàng đợi khi offline). Migration **010** thêm `sync_map` (id trên máy ↔ uuid trên cloud), `sync_outbox` (dòng nào đã đổi) và **trigger** trên các bảng nghiệp vụ — không phải sửa đường ghi nào trong `core/`. Trigger chỉ ghi khi `sync_flags.enabled = 1` (chế độ cloud), nên máy khách ở chế độ local không phình hàng đợi; xoá dòng luôn xoá `sync_map` (SQLite có thể cấp lại id đã xoá cho dòng mới — không được thừa hưởng uuid cũ).
+- **Bảng đồng bộ:** `products`, `customers`, `suppliers`, `documents`, `document_lines`, `stock_movements`, `product_aliases` (khoá = chuỗi tên), `ignored_lines` (khoá = chuỗi), `document_skipped_lines`, `meta` chỉ các khoá dùng chung (`low_stock_default`, `freed_codes`, `count_checked`, `skipped_lines_backfilled`, `product_code_max`). **Chỉ của từng máy:** `scanned_files`, `hidden_inputs`, `app_log`, `locations` (cố định), các khoá meta `cloud_*`, `last_*`, `device`.
+- **Trên cloud:** bảng thật cùng tên cột, khoá `uuid` (bảng có khoá chuỗi giữ chuỗi), thêm `rev` (số thứ tự máy chủ, để kéo "từ lần trước"), `deleted` (xoá mềm để báo cho máy khác), `updated_at`, `origin` (máy nào ghi).
+- **Đẩy lên:** một lần đẩy = một lô trong **một transaction**, gửi lại không nhân đôi (upsert theo uuid); phiếu + dòng + biến động luôn đi cùng nhau.
+- **Trùng mã khi offline** (người dùng chốt 11/11): **đánh số lại phiếu đến sau** (HV/CH/DT/SP lấy mã kế tiếp còn trống), app báo "phiếu … của máy … đã đổi thành …" và xuất lại file Excel hàng về theo mã mới. Phiếu giao hàng: mã lấy từ giấy, không do app cấp — cùng file (cùng `source_hash`) trên 2 máy = một phiếu; khác file trùng mã = luồng "Nhập thành đơn riêng" hiện có. `product_code_max` gộp bằng giá trị lớn nhất.
+- **Migration dựng lại bảng** (như 008/009) làm mất trigger: có test kiểm mọi bảng đồng bộ còn đủ trigger sau `migrate`.
 
 ## Cách làm — lát cắt, có kiểm chứng TRƯỚC khi viết lại
 0. **Nền (làm ngay, không phụ thuộc quyết định):** mạng ra khỏi luồng giao diện (đo: refresh token 2,1 s + đọc trạng thái 1 s đứng hình mỗi lần mở app, mỗi 3 phút và mỗi lần Quét lại) ✔ xong; nhớ kích thước cửa sổ ✔ xong.
