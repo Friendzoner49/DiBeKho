@@ -8,6 +8,7 @@ hidden_inputs, app_log and anything with machine paths stay local. Design: docs/
 import sqlite3
 
 from dibekho import __version__
+from dibekho.core.stock import low_stock_default
 
 # column lists match the mirror_* tables in cloud/supabase/001_init.sql
 # (jsonb_populate_recordset matches by name, missing fields become NULL/defaults)
@@ -30,6 +31,7 @@ def build_payload(conn: sqlite3.Connection, device_id: str, device_name: str,
         "app_version": __version__,
         "schema_version": schema_version,
         "based_on_push": based_on_push,
+        "low_stock_default": low_stock_default(conn),  # the web colours rows like the app does
         "products": products,
         "customers": _rows(conn, f"SELECT {_CUSTOMERS} FROM customers"),
         "documents": _rows(conn, f"SELECT {_DOCUMENTS} FROM documents"),

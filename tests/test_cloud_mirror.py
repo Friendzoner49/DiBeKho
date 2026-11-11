@@ -60,3 +60,14 @@ def test_inactive_products_and_cancelled_documents_still_mirrored(conn):
     assert any(d["status"] == "cancelled" for d in payload["documents"])
     # reversal brings Kho tổng back to the counted 50
     assert payload["stock"] == [{"product_id": pid, "location_id": stock.MAIN, "qty": 50.0}]
+
+
+def test_payload_carries_the_alarm_level_the_web_colours_by(conn):
+    from dibekho.core.cloud import mirror as m
+    assert m.build_payload(conn, "d", "May")["low_stock_default"] == 30.0  # the app's default
+    with db.transaction(conn):
+        db.set_meta(conn, "low_stock_default", "12")
+    assert m.build_payload(conn, "d", "May")["low_stock_default"] == 12.0
+    with db.transaction(conn):
+        db.set_meta(conn, "low_stock_default", "0")  # alarm off
+    assert m.build_payload(conn, "d", "May")["low_stock_default"] == 0.0

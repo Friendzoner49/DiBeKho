@@ -2,17 +2,20 @@
 :root {
   --bg: #f5f6f8; --panel: #ffffff; --text: #1c1e21; --muted: #68707a;
   --line: #e3e6ea; --accent: #2563eb; --red: #c62828;
+  --row-red: #fde2e1; --row-orange: #ffd9a8;  /* the app's row colours (ui.common ORANGE / RED) */
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #17191c; --panel: #202327; --text: #e8eaed; --muted: #9aa3ad;
     --line: #34393f; --accent: #7aa2ff; --red: #ef9a9a;
+    --row-red: #6e2a2a; --row-orange: #6e4210;
   }
 }
 :root[data-theme="dark"] {
   --bg: #17191c; --panel: #202327; --text: #e8eaed; --muted: #9aa3ad;
   --line: #34393f; --accent: #7aa2ff; --red: #ef9a9a;
+  --row-red: #6e2a2a; --row-orange: #6e4210;
 }
 
 * { box-sizing: border-box; }
@@ -68,6 +71,8 @@ th.sortable.desc::after { content: " ▼"; font-size: 10px; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 td.strong { font-weight: 700; font-size: 15px; color: var(--accent); }  /* the Tồn column stands out */
 tr.neg td.strong { color: var(--red); }
+tr.low td.strong { color: var(--text); }  /* blue on orange reads poorly */
+tr.low td.qty, tr.neg td.qty { color: var(--text); }
 td.qty { color: var(--muted); }
 
 /* goods-in form */
@@ -78,7 +83,11 @@ td.qty { color: var(--muted); }
 .form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .line { display: grid; grid-template-columns: 3fr 90px 2fr auto; gap: 6px; margin-top: 8px; }
 button.narrow { width: auto; padding: 9px 22px; }
-tr.neg td { color: var(--red); }
+tr.neg td { background: var(--row-red); }
+tr.low td { background: var(--row-orange); }
+.key { padding: 1px 8px; border-radius: 6px; }
+.key.low { background: var(--row-orange); }
+.key.neg { background: var(--row-red); }
 tr.closed td { color: var(--muted); text-decoration: line-through; }
 tr.doc { cursor: pointer; }
 tr.doc:hover td { background: var(--bg); }

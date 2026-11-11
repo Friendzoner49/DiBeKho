@@ -1,5 +1,7 @@
+import time
+
 from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -27,6 +29,8 @@ from dibekho.ui.settings_page import SettingsPage
 from dibekho.ui.stock_page import StockPage
 
 PENDING, SEARCH = 1, 2  # rows in the navigation list
+CLOSE_TIMEOUT = 8  # s per cloud request while closing the app
+CLOSE_SLOW = 12  # s: a push slower than this skips the full backup
 
 
 class MainWindow(QMainWindow):
@@ -197,21 +201,34 @@ class MainWindow(QMainWindow):
 
     def _cloud_push_on_close(self):
         """Closing a work session puts it on the cloud, so the other machine (and the web) see it next.
-        Offline or expired session: skip silently -- the next open or a manual sync catches up."""
+        Offline or expired session: skip silently -- the next open or a manual sync catches up.
+        Bounded: each request waits at most CLOSE_TIMEOUT s, and the full backup is skipped when the push
+        itself was slow, so the window cannot look frozen for a minute on a poor line."""
         try:
             if not cloud_sync.has_unpushed(self.ctx.conn):
                 return
-            pair = cloud_sync.session(self.ctx.cfg, timeout=15)  # never keep the app hanging on exit
+            QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+            started = time.monotonic()
+            pair = cloud_sync.session(self.ctx.cfg, timeout=CLOSE_TIMEOUT)
             if pair is None:
                 return
             client, token = pair
             result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token)
-            if result["conflict"] and self._ask_cloud_overwrite(result):
-                result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
+            if result["conflict"]:
+                QGuiApplication.restoreOverrideCursor()  # a question for the user: show the normal cursor
+                if self._ask_cloud_overwrite(result):
+                    QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+                    result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
             if not result["conflict"]:
-                cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token)
+                slow = time.monotonic() - started > CLOSE_SLOW
+                cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token, with_backup=not slow)
+                if slow:
+                    activity.log("cloud", "slow line on close: full backup skipped, the next push makes it")
         except CloudError as exc:
             activity.log("error", f"cloud push on close: {exc}")
+        finally:
+            while QGuiApplication.overrideCursor() is not None:
+                QGuiApplication.restoreOverrideCursor()
 
     def _cloud_check_on_open(self):
         """Pull the web inbox into 'Cần xử lý', and when another machine pushed after our last push AND this

@@ -243,3 +243,24 @@ def test_after_restore_keeps_file_notes_for_the_same_machine(conn):
     mine = cloud_backup.parse_name("2026-11-11T09-30-00Z__MayChinh__s9.sqlite")
     cloud_backup.after_restore(conn, Cfg, mine)  # Cfg.device_name = "May Chinh" -> "MayChinh"
     assert conn.execute("SELECT status FROM scanned_files").fetchone()[0] == "imported"
+
+
+def test_finish_push_can_skip_the_full_backup(conn):
+    """On a slow line the close-time push must not also upload the backup (the window would look frozen)."""
+    class Client:
+        def storage_upload(self, *a):
+            raise AssertionError("no upload expected")
+
+        def patch(self, *a):
+            raise AssertionError("nothing to confirm")
+
+    assert sync.finish_push(conn, Cfg, Client(), "tok", with_backup=False) is None
+
+
+def test_finish_push_reports_backup_failure_but_does_not_raise(conn):
+    class Client(FakeStorage):
+        def storage_upload(self, name, data, token):
+            raise CloudError("Cloud báo lỗi 404: Bucket not found")
+
+    reason = sync.finish_push(conn, Cfg, Client(), "tok")
+    assert "Bucket not found" in reason  # shown to the user after "Đồng bộ ngay"; the push itself stands

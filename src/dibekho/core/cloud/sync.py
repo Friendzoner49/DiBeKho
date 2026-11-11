@@ -41,10 +41,12 @@ def fetch_state(client: CloudClient, access_token: str) -> dict | None:
     return rows[0] if rows else None
 
 
-def finish_push(conn, cfg, client: CloudClient, access_token: str) -> str | None:
+def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: bool = True) -> str | None:
     """After a successful push: confirm the web slips recorded here, then upload the full backup.
     Returns the reason the backup could not be made (the push itself stands), else None."""
     cloud_inbox.finish_applied(conn, client, access_token)
+    if not with_backup:
+        return None
     try:
         cloud_backup.upload_snapshot(conn, cfg, client, access_token)
     except CloudError as exc:

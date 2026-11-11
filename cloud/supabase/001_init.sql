@@ -56,7 +56,8 @@ create table public.sync_state (
     id boolean primary key default true check (id),  -- single row
     last_push_id bigint not null,
     last_push_at timestamptz not null default now(),
-    device_id text not null, device_name text not null
+    device_id text not null, device_name text not null,
+    low_stock_default double precision not null default 30  -- the app's alarm level; 0 = off
 );
 
 -- ------------------------------------------------- web inbox (web writes, desktop consumes)
@@ -147,11 +148,12 @@ begin
     returning id into new_id;
     delete from mirror_snapshot where id not in (select id from mirror_snapshot order by id desc limit 30);
 
-    insert into sync_state(id, last_push_id, last_push_at, device_id, device_name)
-    values (true, new_id, now(), payload->>'device_id', payload->>'device_name')
+    insert into sync_state(id, last_push_id, last_push_at, device_id, device_name, low_stock_default)
+    values (true, new_id, now(), payload->>'device_id', payload->>'device_name',
+            coalesce((payload->>'low_stock_default')::double precision, 30))
     on conflict (id) do update set last_push_id = excluded.last_push_id,
         last_push_at = excluded.last_push_at, device_id = excluded.device_id,
-        device_name = excluded.device_name;
+        device_name = excluded.device_name, low_stock_default = excluded.low_stock_default;
     return jsonb_build_object('conflict', false, 'push_id', new_id);
 end
 $$;

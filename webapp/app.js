@@ -16,6 +16,7 @@ const data = { products: [], customers: [], documents: [], lines: [], stock: [] 
 let stockByProduct = {}, customerById = {}, productById = {}, linesByDoc = {};
 const sortState = { stock: { i: null, dir: 1 }, orders: { i: null, dir: 1 }, customers: { i: null, dir: 1 } };
 let orderKind = "all";
+let lowDefault = 30;  // the app's alarm level, sent with each push (sync_state.low_stock_default)
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -138,6 +139,9 @@ async function loadAll() {
     if (state.data) {
       const when = String(state.data.last_push_at).slice(0, 16).replace("T", " ");
       $("freshness").textContent = `Dữ liệu từ máy ${state.data.device_name}, lúc ${when}`;
+      // the app's alarm level (0 = off); an older push or a project without the column falls back to the app's 30
+      const level = Number(state.data.low_stock_default);
+      lowDefault = Number.isFinite(level) && state.data.low_stock_default !== null ? level : 30;
     }
     render();
   } catch (e) {
@@ -170,8 +174,14 @@ function renderStock(f) {
     { label: "Đơn vị", get: (p) => p.unit },
     { label: "Ghi chú", get: (p) => p.stock_note },
   ], items, {
-    rowClass: (p) => (stockOf(p).total < 0 ? "neg" : ""),
-    footer: `<p class="hint">${items.length} mặt hàng. Tồn âm tô đỏ. Bấm tiêu đề cột để sắp xếp.</p>`,
+    // same rule as the app (stock.is_low): negative = red, below the alarm level = orange
+    rowClass: (p) => {
+      const total = stockOf(p).total;
+      return total < 0 ? "neg" : (lowDefault && total < lowDefault ? "low" : "");
+    },
+    footer: `<p class="hint">${items.length} mặt hàng. <span class="key low">Cam</span> dưới mức báo động` +
+            `${lowDefault ? ` (${fmtQty(lowDefault)})` : " (đang tắt)"}, <span class="key neg">đỏ</span> tồn âm. ` +
+            `Bấm tiêu đề cột để sắp xếp.</p>`,
   });
 }
 
@@ -304,7 +314,7 @@ async function loadSent() {
   const { data: rows, error } = await sb.from("web_inbox").select("*")
     .order("created_at", { ascending: false }).limit(50);
   if (error || !rows) return;
-  const label = (r) => r.status === "applied" ? `✔ Đã vào sổ${r.result && r.result.code ? ` (${r.result.code})` : ""}`
+  const label = (r) => r.status === "applied" ? `✔ Đã vào sổ${r.result && r.result.code ? ` (${esc(r.result.code)})` : ""}`
     : r.status === "rejected" ? "✖ Bị từ chối" : "⏳ Chờ máy chính duyệt";
   $("rc-sent").innerHTML = `<div class="scroll"><table><thead><tr>` +
     `<th>Gửi lúc</th><th>Ngày phiếu</th><th>Nguồn</th><th>Số dòng</th><th>Trạng thái</th></tr></thead><tbody>` +
