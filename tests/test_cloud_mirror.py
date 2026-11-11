@@ -71,3 +71,28 @@ def test_payload_carries_the_alarm_level_the_web_colours_by(conn):
     with db.transaction(conn):
         db.set_meta(conn, "low_stock_default", "0")  # alarm off
     assert m.build_payload(conn, "d", "May")["low_stock_default"] == 0.0
+
+
+def test_payload_carries_what_the_web_and_owner_commands_need(conn):
+    pid, cid = _sample_data(conn)
+    payload = mirror.build_payload(conn, "dev-1", "May")
+    (p,) = payload["products"]
+    (c,) = payload["customers"]
+    assert p["created_at"] and c["created_at"]  # the fingerprint of owner commands
+    delivery = next(d for d in payload["documents"] if d["kind"] == "delivery")
+    assert delivery["created_at"] and delivery["location_set"] is True and delivery["supplier_name"] == ""
+    # every stock movement travels, so the web can show a product's history and compute statistics like the app
+    assert len(payload["movements"]) == conn.execute("SELECT COUNT(*) FROM stock_movements").fetchone()[0]
+    assert all(m["location_id"] in (1, 2) for m in payload["movements"])
+    assert {m["kind"] for m in payload["movements"]} == {"count_adjust", "delivery_out"}
+
+
+def test_receipt_documents_carry_the_supplier_name(conn):
+    from dibekho.core import receipts
+    with db.transaction(conn):
+        pid = catalog.create_product(conn, "Keo", spec="15kg", unit="thùng")
+    receipts.save(conn, receipts.ReceiptInput(date(2026, 11, 1), receipts.SUPPLIER, supplier_name="Cửa khẩu",
+                                              lines=[receipts.ReceiptLineInput(5, pid)]))
+    payload = mirror.build_payload(conn, "dev-1", "May")
+    (r,) = [d for d in payload["documents"] if d["kind"] == "receipt"]
+    assert r["supplier_name"] == "Cửa khẩu" and r["receipt_source"] == "supplier" and r["code"] == "HV001"

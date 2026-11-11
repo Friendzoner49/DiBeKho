@@ -22,22 +22,31 @@ $$ select role from public.profiles where user_id = auth.uid() $$;
 create table public.mirror_products (
     id integer primary key, code text not null, name_vi text not null, name_zh text not null default '',
     spec text not null default '', variant text not null default '', unit text not null default '',
-    category text not null default '', stock_note text not null default '', active boolean not null default true
+    category text not null default '', stock_note text not null default '', active boolean not null default true,
+    created_at text  -- local time the app wrote it: part of the fingerprint owner commands carry
 );
 create table public.mirror_customers (
     id integer primary key, name text not null, contact text not null default '',
-    phone text not null default '', address text not null default ''
+    phone text not null default '', address text not null default '', created_at text
 );
 create table public.mirror_documents (
     id integer primary key, kind text not null, code text not null default '', doc_date date not null,
     customer_id integer, status text not null, note text not null default '',
-    location_id integer, to_location_id integer, fee_amount double precision, note_total double precision
+    location_id integer, to_location_id integer, fee_amount double precision, note_total double precision,
+    created_at text, location_set boolean, receipt_source text, ref_code text, source_file text, supplier_name text
 );
 create table public.mirror_document_lines (
     id integer primary key, document_id integer not null, line_no integer not null,
     product_id integer not null, qty double precision not null, note text not null default '',
     unit_price double precision, amount double precision, location_id integer
 );
+-- every stock movement: the web's product history and statistics are computed from these
+create table public.mirror_movements (
+    id integer primary key, product_id integer not null, qty double precision not null,
+    document_id integer not null, kind text not null, occurred_on date not null, location_id integer not null
+);
+create index mirror_movements_product on public.mirror_movements (product_id, occurred_on);
+
 create table public.mirror_stock (
     product_id integer not null, location_id integer not null, qty double precision not null,
     primary key (product_id, location_id)
@@ -78,6 +87,7 @@ alter table public.mirror_customers     enable row level security;
 alter table public.mirror_documents     enable row level security;
 alter table public.mirror_document_lines enable row level security;
 alter table public.mirror_stock         enable row level security;
+alter table public.mirror_movements     enable row level security;
 alter table public.mirror_snapshot      enable row level security;
 alter table public.sync_state           enable row level security;
 alter table public.web_inbox            enable row level security;
@@ -91,7 +101,7 @@ do $$
 declare t text;
 begin
     foreach t in array array['mirror_products','mirror_customers','mirror_documents',
-                             'mirror_document_lines','mirror_stock','sync_state'] loop
+                             'mirror_document_lines','mirror_stock','mirror_movements','sync_state'] loop
         execute format('create policy %I_read on public.%I for select using (public.my_role() is not null)', t, t);
     end loop;
 end $$;
@@ -134,17 +144,19 @@ begin
     end if;
 
     -- TRUNCATE, not DELETE: Supabase preloads pg_safeupdate, which rejects DELETE without WHERE
-    truncate table mirror_document_lines, mirror_documents, mirror_stock, mirror_products, mirror_customers;
+    truncate table mirror_movements, mirror_document_lines, mirror_documents, mirror_stock, mirror_products,
+                   mirror_customers;
     insert into mirror_products  select * from jsonb_populate_recordset(null::mirror_products,  payload->'products');
     insert into mirror_customers select * from jsonb_populate_recordset(null::mirror_customers, payload->'customers');
     insert into mirror_documents select * from jsonb_populate_recordset(null::mirror_documents, payload->'documents');
     insert into mirror_document_lines
         select * from jsonb_populate_recordset(null::mirror_document_lines, payload->'document_lines');
+    insert into mirror_movements select * from jsonb_populate_recordset(null::mirror_movements, payload->'movements');
     insert into mirror_stock     select * from jsonb_populate_recordset(null::mirror_stock,     payload->'stock');
 
     insert into mirror_snapshot(device_id, device_name, app_version, schema_version, payload)
     values (payload->>'device_id', payload->>'device_name', payload->>'app_version',
-            (payload->>'schema_version')::int, payload)
+            (payload->>'schema_version')::int, payload - 'movements')
     returning id into new_id;
     delete from mirror_snapshot where id not in (select id from mirror_snapshot order by id desc limit 30);
 

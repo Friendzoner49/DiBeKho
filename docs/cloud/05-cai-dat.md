@@ -15,6 +15,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 2. `cloud/supabase/002_backups.sql` — kho lưu trữ riêng tư `backups` cho bản sao lưu đầy đủ.
 3. `cloud/supabase/003_low_stock.sql` — **chỉ khi project được tạo trước khi có file này** (project mới đã có sẵn trong 001).
 4. `cloud/supabase/004_staff_requests.sql` — yêu cầu của nhân viên: kiểm kê và phiếu giao hàng Excel (thêm loại yêu cầu, kho riêng tư `inbox-files`, giới hạn kích thước). **Bắt buộc nếu muốn nhân viên gửi kiểm kê/phiếu giao.**
+5. `cloud/supabase/005_full_view.sql` — gương có thêm bảng biến động tồn và vài cột, để web có **lịch sử vào ra, chi tiết mặt hàng/khách, Thống kê**. **Chạy xong thì mở app bấm Đồng bộ ngay một lần** (không thì web chưa có dữ liệu mới). Dự án cài mới đã có sẵn trong 001.
 
 ## 3. Tạo tài khoản
 
@@ -46,6 +47,15 @@ Chủ mở app trên máy chính (hoặc bấm **Quét lại phiếu**) → **C�
 - Nút **Vào sổ tất cả hàng về và phiếu giao hàng** duyệt một lượt; kiểm kê luôn duyệt từng phiếu. Phiếu hỏng được liệt kê lại, không làm dừng cả lượt.
 - Nhân viên thấy trạng thái từng yêu cầu ngay trên web (chờ duyệt / đã vào sổ / bị từ chối). Hoàn tác trên máy chính một phiếu hàng về hoặc kiểm kê đã duyệt thì yêu cầu đó quay về hàng chờ.
 - Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần thêm vai trò riêng và lớp xem (view) — chưa làm.
+
+### Web xem được những gì (giống app)
+
+- **Tồn kho**: bấm một mặt hàng → tồn theo nơi, **lịch sử vào ra** có số dư sau từng dòng, khách lấy nhiều nhất, xuất file CSV.
+- **Đơn hàng**: lọc theo loại phiếu; bấm một dòng → đầu phiếu (khách, nơi lấy hàng, nguồn, phí, tổng tiền, file gốc) + các dòng hàng có giá.
+- **Khách hàng**: bấm một khách → doanh thu và phí theo kỳ chọn, mặt hàng hay mua (giá thấp–cao), các đơn.
+- **Thống kê**: kỳ (ngày/tháng/quý/năm/khoảng), phạm vi (tất cả/nhóm/một mặt hàng/một khách), chia theo ngày/tháng; tồn đầu–nhập–xuất–điều chỉnh–tồn cuối, doanh thu, top xuất nhiều, biểu đồ, xuất CSV.
+- Số liệu Thống kê trên web được kiểm tự động bằng `tests/test_web_stats.py` (chạy `webapp/stats.js` dưới `node` và so với `core/stats.py` ở nhiều bộ lọc), nên hai nơi luôn khớp.
+- File CSV (UTF-8 có BOM) mở thẳng bằng Excel. Dữ liệu web chỉ mới bằng lần đồng bộ gần nhất của máy chính.
 
 ## 4. Nối app trên máy chính
 

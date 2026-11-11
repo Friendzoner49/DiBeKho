@@ -95,3 +95,22 @@ tr.closed td { color: var(--muted); text-decoration: line-through; }
 tr.doc { cursor: pointer; }
 tr.doc:hover td { background: var(--bg); }
 tr.detail > td { background: var(--bg); padding: 10px; }
+
+/* detail windows and statistics */
+tr.click { cursor: pointer; }
+tr.click:hover td { filter: brightness(0.96); }
+.backbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.backbar h2 { margin: 0; font-size: 20px; }
+main h3 { margin: 18px 0 6px; font-size: 16px; }
+dl.info { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 12px; font-size: 14px; }
+dl.info dt { color: var(--muted); }
+dl.info dd { margin: 0; word-break: break-word; }
+.cards { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; min-width: 130px; }
+.stat span { display: block; color: var(--muted); font-size: 12px; }
+.stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.grid.period { max-width: 420px; margin-bottom: 4px; }
+.grid.period label, .stats-label { font-size: 13px; color: var(--muted); }
+.chart { width: 100%; max-width: 760px; height: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.chart .bar { fill: var(--accent); }
+.chart .axis { fill: var(--muted); font-size: 10px; }

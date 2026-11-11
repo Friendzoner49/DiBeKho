@@ -14,7 +14,7 @@ const STATUS_VI = { active: "", cancelled: "đã huỷ", replaced: "đã thay" }
 const $ = (id) => document.getElementById(id);
 const data = { products: [], customers: [], documents: [], lines: [], stock: [] };
 let stockByProduct = {}, customerById = {}, productById = {}, linesByDoc = {};
-const sortState = { stock: { i: null, dir: 1 }, orders: { i: null, dir: 1 }, customers: { i: null, dir: 1 } };
+const sortState = { stock: { i: null, dir: 1 }, orders: { i: null, dir: 1 }, customers: { i: null, dir: 1 }, stats: { i: null, dir: 1 } };
 let orderKind = "all";
 let lowDefault = 30;  // the app's alarm level, sent with each push (sync_state.low_stock_default)
 
@@ -52,7 +52,7 @@ function esc(s) {
 
 /* Sortable table: cols = [{label, get, num?, cls?}], rowClass/rowAttr optional per item.
    Clicking a header sorts by that column; clicking again flips the direction. */
-function buildTable(pane, cols, items, { rowClass = () => "", rowAttr = () => "", footer = "" } = {}) {
+function buildTable(pane, cols, items, { rowClass = () => "", rowAttr = () => "", footer = "", into = null, rerender = null } = {}) {
   const st = sortState[pane];
   let rows = items;
   if (st.i !== null && cols[st.i]) {
@@ -69,13 +69,13 @@ function buildTable(pane, cols, items, { rowClass = () => "", rowAttr = () => ""
     `<tr class="${rowClass(item)}" ${rowAttr(item)}>` +
     cols.map((c) => `<td class="${c.cls || ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") +
     "</tr>").join("");
-  const el = $(`tab-${pane}`);
+  const el = $(into || `tab-${pane}`);
   el.innerHTML = `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${footer}`;
   for (const th of el.querySelectorAll("th.sortable")) {
     th.addEventListener("click", () => {
       const i = Number(th.dataset.i);
       if (st.i === i) st.dir *= -1; else { st.i = i; st.dir = 1; }
-      render();
+      (rerender || render)();
     });
   }
   return el;
@@ -107,6 +107,7 @@ async function showApp() {
   }
   await loadAll();
   initSendForm();
+  initStats();
 }
 
 /* ---------------------------------------------------------------- data */
@@ -169,7 +170,7 @@ function renderStock(f) {
   const items = data.products
     .filter((p) => p.active)
     .filter((p) => !f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`));
-  buildTable("stock", [
+  const stockTable = buildTable("stock", [
     { label: "Mã", get: (p) => p.code },
     { label: "Mặt hàng", get: (p) => p.name_vi },
     { label: "Tên Trung", get: (p) => p.name_zh },
@@ -185,12 +186,16 @@ function renderStock(f) {
     // same rule as the app (stock.is_low): negative = red, below the alarm level = orange
     rowClass: (p) => {
       const total = stockOf(p).total;
-      return total < 0 ? "neg" : (lowDefault && total < lowDefault ? "low" : "");
+      return "click " + (total < 0 ? "neg" : (lowDefault && total < lowDefault ? "low" : ""));
     },
+    rowAttr: (p) => `data-pid="${p.id}"`,
     footer: `<p class="hint">${items.length} mặt hàng. <span class="key low">Cam</span> dưới mức báo động` +
             `${lowDefault ? ` (${fmtQty(lowDefault)})` : " (đang tắt)"}, <span class="key neg">đỏ</span> tồn âm. ` +
-            `Bấm tiêu đề cột để sắp xếp.</p>`,
+            `Bấm tiêu đề cột để sắp xếp, bấm một dòng để xem lịch sử vào ra.</p>`,
   });
+  for (const tr of stockTable.querySelectorAll("tr[data-pid]")) {
+    tr.addEventListener("click", () => showProduct(Number(tr.dataset.pid)));
+  }
 }
 
 function renderOrders(f) {
@@ -236,30 +241,29 @@ function renderOrders(f) {
 function toggleLines(tr) {
   const next = tr.nextElementSibling;
   if (next && next.classList.contains("detail")) { next.remove(); return; }
-  const docLines = (linesByDoc[tr.dataset.doc] || []).slice().sort((a, b) => a.line_no - b.line_no);
-  const inner = docLines.map((l) => {
-    const p = productById[l.product_id] || {};
-    return `<tr><td>${esc(p.code || "?")}</td><td>${esc(p.name_vi || "")} ${esc(p.name_zh || "")}</td>` +
-           `<td>${esc(p.spec || "")}</td><td class="num">${fmtQty(l.qty)}</td>` +
-           `<td class="num">${fmtMoney(l.unit_price)}</td><td class="num">${fmtMoney(l.amount)}</td>` +
-           `<td>${esc(l.note)}</td></tr>`;
-  }).join("");
+  const doc = data.documents.find((d) => String(d.id) === tr.dataset.doc);
+  if (!doc) return;
   const detail = document.createElement("tr");
   detail.className = "detail";
-  detail.innerHTML = `<td colspan="${tr.dataset.cols}"><div class="scroll"><table>` +
-    `<thead><tr><th>Mã</th><th>Mặt hàng</th><th>Quy cách</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th><th>Ghi chú</th></tr></thead>` +
-    `<tbody>${inner}</tbody></table></div></td>`;
+  detail.innerHTML = `<td colspan="${tr.dataset.cols}">${orderDetailHtml(doc)}</td>`;
   tr.after(detail);
 }
 
 function renderCustomers(f) {
   const items = data.customers.filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`));
-  buildTable("customers", [
+  const customerTable = buildTable("customers", [
     { label: "Khách hàng", get: (c) => c.name },
     { label: "Người liên hệ", get: (c) => c.contact },
     { label: "Điện thoại", get: (c) => c.phone },
     { label: "Địa chỉ", get: (c) => c.address },
-  ], items);
+  ], items, {
+    rowClass: () => "click",
+    rowAttr: (c) => `data-cid="${c.id}"`,
+    footer: `<p class="hint">Bấm một dòng để xem doanh thu và các đơn của khách.</p>`,
+  });
+  for (const tr of customerTable.querySelectorAll("tr[data-cid]")) {
+    tr.addEventListener("click", () => showCustomer(Number(tr.dataset.cid)));
+  }
 }
 
 /* ---------------------------------------------------------------- staff requests (web_inbox) */
@@ -461,12 +465,20 @@ async function loadSent() {
 
 /* ---------------------------------------------------------------- wiring */
 
+let activeTab = "stock";
+const NO_SEARCH_TABS = ["send", "stats"];  // the search box does not apply to the forms and the statistics
+
+function showActivePane() {
+  document.querySelectorAll(".pane").forEach((p) => p.classList.add("hidden"));
+  $(`tab-${activeTab}`).classList.remove("hidden");
+  $("toolbar").classList.toggle("hidden", NO_SEARCH_TABS.includes(activeTab));
+}
+
 for (const btn of document.querySelectorAll(".tab")) {
   btn.addEventListener("click", () => {
+    activeTab = btn.dataset.tab;
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b === btn));
-    document.querySelectorAll(".pane").forEach((p) => p.classList.add("hidden"));
-    $(`tab-${btn.dataset.tab}`).classList.remove("hidden");
-    $("toolbar").classList.toggle("hidden", btn.dataset.tab === "send");  // searching does not apply to the forms
+    showActivePane();
   });
 }
 for (const chip of document.querySelectorAll("#send-kinds .chip")) {

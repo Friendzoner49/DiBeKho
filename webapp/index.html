@@ -27,6 +27,7 @@
       <button data-tab="stock" class="tab active">Tồn kho</button>
       <button data-tab="orders" class="tab">Đơn hàng</button>
       <button data-tab="customers" class="tab">Khách hàng</button>
+      <button data-tab="stats" class="tab">Thống kê</button>
       <button data-tab="send" class="tab hidden" id="send-tab">Gửi yêu cầu</button>
     </nav>
     <span id="freshness" class="freshness"></span>
@@ -42,6 +43,33 @@
     <div id="tab-stock" class="pane"></div>
     <div id="tab-orders" class="pane hidden"></div>
     <div id="tab-customers" class="pane hidden"></div>
+
+    <div id="tab-stats" class="pane hidden">
+      <div class="card form">
+        <div class="grid">
+          <label>Kỳ <select id="st-period"><option value="day">Ngày</option><option value="month" selected>Tháng</option>
+            <option value="quarter">Quý</option><option value="year">Năm</option><option value="range">Khoảng tự chọn</option></select></label>
+          <label id="st-l-day" class="hidden">Ngày <input id="st-day" type="date"></label>
+          <label id="st-l-month">Tháng <input id="st-month" type="month"></label>
+          <label id="st-l-year" class="hidden">Năm <input id="st-year" type="number" min="2000" max="2100"></label>
+          <label id="st-l-quarter" class="hidden">Quý <select id="st-quarter"><option value="1">1</option><option value="2">2</option>
+            <option value="3">3</option><option value="4">4</option></select></label>
+          <label id="st-l-from" class="hidden">Từ ngày <input id="st-from" type="date"></label>
+          <label id="st-l-to" class="hidden">Đến ngày <input id="st-to" type="date"></label>
+          <label>Phạm vi <select id="st-scope"><option value="all">Tất cả</option><option value="category">Nhóm hàng</option>
+            <option value="product">Một mặt hàng</option><option value="customer">Một khách (chỉ số xuất)</option></select></label>
+          <label id="st-l-value" class="hidden">Chọn <select id="st-value"></select></label>
+          <label>Chia theo <select id="st-by"><option value="none">Không chia</option><option value="day">Ngày</option>
+            <option value="month">Tháng</option></select></label>
+        </div>
+      </div>
+      <div id="st-summary"></div>
+      <div id="st-chart"></div>
+      <div id="st-table"></div>
+      <div id="st-top"></div>
+    </div>
+
+    <div id="detail" class="pane hidden"></div>
 
     <div id="tab-send" class="pane hidden">
       <p class="hint">Yêu cầu gửi đi sẽ nằm chờ. Chỉ khi chủ duyệt trên máy chính thì mới vào sổ.</p>
@@ -105,6 +133,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"
         integrity="sha384-2zrRDgDHSYB/GN3nFW3fsZXoxEhKIr3N2h63Tc6DEOB9JJdFIu8xMJT2Cph/gBil" crossorigin="anonymous"></script>
 <script src="config.js"></script>
+<script src="stats.js"></script>
 <script src="app.js"></script>
+<script src="views.js"></script>
 </body>
 </html>
