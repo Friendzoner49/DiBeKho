@@ -31,6 +31,9 @@ from dibekho.core.workspace import Workspace
 
 RECEIPT, DELIVERY_FILE, STOCK_COUNT = "receipt", "delivery_file", "stock_count"
 KINDS = (RECEIPT, DELIVERY_FILE, STOCK_COUNT)
+# operations only the owner (a `desktop` account) can send; core/cloud/commands.py carries them out
+CMD_KINDS = ("cmd_transfer", "cmd_trial", "cmd_product_add", "cmd_product_edit", "cmd_product_merge",
+             "cmd_customer_merge", "cmd_cancel_doc", "cmd_set_location", "cmd_receipt_edit")
 FILES_BUCKET = "inbox-files"
 MAX_FILE = 2 * 1024 * 1024   # an Excel delivery note is tens of KB
 MAX_UNZIPPED = 50 * 1024 * 1024  # guard against a zip bomb behind a small .xlsx
@@ -65,31 +68,39 @@ def sent_at(item: dict) -> datetime:
 # ---- pulling ------------------------------------------------------------------------------------------------
 
 def fetch_pending(conn, client: CloudClient, access_token: str) -> list[dict]:
-    """Pending requests, oldest first, minus those already applied locally and awaiting push confirmation.
-    Each gets 'sender' (the account's display name, '' when unknown)."""
+    """Pending requests and owner commands, oldest first, minus those already applied locally and awaiting push
+    confirmation. Each gets 'sender' (the account's display name) and 'sender_role' ('desktop', 'editor', 'viewer');
+    both are '' when the profiles cannot be read, and an unknown role is never trusted: nothing is auto-applied."""
     rows = client.get("/rest/v1/web_inbox?status=eq.pending&order=created_at", access_token) or []
     seen = applied_map(conn)
-    items = [r for r in rows if r.get("id") not in seen and r.get("kind") in KINDS]
+    items = [r for r in rows if r.get("id") not in seen and r.get("kind") in KINDS + CMD_KINDS]
     if items:
-        names = sender_names(client, access_token)
+        who = sender_info(client, access_token)
         for item in items:
-            item["sender"] = names.get(item.get("created_by"), "")
+            known = who.get(item.get("created_by"), {})
+            item["sender"] = known.get("name", "")
+            item["sender_role"] = known.get("role", "")
     return items
 
 
-def sender_names(client: CloudClient, access_token: str) -> dict:
+def sender_info(client: CloudClient, access_token: str) -> dict:
+    """{user id: {"name", "role"}}. Empty when the profiles cannot be read (then no one is treated as the owner)."""
     try:
-        rows = client.get("/rest/v1/profiles?select=user_id,display_name", access_token) or []
+        rows = client.get("/rest/v1/profiles?select=user_id,display_name,role", access_token) or []
     except CloudError:
-        return {}  # names are a courtesy: the requests themselves must still show
-    return {r["user_id"]: r.get("display_name") or "" for r in rows if r.get("user_id")}
+        return {}
+    return {r["user_id"]: {"name": r.get("display_name") or "", "role": r.get("role") or ""}
+            for r in rows if r.get("user_id")}
 
 
 # ---- receipt ------------------------------------------------------------------------------------------------
 
 def check(conn, item: dict) -> tuple[receipts.ReceiptInput, list[str]]:
     """Payload -> ReceiptInput + the reasons it cannot be applied as it is (plain Vietnamese)."""
-    p = payload_of(item)
+    return receipt_input(conn, payload_of(item))
+
+
+def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
     errors: list[str] = []
     try:
         doc_date = date.fromisoformat(str(p.get("doc_date")))
@@ -114,9 +125,26 @@ def check(conn, item: dict) -> tuple[receipts.ReceiptInput, list[str]]:
         lines.append(receipts.ReceiptLineInput(qty, product_id, note=clean(str(raw.get("note") or ""))))
     if not lines:
         errors.append("Phiếu không có dòng hàng nào dùng được.")
-    data = receipts.ReceiptInput(doc_date, receipts.SUPPLIER,
-                                 supplier_name=clean(str(p.get("supplier_name") or "")) or "Web",
-                                 note=clean(str(p.get("note") or "")), lines=lines, location_id=location)
+    source = receipts.RETURN if p.get("source") == receipts.RETURN else receipts.SUPPLIER
+    customer_id, customer_name = None, ""
+    if source == receipts.RETURN:  # goods a customer sent back
+        if p.get("customer_id") is not None:
+            row = conn.execute("SELECT id FROM customers WHERE id = ?", (p.get("customer_id"),)).fetchone()
+            if row is None:
+                errors.append("Khách hàng không còn trong danh sách (có thể đã gộp).")
+            else:
+                customer_id = row["id"]
+        customer_name = clean(str(p.get("customer_name") or ""))
+        if customer_id is None and not customer_name:
+            errors.append("Hãy chọn khách hàng trả lại hàng.")
+    data = receipts.ReceiptInput(
+        doc_date, source,
+        supplier_name=(clean(str(p.get("supplier_name") or "")) or "Web") if source == receipts.SUPPLIER else "",
+        customer_name=customer_name, customer_id=customer_id,
+        ref_code=clean(str(p.get("ref_code") or "")) if source == receipts.RETURN else "",
+        note=clean(str(p.get("note") or "")), lines=lines, location_id=location)
+    if not errors and receipts.problems(data):
+        errors.append("Phiếu hàng về chưa đủ thông tin (kiểm tra mặt hàng bị lặp hoặc thiếu nguồn hàng).")
     return data, errors
 
 
