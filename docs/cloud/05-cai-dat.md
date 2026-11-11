@@ -16,6 +16,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 3. `cloud/supabase/003_low_stock.sql` — **chỉ khi project được tạo trước khi có file này** (project mới đã có sẵn trong 001).
 4. `cloud/supabase/004_staff_requests.sql` — yêu cầu của nhân viên: kiểm kê và phiếu giao hàng Excel (thêm loại yêu cầu, kho riêng tư `inbox-files`, giới hạn kích thước). **Bắt buộc nếu muốn nhân viên gửi kiểm kê/phiếu giao.**
 5. `cloud/supabase/005_full_view.sql` — gương có thêm bảng biến động tồn và vài cột, để web có **lịch sử vào ra, chi tiết mặt hàng/khách, Thống kê**. **Chạy xong thì mở app bấm Đồng bộ ngay một lần** (không thì web chưa có dữ liệu mới). Dự án cài mới đã có sẵn trong 001.
+6. `cloud/supabase/006_owner_commands.sql` — **chủ thao tác trên web**: thêm các loại lệnh và chỉ cho tài khoản `desktop` gửi lệnh (nhân viên `editor` vẫn chỉ gửi 3 loại yêu cầu cũ). Dự án cài mới đã có sẵn trong 001.
 
 ## 3. Tạo tài khoản
 
@@ -47,6 +48,18 @@ Chủ mở app trên máy chính (hoặc bấm **Quét lại phiếu**) → **C�
 - Nút **Vào sổ tất cả hàng về và phiếu giao hàng** duyệt một lượt; kiểm kê luôn duyệt từng phiếu. Phiếu hỏng được liệt kê lại, không làm dừng cả lượt.
 - Nhân viên thấy trạng thái từng yêu cầu ngay trên web (chờ duyệt / đã vào sổ / bị từ chối). Hoàn tác trên máy chính một phiếu hàng về hoặc kiểm kê đã duyệt thì yêu cầu đó quay về hàng chờ.
 - Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần thêm vai trò riêng và lớp xem (view) — chưa làm.
+
+### Chủ làm trên web y hệt app (tài khoản `desktop`, ví dụ `maychinh`)
+
+Đăng nhập web bằng tài khoản chủ → tab **Thao tác**. Có đủ: hàng về (cửa khẩu / khách trả lại), phiếu giao hàng (file Excel), kiểm kê, **chuyển hàng**, **xuất dùng thử**, **mặt hàng** (thêm — có kiểm tra trùng như app —, sửa, ngừng dùng, ghi chú tồn kho, gộp trùng), **gộp khách hàng**; ở chi tiết phiếu: **huỷ phiếu**, **đặt nơi lấy/nhập hàng**, **sửa phiếu hàng về**; ở chi tiết mặt hàng: sửa / ngừng dùng. (App không có chức năng sửa thông tin khách nên web cũng không.)
+
+- Lệnh của chủ **không cần duyệt lại**: máy chính tự thực hiện khi app đang mở (kiểm tra mỗi ~3 phút và mỗi lần mở/Quét lại/Đồng bộ ngay), rồi tự đồng bộ để web thấy kết quả. Web hiện ở mục “Đã gửi”: ✔ việc đã làm, hoặc ✖ lý do không làm được.
+- **Chỉ làm ở lúc an toàn**: không có hộp thoại đang mở, và người dùng không đang ở **Cần xử lý** hoặc **Kiểm kê** (nơi đang gõ dở). Mỗi đợt có **một điểm Hoàn tác** ("Lệnh của chủ từ web"); app hiện hộp thông báo ai làm gì để nhân viên không bấm Hoàn tác mù quáng.
+- **Mỗi lệnh chỉ chạy một lần**, ghi nhớ ở `cloud_state.json` cạnh `config.json` (ngoài cơ sở dữ liệu nên Hoàn tác không làm lệnh chạy lại). Phiếu/mặt hàng/khách trong lệnh được nhận diện bằng **dấu vân tay** (id + mã + giờ tạo): nếu máy chính đã Hoàn tác/khôi phục sau khi trang web tải, lệnh bị từ chối kèm lý do thay vì trúng nhầm dòng khác.
+- Chỉ tài khoản có vai trò `desktop` được nghe lời; vai trò không xác định được thì không bao giờ tự thực hiện (hỏng đường đọc hồ sơ ⇒ mọi thứ chờ duyệt tay).
+- Hạn chế: cần app mở ở đâu đó mới có hiệu lực; sau Hoàn tác, phiếu hàng về/kiểm kê của chủ quay lại **Cần xử lý** để duyệt tay, còn lệnh sửa mặt hàng/khách vẫn hiện ✔ trên web dù đã bị hoàn tác.
+- Sau khi chạy 005, **mở app bấm Đồng bộ ngay một lần**: web cần dấu vân tay mới của các dòng dữ liệu, không thì lệnh báo “dữ liệu web chưa đủ mới”.
+- `tests/test_web_contract.py` cho Chrome thật điền và bấm mọi form của chủ rồi cho máy chính chạy đúng các lệnh đó: tên trường hai bên mà lệch là test đỏ.
 
 ### Web xem được những gì (giống app)
 
