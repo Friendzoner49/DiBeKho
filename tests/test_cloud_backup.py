@@ -199,3 +199,47 @@ def test_storage_list_and_delete_requests(monkeypatch):
     c.storage_delete(["x", "y"], "tok")
     assert seen2[-1].get_method() == "DELETE"
     assert json.loads(seen2[-1].data) == {"prefixes": ["x", "y"]}
+
+
+# ---- after the database file is replaced ----------------------------------------------------------------------
+
+def test_replacing_the_database_file_marks_data_unpushed(ws, tmp_path):
+    """Undo / restore / package import all swap kho.sqlite. last_change_at and cloud_last_push_at come back from
+    the older copy together, so without AppContext.reopen() touching the data the app would think the cloud is
+    current and never push: the web would keep showing what was just undone."""
+    from dibekho.core.workspace import Config
+    from dibekho.ui.common import AppContext
+
+    ctx = AppContext(Config(workspace=str(ws.root)), ws)
+    before = backup.snapshot(ctx.conn, tmp_path / "before.sqlite")  # the state Undo would put back
+    with db.transaction(ctx.conn):
+        catalog.create_product(ctx.conn, "Keo", spec="15kg", unit="thùng")  # a change ...
+    class Client:
+        def rpc(self, name, args, token):
+            return {"conflict": False, "push_id": 5}
+    sync.push_mirror(ctx.conn, Cfg, Client(), "tok")  # ... that is pushed
+    assert not sync.has_unpushed(ctx.conn)
+
+    ctx.close()
+    backup.restore(ws, before)  # Undo
+    ctx.reopen()
+    assert sync.has_unpushed(ctx.conn)  # the cloud still holds the undone change: it must be pushed again
+    ctx.close()
+
+
+def test_after_restore_hides_other_machines_file_notes(conn):
+    with db.transaction(conn):
+        conn.execute("INSERT INTO scanned_files(hash, rel_path, status) VALUES('h1', 'a.xlsx', 'imported')")
+        conn.execute("INSERT INTO scanned_files(hash, rel_path, status) VALUES('h2', 'b.xlsx', 'needs_mapping')")
+    other = cloud_backup.parse_name("2026-11-11T09-30-00Z__MayKhac__s9.sqlite")
+    cloud_backup.after_restore(conn, Cfg, other)
+    status = {r[0]: r[1] for r in conn.execute("SELECT hash, status FROM scanned_files")}
+    assert status == {"h1": "missing_ignored", "h2": "needs_mapping"}  # only the 'lost file' notes are hidden
+
+
+def test_after_restore_keeps_file_notes_for_the_same_machine(conn):
+    with db.transaction(conn):
+        conn.execute("INSERT INTO scanned_files(hash, rel_path, status) VALUES('h1', 'a.xlsx', 'imported')")
+    mine = cloud_backup.parse_name("2026-11-11T09-30-00Z__MayChinh__s9.sqlite")
+    cloud_backup.after_restore(conn, Cfg, mine)  # Cfg.device_name = "May Chinh" -> "MayChinh"
+    assert conn.execute("SELECT status FROM scanned_files").fetchone()[0] == "imported"

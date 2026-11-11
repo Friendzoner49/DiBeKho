@@ -52,7 +52,9 @@ Undo sau khi đã áp dụng item hộp thư: item chỉ được đánh dấu `
 
 ## 4. Schema cloud (Supabase Postgres) — file `cloud/supabase/001_init.sql`
 
-- `mirror_snapshot(id, pushed_at, device_name, device_id, app_version, schema_version, payload jsonb)` — mỗi lần đẩy một dòng mới, **giữ 30 dòng gần nhất = chính là Cloud Backup** (khôi phục = tải payload về, dựng lại như nhập gói). Payload = toàn bộ bảng nghiệp vụ dạng JSON.
+- `mirror_snapshot(id, pushed_at, device_name, device_id, app_version, schema_version, payload jsonb)` — mỗi lần đẩy một dòng, giữ 30 dòng gần nhất. **Đây là lịch sử bản chiếu để tra cứu, KHÔNG phải backup khôi phục được** (sửa 11/11/2026): payload chỉ có tồn đã cộng dồn và thiếu nhiều bảng/cột (`stock_movements`, `product_aliases`, `suppliers`, `meta`, `code_norm`, `source_hash`…), nên không dựng lại được database và sẽ phá bất biến tồn = tổng biến động.
+- **Cloud Backup thật = Supabase Storage, bucket riêng tư `backups`** (`cloud/supabase/002_backups.sql`, chỉ role `desktop` ghi/đọc/xoá): sau mỗi lần đẩy thành công app tải lên một bản sao nhất quán của `kho.sqlite` (~300 KB, `backup.snapshot`), tên `<UTC>__<máy>__s<schema>.sqlite`, giữ 30 bản gần nhất. **Khôi phục** (tab Cloud → *Khôi phục từ Cloud…*) tải về, kiểm tra như nhập gói (đúng DB DiBeKho, `quick_check`, không mới hơn app, bản cũ được nâng cấp trên bản sao trước), rồi chạy đúng đường khôi phục sao lưu cục bộ: sao lưu hiện tại → điểm Hoàn tác → thay file. Không chứa `phieu-goc/` (file Excel gốc vẫn ở máy/gói `.dibekho`).
+- Đẩy xong mà máy mới nhất trên Cloud lại chính là máy này (sau Hoàn tác/Khôi phục mốc đẩy cục bộ lùi lại) → không hỏi xung đột, tự đẩy lại.
 - Bảng gương "phẳng" cho web đọc nhanh: `mirror_products`, `mirror_customers`, `mirror_documents`, `mirror_document_lines`, `mirror_stock(product_id, location, qty)` — desktop thay cả khối qua RPC `replace_mirror(payload)` trong một transaction Postgres.
 - `web_inbox(id uuid, kind text, payload jsonb, created_by, created_at, status pending|applied|rejected, result jsonb, applied_at)`.
 - `sync_state(id=1, last_push_id, last_push_at, device_id, device_name)` — một dòng.
@@ -72,7 +74,7 @@ Supabase Auth cho tạo user bằng email "kỹ thuật" không có thật (vd. 
 
 ## 7. Webapp (giai đoạn sau của nhánh này)
 
-React + TypeScript + Vite + Supabase JS, host Cloudflare Pages (free). MVP-1: đăng nhập, xem Tồn kho / Đơn hàng / Chi tiết đơn / Khách (đọc bảng mirror), tiếng Việt trước. MVP-2: form "Tạo phiếu giao" / "Hàng về" → INSERT `web_inbox`, hiện trạng thái "chờ máy chính xử lý". Không offline, không service worker.
+**Đổi 10/11/2026 (người dùng chọn "cái nhẹ và dễ sửa hơn"):** ~~React + TypeScript + Vite~~ → **HTML + JavaScript thuần** trong `webapp/`, supabase-js nạp từ CDN, không có bước build — người dùng (Java/Python) tự bảo trì được, deploy Cloudflare Pages = kéo thả thư mục. URL + publishable key nằm trong `webapp/config.js` (gitignored; mẫu ở `config.example.js`). MVP-1: đăng nhập, xem Tồn kho / Đơn hàng (+ dòng hàng) / Khách hàng từ bảng mirror, tiếng Việt. MVP-2: form "Hàng về" / "Phiếu giao" → INSERT `web_inbox`, hiện trạng thái "chờ máy chính xử lý". Không offline, không service worker.
 
 ## 8. Lộ trình bước nhỏ (mỗi bước: test + commit riêng, trên nhánh `cloud`)
 

@@ -220,6 +220,11 @@ class AppContext(QObject):
         if self.conn is not None:
             self.conn.close()
         self.conn = db.connect(self.ws.db_path)
+        # The file was replaced (Undo, restore, package, reset): its last_change_at and cloud_last_push_at both
+        # come from the older copy, so without this the cloud would never be told and the web would keep
+        # showing what was just undone.
+        with db.transaction(self.conn):
+            db.touch(self.conn)
         self.notify()
 
 

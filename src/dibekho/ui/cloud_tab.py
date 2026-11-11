@@ -178,6 +178,7 @@ class CloudTab(QWidget):
                     backup.restore(ctx.ws, path)
                 finally:
                     ctx.reopen()
+            cloud_backup.after_restore(ctx.conn, ctx.cfg, chosen)
         except (CloudError, OSError) as exc:
             error(self, str(exc))
             return

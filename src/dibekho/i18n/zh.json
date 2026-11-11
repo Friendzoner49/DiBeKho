@@ -322,7 +322,7 @@
   "cloud.col_size": "大小",
   "cloud.restore_none": "云端还没有备份。每次同步成功后都会生成一份。",
   "cloud.restore_pick": "请先选择一份备份。",
-  "cloud.restore_confirm": "用电脑“{device}”在 {at} 的备份替换本机全部数据吗？\n当前数据会先备份，且可以撤销。",
+  "cloud.restore_confirm": "用电脑“{device}”在 {at} 的备份替换本机全部数据吗？\n当前数据会先备份，且可以撤销。\n注意：原始 Excel 单据不包含在备份中。",
   "cloud.restore_unpushed": "本机有尚未上传到云端的改动，恢复后会消失（仍保留在刚生成的备份和“撤销”中）。\n继续吗？",
   "cloud.restored": "已从云端恢复数据。",
   "cloud.backup_failed": "数据已上传到云端，但完整备份未能保存：\n{reason}",

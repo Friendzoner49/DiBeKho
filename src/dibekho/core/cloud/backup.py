@@ -115,3 +115,13 @@ def validate(path: Path) -> int:
         except sqlite3.DatabaseError as exc:
             raise CloudError(f"Không nâng cấp được bản sao lưu cũ: {exc}") from exc
     return version
+
+
+def after_restore(conn, cfg, chosen: CloudBackup) -> None:
+    """Call right after the database file was replaced by `chosen`. A backup made by ANOTHER machine carries that
+    machine's file list: its 'imported'/'missing' notes would all show up as lost files here, so they are hidden
+    exactly as transfer.after_import does (the next scan re-links any file that exists on this machine)."""
+    with db.transaction(conn):
+        if chosen.device != _safe_device(cfg.device_name):
+            conn.execute("UPDATE scanned_files SET status = 'missing_ignored' WHERE status IN ('imported', 'missing')")
+        db.log(conn, "cloud_restore", chosen.name)

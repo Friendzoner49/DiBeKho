@@ -322,7 +322,7 @@
   "cloud.col_size": "Size",
   "cloud.restore_none": "No backups on the cloud yet. One is made after every successful sync.",
   "cloud.restore_pick": "Pick a backup first.",
-  "cloud.restore_confirm": "Replace all data on this machine with the backup from machine “{device}” at {at}?\nThe current data is backed up first and can be undone.",
+  "cloud.restore_confirm": "Replace all data on this machine with the backup from machine “{device}” at {at}?\nThe current data is backed up first and can be undone.\nNote: the original Excel delivery notes are not part of the backup.",
   "cloud.restore_unpushed": "This machine has changes not yet pushed to the cloud. They disappear after restoring (they stay in the backup just made and in Undo).\nContinue?",
   "cloud.restored": "Data restored from the cloud.",
   "cloud.backup_failed": "Data was pushed to the cloud, but the full backup could not be saved:\n{reason}",
