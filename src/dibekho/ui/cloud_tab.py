@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 from dibekho.core import activity, backup
 from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import commands as cloud_commands
-from dibekho.core.cloud import sync
+from dibekho.core.cloud import replica, sync, twoway
 from dibekho.core.cloud.client import CloudClient, CloudError, local_time
 from dibekho.i18n import t
 from dibekho.ui.common import ask, blocked_in_cloud_mode, error, fill_table, fit_window, hint_label, info, make_table, selected_id
@@ -89,13 +89,35 @@ class CloudTab(QWidget):
         self.status = QLabel()
         row.addWidget(self.status, 1)
         form.addRow(row)
+
+        # cloud as the source of truth (docs/cloud/06-cloud-la-goc.md)
+        shared = QGroupBox(t("sync.mode_title"))
+        lay.addWidget(shared)
+        shared_lay = QVBoxLayout(shared)
+        shared_lay.addWidget(hint_label(t("sync.mode_hint")))
+        mode_row = QHBoxLayout()
+        self.mode_btn = QPushButton()
+        self.mode_btn.clicked.connect(self.toggle_mode)
+        self.conflicts_btn = QPushButton(t("sync.show_conflicts"))
+        self.conflicts_btn.clicked.connect(self.show_conflicts)
+        self.mode_status = QLabel()
+        mode_row.addWidget(self.mode_btn)
+        mode_row.addWidget(self.conflicts_btn)
+        mode_row.addWidget(self.mode_status, 1)
+        shared_lay.addLayout(mode_row)
         lay.addStretch()
+        ctx.changed.connect(self.refresh)
         self.refresh()
 
     def refresh(self):
         _, at = sync.last_push(self.ctx.conn)
         when = at.replace("T", " ")[:16] if at else t("cloud.never")
         self.status.setText(t("cloud.last_push", when=when))
+        on = replica.enabled(self.ctx.conn)
+        self.mode_btn.setText(t("sync.turn_off") if on else t("sync.turn_on"))
+        runner = getattr(self.ctx, "sync_runner", None)
+        self.mode_status.setText((runner.status_text() if runner else "") if on else t("sync.mode_off"))
+        self.conflicts_btn.setVisible(on and bool(twoway.conflicts(self.ctx.conn)))
 
     # ---------------------------------------------------------------- actions
 
@@ -143,6 +165,45 @@ class CloudTab(QWidget):
             error(self, t("cloud.backup_failed", reason=backup_problem))
         else:
             info(self, t("cloud.push_ok"))
+
+    def toggle_mode(self):
+        ctx = self.ctx
+        if replica.enabled(ctx.conn):
+            if ask(self, t("sync.confirm_off")):
+                activity.log("click", "cloud_mode_off")
+                twoway.stop(ctx.conn)
+                self.refresh()
+            return
+        activity.log("click", "cloud_mode_on")
+        try:
+            pair = self._connect()
+            if pair is None:
+                return
+            client, token = pair
+            pulled = self._busy(lambda: twoway.fetch(client, token, 0))
+            if twoway.cloud_empty(pulled):
+                if not ask(self, t("sync.confirm_upload")):
+                    return
+                twoway.start_from_this_machine(ctx.conn)
+            else:
+                if not ask(self, t("sync.confirm_adopt")):
+                    return
+                backup.named_backup(ctx.conn, ctx.ws, "truoc-dung-du-lieu-cloud")
+                twoway.start_from_cloud(ctx.conn)
+            result = self._busy(lambda: twoway.sync_round(ctx.conn, client, token, ctx.cfg.device_id))
+            for merged in result.merged:
+                twoway.export_renamed(ctx.conn, ctx.ws, merged)
+        except CloudError as exc:
+            error(self, str(exc))
+            return
+        ctx.notify()
+        info(self, t("sync.turned_on"))
+
+    def show_conflicts(self):
+        from dibekho.ui.conflict_dialog import ConflictDialog
+
+        ConflictDialog(self.ctx, self).exec()
+        self.refresh()
 
     def restore_from_cloud(self):
         """Replace the local database with a full backup from the cloud: checked first, the current data

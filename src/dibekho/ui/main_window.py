@@ -21,15 +21,18 @@ from dibekho.core import activity, deliveries, inbox, undo
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync as cloud_sync
+from dibekho.core.cloud import twoway
 from dibekho.core.cloud.client import CloudError, local_time
 from dibekho.i18n import t
 from dibekho.ui.common import AppContext, ask, blocked_in_cloud_mode, error, fit_window, info, open_path
+from dibekho.ui.conflict_dialog import ConflictDialog
 from dibekho.ui.count_page import CountPage
 from dibekho.ui.pending_page import PendingPage
 from dibekho.ui.receipt_page import ReceiptPage
 from dibekho.ui.search_page import SearchPage
 from dibekho.ui.settings_page import SettingsPage
 from dibekho.ui.stock_page import StockPage
+from dibekho.ui.sync_runner import SyncRunner
 
 PENDING, SEARCH, COUNT = 1, 2, 4  # rows in the navigation list
 # pages where the user types work a refresh would wipe (mapping choices, counted numbers): the owner's web
@@ -93,6 +96,10 @@ class MainWindow(QMainWindow):
         top.addWidget(scan)
         top.addWidget(open_notes)
         top.addWidget(self.status, 1)
+        self.sync_btn = QPushButton()  # cloud mode only: sync state; click = conflicts to decide, or sync now
+        self.sync_btn.setFlat(True)
+        self.sync_btn.clicked.connect(self._sync_clicked)
+        top.addWidget(self.sync_btn)
         top.addWidget(self.undo_btn)
 
         right = QWidget()
@@ -127,6 +134,13 @@ class MainWindow(QMainWindow):
         self._owner_timer = QTimer(self)
         self._owner_timer.timeout.connect(self._owner_tick)
         self._owner_timer.start(OWNER_POLL)
+        # cloud as the source of truth (docs/cloud/06): two-way sync in the background
+        self.sync = SyncRunner(ctx, self._owner_safe, lambda text: info(self, text), self)
+        ctx.sync_runner = self.sync
+        self.sync.status_changed.connect(self._update_sync)
+        ctx.changed.connect(self._update_sync)
+        self._update_sync()
+        QTimer.singleShot(2500, self.sync.start)
         ctx.changed.connect(self._maybe_apply_owner)
 
     def rescan(self, quiet: bool = False, allow_partial: bool = False):
@@ -280,8 +294,22 @@ class MainWindow(QMainWindow):
         except OSError:
             pass
 
+    def _update_sync(self) -> None:
+        text = self.sync.status_text()
+        self.sync_btn.setText(text)
+        self.sync_btn.setVisible(bool(text))
+
+    def _sync_clicked(self) -> None:
+        if twoway.conflicts(self.ctx.conn):
+            ConflictDialog(self.ctx, self).exec()
+            self._update_sync()
+        else:
+            self.sync.start()
+
     def closeEvent(self, event):
         self._save_geometry()
+        self.sync.timer.stop()
+        self.sync.send_before_closing()
         self._cloud_push_on_close()
         self.ctx.close()
         super().closeEvent(event)

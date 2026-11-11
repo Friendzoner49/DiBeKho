@@ -164,6 +164,8 @@ class SyncRunner(QObject):
             if pair is None:
                 return
             client, token = pair
-            twoway.sync_round(self.ctx.conn, client, token, self.ctx.cfg.device_id, tries=2)
+            result = twoway.sync_round(self.ctx.conn, client, token, self.ctx.cfg.device_id, tries=2)
+            for merged in result.merged:
+                twoway.export_renamed(self.ctx.conn, self.ctx.ws, merged)
         except (CloudError, OSError) as exc:
             activity.log("error", f"cloud sync on close ({time.monotonic() - started:.0f}s): {exc}")
