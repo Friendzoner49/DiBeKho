@@ -4,8 +4,6 @@ fail silently on the real page while the fixture-based tests stayed green)."""
 import re
 from pathlib import Path
 
-from dibekho.core.cloud import mirror
-
 ROOT = Path(__file__).resolve().parent.parent
 
 

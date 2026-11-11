@@ -5,6 +5,7 @@ data packages and roll back with Undo. A stale value only makes replace_mirror r
 asks the user -- never a silent overwrite.
 """
 
+import threading
 from datetime import datetime
 
 from dibekho import db
@@ -22,6 +23,9 @@ def has_unpushed(conn) -> bool:
     return bool(changed) and changed > db.get_meta(conn, "cloud_last_push_at")
 
 
+_SESSION_LOCK = threading.Lock()  # the refresh token rotates: two refreshes at once would invalidate it
+
+
 def session(cfg, timeout: float | None = None) -> tuple[CloudClient, str] | None:
     """Client + access token from the saved refresh token, for syncs with no password prompt
     (push on close, check on open). None when the cloud is not set up on this machine.
@@ -29,9 +33,10 @@ def session(cfg, timeout: float | None = None) -> tuple[CloudClient, str] | None
     if not (cfg.cloud_url and cfg.cloud_key and cfg.cloud_user and cfg.cloud_refresh_token):
         return None
     client = CloudClient(cfg.cloud_url, cfg.cloud_key, **({"timeout": timeout} if timeout else {}))
-    tokens = client.refresh(cfg.cloud_refresh_token)
-    cfg.cloud_refresh_token = tokens["refresh_token"]
-    cfg.save()
+    with _SESSION_LOCK:
+        tokens = client.refresh(cfg.cloud_refresh_token)
+        cfg.cloud_refresh_token = tokens["refresh_token"]
+        cfg.save()
     return client, tokens["access_token"]
 
 

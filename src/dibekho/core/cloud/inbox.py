@@ -67,12 +67,12 @@ def sent_at(item: dict) -> datetime:
 
 # ---- pulling ------------------------------------------------------------------------------------------------
 
-def fetch_pending(conn, client: CloudClient, access_token: str) -> list[dict]:
+def fetch_pending(conn, client: CloudClient, access_token: str, seen: dict | None = None) -> list[dict]:
     """Pending requests and owner commands, oldest first, minus those already applied locally and awaiting push
     confirmation. Each gets 'sender' (the account's display name) and 'sender_role' ('desktop', 'editor', 'viewer');
     both are '' when the profiles cannot be read, and an unknown role is never trusted: nothing is auto-applied."""
     rows = client.get("/rest/v1/web_inbox?status=eq.pending&order=created_at", access_token) or []
-    seen = applied_map(conn)
+    seen = applied_map(conn) if seen is None else seen  # a caller off the main thread passes it in
     items = [r for r in rows if r.get("id") not in seen and r.get("kind") in KINDS + CMD_KINDS]
     if items:
         who = sender_info(client, access_token)

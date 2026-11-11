@@ -1,6 +1,7 @@
+import threading
 import time
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QByteArray, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, inbox, undo
+from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud.client import CloudError, local_time
@@ -39,11 +41,16 @@ CLOSE_SLOW = 12  # s: a push slower than this skips the full backup
 
 
 class MainWindow(QMainWindow):
+    _bg_done = Signal(object, object, object)  # callback, result, error: always delivered on the main thread
+
     def __init__(self, ctx: AppContext):
         super().__init__()
         self.ctx = ctx
+        self._pulling = False
+        self._bg_done.connect(self._bg_finished)
         self.setWindowTitle(f"{APP_NAME} {__version__}")
         fit_window(self, 1280, 800)
+        self._restore_geometry()
 
         self.nav = QListWidget()
         self.nav.setFixedWidth(200)
@@ -141,13 +148,61 @@ class MainWindow(QMainWindow):
         self._update_badge(result)
         return result
 
+    def _in_background(self, work, then) -> None:
+        """Run `work` (network only, never the database connection) off the main thread; `then(result, error)` runs
+        back on it. The window stays usable while the cloud answers (a slow line froze it for seconds)."""
+        def target():
+            try:
+                self._bg_done.emit(then, work(), None)
+            except Exception as exc:  # delivered to `then`, which decides what a failure means
+                self._bg_done.emit(then, None, exc)
+        threading.Thread(target=target, daemon=True).start()
+
+    def _bg_finished(self, then, result, err) -> None:
+        then(result, err)
+
     def _cloud_pull_inbox(self):
-        try:
-            pair = cloud_sync.session(self.ctx.cfg, timeout=10)
-            if pair is not None:
-                self._take_inbox(*pair)
-        except CloudError as exc:
-            activity.log("error", f"cloud pull inbox: {exc}")
+        self._pull_async(check_conflict=False, notify=False)
+
+    def _pull_async(self, check_conflict: bool, notify: bool) -> None:
+        """Ask the cloud for the web inbox without blocking. The database is read here, the network in the thread."""
+        if self._pulling:
+            return
+        cfg, conn = self.ctx.cfg, self.ctx.conn
+        seen = inbox_mod.applied_map(conn)
+        unpushed = check_conflict and cloud_sync.has_unpushed(conn)
+        last_seen = cloud_sync.last_push(conn)[0] if unpushed else None
+
+        def work():
+            pair = cloud_sync.session(cfg, timeout=10)
+            if pair is None:
+                return None
+            client, token = pair
+            state = cloud_sync.fetch_state(client, token) if unpushed else None
+            auto, manual = cloud_commands.pull(None, client, token, seen)
+            return state, auto, manual
+
+        def then(result, err):
+            self._pulling = False
+            if err is not None:
+                activity.log("error", f"cloud pull: {err}")
+                return
+            if result is None:
+                return
+            state, auto, manual = result
+            if state and state["device_id"] != cfg.device_id and state["last_push_id"] != last_seen:
+                info(self, t("cloud.open_conflict", device=state.get("device_name", "?"),
+                             at=local_time(state.get("last_push_at"))))
+            activity.log("cloud", f"web inbox: {len(manual)} to approve, {len(auto)} from the owner")
+            self.ctx.web_inbox, self.ctx.owner_waiting = manual, auto
+            if notify and self._owner_safe():
+                self.ctx.notify()
+            else:
+                self._update_badge(self._last)
+            self._maybe_apply_owner()
+
+        self._pulling = True
+        self._in_background(work, then)
 
     def _take_inbox(self, client, token) -> None:
         """Pull the web inbox: requests for approval go to Cần xử lý, the owner's own items wait for a safe moment."""
@@ -210,7 +265,25 @@ class MainWindow(QMainWindow):
         self.nav.setCurrentRow(SEARCH)
         self.search.focus()
 
+    def _restore_geometry(self) -> None:
+        """Open the way the window was left (size, place, maximised), if that still fits a screen."""
+        saved = getattr(self.ctx.cfg, "_extras", {}).get("window_geometry")
+        if isinstance(saved, str):
+            try:
+                self.restoreGeometry(QByteArray.fromBase64(saved.encode("ascii")))
+            except (ValueError, UnicodeError):
+                pass
+
+    def _save_geometry(self) -> None:
+        try:
+            extras = self.ctx.cfg.__dict__.setdefault("_extras", {})
+            extras["window_geometry"] = bytes(self.saveGeometry().toBase64()).decode("ascii")
+            self.ctx.cfg.save()
+        except OSError:
+            pass
+
     def closeEvent(self, event):
+        self._save_geometry()
         self._cloud_push_on_close()
         self.ctx.close()
         super().closeEvent(event)
@@ -252,22 +325,7 @@ class MainWindow(QMainWindow):
         """Pull the web inbox into 'Cần xử lý', and when another machine pushed after our last push AND this
         machine holds unpushed changes, say so now, before more work piles onto both sides. The choice itself
         happens at push time (ask, never silent)."""
-        try:
-            pair = cloud_sync.session(self.ctx.cfg, timeout=10)
-            if pair is None:
-                return
-            client, token = pair
-            if cloud_sync.has_unpushed(self.ctx.conn):
-                state = cloud_sync.fetch_state(client, token)
-                last_seen, _ = cloud_sync.last_push(self.ctx.conn)
-                if state and state["device_id"] != self.ctx.cfg.device_id and state["last_push_id"] != last_seen:
-                    when = local_time(state.get("last_push_at"))
-                    info(self, t("cloud.open_conflict", device=state.get("device_name", "?"), at=when))
-            self._take_inbox(client, token)
-            if self.ctx.web_inbox or self.ctx.owner_waiting:
-                self.ctx.notify()
-        except CloudError as exc:
-            activity.log("error", f"cloud check on open: {exc}")
+        self._pull_async(check_conflict=True, notify=True)
 
     # ------------------------------------------------------------ the owner's commands from the web
 
@@ -278,16 +336,7 @@ class MainWindow(QMainWindow):
     def _owner_tick(self) -> None:
         self._ticks += 1
         if self._ticks % 6 == 0 and QApplication.activeModalWidget() is None:  # ask the cloud every ~3 minutes
-            try:
-                pair = cloud_sync.session(self.ctx.cfg, timeout=10)
-                if pair is not None:
-                    self._take_inbox(*pair)
-                    if self._owner_safe():
-                        self.ctx.notify()
-                    else:
-                        self._update_badge(self._last)
-            except CloudError as exc:
-                activity.log("error", f"cloud poll: {exc}")
+            self._pull_async(check_conflict=False, notify=True)
         self._maybe_apply_owner()
 
     def _maybe_apply_owner(self) -> None:
