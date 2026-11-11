@@ -5,12 +5,14 @@ from PySide6.QtCore import QByteArray, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -79,6 +81,14 @@ class MainWindow(QMainWindow):
         ]
         for key, page in pages:
             self.nav.addItem(QListWidgetItem(t(key)))
+            if page is self.pending:
+                # its sections stack up (orders without a place, unknown names, counts, web requests, files): on a
+                # small screen it scrolls instead of making the whole window taller than the screen
+                scroll = QScrollArea()
+                scroll.setWidgetResizable(True)
+                scroll.setFrameShape(QFrame.NoFrame)
+                scroll.setWidget(page)
+                page = scroll
             self.stack.addWidget(page)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.currentRowChanged.connect(
@@ -285,6 +295,33 @@ class MainWindow(QMainWindow):
                 self.restoreGeometry(QByteArray.fromBase64(saved.encode("ascii")))
             except (ValueError, UnicodeError):
                 pass
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, "_placed", False):
+            self._placed = True
+            QTimer.singleShot(0, self._keep_on_screen)  # after the title bar exists: its height counts too
+
+    def _keep_on_screen(self) -> None:
+        """The whole window, title bar included, inside the screen's free area (not under the taskbar). A size saved
+        on a larger screen or at another zoom must not open half off the screen."""
+        if self.isMaximized() or self.isFullScreen():
+            return
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return
+        avail = screen.availableGeometry()
+        frame = self.frameGeometry()
+        extra_w, extra_h = frame.width() - self.width(), frame.height() - self.height()
+        w = min(self.width(), avail.width() - extra_w)
+        h = min(self.height(), avail.height() - extra_h)
+        if (w, h) != (self.width(), self.height()):
+            self.resize(w, h)
+            frame = self.frameGeometry()
+        x = min(max(frame.x(), avail.x()), avail.right() - frame.width() + 1)
+        y = min(max(frame.y(), avail.y()), avail.bottom() - frame.height() + 1)
+        if (x, y) != (frame.x(), frame.y()):
+            self.move(x, y)
 
     def _save_geometry(self) -> None:
         try:

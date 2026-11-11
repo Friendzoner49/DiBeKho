@@ -49,3 +49,20 @@ def test_local_mode_is_not_affected(ctx):
     assert blocked_in_cloud_mode(None, ctx.conn) is False
     replica.set_enabled(ctx.conn, True)
     assert blocked_in_cloud_mode(None, ctx.conn) is True
+
+
+def test_a_saved_size_larger_than_the_screen_is_brought_back_inside(ctx):
+    from PySide6.QtWidgets import QApplication
+
+    from dibekho.ui.main_window import MainWindow
+
+    window = MainWindow(ctx)
+    avail = window.screen().availableGeometry()
+    window.resize(avail.width() + 400, avail.height() + 300)
+    window.move(avail.x() + 200, avail.y() + 150)
+    window._keep_on_screen()
+    QApplication.processEvents()
+    frame = window.frameGeometry()
+    assert avail.contains(frame), (avail, frame)
+    window._owner_timer.stop()
+    window.sync.timer.stop()
