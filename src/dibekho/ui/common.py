@@ -202,7 +202,8 @@ class AppContext(QObject):
         self.ws = ws
         self.conn: sqlite3.Connection = db.connect(ws.db_path)
         self.receipt_draft = None  # a new receipt closed before saving (ReceiptInput), offered again next time
-        self.web_inbox = []  # pending web_inbox items pulled this session (core.cloud.inbox), shown in Cần xử lý
+        self.web_inbox = []  # requests staff sent from the web, waiting for the owner's approval (Cần xử lý)
+        self.owner_waiting = []  # the owner's own web items, applied at the next safe moment (core.cloud.commands)
 
     def notify(self) -> None:
         self.changed.emit()

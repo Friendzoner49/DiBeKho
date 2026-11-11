@@ -276,6 +276,14 @@ def partition(items: list[dict]) -> tuple[list[dict], list[dict]]:
     return auto, manual
 
 
+def pull(conn, client: CloudClient, token: str) -> tuple[list[dict], list[dict]]:
+    """Fetch the pending requests and commands, resend any outcome the cloud missed, and split them:
+    (the owner's items to carry out, the requests for the owner to approve by hand)."""
+    items = inbox.fetch_pending(conn, client, token)
+    retry_unconfirmed(client, token, {i["id"] for i in items})
+    return partition(items)
+
+
 @dataclass
 class Outcome:
     item: dict

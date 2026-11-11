@@ -49,11 +49,18 @@ def test_the_payload_keys_are_the_ones_the_function_reads():
     assert {"products", "customers", "documents", "document_lines", "movements", "stock"} == used
 
 
-def test_staff_cannot_send_owner_commands_once_that_migration_exists():
-    """Placeholder guard for the commands migration: when 006 exists, an editor may insert only the three request
-    kinds and only the desktop role may insert anything else."""
-    path = SQL / "006_owner_commands.sql"
-    if not path.exists():
-        return
-    text = path.read_text(encoding="utf-8")
-    assert "'editor'" in text and "'receipt'" in text and "'delivery_file'" in text and "'stock_count'" in text
+def test_request_kinds_in_sql_match_the_ones_the_app_understands():
+    """web_inbox.kind is restricted in SQL; a kind the app does not know would sit pending forever, and a kind the SQL
+    refuses could never be sent. Also: only the desktop account may insert commands."""
+    from dibekho.core.cloud import inbox
+    expected = set(inbox.KINDS + inbox.CMD_KINDS)
+    for name in ("001_init.sql", "006_owner_commands.sql"):
+        text = _text(name)
+        block = text[text.index("kind in ("):]
+        listed = set(re.findall(r"'(\w+)'", block[:block.index(")") + 400].split("create policy")[0]))
+        assert expected <= listed, (name, expected - listed)
+        policy = text[text.index("create policy inbox_insert"):]
+        policy = policy[:policy.index(";")]
+        assert "my_role() = 'desktop'" in policy and "my_role() = 'editor' and kind in" in policy, name
+        for kind in inbox.CMD_KINDS:
+            assert kind not in policy, f"{name}: editors must not be allowed to send {kind}"

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from dibekho.core import activity, backup
 from dibekho.core.cloud import backup as cloud_backup
-from dibekho.core.cloud import inbox as cloud_inbox
+from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync
 from dibekho.core.cloud.client import CloudClient, CloudError, local_time
 from dibekho.i18n import t
@@ -132,7 +132,8 @@ class CloudTab(QWidget):
                 result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token, force=True))
             if not result["conflict"]:
                 backup_problem = self._busy(lambda: sync.finish_push(self.ctx.conn, cfg, client, token))
-                self.ctx.web_inbox = self._busy(lambda: cloud_inbox.fetch_pending(self.ctx.conn, client, token))
+                auto, manual = self._busy(lambda: cloud_commands.pull(self.ctx.conn, client, token))
+                self.ctx.web_inbox, self.ctx.owner_waiting = manual, auto
                 self.ctx.notify()  # new web orders land in Cần xử lý
         except CloudError as exc:
             error(self, str(exc))

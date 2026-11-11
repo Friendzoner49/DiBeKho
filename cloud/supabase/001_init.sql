@@ -72,7 +72,10 @@ create table public.sync_state (
 -- ------------------------------------------------- web inbox (web writes, desktop consumes)
 create table public.web_inbox (
     id uuid primary key default gen_random_uuid(),
-    kind text not null check (kind in ('receipt', 'delivery_file', 'stock_count')),
+    kind text not null check (kind in (
+    'receipt', 'delivery_file', 'stock_count',
+    'cmd_transfer', 'cmd_trial', 'cmd_product_add', 'cmd_product_edit', 'cmd_product_merge',
+    'cmd_customer_merge', 'cmd_cancel_doc', 'cmd_set_location', 'cmd_receipt_edit')),
     payload jsonb not null,
     created_by uuid not null default auth.uid() references auth.users(id),
     created_at timestamptz not null default now(),
@@ -110,8 +113,10 @@ end $$;
 create policy snapshot_desktop_read  on public.mirror_snapshot for select using (public.my_role() = 'desktop');
 
 -- inbox: editors create and see their own items; the desktop sees and updates everything
-create policy inbox_insert on public.web_inbox for insert
-    with check (public.my_role() in ('editor', 'desktop') and created_by = auth.uid());
+create policy inbox_insert on public.web_inbox for insert with check (
+    created_by = auth.uid()
+    and (public.my_role() = 'desktop'
+         or (public.my_role() = 'editor' and kind in ('receipt', 'delivery_file', 'stock_count'))));
 create policy inbox_own_read on public.web_inbox for select
     using (created_by = auth.uid() or public.my_role() = 'desktop');
 create policy inbox_desktop_update on public.web_inbox for update
