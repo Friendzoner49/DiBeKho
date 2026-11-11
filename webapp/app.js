@@ -12,7 +12,7 @@ const KIND_ORDER = ["delivery", "receipt", "stock_count", "transfer", "trial"];
 const STATUS_VI = { active: "", cancelled: "đã huỷ", replaced: "đã thay" };
 
 const $ = (id) => document.getElementById(id);
-const data = { products: [], customers: [], documents: [], lines: [], stock: [] };
+const data = { products: [], customers: [], documents: [], lines: [], stock: [], movements: [] };
 let stockByProduct = {}, customerById = {}, productById = {}, linesByDoc = {};
 const sortState = { stock: { i: null, dir: 1 }, orders: { i: null, dir: 1 }, customers: { i: null, dir: 1 }, stats: { i: null, dir: 1 } };
 let orderKind = "all";
@@ -130,15 +130,16 @@ async function fetchAll(tableName, order) {
 async function loadAll() {
   $("load-error").textContent = "";
   try {
-    const [products, customers, documents, lines, stock, state] = await Promise.all([
+    const [products, customers, documents, lines, stock, movements, state] = await Promise.all([
       fetchAll("mirror_products", ["category"]),
       fetchAll("mirror_customers", ["name"]),
       fetchAll("mirror_documents", ["doc_date", { ascending: false }]),
       fetchAll("mirror_document_lines"),
       fetchAll("mirror_stock"),
+    fetchAll("mirror_movements"),
       sb.from("sync_state").select("*").maybeSingle(),
     ]);
-    Object.assign(data, { products, customers, documents, lines, stock });
+    Object.assign(data, { products, customers, documents, lines, stock, movements });
     stockByProduct = {}; linesByDoc = {}; customerById = {}; productById = {};
     for (const s of stock) {
       const t = stockByProduct[s.product_id] ||= { total: 0, 1: 0, 2: 0 };
@@ -517,6 +518,7 @@ $("rc-send").addEventListener("click", sendReceipt);
 $("dl-send").addEventListener("click", sendDelivery);
 $("ct-add").addEventListener("click", () => addCountLine());
 $("ct-fill").addEventListener("click", fillCountLines);
+$("ct-clear").addEventListener("click", () => { $("ct-lines").innerHTML = ""; addCountLine(); addCountLine(); addCountLine(); });
 $("ct-send").addEventListener("click", sendCount);
 $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());

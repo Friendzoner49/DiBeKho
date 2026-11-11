@@ -122,6 +122,13 @@ def main() -> int:
     # Text, cells, buttons and icons all grow together. Set before QApplication exists; a value already in the
     # environment wins (handy while developing).
     os.environ.setdefault("QT_SCALE_FACTOR", f"{saved.ui_scale if saved else Config.ui_scale:g}")
+    if sys.platform == "win32":  # own taskbar identity, so the taskbar shows our icon instead of python's
+        try:
+            import ctypes
+
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DiBeKho.App")
+        except (AttributeError, OSError):
+            pass
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setStyle("Fusion")
