@@ -20,7 +20,11 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from dibekho import db, i18n  # noqa: E402
 from dibekho.core import catalog, deliveries, receipts  # noqa: E402
 from dibekho.core.stock import MAIN, OFFICE, Line, set_location, stock_count, transfer  # noqa: E402
+from dibekho.core import workspace as _workspace  # noqa: E402
 from dibekho.core.workspace import Config, Workspace  # noqa: E402
+
+_config_home = tempfile.mkdtemp(prefix="dibekho-shots-config-")
+_workspace.config_dir = lambda: __import__("pathlib").Path(_config_home)  # never the real config.json
 from tests.conftest import make_note  # noqa: E402
 
 LANG = sys.argv[1] if len(sys.argv) > 1 else None

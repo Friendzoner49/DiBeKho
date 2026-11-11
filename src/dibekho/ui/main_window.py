@@ -142,7 +142,8 @@ class MainWindow(QMainWindow):
             activity.log("scan", f"read {len(result.imported)}: {', '.join(result.imported)} · waiting {result.pending}"
                          if result.imported else f"waiting {result.pending}")
         if not quiet:
-            self._cloud_pull_inbox()  # the button also refreshes orders typed on the web
+            # the button also refreshes requests sent from the web; the user asked: show them when they arrive
+            self._pull_async(check_conflict=False, notify=True, explicit=True)
         if result.imported or not quiet:
             self.ctx.notify()
         self._update_badge(result)
@@ -161,10 +162,7 @@ class MainWindow(QMainWindow):
     def _bg_finished(self, then, result, err) -> None:
         then(result, err)
 
-    def _cloud_pull_inbox(self):
-        self._pull_async(check_conflict=False, notify=False)
-
-    def _pull_async(self, check_conflict: bool, notify: bool) -> None:
+    def _pull_async(self, check_conflict: bool, notify: bool, explicit: bool = False) -> None:
         """Ask the cloud for the web inbox without blocking. The database is read here, the network in the thread."""
         if self._pulling:
             return
@@ -195,7 +193,7 @@ class MainWindow(QMainWindow):
                              at=local_time(state.get("last_push_at"))))
             activity.log("cloud", f"web inbox: {len(manual)} to approve, {len(auto)} from the owner")
             self.ctx.web_inbox, self.ctx.owner_waiting = manual, auto
-            if notify and self._owner_safe():
+            if notify and (explicit or self._owner_safe()):  # explicit = Quét lại pressed: refresh whatever page
                 self.ctx.notify()
             else:
                 self._update_badge(self._last)
