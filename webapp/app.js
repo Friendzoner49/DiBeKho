@@ -34,6 +34,14 @@ function fmtQty(n) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000).replace(".", ",");
 }
 
+// the cloud keeps UTC: show the viewer's own time zone, like the app does
+function fmtTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function fmtMoney(n) {
   return n === null || n === undefined ? "" : Number(n).toLocaleString("vi-VN");
 }
@@ -137,7 +145,7 @@ async function loadAll() {
     for (const c of customers) customerById[c.id] = c;
     for (const p of products) productById[p.id] = p;
     if (state.data) {
-      const when = String(state.data.last_push_at).slice(0, 16).replace("T", " ");
+      const when = fmtTime(state.data.last_push_at);
       $("freshness").textContent = `Dữ liệu từ máy ${state.data.device_name}, lúc ${when}`;
       // the app's alarm level (0 = off); an older push or a project without the column falls back to the app's 30
       const level = Number(state.data.low_stock_default);
@@ -318,7 +326,7 @@ async function loadSent() {
     : r.status === "rejected" ? "✖ Bị từ chối" : "⏳ Chờ máy chính duyệt";
   $("rc-sent").innerHTML = `<div class="scroll"><table><thead><tr>` +
     `<th>Gửi lúc</th><th>Ngày phiếu</th><th>Nguồn</th><th>Số dòng</th><th>Trạng thái</th></tr></thead><tbody>` +
-    rows.map((r) => `<tr><td>${esc(String(r.created_at).slice(0, 16).replace("T", " "))}</td>` +
+    rows.map((r) => `<tr><td>${esc(fmtTime(r.created_at))}</td>` +
       `<td>${esc((r.payload || {}).doc_date || "")}</td><td>${esc((r.payload || {}).supplier_name || "")}</td>` +
       `<td class="num">${((r.payload || {}).lines || []).length}</td><td>${label(r)}</td></tr>`).join("") +
     `</tbody></table></div>`;

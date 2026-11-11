@@ -18,7 +18,7 @@ from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, inbox, undo
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import sync as cloud_sync
-from dibekho.core.cloud.client import CloudError
+from dibekho.core.cloud.client import CloudError, local_time
 from dibekho.i18n import t
 from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
 from dibekho.ui.count_page import CountPage
@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
                 state = cloud_sync.fetch_state(client, token)
                 last_seen, _ = cloud_sync.last_push(self.ctx.conn)
                 if state and state["device_id"] != self.ctx.cfg.device_id and state["last_push_id"] != last_seen:
-                    when = str(state.get("last_push_at", ""))[:16].replace("T", " ")
+                    when = local_time(state.get("last_push_at"))
                     info(self, t("cloud.open_conflict", device=state.get("device_name", "?"), at=when))
             self.ctx.web_inbox = cloud_inbox.fetch_pending(self.ctx.conn, client, token)
             activity.log("cloud", f"web inbox pending {len(self.ctx.web_inbox)}")
@@ -254,5 +254,5 @@ class MainWindow(QMainWindow):
 
     def _ask_cloud_overwrite(self, result) -> bool:
         other = result.get("last_push") or {}
-        when = str(other.get("last_push_at", ""))[:16].replace("T", " ")
+        when = local_time(other.get("last_push_at"))
         return ask(self, t("cloud.conflict", device=other.get("device_name", "?"), at=when))

@@ -22,7 +22,7 @@ from dibekho import __version__, db
 from dibekho.core import activity, backup, catalog, deliveries, inbox, transfer
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import sync as cloud_sync
-from dibekho.core.cloud.client import CloudError
+from dibekho.core.cloud.client import CloudError, local_time
 from dibekho.core.stock import set_location, stock_levels
 from dibekho.core.text import fmt_qty, matches_words, parse_number
 from dibekho.i18n import t
@@ -177,7 +177,7 @@ class PendingPage(Page):
         fill_table(self.web, [[fmt_date(str((it.get("payload") or {}).get("doc_date") or "")),
                                str((it.get("payload") or {}).get("supplier_name") or ""),
                                str(len((it.get("payload") or {}).get("lines") or [])),
-                               str(it.get("created_at") or "")[:16].replace("T", " "), ""] for it in items])
+                               local_time(it.get("created_at")), ""] for it in items])
         for i, it in enumerate(items):
             self.web.setCellWidget(i, 4, _buttons(
                 (t("pending.web_apply"), lambda _=False, x=it: self._web_apply(x)),

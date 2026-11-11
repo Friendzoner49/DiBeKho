@@ -27,7 +27,7 @@ from dibekho.core import activity, backup
 from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import sync
-from dibekho.core.cloud.client import CloudClient, CloudError
+from dibekho.core.cloud.client import CloudClient, CloudError, local_time
 from dibekho.i18n import t
 from dibekho.ui.common import ask, error, fill_table, fit_window, hint_label, info, make_table, selected_id
 
@@ -126,7 +126,7 @@ class CloudTab(QWidget):
             result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token))
             if result["conflict"]:
                 other = result.get("last_push") or {}
-                when = str(other.get("last_push_at", ""))[:16].replace("T", " ")
+                when = local_time(other.get("last_push_at"))
                 if not ask(self, t("cloud.conflict", device=other.get("device_name", "?"), at=when)):
                     return
                 result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token, force=True))

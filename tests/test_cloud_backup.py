@@ -248,6 +248,9 @@ def test_after_restore_keeps_file_notes_for_the_same_machine(conn):
 def test_finish_push_can_skip_the_full_backup(conn):
     """On a slow line the close-time push must not also upload the backup (the window would look frozen)."""
     class Client:
+        def get(self, *a):
+            return []  # reconcile_applied: nothing recorded on the web
+
         def storage_upload(self, *a):
             raise AssertionError("no upload expected")
 
@@ -259,6 +262,9 @@ def test_finish_push_can_skip_the_full_backup(conn):
 
 def test_finish_push_reports_backup_failure_but_does_not_raise(conn):
     class Client(FakeStorage):
+        def get(self, *a):
+            return []
+
         def storage_upload(self, name, data, token):
             raise CloudError("Cloud báo lỗi 404: Bucket not found")
 

@@ -115,3 +115,21 @@ def finish_applied(conn, client: CloudClient, access_token: str) -> int:
             m.pop(item_id, None)
             db.set_meta(conn, META_KEY, json.dumps(m))
     return confirmed
+
+
+def reconcile_applied(conn, client: CloudClient, access_token: str, limit: int = 50) -> int:
+    """Web slips shown as recorded whose receipt is no longer in this database (an Undo, a restore or a package
+    replaced the data) go back to pending: they reappear in Cần xử lý instead of staying ticked with nothing
+    behind them. A receipt that was only cancelled or edited still exists, so its slip stays recorded."""
+    rows = client.get(f"/rest/v1/web_inbox?status=eq.applied&order=applied_at.desc&limit={limit}", access_token) or []
+    back = 0
+    for row in rows:
+        code = (row.get("result") or {}).get("code")
+        if not code:
+            continue
+        if conn.execute("SELECT 1 FROM documents WHERE kind = 'receipt' AND code = ?", (code,)).fetchone():
+            continue
+        client.patch(f"/rest/v1/web_inbox?id=eq.{row['id']}",
+                     {"status": "pending", "result": None, "applied_at": None}, access_token)
+        back += 1
+    return back

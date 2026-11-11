@@ -173,3 +173,15 @@ def test_push_mirror_sends_last_seen_push_as_based_on(conn):
     client = FakeClient([{"conflict": False, "push_id": 8}])
     sync.push_mirror(conn, Cfg, client, "tok")
     assert client.calls[0][1]["payload"]["based_on_push"] == 7
+
+
+def test_local_time_converts_utc_to_this_machine():
+    from datetime import datetime, timezone
+
+    from dibekho.core.cloud.client import local_time
+
+    expected = datetime(2026, 11, 11, 9, 36, tzinfo=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    assert local_time("2026-11-11T09:36:52.92042+00:00") == expected
+    assert local_time("2026-11-11T09:36:52Z") == expected
+    assert local_time("") == "" and local_time(None) == ""
+    assert local_time("not a date") == "not a date"  # never raises into the UI

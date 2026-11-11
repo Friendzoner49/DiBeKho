@@ -45,6 +45,7 @@ def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: 
     """After a successful push: confirm the web slips recorded here, then upload the full backup.
     Returns the reason the backup could not be made (the push itself stands), else None."""
     cloud_inbox.finish_applied(conn, client, access_token)
+    cloud_inbox.reconcile_applied(conn, client, access_token)
     if not with_backup:
         return None
     try:

@@ -86,3 +86,41 @@ def test_reject_patches_cloud(conn):
     inbox.reject(client, "tok", "bbb-2", "trùng phiếu")
     (path, body), = client.patches
     assert "id=eq.bbb-2" in path and body["status"] == "rejected"
+
+
+class ReconcileClient:
+    def __init__(self, applied):
+        self.applied, self.patches = applied, []
+
+    def get(self, path, token):
+        assert "status=eq.applied" in path
+        return self.applied
+
+    def patch(self, path, body, token):
+        self.patches.append((path, body))
+
+
+def test_reconcile_returns_undone_slips_to_pending(conn, ws):
+    pid = _product(conn)
+    doc_id = inbox.apply_item(conn, ws, _item(pid, item_id="kept"))
+    kept_code = conn.execute("SELECT code FROM documents WHERE id = ?", (doc_id,)).fetchone()[0]
+    client = ReconcileClient([
+        {"id": "kept", "result": {"code": kept_code}},         # its receipt exists: stays recorded
+        {"id": "undone", "result": {"code": "HV099"}},         # no such receipt any more (Undo/restore)
+        {"id": "no-code", "result": {}},                       # nothing to check
+    ])
+    assert inbox.reconcile_applied(conn, client, "tok") == 1
+    (path, body), = client.patches
+    assert "id=eq.undone" in path and body == {"status": "pending", "result": None, "applied_at": None}
+
+
+def test_reconcile_keeps_slips_whose_receipt_was_only_cancelled(conn, ws):
+    from dibekho.core import stock
+
+    pid = _product(conn)
+    doc_id = inbox.apply_item(conn, ws, _item(pid, item_id="cancelled-later"))
+    code = conn.execute("SELECT code FROM documents WHERE id = ?", (doc_id,)).fetchone()[0]
+    with db.transaction(conn):
+        stock.close_document(conn, doc_id, "cancelled")  # the row stays, only its status changes
+    client = ReconcileClient([{"id": "cancelled-later", "result": {"code": code}}])
+    assert inbox.reconcile_applied(conn, client, "tok") == 0 and not client.patches

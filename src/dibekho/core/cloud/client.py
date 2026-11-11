@@ -8,11 +8,21 @@ Accounts use technical emails: the user types just a name ('maychinh'), the clie
 import json
 import urllib.error
 import urllib.request
+from datetime import datetime
 from urllib.parse import quote
 
 BUCKET = "backups"
 EMAIL_DOMAIN = "dibekho.local"
 TIMEOUT = 40  # seconds; the whole mirror is a few MB at most
+
+
+def local_time(iso) -> str:
+    """'2026-11-11T09:36:52.9+00:00' (the cloud keeps UTC) -> '2026-11-11 12:36' in this machine's time zone."""
+    text = str(iso or "")
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return text[:16].replace("T", " ")
 
 
 class CloudError(Exception):
