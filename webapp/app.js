@@ -262,21 +262,37 @@ function renderCustomers(f) {
   ], items);
 }
 
-/* ---------------------------------------------------------------- send goods-in (web_inbox) */
+/* ---------------------------------------------------------------- staff requests (web_inbox) */
 
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const MAX_FILE = 2 * 1024 * 1024;  // same limit as the bucket and the desktop check
 let productLabels = {};  // "SP001 · name · spec" -> product id
 
+// the viewer's own calendar day: toISOString() would give the UTC day, a day off after midnight in Vietnam
+function todayLocal() {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function productLabel(p) {
+  return [p.code, p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
+}
+
 function initSendForm() {
-  $("rc-date").value = new Date().toISOString().slice(0, 10);
+  $("rc-date").value = todayLocal();
+  $("ct-date").value = todayLocal();
   productLabels = {};
   $("products-dl").innerHTML = data.products.filter((p) => p.active).map((p) => {
-    const label = [p.code, p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
+    const label = productLabel(p);
     productLabels[label] = p.id;
     return `<option value="${esc(label)}">`;
   }).join("");
   if (!$("rc-lines").children.length) { addLine(); addLine(); addLine(); }
+  if (!$("ct-lines").children.length) { addCountLine(); addCountLine(); addCountLine(); }
   loadSent();
 }
+
+/* ---- goods in */
 
 function addLine() {
   const row = document.createElement("div");
@@ -318,17 +334,128 @@ async function sendReceipt() {
   loadSent();
 }
 
+/* ---- delivery note (Excel file) */
+
+async function sendDelivery() {
+  const fail = (text) => { $("dl-error").textContent = text; };
+  $("dl-error").textContent = ""; $("dl-msg").textContent = "";
+  const file = $("dl-file").files[0];
+  if (!file) return fail("Hãy chọn file phiếu giao hàng.");
+  if (!/\.xlsx$/i.test(file.name)) return fail("Chỉ nhận file Excel .xlsx. Nếu là file .xls, hãy mở bằng Excel rồi Lưu thành .xlsx.");
+  if (file.size === 0) return fail("File trống.");
+  if (file.size > MAX_FILE) return fail("File lớn hơn 2 MB.");
+  $("dl-send").disabled = true;
+  try {
+    const buf = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    const sha256 = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+    // an ASCII-only storage key; the real file name travels in the payload
+    const path = `${crypto.randomUUID()}/phieu.xlsx`;
+    const up = await sb.storage.from("inbox-files").upload(path, buf, { contentType: XLSX_MIME, upsert: false });
+    if (up.error) return fail(`Không tải được file lên: ${up.error.message}`);
+    const { error } = await sb.from("web_inbox").insert({
+      kind: "delivery_file",
+      payload: { file_path: path, file_name: file.name, size: file.size, sha256, note: $("dl-note").value.trim() },
+    });
+    if (error) return fail(`Không gửi được: ${error.message}`);
+    $("dl-msg").textContent = "Đã gửi. Phiếu sẽ được đọc sau khi máy chính duyệt.";
+    $("dl-file").value = ""; $("dl-note").value = "";
+    loadSent();
+  } finally {
+    $("dl-send").disabled = false;
+  }
+}
+
+/* ---- stock count */
+
+function addCountLine(product) {
+  const row = document.createElement("div");
+  row.className = "line count";
+  row.innerHTML = `<input class="ct-product" list="products-dl" placeholder="Gõ mã hoặc tên hàng…">` +
+    `<input class="ct-qty" inputmode="decimal" placeholder="Đếm được">` +
+    `<button class="flat ct-del" title="Xoá dòng">✕</button>`;
+  if (product) {
+    const input = row.querySelector(".ct-product");
+    input.value = productLabel(product);
+    input.readOnly = true;  // pre-filled rows only need a number
+  }
+  row.querySelector(".ct-del").addEventListener("click", () => row.remove());
+  $("ct-lines").append(row);
+}
+
+function fillCountLines() {
+  $("ct-lines").innerHTML = "";
+  data.products.filter((p) => p.active)
+    .sort((a, b) => (a.category || "").localeCompare(b.category || "", "vi") || a.code.localeCompare(b.code))
+    .forEach((p) => addCountLine(p));
+}
+
+async function sendCount() {
+  const fail = (text) => { $("ct-error").textContent = text; };
+  $("ct-error").textContent = ""; $("ct-msg").textContent = "";
+  const day = $("ct-date").value;
+  if (!day) return fail("Hãy chọn ngày kiểm kê.");
+  if (day > todayLocal()) return fail("Ngày kiểm kê không được ở tương lai.");
+  const lines = [], seen = new Set();
+  for (const row of $("ct-lines").querySelectorAll(".line")) {
+    const label = row.querySelector(".ct-product").value.trim();
+    const raw = row.querySelector(".ct-qty").value.trim();
+    if (!raw) continue;  // blank = this product was not counted
+    const id = productLabels[label];
+    if (!id) return fail(`Không nhận ra mặt hàng "${label}". Hãy chọn từ danh sách gợi ý.`);
+    const qty = Number(raw.replace(",", "."));
+    if (!Number.isFinite(qty) || qty < 0) return fail(`Số đếm của "${label}" không hợp lệ (phải là số từ 0 trở lên).`);
+    if (seen.has(id)) return fail(`Mặt hàng "${label}" bị nhập hai lần.`);
+    seen.add(id);
+    lines.push({ product_id: id, qty });
+  }
+  if (!lines.length) return fail("Chưa có mặt hàng nào được đếm.");
+  const place = $("ct-loc").selectedOptions[0].text;
+  // a count cannot be edited after sending: ask once
+  if (!confirm(`Gửi kiểm kê ${lines.length} mặt hàng tại ${place}, ngày ${day}?`)) return;
+  const payload = { count_date: day, location_id: Number($("ct-loc").value), note: $("ct-note").value.trim(), lines };
+  $("ct-send").disabled = true;
+  try {
+    const { error } = await sb.from("web_inbox").insert({ kind: "stock_count", payload });
+    if (error) return fail(`Không gửi được: ${error.message}`);
+    $("ct-msg").textContent = "Đã gửi. Kiểm kê sẽ vào sổ sau khi máy chính duyệt.";
+    $("ct-lines").innerHTML = ""; addCountLine(); addCountLine(); addCountLine();
+    $("ct-note").value = "";
+    loadSent();
+  } finally {
+    $("ct-send").disabled = false;
+  }
+}
+
+/* ---- what was sent */
+
+const SENT_KIND = { receipt: "Hàng về", delivery_file: "Phiếu giao hàng", stock_count: "Kiểm kê" };
+
+function sentDetail(r) {
+  const p = r.payload || {};
+  if (r.kind === "delivery_file") return p.file_name || "";
+  if (r.kind === "stock_count") {
+    return `${p.count_date || ""} · ${p.location_id === 2 ? "Văn phòng" : "Kho tổng"} · ${(p.lines || []).length} mặt hàng`;
+  }
+  return `${p.doc_date || ""} · ${p.supplier_name || ""} · ${(p.lines || []).length} dòng`;
+}
+
+function sentStatus(r) {
+  if (r.status === "rejected") return "✖ Bị từ chối";
+  if (r.status !== "applied") return "⏳ Chờ máy chính duyệt";
+  const res = r.result || {};
+  if (r.kind === "delivery_file") return res.already ? "✔ Máy chính đã có phiếu này" : "✔ Đã nhận, máy chính đang đọc";
+  return `✔ Đã vào sổ${res.code ? ` (${esc(res.code)})` : ""}`;
+}
+
 async function loadSent() {
   const { data: rows, error } = await sb.from("web_inbox").select("*")
     .order("created_at", { ascending: false }).limit(50);
   if (error || !rows) return;
-  const label = (r) => r.status === "applied" ? `✔ Đã vào sổ${r.result && r.result.code ? ` (${esc(r.result.code)})` : ""}`
-    : r.status === "rejected" ? "✖ Bị từ chối" : "⏳ Chờ máy chính duyệt";
   $("rc-sent").innerHTML = `<div class="scroll"><table><thead><tr>` +
-    `<th>Gửi lúc</th><th>Ngày phiếu</th><th>Nguồn</th><th>Số dòng</th><th>Trạng thái</th></tr></thead><tbody>` +
-    rows.map((r) => `<tr><td>${esc(fmtTime(r.created_at))}</td>` +
-      `<td>${esc((r.payload || {}).doc_date || "")}</td><td>${esc((r.payload || {}).supplier_name || "")}</td>` +
-      `<td class="num">${((r.payload || {}).lines || []).length}</td><td>${label(r)}</td></tr>`).join("") +
+    `<th>Gửi lúc</th><th>Loại</th><th>Nội dung</th><th>Trạng thái</th></tr></thead><tbody>` +
+    rows.map((r) => `<tr><td>${esc(fmtTime(r.created_at))}</td><td>${esc(SENT_KIND[r.kind] || r.kind)}</td>` +
+      `<td>${esc(sentDetail(r))}</td><td>${sentStatus(r)}</td></tr>`).join("") +
     `</tbody></table></div>`;
 }
 
@@ -339,10 +466,21 @@ for (const btn of document.querySelectorAll(".tab")) {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".pane").forEach((p) => p.classList.add("hidden"));
     $(`tab-${btn.dataset.tab}`).classList.remove("hidden");
+    $("toolbar").classList.toggle("hidden", btn.dataset.tab === "send");  // searching does not apply to the forms
+  });
+}
+for (const chip of document.querySelectorAll("#send-kinds .chip")) {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll("#send-kinds .chip").forEach((c) => c.classList.toggle("active", c === chip));
+    for (const kind of ["receipt", "delivery", "count"]) $(`send-${kind}`).classList.toggle("hidden", kind !== chip.dataset.send);
   });
 }
 $("rc-add").addEventListener("click", addLine);
 $("rc-send").addEventListener("click", sendReceipt);
+$("dl-send").addEventListener("click", sendDelivery);
+$("ct-add").addEventListener("click", () => addCountLine());
+$("ct-fill").addEventListener("click", fillCountLines);
+$("ct-send").addEventListener("click", sendCount);
 $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());
 $("filter").addEventListener("input", render);

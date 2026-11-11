@@ -63,7 +63,7 @@ create table public.sync_state (
 -- ------------------------------------------------- web inbox (web writes, desktop consumes)
 create table public.web_inbox (
     id uuid primary key default gen_random_uuid(),
-    kind text not null check (kind in ('delivery', 'receipt', 'stock_note')),
+    kind text not null check (kind in ('receipt', 'delivery_file', 'stock_count')),
     payload jsonb not null,
     created_by uuid not null default auth.uid() references auth.users(id),
     created_at timestamptz not null default now(),

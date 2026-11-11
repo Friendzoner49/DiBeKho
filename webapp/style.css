@@ -83,6 +83,9 @@ td.qty { color: var(--muted); }
 .form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .line { display: grid; grid-template-columns: 3fr 90px 2fr auto; gap: 6px; margin-top: 8px; }
 button.narrow { width: auto; padding: 9px 22px; }
+.line.count { grid-template-columns: 1fr 120px auto; }
+.line input[readonly] { background: var(--bg); }
+.form input[type="file"] { padding: 6px; }
 tr.neg td { background: var(--row-red); }
 tr.low td { background: var(--row-orange); }
 .key { padding: 1px 8px; border-radius: 6px; }

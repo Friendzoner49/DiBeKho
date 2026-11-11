@@ -13,6 +13,8 @@ class FakeClient:
         self.patches = []
 
     def get(self, path, token):
+        if "profiles" in path:
+            return [{"user_id": "u1", "display_name": "Lan"}]
         assert "web_inbox" in path and "status=eq.pending" in path
         return self.pending
 
@@ -64,6 +66,7 @@ def test_fetch_pending_skips_applied_and_foreign_kinds(conn, ws):
                                  {"id": "x", "kind": "future_kind", "payload": {}}])
     got = inbox.fetch_pending(conn, client, "tok")
     assert [i["id"] for i in got] == ["new-2"]
+    assert got[0]["sender"] == ""  # no created_by on this fake row: unknown sender, not an error
 
 
 def test_finish_applied_confirms_existing_and_drops_undone(conn, ws):
@@ -83,7 +86,7 @@ def test_finish_applied_confirms_existing_and_drops_undone(conn, ws):
 
 def test_reject_patches_cloud(conn):
     client = FakeClient()
-    inbox.reject(client, "tok", "bbb-2", "trùng phiếu")
+    inbox.reject(client, "tok", {"id": "bbb-2", "kind": "receipt", "payload": {}}, "trùng phiếu")
     (path, body), = client.patches
     assert "id=eq.bbb-2" in path and body["status"] == "rejected"
 

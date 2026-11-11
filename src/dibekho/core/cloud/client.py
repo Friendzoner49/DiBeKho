@@ -77,23 +77,23 @@ class CloudClient:
     def _post(self, url: str, body: dict, access_token: str | None = None):
         return self._request(url, body, access_token, "POST")
 
-    # ---- Storage (private bucket 'backups', cloud/supabase/002_backups.sql) ---------------------------------
+    # ---- Storage (private buckets: 'backups' = cloud/supabase/002, 'inbox-files' = 004) ----------------------
 
-    def storage_upload(self, name: str, data: bytes, access_token: str) -> None:
-        self._raw("POST", f"/storage/v1/object/{BUCKET}/{quote(name)}", data, access_token,
+    def storage_upload(self, name: str, data: bytes, access_token: str, bucket: str = BUCKET) -> None:
+        self._raw("POST", f"/storage/v1/object/{bucket}/{quote(name)}", data, access_token,
                   "application/octet-stream")
 
-    def storage_list(self, access_token: str) -> list[dict]:
-        rows = self._request(f"{self.base}/storage/v1/object/list/{BUCKET}",
+    def storage_list(self, access_token: str, bucket: str = BUCKET) -> list[dict]:
+        rows = self._request(f"{self.base}/storage/v1/object/list/{bucket}",
                              {"prefix": "", "limit": 200, "offset": 0,
                               "sortBy": {"column": "name", "order": "desc"}}, access_token, "POST")
         return rows if isinstance(rows, list) else []
 
-    def storage_download(self, name: str, access_token: str) -> bytes:
-        return self._raw("GET", f"/storage/v1/object/authenticated/{BUCKET}/{quote(name)}", None, access_token)
+    def storage_download(self, name: str, access_token: str, bucket: str = BUCKET) -> bytes:
+        return self._raw("GET", f"/storage/v1/object/authenticated/{bucket}/{quote(name)}", None, access_token)
 
-    def storage_delete(self, names: list[str], access_token: str) -> None:
-        self._request(f"{self.base}/storage/v1/object/{BUCKET}", {"prefixes": names}, access_token, "DELETE")
+    def storage_delete(self, names: list[str], access_token: str, bucket: str = BUCKET) -> None:
+        self._request(f"{self.base}/storage/v1/object/{bucket}", {"prefixes": names}, access_token, "DELETE")
 
     # ---- plumbing ---------------------------------------------------------------------------------------------
 

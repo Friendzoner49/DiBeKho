@@ -14,6 +14,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 1. `cloud/supabase/001_init.sql` — bảng gương, hộp thư web, quyền RLS, hàm `replace_mirror`.
 2. `cloud/supabase/002_backups.sql` — kho lưu trữ riêng tư `backups` cho bản sao lưu đầy đủ.
 3. `cloud/supabase/003_low_stock.sql` — **chỉ khi project được tạo trước khi có file này** (project mới đã có sẵn trong 001).
+4. `cloud/supabase/004_staff_requests.sql` — yêu cầu của nhân viên: kiểm kê và phiếu giao hàng Excel (thêm loại yêu cầu, kho riêng tư `inbox-files`, giới hạn kích thước). **Bắt buộc nếu muốn nhân viên gửi kiểm kê/phiếu giao.**
 
 ## 3. Tạo tài khoản
 
@@ -22,7 +23,7 @@ Authentication → Users → Add user → Create new user, tick *Auto Confirm Us
 | Tài khoản | Vai trò | Dùng để |
 |---|---|---|
 | `maychinh@dibekho.local` | `desktop` | app trên máy chính đẩy dữ liệu, kéo hộp thư, sao lưu |
-| `khach1@dibekho.local` | `viewer` (chỉ xem) hoặc `editor` (xem + gửi hàng về) | trang web |
+| `khach1@dibekho.local` … | `viewer` (chỉ xem) hoặc `editor` (xem + **gửi yêu cầu**) | trang web — mỗi nhân viên một tài khoản `editor` riêng, để biết ai gửi |
 
 Gán vai trò (SQL Editor), đổi tên/vai trò cho đúng:
 
@@ -34,6 +35,17 @@ select id, 'Nguoi xem', 'editor' from auth.users where email = 'khach1@dibekho.l
 ```
 
 Quên mật khẩu: không có email khôi phục — vào Authentication → Users, mở tài khoản và đặt lại mật khẩu.
+
+### Nhân viên gửi yêu cầu, chủ duyệt cuối ngày
+
+Nhân viên (`editor`) vào trang web → tab **Gửi yêu cầu**: **Hàng về**, **Phiếu giao hàng** (tải file Excel .xlsx, tối đa 2 MB), **Kiểm kê** (đếm xong mới gửi; có nút điền sẵn toàn bộ mặt hàng, ô trống = không đếm).
+Chủ mở app trên máy chính (hoặc bấm **Quét lại phiếu**) → **Cần xử lý** → mục **Yêu cầu từ nhân viên (web)**, có tên người gửi:
+
+- **Hàng về**: xem tóm tắt, *Vào sổ…*. **Phiếu giao hàng**: *Vào sổ…* đặt file vào thư mục phiếu giao hàng, app đọc như mọi phiếu (hàng lạ hiện ở Cần xử lý, "Mở file gốc" dùng được, đọc trùng bị chặn theo nội dung file).
+- **Kiểm kê**: hộp duyệt cho xem đếm được / tồn máy lúc nhân viên gửi / chênh lệch từng mặt hàng. Chênh lệch tính theo **lúc nhân viên gửi**, không phải lúc chủ duyệt; phiếu giao vào sổ sau lúc đó (ngày ≤ ngày đếm) hiện ở mục *đơn đọc sau kiểm kê* để chủ quyết (Giữ số đã kiểm kê / Trừ thêm đơn này).
+- Nút **Vào sổ tất cả hàng về và phiếu giao hàng** duyệt một lượt; kiểm kê luôn duyệt từng phiếu. Phiếu hỏng được liệt kê lại, không làm dừng cả lượt.
+- Nhân viên thấy trạng thái từng yêu cầu ngay trên web (chờ duyệt / đã vào sổ / bị từ chối). Hoàn tác trên máy chính một phiếu hàng về hoặc kiểm kê đã duyệt thì yêu cầu đó quay về hàng chờ.
+- Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần thêm vai trò riêng và lớp xem (view) — chưa làm.
 
 ## 4. Nối app trên máy chính
 

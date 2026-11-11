@@ -12,7 +12,7 @@
 <!-- Đăng nhập -->
 <div id="login" class="card login hidden">
   <h1>DiBeKho</h1>
-  <p class="hint">Xem tồn kho và đơn hàng. Dữ liệu là bản máy chính gửi lên lần gần nhất.</p>
+  <p class="hint">Xem tồn kho và gửi yêu cầu cho máy chính. Dữ liệu là bản máy chính gửi lên lần gần nhất.</p>
   <label>Tên đăng nhập <input id="user" autocomplete="username"></label>
   <label>Mật khẩu <input id="password" type="password" autocomplete="current-password"></label>
   <button id="login-btn" class="primary">Đăng nhập</button>
@@ -27,14 +27,14 @@
       <button data-tab="stock" class="tab active">Tồn kho</button>
       <button data-tab="orders" class="tab">Đơn hàng</button>
       <button data-tab="customers" class="tab">Khách hàng</button>
-      <button data-tab="send" class="tab hidden" id="send-tab">Gửi hàng về</button>
+      <button data-tab="send" class="tab hidden" id="send-tab">Gửi yêu cầu</button>
     </nav>
     <span id="freshness" class="freshness"></span>
     <button id="logout" class="flat">Đăng xuất</button>
   </header>
 
   <main>
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
       <input id="filter" placeholder="Tìm (không cần gõ dấu)…">
       <button id="reload" class="flat" title="Tải lại dữ liệu">⟳ Tải lại</button>
     </div>
@@ -42,10 +42,18 @@
     <div id="tab-stock" class="pane"></div>
     <div id="tab-orders" class="pane hidden"></div>
     <div id="tab-customers" class="pane hidden"></div>
+
     <div id="tab-send" class="pane hidden">
-      <div class="card form">
+      <p class="hint">Yêu cầu gửi đi sẽ nằm chờ. Chỉ khi chủ duyệt trên máy chính thì mới vào sổ.</p>
+      <div class="chips" id="send-kinds">
+        <button class="chip active" data-send="receipt">Hàng về</button>
+        <button class="chip" data-send="delivery">Phiếu giao hàng (file Excel)</button>
+        <button class="chip" data-send="count">Kiểm kê</button>
+      </div>
+
+      <!-- hàng về -->
+      <div id="send-receipt" class="card form">
         <h2>Gửi phiếu hàng về</h2>
-        <p class="hint">Phiếu gửi đi sẽ nằm chờ; chỉ khi máy chính duyệt mới được vào sổ.</p>
         <div class="grid">
           <label>Ngày <input id="rc-date" type="date"></label>
           <label>Nguồn hàng <input id="rc-source" placeholder="Cửa khẩu / công ty mẹ…"></label>
@@ -58,6 +66,35 @@
         <p id="rc-msg" class="hint"></p>
         <p id="rc-error" class="error"></p>
       </div>
+
+      <!-- phiếu giao hàng: file Excel -->
+      <div id="send-delivery" class="card form hidden">
+        <h2>Gửi phiếu giao hàng</h2>
+        <p class="hint">Chọn file Excel phiếu giao hàng (.xlsx, tối đa 2 MB), đúng file đang dùng. Máy chính sẽ đọc như mọi phiếu khác.</p>
+        <label>File phiếu <input id="dl-file" type="file" accept=".xlsx"></label>
+        <label>Ghi chú <input id="dl-note"></label>
+        <button id="dl-send" class="primary narrow">Gửi lên máy chính</button>
+        <p id="dl-msg" class="hint"></p>
+        <p id="dl-error" class="error"></p>
+      </div>
+
+      <!-- kiểm kê -->
+      <div id="send-count" class="card form hidden">
+        <h2>Gửi phiếu kiểm kê</h2>
+        <p class="hint">Đếm xong rồi mới gửi: chênh lệch được tính theo lúc bạn bấm gửi. Dòng để trống = không kiểm mặt hàng đó; hàng đã hết thì ghi 0.</p>
+        <div class="grid">
+          <label>Ngày kiểm kê <input id="ct-date" type="date"></label>
+          <label>Nơi kiểm kê <select id="ct-loc"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select></label>
+        </div>
+        <button id="ct-fill" class="flat">Điền sẵn tất cả mặt hàng đang bán</button>
+        <div id="ct-lines"></div>
+        <button id="ct-add" class="flat">＋ Thêm dòng</button>
+        <label>Ghi chú <input id="ct-note"></label>
+        <button id="ct-send" class="primary narrow">Gửi lên máy chính</button>
+        <p id="ct-msg" class="hint"></p>
+        <p id="ct-error" class="error"></p>
+      </div>
+
       <h2>Đã gửi</h2>
       <div id="rc-sent"></div>
       <datalist id="products-dl"></datalist>

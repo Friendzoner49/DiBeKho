@@ -8,7 +8,7 @@ All functions that write expect to be called inside `db.transaction(conn)`.
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from dibekho import db
 
@@ -104,7 +104,12 @@ def close_document(conn, doc_id: int, new_status: str = "cancelled") -> None:
     db.log(conn, f"document_{new_status}", f"{doc['kind']} {doc['code']} #{doc_id}")
 
 
-def stock_count(conn, count_date: date, counted: dict, note="") -> int:
+def stamp_of(moment: datetime) -> str:
+    """A moment as the database writes created_at (local time)."""
+    return moment.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def stock_count(conn, count_date: date, counted: dict, note="", at: datetime | None = None) -> int:
     """Record a physical count. Movement = counted - stock as of count_date (inclusive).
 
     counted: {(product_id, location_id): qty} for a count of one place, or {product_id: qty} for a count of
@@ -112,14 +117,21 @@ def stock_count(conn, count_date: date, counted: dict, note="") -> int:
     Kho tổng, Văn phòng is left as it is.
     Delivery notes dated on or before count_date must be scanned first,
     otherwise they will be subtracted twice later.
+
+    at: the moment the shelf was really counted, for a count recorded later (a web request approved at the end of
+    the day). The difference is then taken against what the app knew at that moment (movements created by then),
+    and the count document and its adjustments carry that time: notes that come into the app after it fall into
+    deliveries.count_conflicts, where the owner decides, instead of silently shifting the difference.
     """
+    stamp = stamp_of(at) if at else None
     cur = conn.execute(
-        "INSERT INTO documents(kind, doc_date, note) VALUES('stock_count', ?, ?)",
-        (count_date.isoformat(), note),
+        "INSERT INTO documents(kind, doc_date, note, created_at) "
+        "VALUES('stock_count', ?, ?, COALESCE(?, datetime('now', 'localtime')))",
+        (count_date.isoformat(), note, stamp),
     )
     doc_id = cur.lastrowid
-    total = stock_levels(conn, as_of=count_date)
-    placed = stock_levels(conn, as_of=count_date, by_location=True)
+    total = stock_levels(conn, as_of=count_date, created_until=stamp)
+    placed = stock_levels(conn, as_of=count_date, by_location=True, created_until=stamp)
     for i, (key, qty) in enumerate(counted.items(), start=1):
         product_id, location_id = key if isinstance(key, tuple) else (key, None)
         conn.execute(
@@ -128,16 +140,25 @@ def stock_count(conn, count_date: date, counted: dict, note="") -> int:
         )
         diff = qty - (total.get(product_id, 0.0) if location_id is None else placed.get(key, 0.0))
         if abs(diff) > 1e-9:
-            _move(conn, product_id, diff, doc_id, "count_adjust", count_date.isoformat(), location_id or MAIN)
+            _move(conn, product_id, diff, doc_id, "count_adjust", count_date.isoformat(), location_id or MAIN,
+                  stamp)
     db.touch(conn)
     db.log(conn, "stock_count", f"#{doc_id} {count_date.isoformat()}")
     return doc_id
 
 
-def stock_levels(conn, as_of: date | None = None, by_location=False) -> dict:
-    """{product_id: stock}, or {(product_id, location_id): stock} with by_location."""
+def stock_levels(conn, as_of: date | None = None, by_location=False, created_until: str | None = None) -> dict:
+    """{product_id: stock}, or {(product_id, location_id): stock} with by_location.
+    created_until: only movements the app already had at that moment (created_at <= 'YYYY-MM-DD HH:MM:SS')."""
     key = "product_id, location_id" if by_location else "product_id"
-    where, args = ("WHERE occurred_on <= ?", (as_of.isoformat(),)) if as_of else ("", ())
+    clauses, args = [], []
+    if as_of:
+        clauses.append("occurred_on <= ?")
+        args.append(as_of.isoformat())
+    if created_until:
+        clauses.append("created_at <= ?")
+        args.append(created_until)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     rows = conn.execute(f"SELECT {key}, SUM(qty) FROM stock_movements {where} GROUP BY {key}", args)
     if by_location:
         return {(r[0], r[1]): r[2] or 0.0 for r in rows}
@@ -259,9 +280,9 @@ def is_low(stock: float, default: float) -> bool:
     return bool(default) and stock < default
 
 
-def _move(conn, product_id, qty, doc_id, kind, occurred_on, location_id) -> None:
+def _move(conn, product_id, qty, doc_id, kind, occurred_on, location_id, created_at: str | None = None) -> None:
     conn.execute(
-        "INSERT INTO stock_movements(product_id, qty, document_id, kind, occurred_on, location_id) "
-        "VALUES(?,?,?,?,?,?)",
-        (product_id, qty, doc_id, kind, occurred_on, location_id),
+        "INSERT INTO stock_movements(product_id, qty, document_id, kind, occurred_on, location_id, created_at) "
+        "VALUES(?,?,?,?,?,?,COALESCE(?, datetime('now', 'localtime')))",
+        (product_id, qty, doc_id, kind, occurred_on, location_id, created_at),
     )
