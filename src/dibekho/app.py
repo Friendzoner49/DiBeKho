@@ -84,6 +84,11 @@ def self_test() -> int:
     import tempfile
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from dibekho.core import workspace as workspace_module
+
+    # Never touch the real config.json: closing the test window saves its geometry (and the build runs this).
+    config_home = Path(tempfile.mkdtemp(prefix="dibekho-selftest-"))
+    workspace_module.config_dir = lambda: config_home
     app = QApplication(sys.argv)
     from dibekho.ui.common import AppContext
     from dibekho.ui.license_dialog import license_text
