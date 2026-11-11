@@ -119,6 +119,9 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
         if row is None:
             errors.append(f"Mặt hàng #{product_id} không còn trong danh mục (đã xoá hoặc gộp).")
             continue
+        if raw.get("code") and raw.get("code") != row["code"]:  # the web sends the code it saw: the id may mean another product now
+            errors.append(f"Mặt hàng {raw.get('code')} đã thay đổi trên máy chính (có thể đã Hoàn tác). Hãy tải lại trang web.")
+            continue
         if qty <= 0:
             errors.append(f"Số lượng của {row['code']} phải lớn hơn 0.")
             continue
@@ -312,6 +315,8 @@ def check_count(conn, item: dict) -> tuple[date, int, list[tuple[int, float]], l
         row = conn.execute("SELECT code FROM products WHERE id = ?", (product_id,)).fetchone()
         if row is None:
             errors.append(f"Mặt hàng #{product_id} không còn trong danh mục (đã xoá hoặc gộp).")
+        elif raw.get("code") and raw.get("code") != row["code"]:
+            errors.append(f"Mặt hàng {raw.get('code')} đã thay đổi trên máy chính (có thể đã Hoàn tác). Hãy tải lại trang web.")
         elif qty < 0 or qty != qty:
             errors.append(f"Số đếm của {row['code']} không được âm.")
         elif product_id in seen:

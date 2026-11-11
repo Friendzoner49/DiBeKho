@@ -99,7 +99,8 @@ function orderDetailHtml(d) {
            `<td>${esc(l.note)}</td></tr>`;
   });
   return `<dl class="info">${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` +
-    plainTable(["Mã", "Mặt hàng", "Quy cách", "SL", "Đơn giá", "Thành tiền", "Ghi chú"], rows, 3);
+    plainTable(["Mã", "Mặt hàng", "Quy cách", "SL", "Đơn giá", "Thành tiền", "Ghi chú"], rows, 3) +
+    ownerActionsHtml(d);  // the owner's buttons (owner.js); empty for everyone else
 }
 
 /* ---------------------------------------------------------------- product detail */
@@ -133,6 +134,7 @@ function showProduct(id) {
     `<div class="stat"><span>Văn phòng</span><b>${fmtQty(st[2])}</b></div></div>` +
     `<h3>Lịch sử vào ra (mới nhất trước)</h3><div id="ph-table"></div>` +
     `<h3>Khách lấy nhiều nhất</h3><div id="ph-top"></div>`);
+  addProductActions(box, p);  // owner.js: edit / stop using this product
   const newest = history.slice().reverse();
   $("ph-table").innerHTML = plainTable(["Ngày", "Loại", "Mã phiếu", "Khách / nguồn", "Nơi", "Số lượng", "Tồn sau", "Phiếu"],
     newest.map((m) => `<tr class="${m.status && m.status !== "active" ? "closed" : ""}"><td>${esc(m.occurred_on)}</td>` +

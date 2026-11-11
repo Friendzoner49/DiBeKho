@@ -102,12 +102,14 @@ async function showApp() {
   // filter by our own id: the desktop account may read every profile row, which would break maybeSingle()
   const { data: { user } } = await sb.auth.getUser();
   const { data: prof } = await sb.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
+  userRole = prof ? prof.role : "";
   if (prof && (prof.role === "editor" || prof.role === "desktop")) {
     $("send-tab").classList.remove("hidden");
   }
   await loadAll();
   initSendForm();
   initStats();
+  initOwnerMode();
 }
 
 /* ---------------------------------------------------------------- data */
@@ -247,6 +249,7 @@ function toggleLines(tr) {
   detail.className = "detail";
   detail.innerHTML = `<td colspan="${tr.dataset.cols}">${orderDetailHtml(doc)}</td>`;
   tr.after(detail);
+  bindOrderActions(detail, doc);  // owner.js: cancel, set place, edit receipt
 }
 
 function renderCustomers(f) {
@@ -291,6 +294,7 @@ function initSendForm() {
     productLabels[label] = p.id;
     return `<option value="${esc(label)}">`;
   }).join("");
+  initReceiptCustomers();
   if (!$("rc-lines").children.length) { addLine(); addLine(); addLine(); }
   if (!$("ct-lines").children.length) { addCountLine(); addCountLine(); addCountLine(); }
   loadSent();
@@ -319,17 +323,24 @@ async function sendReceipt() {
     const id = productLabels[label];
     if (!id) { $("rc-error").textContent = `Không nhận ra mặt hàng "${label}". Hãy chọn từ danh sách gợi ý.`; return; }
     if (!(qty > 0)) { $("rc-error").textContent = `Số lượng của "${label}" phải lớn hơn 0.`; return; }
-    lines.push({ product_id: id, qty, note: row.querySelector(".rc-lnote").value.trim() });
+    lines.push({ product_id: id, code: productById[id].code, qty, note: row.querySelector(".rc-lnote").value.trim() });
   }
   if (!lines.length) { $("rc-error").textContent = "Chưa có dòng hàng nào."; return; }
-  if (!$("rc-source").value.trim()) { $("rc-error").textContent = "Hãy ghi nguồn hàng."; return; }
   const payload = {
     doc_date: $("rc-date").value,
-    supplier_name: $("rc-source").value.trim(),
     location_id: Number($("rc-loc").value),
     note: $("rc-note").value.trim(),
     lines,
   };
+  if ($("rc-kind").value === "return") {
+    const customer = Number($("rc-customer").value);
+    if (!customer) { $("rc-error").textContent = "Hãy chọn khách trả lại hàng."; return; }
+    Object.assign(payload, { source: "return", customer_id: customer, ref_code: $("rc-ref").value.trim() });
+  } else {
+    if (!$("rc-source").value.trim()) { $("rc-error").textContent = "Hãy ghi nguồn hàng."; return; }
+    Object.assign(payload, { source: "supplier", supplier_name: $("rc-source").value.trim() });
+  }
+  if (receiptEdit) { await sendReceiptEdit(payload); return; }  // the owner editing a receipt (owner.js)
   const { error } = await sb.from("web_inbox").insert({ kind: "receipt", payload });
   if (error) { $("rc-error").textContent = `Không gửi được: ${error.message}`; return; }
   $("rc-msg").textContent = "Đã gửi. Phiếu sẽ vào sổ sau khi máy chính duyệt.";
@@ -411,7 +422,7 @@ async function sendCount() {
     if (!Number.isFinite(qty) || qty < 0) return fail(`Số đếm của "${label}" không hợp lệ (phải là số từ 0 trở lên).`);
     if (seen.has(id)) return fail(`Mặt hàng "${label}" bị nhập hai lần.`);
     seen.add(id);
-    lines.push({ product_id: id, qty });
+    lines.push({ product_id: id, code: productById[id].code, qty });
   }
   if (!lines.length) return fail("Chưa có mặt hàng nào được đếm.");
   const place = $("ct-loc").selectedOptions[0].text;
@@ -433,10 +444,16 @@ async function sendCount() {
 
 /* ---- what was sent */
 
-const SENT_KIND = { receipt: "Hàng về", delivery_file: "Phiếu giao hàng", stock_count: "Kiểm kê" };
+const SENT_KIND = {
+  receipt: "Hàng về", delivery_file: "Phiếu giao hàng", stock_count: "Kiểm kê",
+  cmd_transfer: "Chuyển hàng", cmd_trial: "Xuất dùng thử", cmd_product_add: "Thêm mặt hàng",
+  cmd_product_edit: "Sửa mặt hàng", cmd_product_merge: "Gộp mặt hàng", cmd_customer_merge: "Gộp khách hàng",
+  cmd_cancel_doc: "Huỷ phiếu", cmd_set_location: "Đặt nơi lấy/nhập hàng", cmd_receipt_edit: "Sửa phiếu hàng về",
+};
 
 function sentDetail(r) {
   const p = r.payload || {};
+  if (p.summary) return p.summary;  // an owner command carries its own one-line description
   if (r.kind === "delivery_file") return p.file_name || "";
   if (r.kind === "stock_count") {
     return `${p.count_date || ""} · ${p.location_id === 2 ? "Văn phòng" : "Kho tổng"} · ${(p.lines || []).length} mặt hàng`;
@@ -445,20 +462,28 @@ function sentDetail(r) {
 }
 
 function sentStatus(r) {
-  if (r.status === "rejected") return "✖ Bị từ chối";
-  if (r.status !== "applied") return "⏳ Chờ máy chính duyệt";
   const res = r.result || {};
+  if (r.status === "rejected") return res.reason ? `✖ Không làm được: ${esc(res.reason)}` : "✖ Bị từ chối";
+  if (r.status !== "applied") return isOwner() && r.kind.startsWith("cmd_") ? "⏳ Chờ máy chính thực hiện" : "⏳ Chờ máy chính duyệt";
+  if (res.summary) return `✔ ${esc(res.summary)}`;
   if (r.kind === "delivery_file") return res.already ? "✔ Máy chính đã có phiếu này" : "✔ Đã nhận, máy chính đang đọc";
   return `✔ Đã vào sổ${res.code ? ` (${esc(res.code)})` : ""}`;
+}
+
+async function senderNames() {
+  const { data: rows } = await sb.from("profiles").select("user_id,display_name");
+  return new Map((rows || []).map((p) => [p.user_id, p.display_name || ""]));
 }
 
 async function loadSent() {
   const { data: rows, error } = await sb.from("web_inbox").select("*")
     .order("created_at", { ascending: false }).limit(50);
   if (error || !rows) return;
+  const names = isOwner() ? await senderNames() : null;
   $("rc-sent").innerHTML = `<div class="scroll"><table><thead><tr>` +
-    `<th>Gửi lúc</th><th>Loại</th><th>Nội dung</th><th>Trạng thái</th></tr></thead><tbody>` +
-    rows.map((r) => `<tr><td>${esc(fmtTime(r.created_at))}</td><td>${esc(SENT_KIND[r.kind] || r.kind)}</td>` +
+    `<th>Gửi lúc</th>${names ? "<th>Người gửi</th>" : ""}<th>Loại</th><th>Nội dung</th><th>Trạng thái</th></tr></thead><tbody>` +
+    rows.map((r) => `<tr><td>${esc(fmtTime(r.created_at))}</td>` +
+      `${names ? `<td>${esc(names.get(r.created_by) || "")}</td>` : ""}<td>${esc(SENT_KIND[r.kind] || r.kind)}</td>` +
       `<td>${esc(sentDetail(r))}</td><td>${sentStatus(r)}</td></tr>`).join("") +
     `</tbody></table></div>`;
 }
@@ -484,7 +509,7 @@ for (const btn of document.querySelectorAll(".tab")) {
 for (const chip of document.querySelectorAll("#send-kinds .chip")) {
   chip.addEventListener("click", () => {
     document.querySelectorAll("#send-kinds .chip").forEach((c) => c.classList.toggle("active", c === chip));
-    for (const kind of ["receipt", "delivery", "count"]) $(`send-${kind}`).classList.toggle("hidden", kind !== chip.dataset.send);
+    document.querySelectorAll("#send-kinds .chip").forEach((c) => $(`send-${c.dataset.send}`).classList.toggle("hidden", c !== chip));
   });
 }
 $("rc-add").addEventListener("click", addLine);

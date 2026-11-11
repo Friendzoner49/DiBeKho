@@ -114,3 +114,14 @@ dl.info dd { margin: 0; word-break: break-word; }
 .chart { width: 100%; max-width: 760px; height: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .chart .bar { fill: var(--accent); }
 .chart .axis { fill: var(--muted); font-size: 10px; }
+
+/* the owner's forms */
+.chip.owner { border-style: dashed; }
+.form label.check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.form label.check input { width: auto; margin: 0; }
+.picklist { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; padding: 4px 10px; background: var(--panel); }
+.picklist label { display: flex !important; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; color: var(--text) !important; margin: 0 !important; }
+.picklist input { width: auto !important; margin: 0 !important; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 2px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.actions select { padding: 6px; }
+button.danger { color: var(--red); border-color: var(--red); }
