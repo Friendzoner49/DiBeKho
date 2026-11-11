@@ -5,16 +5,59 @@ The desktop stays the single source of truth; a push REPLACES the whole cloud mi
 later pushes reuse the rotating refresh token kept in config.json.
 """
 
+import tempfile
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dibekho.core import activity
+from dibekho.core import activity, backup
+from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import sync
 from dibekho.core.cloud.client import CloudClient, CloudError
 from dibekho.i18n import t
-from dibekho.ui.common import ask, error, hint_label, info
+from dibekho.ui.common import ask, error, fill_table, fit_window, hint_label, info, make_table, selected_id
+
+
+class CloudRestoreDialog(QDialog):
+    """Pick one of the full backups kept on the cloud (newest first)."""
+
+    def __init__(self, backups, parent=None):
+        super().__init__(parent)
+        self.backups = backups
+        self.setWindowTitle(t("cloud.restore_title"))
+        fit_window(self, 760, 460)
+        lay = QVBoxLayout(self)
+        lay.addWidget(hint_label(t("cloud.restore_hint")))
+        self.table = make_table([t("cloud.col_at"), t("cloud.col_device"), t("cloud.col_size")], stretch=1)
+        fill_table(self.table, [[b.at.strftime("%d/%m/%Y %H:%M"), b.device, f"{max(1, round(b.size / 1024))} KB"]
+                                for b in backups], ids=list(range(len(backups))))
+        self.table.doubleClicked.connect(lambda *_: self.accept())
+        lay.addWidget(self.table)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(t("cloud.restore_go"))
+        buttons.button(QDialogButtonBox.Ok).setAutoDefault(False)
+        buttons.button(QDialogButtonBox.Cancel).setAutoDefault(False)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+
+    def selected(self):
+        idx = selected_id(self.table)
+        return None if idx is None else self.backups[idx]
 
 
 class CloudTab(QWidget):
@@ -40,6 +83,9 @@ class CloudTab(QWidget):
         self.sync_btn = QPushButton(t("cloud.sync_now"))
         self.sync_btn.clicked.connect(self.sync_now)
         row.addWidget(self.sync_btn)
+        self.restore_btn = QPushButton(t("cloud.restore_btn"))
+        self.restore_btn.clicked.connect(self.restore_from_cloud)
+        row.addWidget(self.restore_btn)
         self.status = QLabel()
         row.addWidget(self.status, 1)
         form.addRow(row)
@@ -53,22 +99,30 @@ class CloudTab(QWidget):
 
     # ---------------------------------------------------------------- actions
 
-    def sync_now(self):
-        activity.log("click", "cloud_sync")
+    def _connect(self):
+        """Save the typed settings, then (client, access token); None after telling the user what is missing."""
         cfg = self.ctx.cfg
         url, key, user = self.url.text().strip(), self.key.text().strip(), self.user.text().strip()
         if not url or not key or not user:
             error(self, t("cloud.missing"))
-            return
+            return None
         if user != cfg.cloud_user:
             cfg.cloud_refresh_token = ""  # a different account: the saved session is not theirs
         cfg.cloud_url, cfg.cloud_key, cfg.cloud_user = url, key, user
         cfg.save()
         client = CloudClient(url, key)
+        token = self._access_token(client)
+        return None if token is None else (client, token)
+
+    def sync_now(self):
+        activity.log("click", "cloud_sync")
+        cfg = self.ctx.cfg
+        backup_problem = None
         try:
-            token = self._access_token(client)
-            if token is None:
+            pair = self._connect()
+            if pair is None:
                 return
+            client, token = pair
             result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token))
             if result["conflict"]:
                 other = result.get("last_push") or {}
@@ -77,14 +131,58 @@ class CloudTab(QWidget):
                     return
                 result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token, force=True))
             if not result["conflict"]:
-                self._busy(lambda: cloud_inbox.finish_applied(self.ctx.conn, client, token))
+                backup_problem = self._busy(lambda: sync.finish_push(self.ctx.conn, cfg, client, token))
                 self.ctx.web_inbox = self._busy(lambda: cloud_inbox.fetch_pending(self.ctx.conn, client, token))
                 self.ctx.notify()  # new web orders land in Cần xử lý
         except CloudError as exc:
             error(self, str(exc))
             return
         self.refresh()
-        info(self, t("cloud.push_ok"))
+        if backup_problem:
+            error(self, t("cloud.backup_failed", reason=backup_problem))
+        else:
+            info(self, t("cloud.push_ok"))
+
+    def restore_from_cloud(self):
+        """Replace the local database with a full backup from the cloud: checked first, the current data
+        backed up and an undo point taken, exactly like restoring a local backup (transfer_page.restore)."""
+        activity.log("click", "cloud_restore")
+        ctx = self.ctx
+        try:
+            pair = self._connect()
+            if pair is None:
+                return
+            client, token = pair
+            backups = self._busy(lambda: cloud_backup.list_backups(client, token))
+            if not backups:
+                info(self, t("cloud.restore_none"))
+                return
+            dlg = CloudRestoreDialog(backups, self)
+            if dlg.exec() != QDialog.Accepted:
+                return
+            chosen = dlg.selected()
+            if chosen is None:
+                error(self, t("cloud.restore_pick"))
+                return
+            if not ask(self, t("cloud.restore_confirm", device=chosen.device,
+                               at=chosen.at.strftime("%d/%m/%Y %H:%M"))):
+                return
+            if sync.has_unpushed(ctx.conn) and not ask(self, t("cloud.restore_unpushed")):
+                return
+            with tempfile.TemporaryDirectory() as tmp:
+                path = self._busy(lambda: cloud_backup.fetch(client, token, chosen.name, Path(tmp)))
+                backup.named_backup(ctx.conn, ctx.ws, "truoc-khoi-phuc-cloud")
+                ctx.undo_point("restore")
+                ctx.close()
+                try:
+                    backup.restore(ctx.ws, path)
+                finally:
+                    ctx.reopen()
+        except (CloudError, OSError) as exc:
+            error(self, str(exc))
+            return
+        self.refresh()
+        info(self, t("cloud.restored"))
 
     def _access_token(self, client: CloudClient) -> str | None:
         cfg, password = self.ctx.cfg, self.password.text()

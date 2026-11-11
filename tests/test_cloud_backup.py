@@ -1,0 +1,201 @@
+"""Full cloud backups: upload/prune/list/fetch/validate, a whole restore, and the Storage HTTP shapes."""
+
+import io
+import json
+import sqlite3
+import urllib.request
+from datetime import date, datetime, timezone
+
+import pytest
+
+from dibekho import db
+from dibekho.core import backup, catalog, stock
+from dibekho.core.cloud import backup as cloud_backup
+from dibekho.core.cloud import sync
+from dibekho.core.cloud.client import CloudClient, CloudError
+
+
+class FakeStorage:
+    """In-memory stand-in for the four Storage calls."""
+
+    def __init__(self):
+        self.files = {}
+
+    def storage_upload(self, name, data, token):
+        assert name not in self.files, "uploads must never overwrite"
+        self.files[name] = data
+
+    def storage_list(self, token):
+        return [{"name": n, "metadata": {"size": len(d)}} for n, d in self.files.items()] + [
+            {"name": "notes.txt", "metadata": {"size": 3}}]  # a foreign file must be ignored
+
+    def storage_download(self, name, token):
+        return self.files[name]
+
+    def storage_delete(self, names, token):
+        for n in names:
+            del self.files[n]
+
+
+class Cfg:
+    device_id, device_name = "dev-1", "May Chinh"
+
+
+def _seed(conn):
+    with db.transaction(conn):
+        pid = catalog.create_product(conn, "Keo chống thấm", spec="15kg", unit="thùng")
+        stock.stock_count(conn, date(2026, 11, 1), {(pid, stock.MAIN): 40})
+    return pid
+
+
+def test_name_roundtrip_and_foreign_names_ignored():
+    when = datetime(2026, 11, 11, 9, 30, 0, tzinfo=timezone.utc)
+    name = cloud_backup.make_name("May Chinh!", 9, when)
+    assert name == "2026-11-11T09-30-00Z__MayChinh__s9.sqlite"
+    item = cloud_backup.parse_name(name, 1234)
+    assert item.device == "MayChinh" and item.schema == 9 and item.size == 1234
+    assert item.at.astimezone(timezone.utc) == when
+    assert cloud_backup.parse_name("notes.txt") is None
+
+
+def test_prune_keeps_the_newest_and_list_is_newest_first():
+    store = FakeStorage()
+    for d in range(1, 6):
+        store.files[f"2026-11-0{d}T08-00-00Z__May__s9.sqlite"] = b"x"
+    assert cloud_backup.prune(store, "tok", keep=3) == 2
+    assert sorted(store.files) == ["2026-11-03T08-00-00Z__May__s9.sqlite",
+                                   "2026-11-04T08-00-00Z__May__s9.sqlite",
+                                   "2026-11-05T08-00-00Z__May__s9.sqlite"]
+    listed = cloud_backup.list_backups(store, "tok")
+    assert [b.name[:10] for b in listed] == ["2026-11-05", "2026-11-04", "2026-11-03"]  # newest first
+
+
+def test_upload_snapshot_is_a_restorable_database(conn, tmp_path):
+    pid = _seed(conn)
+    store = FakeStorage()
+    name = cloud_backup.upload_snapshot(conn, Cfg, store, "tok")
+    assert name in store.files
+    path = cloud_backup.fetch(store, "tok", name, tmp_path / "dl")
+    copy = sqlite3.connect(path)
+    assert copy.execute("SELECT SUM(qty) FROM stock_movements WHERE product_id = ?", (pid,)).fetchone()[0] == 40
+    assert copy.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+    copy.close()
+
+
+def test_validate_rejects_junk_empty_and_newer(tmp_path):
+    junk = tmp_path / "junk.sqlite"
+    junk.write_bytes(b"this is not a database")
+    with pytest.raises(CloudError):
+        cloud_backup.validate(junk)
+    empty = tmp_path / "empty.sqlite"
+    sqlite3.connect(empty).close()  # user_version 0, no tables
+    with pytest.raises(CloudError):
+        cloud_backup.validate(empty)
+    newer = tmp_path / "newer.sqlite"
+    c = db.connect(newer)
+    c.execute(f"PRAGMA user_version = {db.schema_version() + 1}")
+    c.close()
+    with pytest.raises(CloudError, match="mới hơn"):
+        cloud_backup.validate(newer)
+
+
+def test_validate_upgrades_an_older_copy(tmp_path):
+    old = tmp_path / "old.sqlite"
+    c = db.connect(old)
+    c.close()
+    raw = sqlite3.connect(old)  # pretend it was made by the previous schema: roll the version back one step
+    raw.execute(f"PRAGMA user_version = {db.schema_version() - 1}")
+    raw.commit()
+    raw.close()
+    assert cloud_backup.validate(old) == db.schema_version() - 1  # reports what the file was
+    again = sqlite3.connect(old)
+    assert again.execute("PRAGMA user_version").fetchone()[0] == db.schema_version()  # upgraded on the copy
+    again.close()
+
+
+def test_whole_restore_brings_back_the_old_state(ws, tmp_path):
+    conn = db.connect(ws.db_path)
+    pid = _seed(conn)
+    store = FakeStorage()
+    name = cloud_backup.upload_snapshot(conn, Cfg, store, "tok")
+    with db.transaction(conn):  # the day goes on: more stock moves after the backup
+        stock.stock_count(conn, date(2026, 11, 2), {(pid, stock.MAIN): 5})
+    assert conn.execute("SELECT SUM(qty) FROM stock_movements").fetchone()[0] == 5
+
+    path = cloud_backup.fetch(store, "tok", name, tmp_path / "dl")
+    backup.named_backup(conn, ws, "truoc-khoi-phuc-cloud")
+    conn.close()
+    backup.restore(ws, path)
+
+    restored = db.connect(ws.db_path)
+    assert restored.execute("SELECT SUM(qty) FROM stock_movements").fetchone()[0] == 40
+    assert any("truoc-khoi-phuc-cloud" in f.name for f in backup.list_backups(ws))  # a way back exists
+    restored.close()
+
+
+def test_own_device_conflict_is_not_asked(conn):
+    class Client:
+        def __init__(self):
+            self.calls = []
+
+        def rpc(self, name, args, token):
+            self.calls.append(args["force"])
+            if not args["force"]:
+                return {"conflict": True, "last_push": {"device_id": "dev-1", "device_name": "May Chinh"}}
+            return {"conflict": False, "push_id": 21}
+
+    client = Client()
+    result = sync.push_mirror(conn, Cfg, client, "tok")
+    assert result["push_id"] == 21 and client.calls == [False, True]  # retried by itself, once
+
+
+def test_other_device_conflict_still_asks(conn):
+    class Client:
+        def rpc(self, name, args, token):
+            return {"conflict": True, "last_push": {"device_id": "other", "device_name": "May kia"}}
+
+    assert sync.push_mirror(conn, Cfg, Client(), "tok")["conflict"] is True
+
+
+# ---- Storage HTTP shapes ------------------------------------------------------------------------------------
+
+class _Resp(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _capture(monkeypatch, reply=b"[]"):
+    seen = []
+
+    def opener(req, timeout=None):
+        seen.append(req)
+        return _Resp(reply)
+
+    monkeypatch.setattr(urllib.request, "urlopen", opener)
+    return seen
+
+
+def test_storage_upload_and_download_requests(monkeypatch):
+    seen = _capture(monkeypatch, reply=b"\x00binary\xff")
+    c = CloudClient("https://xxx.supabase.co", "key1")
+    c.storage_upload("a b.sqlite", b"DATA", "tok")
+    req = seen[-1]
+    assert req.get_method() == "POST" and req.full_url == "https://xxx.supabase.co/storage/v1/object/backups/a%20b.sqlite"
+    assert req.data == b"DATA" and req.get_header("Content-type") == "application/octet-stream"
+    assert req.get_header("Authorization") == "Bearer tok"
+    assert c.storage_download("a b.sqlite", "tok") == b"\x00binary\xff"
+    assert seen[-1].get_method() == "GET" and "/object/authenticated/backups/" in seen[-1].full_url
+
+
+def test_storage_list_and_delete_requests(monkeypatch):
+    seen = _capture(monkeypatch, reply=json.dumps([{"name": "n"}]).encode())
+    c = CloudClient("https://xxx.supabase.co", "key1")
+    assert c.storage_list("tok") == [{"name": "n"}]
+    assert seen[-1].full_url.endswith("/storage/v1/object/list/backups") and seen[-1].get_method() == "POST"
+    seen2 = _capture(monkeypatch, reply=b"[]")
+    c.storage_delete(["x", "y"], "tok")
+    assert seen2[-1].get_method() == "DELETE"
+    assert json.loads(seen2[-1].data) == {"prefixes": ["x", "y"]}

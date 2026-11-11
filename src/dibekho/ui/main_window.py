@@ -131,6 +131,7 @@ class MainWindow(QMainWindow):
             pair = cloud_sync.session(self.ctx.cfg, timeout=10)
             if pair is not None:
                 self.ctx.web_inbox = cloud_inbox.fetch_pending(self.ctx.conn, *pair)
+                activity.log("cloud", f"web inbox pending {len(self.ctx.web_inbox)}")
         except CloudError as exc:
             activity.log("error", f"cloud pull inbox: {exc}")
 
@@ -208,7 +209,7 @@ class MainWindow(QMainWindow):
             if result["conflict"] and self._ask_cloud_overwrite(result):
                 result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
             if not result["conflict"]:
-                cloud_inbox.finish_applied(self.ctx.conn, client, token)
+                cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token)
         except CloudError as exc:
             activity.log("error", f"cloud push on close: {exc}")
 
@@ -228,6 +229,7 @@ class MainWindow(QMainWindow):
                     when = str(state.get("last_push_at", ""))[:16].replace("T", " ")
                     info(self, t("cloud.open_conflict", device=state.get("device_name", "?"), at=when))
             self.ctx.web_inbox = cloud_inbox.fetch_pending(self.ctx.conn, client, token)
+            activity.log("cloud", f"web inbox pending {len(self.ctx.web_inbox)}")
             if self.ctx.web_inbox:
                 self.ctx.notify()
         except CloudError as exc:

@@ -8,6 +8,9 @@ asks the user -- never a silent overwrite.
 from datetime import datetime
 
 from dibekho import db
+from dibekho.core import activity
+from dibekho.core.cloud import backup as cloud_backup
+from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import mirror
 from dibekho.core.cloud.client import CloudClient, CloudError
 
@@ -38,6 +41,18 @@ def fetch_state(client: CloudClient, access_token: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def finish_push(conn, cfg, client: CloudClient, access_token: str) -> str | None:
+    """After a successful push: confirm the web slips recorded here, then upload the full backup.
+    Returns the reason the backup could not be made (the push itself stands), else None."""
+    cloud_inbox.finish_applied(conn, client, access_token)
+    try:
+        cloud_backup.upload_snapshot(conn, cfg, client, access_token)
+    except CloudError as exc:
+        activity.log("error", f"cloud backup: {exc}")
+        return str(exc)
+    return None
+
+
 def last_push(conn) -> tuple[int | None, str]:
     """(push id this machine saw, when it pushed) -- for the status line and conflict checks."""
     raw = db.get_meta(conn, "cloud_last_push_id")
@@ -53,6 +68,12 @@ def push_mirror(conn, cfg, client: CloudClient, access_token: str, force: bool =
     result = client.rpc("replace_mirror", {"payload": payload, "force": force}, access_token)
     if not isinstance(result, dict) or "conflict" not in result:
         raise CloudError("Cloud trả về dữ liệu không hiểu được.")
+    if result["conflict"] and (result.get("last_push") or {}).get("device_id") == cfg.device_id:
+        # The newer push is this machine's own (an Undo or a restore rolled the saved push id back): nobody
+        # else's work is overwritten, so it is not a conflict worth asking about.
+        result = client.rpc("replace_mirror", {"payload": payload, "force": True}, access_token)
+        if not isinstance(result, dict) or "conflict" not in result:
+            raise CloudError("Cloud trả về dữ liệu không hiểu được.")
     if result["conflict"]:
         return result
     with db.transaction(conn):

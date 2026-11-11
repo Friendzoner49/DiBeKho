@@ -8,7 +8,9 @@ Accounts use technical emails: the user types just a name ('maychinh'), the clie
 import json
 import urllib.error
 import urllib.request
+from urllib.parse import quote
 
+BUCKET = "backups"
 EMAIL_DOMAIN = "dibekho.local"
 TIMEOUT = 40  # seconds; the whole mirror is a few MB at most
 
@@ -65,26 +67,46 @@ class CloudClient:
     def _post(self, url: str, body: dict, access_token: str | None = None):
         return self._request(url, body, access_token, "POST")
 
-    def _request(self, url: str, body: dict | None, access_token: str | None, method: str):
+    # ---- Storage (private bucket 'backups', cloud/supabase/002_backups.sql) ---------------------------------
+
+    def storage_upload(self, name: str, data: bytes, access_token: str) -> None:
+        self._raw("POST", f"/storage/v1/object/{BUCKET}/{quote(name)}", data, access_token,
+                  "application/octet-stream")
+
+    def storage_list(self, access_token: str) -> list[dict]:
+        rows = self._request(f"{self.base}/storage/v1/object/list/{BUCKET}",
+                             {"prefix": "", "limit": 200, "offset": 0,
+                              "sortBy": {"column": "name", "order": "desc"}}, access_token, "POST")
+        return rows if isinstance(rows, list) else []
+
+    def storage_download(self, name: str, access_token: str) -> bytes:
+        return self._raw("GET", f"/storage/v1/object/authenticated/{BUCKET}/{quote(name)}", None, access_token)
+
+    def storage_delete(self, names: list[str], access_token: str) -> None:
+        self._request(f"{self.base}/storage/v1/object/{BUCKET}", {"prefixes": names}, access_token, "DELETE")
+
+    # ---- plumbing ---------------------------------------------------------------------------------------------
+
+    def _raw(self, method: str, path: str, data: bytes | None, access_token: str | None,
+             content_type: str = "application/json") -> bytes:
         if not self.base or not self.key:
             raise CloudError("Chưa điền địa chỉ Cloud hoặc mã kết nối.")
         req = urllib.request.Request(
-            url,
-            data=None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8"),
-            headers={
-                "apikey": self.key,
-                "Authorization": f"Bearer {access_token or self.key}",
-                "Content-Type": "application/json",
-            },
-            method=method,
+            f"{self.base}{path}", data=data, method=method,
+            headers={"apikey": self.key, "Authorization": f"Bearer {access_token or self.key}",
+                     "Content-Type": content_type},
         )
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                raw = resp.read()
+                return resp.read()
         except urllib.error.HTTPError as exc:
             raise CloudError(_http_message(exc)) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise CloudError("Không kết nối được Cloud. Kiểm tra mạng rồi thử lại.") from exc
+
+    def _request(self, url: str, body: dict | None, access_token: str | None, method: str):
+        data = None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
+        raw = self._raw(method, url[len(self.base):], data, access_token)
         if not raw:
             return None
         try:
