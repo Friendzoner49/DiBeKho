@@ -36,6 +36,7 @@ from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
 from dibekho.ui.cloud_tab import CloudTab
 from dibekho.ui.common import (
+    blocked_in_cloud_mode,
     GREY,
     NoWheelSpin,
     ask,
@@ -431,6 +432,8 @@ class SettingsPage(Page):
         self.go_pending()  # notes are read again: what is known is recorded, the rest waits here
 
     def reset_all(self):
+        if blocked_in_cloud_mode(self, self.ctx.conn):
+            return
         if not ask(self, t("reset.confirm_all")) or not ask(self, t("reset.confirm_all_again")):
             return
         try:

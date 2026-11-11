@@ -23,7 +23,7 @@ from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud.client import CloudError, local_time
 from dibekho.i18n import t
-from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
+from dibekho.ui.common import AppContext, ask, blocked_in_cloud_mode, error, fit_window, info, open_path
 from dibekho.ui.count_page import CountPage
 from dibekho.ui.pending_page import PendingPage
 from dibekho.ui.receipt_page import ReceiptPage
@@ -238,7 +238,7 @@ class MainWindow(QMainWindow):
     def undo_last(self):
         """Put the data back as it was just before the last action that left an undo point."""
         point = undo.latest(self.ctx.ws)
-        if point is None:
+        if point is None or blocked_in_cloud_mode(self, self.ctx.conn):
             return
         action = t(f"undo.{point.action}")
         if not ask(self, t("undo.confirm", action=action, at=point.at.strftime("%d/%m/%Y %H:%M"))):

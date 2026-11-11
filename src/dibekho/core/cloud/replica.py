@@ -81,9 +81,10 @@ def snapshot(conn) -> dict[str, list[dict]]:
                 for t in SYNCED}
 
 
-def pending(conn) -> tuple[dict[str, list[dict]], int]:
+def pending(conn, exclude: set = frozenset()) -> tuple[dict[str, list[dict]], int]:
     """What changed since the last push, as cloud rows (deleted ones carry only their id/key) + the last outbox
-    seq included (clear_outbox(conn, seq) once the cloud has them). A row changed several times travels once."""
+    seq included (clear_outbox(conn, seq) once the cloud has them). A row changed several times travels once.
+    exclude: (table, local id) held back (in conflict)."""
     with transaction(conn):
         last = conn.execute("SELECT MAX(seq) FROM sync_outbox").fetchone()[0] or 0
         out: dict[str, list[dict]] = {t.name: [] for t in SYNCED}
@@ -96,6 +97,8 @@ def pending(conn) -> tuple[dict[str, list[dict]], int]:
         changed = conn.execute("SELECT tbl, local_id FROM sync_outbox WHERE op = 'U' GROUP BY tbl, local_id "
                                "ORDER BY MIN(seq)").fetchall()
         for tbl, local_id in changed:
+            if (tbl, local_id) in exclude:
+                continue
             t = BY_NAME[tbl]
             key = "rowid" if t.key == "rowid" else t.key
             row = conn.execute(f"{_select(t).split(' WHERE')[0]} WHERE {key} = ?", (local_id,)).fetchone()
@@ -107,8 +110,22 @@ def pending(conn) -> tuple[dict[str, list[dict]], int]:
         return out, last
 
 
-def clear_outbox(conn, upto_seq: int) -> None:
-    conn.execute("DELETE FROM sync_outbox WHERE seq <= ?", (upto_seq,))
+def queue_all(conn) -> None:
+    """Queue every synced row (the first push of a database that already holds data)."""
+    with transaction(conn):
+        for t in SYNCED:
+            key = "rowid" if t.key == "rowid" else t.key
+            where = f" WHERE key IN ({', '.join('?' for _ in t.only_keys)})" if t.only_keys else ""
+            conn.execute(f"INSERT INTO sync_outbox(tbl, local_id, op) SELECT '{t.name}', {key}, 'U' FROM {t.name}{where}",
+                         t.only_keys)
+
+
+def clear_outbox(conn, upto_seq: int, keep: set = frozenset()) -> None:
+    """Forget what the cloud now has; rows in `keep` (held back) stay queued."""
+    for tbl, local_id in conn.execute("SELECT DISTINCT tbl, local_id FROM sync_outbox WHERE seq <= ?",
+                                      (upto_seq,)).fetchall():
+        if (tbl, local_id) not in keep:
+            conn.execute("DELETE FROM sync_outbox WHERE tbl = ? AND local_id = ? AND seq <= ?", (tbl, local_id, upto_seq))
 
 
 # ---- cloud -> local ---------------------------------------------------------------------------------------------

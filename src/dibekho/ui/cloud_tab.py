@@ -29,7 +29,7 @@ from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync
 from dibekho.core.cloud.client import CloudClient, CloudError, local_time
 from dibekho.i18n import t
-from dibekho.ui.common import ask, error, fill_table, fit_window, hint_label, info, make_table, selected_id
+from dibekho.ui.common import ask, blocked_in_cloud_mode, error, fill_table, fit_window, hint_label, info, make_table, selected_id
 
 
 class CloudRestoreDialog(QDialog):
@@ -148,6 +148,8 @@ class CloudTab(QWidget):
         """Replace the local database with a full backup from the cloud: checked first, the current data
         backed up and an undo point taken, exactly like restoring a local backup (transfer_page.restore)."""
         activity.log("click", "cloud_restore")
+        if blocked_in_cloud_mode(self, self.ctx.conn):
+            return
         ctx = self.ctx
         try:
             pair = self._connect()

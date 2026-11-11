@@ -326,6 +326,7 @@
   "cloud.restore_unpushed": "Máy này có thay đổi chưa đẩy lên Cloud. Khôi phục xong chúng sẽ biến mất (vẫn còn trong bản sao lưu vừa tạo và nút Hoàn tác).\nTiếp tục?",
   "cloud.restored": "Đã khôi phục dữ liệu từ Cloud.",
   "cloud.backup_failed": "Đã đẩy dữ liệu lên Cloud, nhưng chưa lưu được bản sao lưu đầy đủ:\n{reason}",
+  "cloud.mode_blocked": "Máy này đang làm việc trên dữ liệu chung ở Cloud. Thao tác này thay toàn bộ dữ liệu bằng một bản cũ, nên tạm khoá để không làm mất việc của máy khác và của nhân viên.\nMuốn sửa một phiếu làm nhầm: mở phiếu đó và bấm Huỷ phiếu.",
   "cloud.open_conflict": "Lưu ý: máy «{device}» đã gửi dữ liệu lên Cloud lúc {at}, còn máy này cũng có thay đổi chưa gửi.\nHai máy đang có hai bản khác nhau — nên thống nhất làm trên một máy. Khi đồng bộ, app sẽ hỏi giữ bản nào.",
   "pending.web_reject": "Từ chối",
   "web.title": "Yêu cầu từ nhân viên (web)",

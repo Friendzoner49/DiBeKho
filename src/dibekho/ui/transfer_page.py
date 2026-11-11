@@ -24,6 +24,7 @@ from dibekho.core.stock import stock_levels
 from dibekho.excel import master_data
 from dibekho.i18n import t
 from dibekho.ui.common import (
+    blocked_in_cloud_mode,
     YELLOW,
     ask,
     error,
@@ -389,6 +390,8 @@ class TransferPanel(QWidget):
         self.refresh()
 
     def restore(self):
+        if blocked_in_cloud_mode(self, self.ctx.conn):
+            return
         idx = selected_id(self.backups)
         if idx is None:
             error(self, t("backup.pick_first"))

@@ -24,6 +24,7 @@ from dibekho.core.stock import set_location, stock_levels
 from dibekho.core.text import fmt_qty, matches_words, parse_number
 from dibekho.i18n import t
 from dibekho.ui.common import (
+    blocked_in_cloud_mode,
     GREY,
     NoWheelCombo,
     ask,
@@ -478,6 +479,8 @@ class PendingPage(Page):
             self.rescan()
 
     def import_package(self, it):
+        if blocked_in_cloud_mode(self, self.ctx.conn):
+            return
         m = it.manifest
         text = t("transfer.confirm_import", device=m.device_name, at=m.exported_at.replace("T", " "),
                  deliveries=m.deliveries, products=m.products)
