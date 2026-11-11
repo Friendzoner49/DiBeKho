@@ -5,9 +5,18 @@ import openpyxl
 import pytest
 
 from dibekho import db
+from dibekho.core import workspace
 from dibekho.core.workspace import Workspace
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_config_dir(tmp_path_factory, monkeypatch):
+    """No test may touch the real %APPDATA%/DiBeKho/config.json: Config.save()/remove() resolve their path through
+    workspace.config_dir(). Until this fixture, test_maintenance_runs_every_two_weeks overwrote the developer's own
+    config (workspace -> a pytest temp folder, cloud settings blanked) on every test run and every build."""
+    monkeypatch.setattr(workspace, "config_dir", lambda: tmp_path_factory.mktemp("config"))
 
 
 @pytest.fixture

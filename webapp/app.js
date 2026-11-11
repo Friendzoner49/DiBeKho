@@ -90,7 +90,9 @@ async function signIn() {
 async function showApp() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
-  const { data: prof } = await sb.from("profiles").select("role").maybeSingle();
+  // filter by our own id: the desktop account may read every profile row, which would break maybeSingle()
+  const { data: { user } } = await sb.auth.getUser();
+  const { data: prof } = await sb.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
   if (prof && (prof.role === "editor" || prof.role === "desktop")) {
     $("send-tab").classList.remove("hidden");
   }
