@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; connect-src https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>DiBeKho</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -176,6 +176,7 @@
       <div class="tabs">
         <button data-stab="general" class="stab active">Chung</button>
         <button data-stab="products" class="stab">Danh mục mặt hàng</button>
+        <button data-stab="transfer" class="stab only-owner">Chuyển dữ liệu và sao lưu</button>
       </div>
       <div id="stab-general" class="spane">
         <dl class="info" id="settings-info"></dl>
@@ -190,6 +191,16 @@
           <button id="catalog-merge" class="only-owner">Gộp mặt hàng trùng…</button>
         </div>
         <div id="catalog-table"></div>
+      </div>
+      <div id="stab-transfer" class="spane hidden">
+        <h2>Gói dữ liệu (.dibekho)</h2>
+        <p class="hint">Gói dữ liệu chứa toàn bộ dữ liệu chung trên Cloud: mặt hàng, khách, mọi phiếu, tồn kho. Mở được bằng app trên máy tính (bỏ vào thư mục input). Gói tạo trên web không kèm file Excel phiếu gốc và nhật ký của app.</p>
+        <div class="row wrap">
+          <button id="pkg-export">Xuất dữ liệu</button>
+          <button id="pkg-import">Nhập dữ liệu từ gói…</button>
+          <input id="pkg-file" type="file" accept=".dibekho" class="hidden">
+        </div>
+        <p id="pkg-msg" class="hint"></p>
       </div>
     </div>
   </section>
@@ -213,5 +224,7 @@
 <script src="app.js"></script>
 <script src="views.js"></script>
 <script src="forms.js"></script>
+<script src="schema.js"></script>
+<script src="package.js"></script>
 </body>
 </html>

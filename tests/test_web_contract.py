@@ -85,7 +85,7 @@ def cloud_shop(tmp_path):
     pg.close()
 
 
-def _run_page(pg, tmp_path):
+def _run_page(pg, tmp_path, probe="web_contract_probe.js", extra=""):
     fixture = {t: [r["r"] for r in pg.query(f"select to_jsonb(x) as r from public.{t} x where not deleted")]
                for t in TABLES}
     fixture = {"products": fixture["products"], "customers": fixture["customers"], "suppliers": fixture["suppliers"],
@@ -95,11 +95,10 @@ def _run_page(pg, tmp_path):
     shutil.copytree(ROOT / "webapp", site, ignore=shutil.ignore_patterns("config.js"))
     (site / "config.js").write_text('const DIBEKHO_CLOUD = {url: "https://example.supabase.co", key: "k"};'
                                     "window.__DIBEKHO_TEST__ = true;", encoding="utf-8")
-    (site / "fixture.js").write_text("window.__FIXTURE__ = " + json.dumps(fixture) + ";", encoding="utf-8")
-    shutil.copy(ROOT / "tests" / "web_contract_probe.js", site / "probe.js")
+    (site / "fixture.js").write_text("window.__FIXTURE__ = " + json.dumps(fixture) + ";" + extra, encoding="utf-8")
+    shutil.copy(ROOT / "tests" / probe, site / "probe.js")
     page = (site / "index.html").read_text(encoding="utf-8")
-    page = page.replace('<script src="forms.js"></script>',
-                        '<script src="forms.js"></script><script src="fixture.js"></script><script src="probe.js"></script>')
+    page = page.replace("</body>", '<script src="fixture.js"></script><script src="probe.js"></script></body>')
     # the supabase library from the CDN is not needed (sb is stubbed): a tiny local stand-in keeps the test offline
     page = re.sub(r'<script src="https://cdn\.jsdelivr\.net[^>]*></script>', '<script src="sb_stub.js"></script>', page)
     (site / "sb_stub.js").write_text("window.supabase = { createClient: () => ({ auth: {}, from: () => ({}), rpc: () => ({}) }) };",

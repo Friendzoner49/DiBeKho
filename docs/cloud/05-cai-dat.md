@@ -60,6 +60,8 @@ Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud)
 
 **Điện thoại** (màn hình cảm ứng có cạnh ngắn ≤ 760 px, kể cả khi xoay ngang; máy tính màn nhỏ vẫn có đủ trang): chỉ xem bảng Tồn kho (tên, tồn, Kho tổng, Văn phòng), không có menu, không sửa được gì. Máy tính bảng và máy tính có đủ trang.
 
+**Gói dữ liệu `.dibekho` trên web** (chủ, Cài đặt → Chuyển dữ liệu và sao lưu; không có trên điện thoại): *Xuất dữ liệu* tải về một gói chứa toàn bộ dữ liệu chung trên Cloud, app mở được như gói của app (không kèm file Excel phiếu gốc và nhật ký). *Nhập dữ liệu từ gói…* (cả gói của app bản cũ 0.4.5) hỏi hai lần, tải về một bản sao dữ liệu hiện tại (`DiBeKho_Web-truoc-nhap_….dibekho`), rồi thay toàn bộ dữ liệu chung trong một lần gửi. Trình duyệt tự làm gói bằng `webapp/package.js` + thư viện trong `webapp/vendor/` (sql.js, fflate; MIT); cấu trúc CSDL lấy từ `webapp/schema.js`, sinh bằng `scripts/make_web_schema.py` — **thêm migration thì chạy lại script này** (test báo đỏ nếu quên). Gói schema 10 nên app 0.4.5 của khách không mở được.
+
 **Lệnh của chủ kiểu cũ** (`cmd_*` qua hộp thư, SQL 006) và **bản gương** (`mirror_*`, hàm `replace_mirror`, SQL 001/005): đã gỡ khỏi app (12/11/2026). Bảng và hàm cũ vẫn nằm trên Supabase nhưng không ai dùng; SQL đã chạy thì không sửa.
 
 ### Web xem được những gì (giống app)

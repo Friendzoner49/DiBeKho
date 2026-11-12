@@ -550,3 +550,77 @@ $("catalog-merge").addEventListener("click", () => {
 });
 $("customers-merge").addEventListener("click", mergeCustomersWindow);
 $("send-delivery").addEventListener("click", deliveryFileWindow);
+
+/* ---------------------------------------------------------------- gói dữ liệu .dibekho (package.js) */
+
+function saveFile(name, bytes) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+
+async function pullEverything() {
+  const { data, error } = await sb.rpc("sync_pull", { p_after: 0 });
+  if (error) throw new Error(`Không đọc được dữ liệu trên Cloud: ${error.message}`);
+  return data;
+}
+
+function packageMessage(text) {
+  $("pkg-msg").textContent = text;
+}
+
+async function exportPackageWeb() {
+  packageMessage("Đang tạo gói dữ liệu…");
+  try {
+    const { SQL, fflate } = await DBK_PKG.loadLibs();
+    const pkg = DBK_PKG.buildPackage(SQL, fflate, await pullEverything(), new Date());
+    saveFile(pkg.name, pkg.bytes);
+    packageMessage(`Đã tạo ${pkg.name} (${pkg.manifest.products} mặt hàng, ${pkg.manifest.deliveries} phiếu giao hàng). ` +
+                   "File nằm trong thư mục Tải về của trình duyệt.");
+  } catch (e) {
+    packageMessage("");
+    alert(`Không tạo được gói dữ liệu.\n\n${e.message || e}`);
+  }
+}
+
+async function importPackageWeb(file) {
+  let read = null;
+  try {
+    const { SQL, fflate } = await DBK_PKG.loadLibs();
+    read = DBK_PKG.readPackage(SQL, fflate, new Uint8Array(await file.arrayBuffer()));
+    const m = read.manifest, n = DBK_PKG.summary(read.db);
+    const when = String(m.exported_at || "").replace("T", " ");
+    if (!confirm(`Nhập gói dữ liệu từ ${m.device_name || "?"} (tạo lúc ${when}): ${n.products} mặt hàng, ` +
+                 `${n.deliveries} phiếu giao hàng?\n\nToàn bộ dữ liệu chung trên Cloud sẽ được thay bằng gói này: trang web, ` +
+                 "nhân viên và mọi máy đều thấy dữ liệu mới, mọi việc ghi sau lúc tạo gói mất đi.")) return;
+    if (!confirm("Chắc chắn thay toàn bộ dữ liệu chung?\n\nTrang web sẽ tải về một bản sao dữ liệu hiện tại trước khi thay. " +
+                 "Máy nào còn thay đổi chưa gửi lên Cloud nên đồng bộ xong trước.")) return;
+    packageMessage("Đang sao lưu dữ liệu hiện tại…");
+    const pulled = await pullEverything();
+    const backup = DBK_PKG.buildPackage(SQL, fflate, pulled, new Date(), "Web-truoc-nhap");
+    saveFile(backup.name, backup.bytes);
+    packageMessage("Đang gửi dữ liệu lên Cloud…");
+    const batch = DBK_PKG.buildBatch(read.db, pulled);
+    const { data: answer, error } = await sb.rpc("sync_push",
+      { p_device: "web", p_expected: Number(pulled.max_rev || 0), p_batch: batch });
+    if (error) throw new Error(`${error.message}\nDữ liệu trên Cloud chưa bị đổi.`);
+    if (!answer || !answer.ok) {
+      throw new Error("Có máy khác hoặc người khác vừa ghi dữ liệu trong lúc nhập. Dữ liệu trên Cloud chưa bị đổi; hãy thử lại.");
+    }
+    packageMessage(`Đã nhập dữ liệu từ ${m.device_name || "gói"}. Bản sao trước khi nhập: ${backup.name} (thư mục Tải về).`);
+    await loadAll();
+  } catch (e) {
+    packageMessage("");
+    alert(`Nhập dữ liệu thất bại.\n\n${e.message || e}`);
+  } finally {
+    if (read) read.db.close();
+  }
+}
+
+$("pkg-export").addEventListener("click", exportPackageWeb);
+$("pkg-import").addEventListener("click", () => { $("pkg-file").value = ""; $("pkg-file").click(); });
+$("pkg-file").addEventListener("change", () => { if ($("pkg-file").files[0]) importPackageWeb($("pkg-file").files[0]); });
