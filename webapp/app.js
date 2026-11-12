@@ -194,8 +194,9 @@ async function showApp() {
 }
 
 /* Phones only look at the stock table (user's decision 12/11/2026): no menu, no windows, nothing to edit. Decided once
-   when the page opens, from the screen width; a tablet or a computer gets the whole page. */
-const PHONE = window.matchMedia("(max-width: 760px)").matches;
+   when the page opens, from the screen's short side (a phone turned sideways is still a phone; a narrow window on a
+   computer is not); a tablet or a computer gets the whole page. */
+const PHONE = Math.min(window.screen.width, window.screen.height) <= 760;
 if (PHONE) document.body.classList.add("phone");
 
 function setRole(role, name) {
