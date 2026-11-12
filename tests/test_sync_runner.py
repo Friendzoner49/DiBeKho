@@ -61,6 +61,7 @@ def test_a_round_pushes_what_changed_here_and_says_so(setup):
     assert twoway.queued_count(ctx.conn) == 0
     assert "đã đồng bộ" in runner.status_text()
     runner.timer.stop()
+    runner.soon.stop()
 
 
 def test_nothing_is_merged_while_the_user_is_busy(setup):

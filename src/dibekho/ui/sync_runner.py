@@ -89,7 +89,7 @@ class SyncRunner(QObject):
 
     # ---------------------------------------------------------------- a round
     def start(self, tries: int = 3) -> None:
-        if self.busy or not self.active():
+        if self.busy or self.ctx.conn is None or not self.active():  # conn is None while the file is being replaced
             return
         self.busy = True
         cfg, after = self.ctx.cfg, twoway.cursor(self.ctx.conn)
@@ -106,7 +106,7 @@ class SyncRunner(QObject):
     def _pulled(self, result, err, tries) -> None:
         if err is not None:
             return self._failed(err)
-        if result is None:
+        if result is None or self.ctx.conn is None:
             self.busy = False
             return None
         client, token, pulled = result
