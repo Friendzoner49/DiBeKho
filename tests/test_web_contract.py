@@ -14,7 +14,7 @@ import re
 import shutil
 import subprocess
 import threading
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -199,6 +199,7 @@ def test_staff_requests_from_the_web_are_read_by_the_apps_approval(cloud_shop, t
     data, errors = inbox.receipt_input(conn, receipt["payload"])
     assert errors == []
     assert [(ln.product_id, ln.qty) for ln in data.lines] == [(ids["b"], 4.5)]
-    item = {"payload": count["payload"], "created_at": "2026-11-12T08:00:00+00:00"}
+    # sent now: the page dates the count today (a fixed date here turned red the next day)
+    item = {"payload": count["payload"], "created_at": datetime.now(timezone.utc).isoformat()}
     day, place, lines, errors = inbox.check_count(conn, item)
     assert errors == [] and place == stock.OFFICE and lines == [(ids["a"], 3)]
