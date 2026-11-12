@@ -5,13 +5,14 @@ not on a page where the user is typing) -> push (network, worker) -> finish (mai
 network. Rounds start: shortly after opening, a few seconds after any change here, and every minute (to see what
 other machines and the web wrote). Closing the app sends what is still queued, briefly."""
 
+import sqlite3
 import threading
 import time
 from datetime import datetime
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from dibekho.core import activity
+from dibekho.core import activity, backup
 from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud.client import CloudError
@@ -140,6 +141,10 @@ class SyncRunner(QObject):
     def _finished(self) -> None:
         self.busy = False
         self.last_ok, self.last_error = datetime.now(), ""
+        try:  # once a day, a full copy of the shared data as it now is (also for an app left open for days)
+            backup.daily_backup(self.ctx.conn, self.ctx.ws, prefix=backup.SHARED_PREFIX)
+        except (OSError, sqlite3.DatabaseError) as exc:
+            activity.log("error", f"daily copy of the shared data: {exc}")
         self.status_changed.emit()
 
     def _tell_about(self, merged) -> None:

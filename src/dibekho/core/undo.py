@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from dibekho import db
 from dibekho.core import backup
+from dibekho.core.stock import close_document
 from dibekho.core.workspace import Workspace
 
 FOLDER = "hoan-tac"
@@ -62,3 +64,53 @@ def undo(ws: Workspace, point: UndoPoint) -> None:
     """Put the database back as it was before point.action. The caller closes its connection first."""
     backup.restore(ws, point.path)
     point.path.unlink()
+
+
+# ---- on data shared through the cloud ---------------------------------------------------------------------------
+# Putting an old copy of the file back would erase other machines' and the staff's work (docs/cloud/06), so there
+# Hoàn tác cancels the document this machine has just saved, exactly like Huỷ phiếu: reverse movements, nothing
+# deleted, and the cancel travels to the cloud like any other change. Only actions that create one new document
+# can be taken back this way; the key is per machine (not in SHARED_META) and every new undo point clears it, so
+# "the last action" is exact.
+CLOUD_KEY = "cloud_undo_doc"
+CLOUD_ACTIONS = ("receipt", "transfer", "trial_use", "stock_count")
+
+
+@dataclass
+class CloudUndo:
+    doc_id: int
+    action: str
+    code: str
+
+
+def remember_doc(conn, action: str, doc_id: int) -> None:
+    """After `action` saved document doc_id (call it right after the save)."""
+    if action not in CLOUD_ACTIONS:
+        raise ValueError(action)
+    conn.execute("INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                 (CLOUD_KEY, f"{action}:{doc_id}"))
+
+
+def forget_doc(conn) -> None:
+    conn.execute("DELETE FROM meta WHERE key = ?", (CLOUD_KEY,))
+
+
+def cloud_latest(conn) -> CloudUndo | None:
+    """The document Hoàn tác would cancel, if it is still active (it may have been cancelled or merged elsewhere)."""
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (CLOUD_KEY,)).fetchone()
+    if row is None:
+        return None
+    action, _, doc_id = str(row[0]).partition(":")
+    if action not in CLOUD_ACTIONS or not doc_id.isdigit():
+        return None
+    doc = conn.execute("SELECT code, status FROM documents WHERE id = ?", (int(doc_id),)).fetchone()
+    if doc is None or doc["status"] != "active":
+        return None
+    return CloudUndo(int(doc_id), action, doc["code"] or "")
+
+
+def cloud_undo(conn, point: CloudUndo) -> None:
+    """Cancel the document (one transaction); the next sync round carries it to the cloud."""
+    with db.transaction(conn):
+        close_document(conn, point.doc_id, "cancelled")
+        forget_doc(conn)

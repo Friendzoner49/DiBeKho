@@ -48,7 +48,7 @@ Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud)
 - Kiểm tra trùng khi thêm mặt hàng trên web chỉ bắt **trùng hẳn** (cùng tên, quy cách, loại/màu, không dấu); kiểu "trông giống" (gợi ý theo tên Trung…) chỉ có trong app.
 - Nhập hàng về trên web chưa có "★ Mặt hàng mới": thêm mặt hàng ở Cài đặt → Danh mục mặt hàng trước.
 - Giờ trên phiếu theo đồng hồ của cửa hàng (`meta.clock_offset_min`, máy đồng bộ đầu tiên tự ghi; thiếu thì lấy giờ Việt Nam).
-- Hoàn tác của app vẫn khoá khi bật dữ liệu chung; nhầm thì Huỷ phiếu / sửa phiếu.
+- Hoàn tác khi bật dữ liệu chung: chỉ huỷ phiếu hàng về / chuyển hàng / dùng thử / kiểm kê vừa lưu trên máy đó (phiếu vẫn còn, ghi là đã huỷ). Việc khác làm nhầm: Huỷ phiếu / sửa phiếu / sửa tay. Mỗi ngày, sau lần đồng bộ đầu tiên, app chép một bản `sao-luu/DiBeKho_dulieu-chung_<ngày>.sqlite`.
 - Chưa bật dữ liệu chung thì mọi việc ghi của chủ trên web bị từ chối kèm lời nhắc (để không ghi vào chỗ không ai đọc).
 
 **Nhân viên (`editor`)** vẫn **gửi yêu cầu chờ duyệt** từ cùng các nút (＋ Nhập hàng về…, Lưu kiểm kê, Gửi phiếu giao hàng (file Excel)…); chủ duyệt trong app → **Cần xử lý** → *Yêu cầu từ nhân viên (web)*, như trước:

@@ -14,6 +14,9 @@ MAX_AGE_DAYS = 30
 KEEP_FLOOR = 3  # never pruned by age, even on a machine left idle for over a month
 MAINTENANCE_DAYS = 14
 DAILY_PREFIX = "DiBeKho_"
+# On data shared through the cloud: the day's copy taken after a sync round, so it holds what the web and the other
+# machines wrote too (the opening copy is taken before the first pull). Free Supabase keeps no backups of its own.
+SHARED_PREFIX = "DiBeKho_dulieu-chung_"
 
 
 def snapshot(conn: sqlite3.Connection, dest: Path) -> Path:
@@ -29,9 +32,9 @@ def snapshot(conn: sqlite3.Connection, dest: Path) -> Path:
     return dest
 
 
-def daily_backup(conn, ws: Workspace, today: date | None = None) -> Path | None:
+def daily_backup(conn, ws: Workspace, today: date | None = None, prefix: str = DAILY_PREFIX) -> Path | None:
     today = today or date.today()
-    dest = ws.backups / f"{DAILY_PREFIX}{today.isoformat()}.sqlite"
+    dest = ws.backups / f"{prefix}{today.isoformat()}.sqlite"
     if dest.exists():
         return None
     snapshot(conn, dest)

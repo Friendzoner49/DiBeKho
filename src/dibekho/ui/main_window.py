@@ -23,10 +23,10 @@ from dibekho.core import activity, deliveries, inbox, undo
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync as cloud_sync
-from dibekho.core.cloud import twoway
+from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud.client import CloudError, local_time
 from dibekho.i18n import t
-from dibekho.ui.common import AppContext, ask, blocked_in_cloud_mode, error, fit_window, info, open_path
+from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
 from dibekho.ui.conflict_dialog import ConflictDialog
 from dibekho.ui.count_page import CountPage
 from dibekho.ui.pending_page import PendingPage
@@ -249,6 +249,8 @@ class MainWindow(QMainWindow):
         self.status.setText(" · ".join(parts))
 
     def _update_undo(self):
+        if replica.enabled(self.ctx.conn):
+            return self._update_cloud_undo()
         point = undo.latest(self.ctx.ws)
         self.undo_btn.setEnabled(point is not None)
         if point is None:
@@ -259,10 +261,40 @@ class MainWindow(QMainWindow):
         self.undo_btn.setText(t("undo.button", action=action))
         self.undo_btn.setToolTip(t("undo.tip", action=action, at=point.at.strftime("%d/%m/%Y %H:%M")))
 
+    def _update_cloud_undo(self):
+        point = undo.cloud_latest(self.ctx.conn)
+        self.undo_btn.setEnabled(point is not None)
+        if point is None:
+            self.undo_btn.setText(t("undo.button_none"))
+            self.undo_btn.setToolTip(t("undo.cloud_none"))
+            return
+        action = t(f"undo.{point.action}")
+        self.undo_btn.setText(t("undo.button", action=f"{action} {point.code}".strip()))
+        self.undo_btn.setToolTip(t("undo.cloud_tip", code=point.code))
+
+    def undo_cloud(self):
+        """On shared data: cancel the document this machine has just saved (like Huỷ phiếu), never an old file."""
+        point = undo.cloud_latest(self.ctx.conn)
+        if point is None:
+            self._update_undo()
+            return
+        action = t(f"undo.{point.action}")
+        if not ask(self, t("undo.cloud_confirm", action=action, code=point.code)):
+            return
+        activity.log("undo", f"cloud {point.action} #{point.doc_id}")
+        try:
+            undo.cloud_undo(self.ctx.conn, point)
+        except ValueError as exc:  # cancelled elsewhere in the meantime
+            error(self, str(exc))
+        self.ctx.notify()
+        info(self, t("undo.cloud_done", action=action, code=point.code))
+
     def undo_last(self):
         """Put the data back as it was just before the last action that left an undo point."""
+        if replica.enabled(self.ctx.conn):
+            return self.undo_cloud()
         point = undo.latest(self.ctx.ws)
-        if point is None or blocked_in_cloud_mode(self, self.ctx.conn):
+        if point is None:
             return
         action = t(f"undo.{point.action}")
         if not ask(self, t("undo.confirm", action=action, at=point.at.strftime("%d/%m/%Y %H:%M"))):

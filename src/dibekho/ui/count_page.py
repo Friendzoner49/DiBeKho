@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import catalog, queries
+from dibekho.core import catalog, queries, undo
 from dibekho.core.stock import LOCATIONS, MAIN, OFFICE, Line, record_trial_use, stock_count, stock_levels, transfer
 from dibekho.core.text import fmt_qty, parse_number
 from dibekho.i18n import t
@@ -206,7 +206,8 @@ class CountPage(Page):
             return
         self.ctx.undo_point("stock_count")
         with db.transaction(self.ctx.conn):
-            stock_count(self.ctx.conn, d, counted, self.note.text().strip())
+            doc = stock_count(self.ctx.conn, d, counted, self.note.text().strip())
+            undo.remember_doc(self.ctx.conn, "stock_count", doc)
         self.note.clear()
         self.ctx.notify()
         info(self, t("count.saved"))
@@ -368,8 +369,10 @@ class TransferDialog(QDialog):
             return
         self.ctx.undo_point("transfer_edit" if self.doc_id else "transfer")
         with db.transaction(self.ctx.conn):
-            transfer(self.ctx.conn, from_qdate(self.date.date()), src, dst,
-                     [Line(pid, q) for pid, q in typed.items()], self.note.text().strip(), replaces=self.doc_id)
+            doc = transfer(self.ctx.conn, from_qdate(self.date.date()), src, dst,
+                           [Line(pid, q) for pid, q in typed.items()], self.note.text().strip(), replaces=self.doc_id)
+            if not self.doc_id:
+                undo.remember_doc(self.ctx.conn, "transfer", doc)
         info(self, t("transfer.saved"))
         self.accept()
 
@@ -484,7 +487,8 @@ class TrialUseDialog(QDialog):
             return
         self.ctx.undo_point("trial_use")
         with db.transaction(self.ctx.conn):
-            record_trial_use(self.ctx.conn, from_qdate(self.date.date()), loc,
-                             [Line(pid, q) for pid, q in typed.items()], self.note.text().strip())
+            doc = record_trial_use(self.ctx.conn, from_qdate(self.date.date()), loc,
+                                   [Line(pid, q) for pid, q in typed.items()], self.note.text().strip())
+            undo.remember_doc(self.ctx.conn, "trial_use", doc)
         info(self, t("trial.saved"))
         self.accept()

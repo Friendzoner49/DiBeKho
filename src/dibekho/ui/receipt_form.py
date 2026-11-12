@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from dibekho.core import activity, catalog, receipts
+from dibekho.core import activity, catalog, receipts, undo
 from dibekho.core.receipts import RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
 from dibekho.core.text import fmt_qty, unaccent
 from dibekho.i18n import t
@@ -454,6 +454,7 @@ class ReceiptForm(QDialog):
         self.saved_doc = doc
         if not self.doc_id:
             self.ctx.receipt_draft = None
+            undo.remember_doc(self.ctx.conn, "receipt", doc)
         self.ctx.notify()
         code = self.ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0]
         try:

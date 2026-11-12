@@ -212,6 +212,7 @@ class AppContext(QObject):
         """Call just before an action the user may want to undo ('Hoàn tác'); action names t('undo.<action>')."""
         activity.log("action", action)
         undo.mark(self.conn, self.ws, action)
+        undo.forget_doc(self.conn)  # on shared data Hoàn tác only takes back the document of this very action
 
     def close(self) -> None:
         self.conn.close()
@@ -838,7 +839,7 @@ def ask(parent: QWidget, text: str, title: str | None = None) -> bool:
 
 
 def blocked_in_cloud_mode(parent: QWidget, conn) -> bool:
-    """Undo, restore, package import and "delete all" put an old copy in place of the whole database: on data shared
+    """Restore, package import and "delete all" put an old copy in place of the whole database: on data shared
     through the cloud that would bring back or erase other machines' and the staff's work. Say so and stop."""
     from dibekho.core.cloud import replica
 
