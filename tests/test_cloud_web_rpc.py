@@ -326,3 +326,21 @@ def test_times_follow_the_shops_clock(shop, pg):
 
     gap = abs((datetime.fromisoformat(here) - datetime.fromisoformat(made)).total_seconds())
     assert gap < 120, (made, here)
+
+
+def test_a_receipt_edited_on_the_web_gets_a_new_file_and_the_old_one_stays(shop, tmp_path):
+    s, twin, call, cloud = shop
+    from dibekho.core.workspace import Workspace
+
+    ws = Workspace(tmp_path / "ws")
+    old = receipts.export_file(s, ws, _doc(s, "receipt", "HV001"))  # the file the app made when it was saved
+    _pull(s, cloud)  # the file name travels like any change
+    before = old.read_bytes()
+    call("web_receipt", p=({"doc_date": "2026-11-01", "source": "supplier", "supplier_name": "Cửa khẩu Đông",
+                            "lines": _lines(s, ("SP001", 45, ""))}, "jsonb"),
+         p_replaces=(_uid(s, "documents", _doc(s, "receipt", "HV001")), "uuid"))
+    for m in _pull(s, cloud).merged:
+        twoway.export_renamed(s, ws, m)
+    new = ws.output / receipts.FOLDER / "HangVe_HV001_2026-11-01_2.xlsx"
+    assert new.exists() and old.read_bytes() == before
+    assert s.execute("SELECT source_file FROM documents WHERE code = 'HV001' AND status = 'active'").fetchone()[0] == new.name

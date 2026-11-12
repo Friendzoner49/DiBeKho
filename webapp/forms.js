@@ -16,7 +16,8 @@ function openDialog(title, html, buttons, closeLabel = "Huỷ bỏ") {
   $("dlg-error").textContent = "";
   const bar = $("dlg-buttons");
   bar.innerHTML = "";
-  for (const b of [...buttons, { label: buttons.length ? closeLabel : "Đóng", run: async () => true }]) {
+  dlg.dataset.form = closeLabel === "Huỷ bỏ" && buttons.length ? "1" : "";
+  for (const b of [...buttons, { label: buttons.length ? closeLabel : "Đóng", close: true, run: async () => true }]) {
     const el = document.createElement("button");
     el.textContent = b.label;
     if (b.primary) el.className = "primary-btn";
@@ -24,7 +25,8 @@ function openDialog(title, html, buttons, closeLabel = "Huỷ bỏ") {
       $("dlg-error").textContent = "";
       bar.querySelectorAll("button").forEach((x) => { x.disabled = true; });
       try {
-        if (await b.run()) dlg.close();
+        if (b.close) closeDialog();
+        else if (await b.run()) dlg.close();
       } catch (e) {
         $("dlg-error").textContent = e.message || String(e);
       } finally {
@@ -37,7 +39,19 @@ function openDialog(title, html, buttons, closeLabel = "Huỷ bỏ") {
   return $("dlg-body");
 }
 
-$("dlg-x").addEventListener("click", () => dlg.close());
+/** A form with something typed in asks before closing, like the app (receipt_form.confirm_close). */
+function dirtyForm() {
+  return [...$("dlg-body").querySelectorAll("input.qty, input.rf-product")].some((i) => i.value.trim() !== "");
+}
+
+function closeDialog() {
+  if (dlg.dataset.form && dirtyForm() && !confirm("Bỏ phiếu đang nhập? Những gì đã gõ sẽ không được lưu.")) return false;
+  dlg.close();
+  return true;
+}
+
+$("dlg-x").addEventListener("click", closeDialog);
+dlg.addEventListener("cancel", (e) => { e.preventDefault(); closeDialog(); });  // the Esc key
 
 function fail(message) { throw new Error(message); }
 

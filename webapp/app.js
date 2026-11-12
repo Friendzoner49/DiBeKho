@@ -86,6 +86,7 @@ const tableState = {};
 function buildTable(into, cols, items, opts = {}) {
   const st = tableState[into] ||= { i: null, dir: 1, sel: new Set() };
   const keyOf = opts.key || ((x) => x.id);
+  if (opts.open && !opts.select) opts = { ...opts, select: "one" };  // every list that opens rows can select one
   let rows = items;
   if (st.i !== null && cols[st.i]) {
     const c = cols[st.i];
@@ -121,6 +122,8 @@ function buildTable(into, cols, items, opts = {}) {
       tr.addEventListener("click", (e) => {
         if (e.target.closest("input, select, button")) return;
         const k = keyOf(item);
+        // phones cannot double-click reliably: tapping the row that is already selected opens it
+        if (opts.open && opts.select === "one" && st.sel.has(k)) { opts.open(item); return; }
         if (opts.select === "many") { st.sel.has(k) ? st.sel.delete(k) : st.sel.add(k); }
         else { st.sel.clear(); st.sel.add(k); }
         for (const other of el.querySelectorAll("tbody tr")) {

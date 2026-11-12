@@ -191,8 +191,11 @@ begin
                           supplier_id, ref_code, location_id, source_file, origin)
     values (doc, 'receipt', v_code, v_code, v_day, cust, dbk_clean(p ->> 'note'), v_at, src, sup,
             case when src = 'return' then dbk_clean(p ->> 'ref_code') else '' end, loc,
-            -- the Excel file the app writes for it when it pulls this receipt (receipts.export_file)
-            'HangVe_' || v_code || '_' || v_day || '.xlsx', 'web');
+            -- the Excel file the app writes for it when it pulls this receipt (receipts.export_file); an edit is a
+            -- new version with a new file (_2, _3... as the app names them), never the old file left as it was
+            'HangVe_' || v_code || '_' || v_day || case when p_replaces is null then '' else '_' || (
+                select count(*) + 1 from documents where kind = 'receipt' and code = v_code and not deleted) end
+            || '.xlsx', 'web');
     perform dbk_add_lines(doc, p -> 'lines', 'receipt_in', 1, v_day, loc, null, v_at);
     return jsonb_build_object('id', doc, 'code', v_code);
 end $$;
