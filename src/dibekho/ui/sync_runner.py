@@ -13,6 +13,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from dibekho.core import activity, backup
+from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud.client import CloudError, SessionExpired
@@ -127,22 +128,34 @@ class SyncRunner(QObject):
         self._tell_about(merged)
         batch, seq, hold = twoway.prepare(conn)
         if twoway.empty(batch):
+            self._confirm_requests(client, token)
             return self._finished()
         expected, device = twoway.cursor(conn), self.ctx.cfg.device_id
         self._background(lambda: twoway.send(client, token, device, expected, batch),
-                         lambda answer, e: self._sent(answer, e, seq, hold, tries))
+                         lambda answer, e: self._sent(answer, e, seq, hold, tries, client, token))
         return None
 
-    def _sent(self, answer, err, seq, hold, tries) -> None:
+    def _sent(self, answer, err, seq, hold, tries, client=None, token=None) -> None:
         if err is not None:
             return self._failed(err)
         if answer.get("ok"):
             twoway.finish(self.ctx.conn, seq, int(answer["max_rev"]), hold)
+            self._confirm_requests(client, token)
             return self._finished()
         self.busy = False  # someone wrote in between: pull again
         if tries > 1:
             self.start(tries - 1)
         return None
+
+    def _confirm_requests(self, client, token) -> None:
+        """Staff requests approved here are marked done on the web once their documents are on the cloud."""
+        conn = self.ctx.conn
+        if client is None or not cloud_inbox.applied_map(conn) or twoway.queued_count(conn):
+            return
+        try:
+            cloud_inbox.finish_applied(conn, client, token)
+        except CloudError as exc:  # tried again after the next round
+            activity.log("error", f"confirming web requests: {exc}")
 
     def _finished(self) -> None:
         self.busy = False

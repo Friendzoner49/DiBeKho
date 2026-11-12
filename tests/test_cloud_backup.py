@@ -133,30 +133,6 @@ def test_whole_restore_brings_back_the_old_state(ws, tmp_path):
     restored.close()
 
 
-def test_own_device_conflict_is_not_asked(conn):
-    class Client:
-        def __init__(self):
-            self.calls = []
-
-        def rpc(self, name, args, token):
-            self.calls.append(args["force"])
-            if not args["force"]:
-                return {"conflict": True, "last_push": {"device_id": "dev-1", "device_name": "May Chinh"}}
-            return {"conflict": False, "push_id": 21}
-
-    client = Client()
-    result = sync.push_mirror(conn, Cfg, client, "tok")
-    assert result["push_id"] == 21 and client.calls == [False, True]  # retried by itself, once
-
-
-def test_other_device_conflict_still_asks(conn):
-    class Client:
-        def rpc(self, name, args, token):
-            return {"conflict": True, "last_push": {"device_id": "other", "device_name": "May kia"}}
-
-    assert sync.push_mirror(conn, Cfg, Client(), "tok")["conflict"] is True
-
-
 # ---- Storage HTTP shapes ------------------------------------------------------------------------------------
 
 class _Resp(io.BytesIO):
@@ -214,10 +190,10 @@ def test_replacing_the_database_file_marks_data_unpushed(ws, tmp_path):
     before = backup.snapshot(ctx.conn, tmp_path / "before.sqlite")  # the state Undo would put back
     with db.transaction(ctx.conn):
         catalog.create_product(ctx.conn, "Keo", spec="15kg", unit="thùng")  # a change ...
-    class Client:
-        def rpc(self, name, args, token):
-            return {"conflict": False, "push_id": 5}
-    sync.push_mirror(ctx.conn, Cfg, Client(), "tok")  # ... that is pushed
+    class Client(FakeStorage):
+        def get(self, *a):
+            return []
+    sync.finish_push(ctx.conn, Cfg, Client(), "tok")  # ... that is backed up
     assert not sync.has_unpushed(ctx.conn)
 
     ctx.close()

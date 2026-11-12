@@ -40,7 +40,7 @@ def test_undo_is_locked_in_cloud_mode_and_the_data_stays(ctx):
     assert not window.undo_btn.isEnabled()  # a product edit is not a document: nothing to take back on shared data
     window.undo_last()
     assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 1  # nothing rolled back
-    window._owner_timer.stop()
+    window._inbox_timer.stop()
     window.sync.timer.stop()
 
 
@@ -72,7 +72,7 @@ def test_undo_in_cloud_mode_cancels_the_document_just_saved(ctx, monkeypatch):
     assert stock.stock_levels(ctx.conn).get(a, 0) == 0
     assert not window.undo_btn.isEnabled()  # once only
     assert any("DT001" in t for t in ctx.told)
-    window._owner_timer.stop()
+    window._inbox_timer.stop()
     window.sync.timer.stop()
 
 
@@ -97,5 +97,5 @@ def test_a_saved_size_larger_than_the_screen_is_brought_back_inside(ctx):
     QApplication.processEvents()
     frame = window.frameGeometry()
     assert avail.contains(frame), (avail, frame)
-    window._owner_timer.stop()
+    window._inbox_timer.stop()
     window.sync.timer.stop()

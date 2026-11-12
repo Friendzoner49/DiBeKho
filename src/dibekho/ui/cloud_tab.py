@@ -1,8 +1,6 @@
-"""'Cloud' tab in Settings: sign in to Supabase and push the mirror ('Đồng bộ ngay').
-
-The desktop stays the single source of truth; a push REPLACES the whole cloud mirror
-(docs/cloud/04-thiet-ke-chot.md). The password is used once to sign in and never stored;
-later pushes reuse the rotating refresh token kept in config.json.
+"""'Cloud' tab in Settings: sign in to Supabase, 'Đồng bộ ngay' (staff requests, a sync round when the data is shared,
+the full backup), restore from a cloud backup, and turning shared data on/off (docs/cloud/06-cloud-la-goc.md).
+The password is used once to sign in and never stored; later calls reuse the rotating refresh token in config.json.
 """
 
 import tempfile
@@ -25,9 +23,9 @@ from PySide6.QtWidgets import (
 
 from dibekho.core import activity, backup
 from dibekho.core.cloud import backup as cloud_backup
-from dibekho.core.cloud import commands as cloud_commands
+from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import replica, sync, twoway
-from dibekho.core.cloud.client import CloudClient, CloudError, local_time
+from dibekho.core.cloud.client import CloudClient, CloudError
 from dibekho.i18n import t
 from dibekho.ui.common import ask, blocked_in_cloud_mode, error, fill_table, fit_window, hint_label, info, make_table, selected_id
 
@@ -110,7 +108,7 @@ class CloudTab(QWidget):
         self.refresh()
 
     def refresh(self):
-        _, at = sync.last_push(self.ctx.conn)
+        at = sync.last_backup(self.ctx.conn)
         when = at.replace("T", " ")[:16] if at else t("cloud.never")
         self.status.setText(t("cloud.last_push", when=when))
         on = replica.enabled(self.ctx.conn)
@@ -139,24 +137,17 @@ class CloudTab(QWidget):
     def sync_now(self):
         activity.log("click", "cloud_sync")
         cfg = self.ctx.cfg
-        backup_problem = None
         try:
             pair = self._connect()
             if pair is None:
                 return
             client, token = pair
-            result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token))
-            if result["conflict"]:
-                other = result.get("last_push") or {}
-                when = local_time(other.get("last_push_at"))
-                if not ask(self, t("cloud.conflict", device=other.get("device_name", "?"), at=when)):
-                    return
-                result = self._busy(lambda: sync.push_mirror(self.ctx.conn, cfg, client, token, force=True))
-            if not result["conflict"]:
-                backup_problem = self._busy(lambda: sync.finish_push(self.ctx.conn, cfg, client, token))
-                auto, manual = self._busy(lambda: cloud_commands.pull(self.ctx.conn, client, token))
-                self.ctx.web_inbox, self.ctx.owner_waiting = manual, auto
-                self.ctx.notify()  # new web orders land in Cần xử lý
+            self.ctx.web_inbox = self._busy(lambda: cloud_inbox.fetch_pending(self.ctx.conn, client, token))
+            runner = getattr(self.ctx, "sync_runner", None)
+            if runner is not None and replica.enabled(self.ctx.conn):
+                runner.start()  # the shared data: a round in the background, as every minute
+            backup_problem = self._busy(lambda: sync.finish_push(self.ctx.conn, cfg, client, token))
+            self.ctx.notify()  # new staff requests land in Cần xử lý
         except CloudError as exc:
             error(self, str(exc))
             return

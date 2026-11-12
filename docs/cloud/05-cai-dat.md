@@ -57,7 +57,9 @@ Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud)
 - Nhân viên thấy trạng thái ở trang **Cần xử lý** của web (chờ duyệt / đã vào sổ / bị từ chối).
 - Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần vai trò riêng — chưa làm.
 
-**Lệnh của chủ kiểu cũ** (`cmd_*` qua hộp thư, SQL 006): web không gửi nữa. App vẫn còn đoạn xử lý các lệnh cũ còn sót; sẽ gỡ sau khi người dùng xác nhận bản mới chạy ổn.
+**Điện thoại** (màn hình cảm ứng có cạnh ngắn ≤ 760 px, kể cả khi xoay ngang; máy tính màn nhỏ vẫn có đủ trang): chỉ xem bảng Tồn kho (tên, tồn, Kho tổng, Văn phòng), không có menu, không sửa được gì. Máy tính bảng và máy tính có đủ trang.
+
+**Lệnh của chủ kiểu cũ** (`cmd_*` qua hộp thư, SQL 006) và **bản gương** (`mirror_*`, hàm `replace_mirror`, SQL 001/005): đã gỡ khỏi app (12/11/2026). Bảng và hàm cũ vẫn nằm trên Supabase nhưng không ai dùng; SQL đã chạy thì không sửa.
 
 ### Web xem được những gì (giống app)
 
@@ -82,9 +84,9 @@ Từ đó: tắt app tự đẩy, mở app tự kéo phiếu từ web. Mật kh�
 
 ## 6. Sao lưu và khôi phục
 
-Sau mỗi lần đẩy thành công, app tải lên một bản sao đầy đủ `kho.sqlite` (khoảng 300 KB), Cloud giữ 30 bản gần nhất.
+Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ lần trước), app tải lên một bản sao đầy đủ `kho.sqlite` (khoảng 300 KB), Cloud giữ 30 bản gần nhất.
 **Khôi phục:** Cài đặt → Cloud → **Khôi phục từ Cloud…** → chọn bản. App kiểm tra, sao lưu dữ liệu hiện tại, tạo điểm Hoàn tác rồi mới thay.
-Bản sao lưu **không** chứa file Excel phiếu gốc. Các bảng `mirror_*` chỉ là bản chiếu cho web, **không** dùng để khôi phục.
+Bản sao lưu **không** chứa file Excel phiếu gốc. Các bảng `mirror_*` cũ không còn dùng.
 
 ## 7. Giới hạn gói Free cần nhớ
 

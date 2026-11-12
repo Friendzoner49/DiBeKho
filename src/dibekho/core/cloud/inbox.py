@@ -31,9 +31,6 @@ from dibekho.core.workspace import Workspace
 
 RECEIPT, DELIVERY_FILE, STOCK_COUNT = "receipt", "delivery_file", "stock_count"
 KINDS = (RECEIPT, DELIVERY_FILE, STOCK_COUNT)
-# operations only the owner (a `desktop` account) can send; core/cloud/commands.py carries them out
-CMD_KINDS = ("cmd_transfer", "cmd_trial", "cmd_product_add", "cmd_product_edit", "cmd_product_merge",
-             "cmd_customer_merge", "cmd_cancel_doc", "cmd_set_location", "cmd_receipt_edit")
 FILES_BUCKET = "inbox-files"
 MAX_FILE = 2 * 1024 * 1024   # an Excel delivery note is tens of KB
 MAX_UNZIPPED = 50 * 1024 * 1024  # guard against a zip bomb behind a small .xlsx
@@ -68,12 +65,12 @@ def sent_at(item: dict) -> datetime:
 # ---- pulling ------------------------------------------------------------------------------------------------
 
 def fetch_pending(conn, client: CloudClient, access_token: str, seen: dict | None = None) -> list[dict]:
-    """Pending requests and owner commands, oldest first, minus those already applied locally and awaiting push
+    """Pending staff requests, oldest first, minus those already applied locally and awaiting push
     confirmation. Each gets 'sender' (the account's display name) and 'sender_role' ('desktop', 'editor', 'viewer');
     both are '' when the profiles cannot be read, and an unknown role is never trusted: nothing is auto-applied."""
     rows = client.get("/rest/v1/web_inbox?status=eq.pending&order=created_at", access_token) or []
     seen = applied_map(conn) if seen is None else seen  # a caller off the main thread passes it in
-    items = [r for r in rows if r.get("id") not in seen and r.get("kind") in KINDS + CMD_KINDS]
+    items = [r for r in rows if r.get("id") not in seen and r.get("kind") in KINDS]  # old owner cmd_* rows are ignored
     if items:
         who = sender_info(client, access_token)
         for item in items:
@@ -390,7 +387,7 @@ def reject(client: CloudClient, access_token: str, item: dict, reason: str = "")
 
 
 def finish_applied(conn, client: CloudClient, access_token: str) -> int:
-    """After a successful mirror push: confirm each locally applied request whose document still exists;
+    """Once the approved documents are on the cloud: confirm each locally applied request whose document still exists;
     one undone in the meantime is forgotten here and comes back as pending on the next pull.
     Progress is saved per request, so a network failure halfway is retried next cycle (PATCH is idempotent)."""
     confirmed = 0

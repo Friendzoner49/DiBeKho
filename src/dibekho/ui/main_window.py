@@ -21,10 +21,9 @@ from PySide6.QtWidgets import (
 from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, inbox, undo
 from dibekho.core.cloud import inbox as inbox_mod
-from dibekho.core.cloud import commands as cloud_commands
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud import replica, twoway
-from dibekho.core.cloud.client import CloudError, local_time
+from dibekho.core.cloud.client import CloudError
 from dibekho.i18n import t
 from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
 from dibekho.ui.conflict_dialog import ConflictDialog
@@ -40,9 +39,9 @@ PENDING, SEARCH, COUNT = 1, 2, 4  # rows in the navigation list
 # pages where the user types work a refresh would wipe (mapping choices, counted numbers): the owner's web
 # commands wait until the user is somewhere else
 UNSAFE_PAGES = (PENDING, COUNT)
-OWNER_POLL = 30_000  # ms between looks at the owner's waiting items; the cloud is asked every 6th time
+INBOX_POLL = 180_000  # ms between looks at the staff requests sent from the web
 CLOSE_TIMEOUT = 8  # s per cloud request while closing the app
-CLOSE_SLOW = 12  # s: a push slower than this skips the full backup
+CLOSE_SLOW = 12  # s: when signing in already took this long, the full backup waits for next time
 
 
 class MainWindow(QMainWindow):
@@ -139,19 +138,17 @@ class MainWindow(QMainWindow):
         ctx.changed.connect(self._update_undo)
         self._update_undo()
         QTimer.singleShot(1500, self._cloud_check_on_open)  # after the window is up, not before
-        # The shop app is open all day: the owner's commands sent from home must not wait for the next start.
-        self._ticks = 0
-        self._owner_timer = QTimer(self)
-        self._owner_timer.timeout.connect(self._owner_tick)
-        self._owner_timer.start(OWNER_POLL)
+        # The shop app is open all day: staff requests sent from the web must not wait for the next start.
+        self._inbox_timer = QTimer(self)
+        self._inbox_timer.timeout.connect(self._inbox_tick)
+        self._inbox_timer.start(INBOX_POLL)
         # cloud as the source of truth (docs/cloud/06): two-way sync in the background
-        self.sync = SyncRunner(ctx, self._owner_safe, lambda text: info(self, text), self)
+        self.sync = SyncRunner(ctx, self._safe, lambda text: info(self, text), self)
         ctx.sync_runner = self.sync
         self.sync.status_changed.connect(self._update_sync)
         ctx.changed.connect(self._update_sync)
         self._update_sync()
         QTimer.singleShot(2500, self.sync.start)
-        ctx.changed.connect(self._maybe_apply_owner)
 
     def rescan(self, quiet: bool = False, allow_partial: bool = False):
         """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed.
@@ -167,7 +164,7 @@ class MainWindow(QMainWindow):
                          if result.imported else f"waiting {result.pending}")
         if not quiet:
             # the button also refreshes requests sent from the web; the user asked: show them when they arrive
-            self._pull_async(check_conflict=False, notify=True, explicit=True)
+            self._pull_async(notify=True, explicit=True)
         if result.imported or not quiet:
             self.ctx.notify()
         self._update_badge(result)
@@ -186,23 +183,19 @@ class MainWindow(QMainWindow):
     def _bg_finished(self, then, result, err) -> None:
         then(result, err)
 
-    def _pull_async(self, check_conflict: bool, notify: bool, explicit: bool = False) -> None:
-        """Ask the cloud for the web inbox without blocking. The database is read here, the network in the thread."""
+    def _pull_async(self, notify: bool, explicit: bool = False) -> None:
+        """Ask the cloud for the staff requests without blocking. The database is read here, the network in the thread."""
         if self._pulling:
             return
         cfg, conn = self.ctx.cfg, self.ctx.conn
         seen = inbox_mod.applied_map(conn)
-        unpushed = check_conflict and cloud_sync.has_unpushed(conn)
-        last_seen = cloud_sync.last_push(conn)[0] if unpushed else None
 
         def work():
             pair = cloud_sync.session(cfg, timeout=10)
             if pair is None:
                 return None
             client, token = pair
-            state = cloud_sync.fetch_state(client, token) if unpushed else None
-            auto, manual = cloud_commands.pull(None, client, token, seen)
-            return state, auto, manual
+            return inbox_mod.fetch_pending(None, client, token, seen)
 
         def then(result, err):
             self._pulling = False
@@ -211,26 +204,15 @@ class MainWindow(QMainWindow):
                 return
             if result is None:
                 return
-            state, auto, manual = result
-            if state and state["device_id"] != cfg.device_id and state["last_push_id"] != last_seen:
-                info(self, t("cloud.open_conflict", device=state.get("device_name", "?"),
-                             at=local_time(state.get("last_push_at"))))
-            activity.log("cloud", f"web inbox: {len(manual)} to approve, {len(auto)} from the owner")
-            self.ctx.web_inbox, self.ctx.owner_waiting = manual, auto
-            if notify and (explicit or self._owner_safe()):  # explicit = Quét lại pressed: refresh whatever page
+            activity.log("cloud", f"web inbox: {len(result)} to approve")
+            self.ctx.web_inbox = result
+            if notify and (explicit or self._safe()):  # explicit = Quét lại pressed: refresh whatever page
                 self.ctx.notify()
             else:
                 self._update_badge(self._last)
-            self._maybe_apply_owner()
 
         self._pulling = True
         self._in_background(work, then)
-
-    def _take_inbox(self, client, token) -> None:
-        """Pull the web inbox: requests for approval go to Cần xử lý, the owner's own items wait for a safe moment."""
-        auto, manual = cloud_commands.pull(self.ctx.conn, client, token)
-        activity.log("cloud", f"web inbox: {len(manual)} to approve, {len(auto)} from the owner")
-        self.ctx.web_inbox, self.ctx.owner_waiting = manual, auto
 
     def _update_badge(self, result=None):
         pending = (deliveries.pending_count(self.ctx.conn) + deliveries.unplaced_count(self.ctx.conn)
@@ -244,8 +226,6 @@ class MainWindow(QMainWindow):
             parts.append(t("main.scan_result", count=len(result.imported)))
         if pending:
             parts.append(t("main.pending", count=pending))
-        if self.ctx.owner_waiting:
-            parts.append(t("web.owner_waiting", n=len(self.ctx.owner_waiting)))
         self.status.setText(" · ".join(parts))
 
     def _update_undo(self):
@@ -379,19 +359,19 @@ class MainWindow(QMainWindow):
         self._save_geometry()
         self.sync.timer.stop()
         self.sync.send_before_closing()
-        self._cloud_push_on_close()
+        self._cloud_backup_on_close()
         self.ctx.close()
         super().closeEvent(event)
 
     # ------------------------------------------------------------ cloud (docs/cloud/04, step 6)
 
-    def _cloud_push_on_close(self):
-        """Closing a work session puts it on the cloud, so the other machine (and the web) see it next.
-        Offline or expired session: skip silently -- the next open or a manual sync catches up.
-        Bounded: each request waits at most CLOSE_TIMEOUT s, and the full backup is skipped when the push
-        itself was slow, so the window cannot look frozen for a minute on a poor line."""
+    def _cloud_backup_on_close(self):
+        """Closing a work session: confirm the staff requests approved here and put a full backup on the cloud when the
+        data changed since the last one. Offline or expired session: skip silently -- the next close or Đồng bộ ngay
+        catches up. Bounded: each request waits at most CLOSE_TIMEOUT s, and the backup is skipped on a slow line, so
+        the window cannot look frozen for a minute."""
         try:
-            if not cloud_sync.has_unpushed(self.ctx.conn):
+            if not cloud_sync.has_unpushed(self.ctx.conn) and not inbox_mod.applied_map(self.ctx.conn):
                 return
             QGuiApplication.setOverrideCursor(Qt.WaitCursor)
             started = time.monotonic()
@@ -399,80 +379,29 @@ class MainWindow(QMainWindow):
             if pair is None:
                 return
             client, token = pair
-            result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token)
-            if result["conflict"]:
-                QGuiApplication.restoreOverrideCursor()  # a question for the user: show the normal cursor
-                if self._ask_cloud_overwrite(result):
-                    QGuiApplication.setOverrideCursor(Qt.WaitCursor)
-                    result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token, force=True)
-            if not result["conflict"]:
-                slow = time.monotonic() - started > CLOSE_SLOW
-                cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token, with_backup=not slow)
-                if slow:
-                    activity.log("cloud", "slow line on close: full backup skipped, the next push makes it")
+            slow = time.monotonic() - started > CLOSE_SLOW
+            with_backup = cloud_sync.has_unpushed(self.ctx.conn) and not slow
+            cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token, with_backup=with_backup)
+            if slow:
+                activity.log("cloud", "slow line on close: full backup skipped, the next close makes it")
         except CloudError as exc:
-            activity.log("error", f"cloud push on close: {exc}")
+            activity.log("error", f"cloud on close: {exc}")
         finally:
             while QGuiApplication.overrideCursor() is not None:
                 QGuiApplication.restoreOverrideCursor()
 
     def _cloud_check_on_open(self):
-        """Pull the web inbox into 'Cần xử lý', and when another machine pushed after our last push AND this
-        machine holds unpushed changes, say so now, before more work piles onto both sides. The choice itself
-        happens at push time (ask, never silent)."""
+        """Pull the staff requests into 'Cần xử lý' soon after opening."""
         if self.ctx.conn is None:  # the window is gone or the file is being replaced
             return
-        self._pull_async(check_conflict=True, notify=True)
+        self._pull_async(notify=True)
 
-    # ------------------------------------------------------------ the owner's commands from the web
+    # ------------------------------------------------------------ safe moments, staff requests
 
-    def _owner_safe(self) -> bool:
+    def _safe(self) -> bool:
         """No dialog open and the user is not in the middle of typing on Cần xử lý or Kiểm kê."""
         return QApplication.activeModalWidget() is None and self.nav.currentRow() not in UNSAFE_PAGES
 
-    def _owner_tick(self) -> None:
-        self._ticks += 1
-        if self._ticks % 6 == 0 and QApplication.activeModalWidget() is None:  # ask the cloud every ~3 minutes
-            self._pull_async(check_conflict=False, notify=True)
-        self._maybe_apply_owner()
-
-    def _maybe_apply_owner(self) -> None:
-        if self.ctx.owner_waiting and self._owner_safe():
-            QTimer.singleShot(0, self._apply_owner_waiting)  # not inside the signal that got us here
-
-    def _apply_owner_waiting(self) -> None:
-        """Carry out the owner's web items now: one undo point for the batch, push so the web shows the result, and say
-        plainly what was done and by whom, so nobody presses Hoàn tác blindly."""
-        if self.ctx.conn is None or not self.ctx.owner_waiting or not self._owner_safe():
-            return
-        items, self.ctx.owner_waiting = self.ctx.owner_waiting, []
-        try:
-            pair = cloud_sync.session(self.ctx.cfg, timeout=15)
-            if pair is None:
-                return
-            client, token = pair
-            self.ctx.undo_point("web_commands")
-            outcomes = cloud_commands.apply_owner_items(self.ctx.conn, self.ctx.ws, client, token, items)
-            if not outcomes:
-                return
-            self.ctx.notify()
-            self.rescan(quiet=True)  # a delivery note the owner sent is only put in the folder: read it now
-            try:
-                result = cloud_sync.push_mirror(self.ctx.conn, self.ctx.cfg, client, token)
-                if not result["conflict"]:
-                    cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token)
-            except CloudError as exc:
-                activity.log("error", f"push after web commands: {exc}")  # the next push or close does it
-        except CloudError as exc:
-            self.ctx.owner_waiting = items + self.ctx.owner_waiting  # nothing was done: try again later
-            activity.log("error", f"owner commands: {exc}")
-            return
-        done = [o for o in outcomes if o.ok]
-        lines = [f"• {o.summary}" for o in done] + [t("web.owner_refused", what=o.item.get("kind", ""), why=o.summary)
-                                                       for o in outcomes if not o.ok]
-        info(self, t("web.owner_done", n=len(done)) + "\n" + "\n".join(lines))
-
-    def _ask_cloud_overwrite(self, result) -> bool:
-        other = result.get("last_push") or {}
-        when = local_time(other.get("last_push_at"))
-        return ask(self, t("cloud.conflict", device=other.get("device_name", "?"), at=when))
+    def _inbox_tick(self) -> None:
+        if self.ctx.conn is not None and QApplication.activeModalWidget() is None:
+            self._pull_async(notify=True)

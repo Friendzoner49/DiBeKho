@@ -1,4 +1,4 @@
-"""Cloud client (stdlib HTTP) and push_mirror, with the network faked."""
+"""Cloud client (stdlib HTTP), signing in and the cloud backup bookkeeping, with the network faked."""
 
 import io
 import json
@@ -85,36 +85,22 @@ class Cfg:
     device_id, device_name = "dev-1", "May"
 
 
-def test_push_mirror_success_remembers_push_id(conn):
-    client = FakeClient([{"conflict": False, "push_id": 12}])
-    result = sync.push_mirror(conn, Cfg, client, "tok")
-    assert result["push_id"] == 12
-    assert sync.last_push(conn)[0] == 12
-    name, args, token = client.calls[0]
-    assert name == "replace_mirror" and token == "tok"
-    assert args["payload"]["based_on_push"] is None and args["force"] is False
-
-
-def test_push_mirror_conflict_changes_nothing_until_forced(conn):
-    client = FakeClient([
-        {"conflict": True, "last_push": {"device_name": "May kia", "last_push_at": "2026-11-10T09:00:00Z"}},
-        {"conflict": False, "push_id": 13},
-    ])
-    result = sync.push_mirror(conn, Cfg, client, "tok")
-    assert result["conflict"] and sync.last_push(conn)[0] is None  # nothing recorded
-    result = sync.push_mirror(conn, Cfg, client, "tok", force=True)
-    assert result["push_id"] == 13 and sync.last_push(conn)[0] == 13
-    assert client.calls[1][1]["force"] is True
-
-
-def test_has_unpushed_follows_touch_and_push(conn):
+def test_has_unpushed_follows_touch_and_the_cloud_backup(conn):
     assert not sync.has_unpushed(conn)  # nothing changed yet
     with db.transaction(conn):
         db.touch(conn)
     assert sync.has_unpushed(conn)
-    client = FakeClient([{"conflict": False, "push_id": 1}])
-    sync.push_mirror(conn, Cfg, client, "tok")
-    assert not sync.has_unpushed(conn)  # the push covered the change
+    class Uploads:
+        def get(self, *a):
+            return []  # nothing recorded on the web to reconcile
+
+        def storage_upload(self, name, data, token):
+            pass
+
+        def storage_list(self, token, prefix=""):
+            return []
+    assert sync.finish_push(conn, Cfg, Uploads(), "tok") is None
+    assert not sync.has_unpushed(conn) and sync.last_backup(conn)  # the backup covered the change
 
 
 def test_session_none_until_cloud_configured(tmp_path, monkeypatch):
@@ -155,24 +141,6 @@ def test_config_keeps_unknown_keys_on_save(tmp_path, monkeypatch):
     assert saved["future_setting"] == "keep me"
     assert saved["language"] == "en"
     assert not any(k.startswith("_") for k in saved)
-
-
-def test_get_and_fetch_state(monkeypatch):
-    calls = fake_urlopen(monkeypatch, lambda req: [{"device_id": "d2", "device_name": "May kia",
-                                                    "last_push_id": 9, "last_push_at": "2026-11-10T10:00:00Z"}])
-    client = CloudClient("https://xxx.supabase.co", "k")
-    state = sync.fetch_state(client, "tok")
-    assert state["device_id"] == "d2" and state["last_push_id"] == 9
-    (req,) = calls
-    assert req.get_method() == "GET" and req.full_url.endswith("/rest/v1/sync_state?select=*")
-
-
-def test_push_mirror_sends_last_seen_push_as_based_on(conn):
-    with db.transaction(conn):
-        db.set_meta(conn, "cloud_last_push_id", "7")
-    client = FakeClient([{"conflict": False, "push_id": 8}])
-    sync.push_mirror(conn, Cfg, client, "tok")
-    assert client.calls[0][1]["payload"]["based_on_push"] == 7
 
 
 def test_local_time_converts_utc_to_this_machine():
