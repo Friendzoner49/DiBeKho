@@ -529,7 +529,7 @@ $("catalog-filter").addEventListener("input", renderCatalog);
 $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());
 $("reload").addEventListener("click", loadAll);
-$("logout").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+$("logout").addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.reload(); });
 
 $("remember").checked = remembering();
 try { $("user").value = store("localStorage").getItem(USER_KEY) || ""; } catch (e) { /* nothing saved */ }

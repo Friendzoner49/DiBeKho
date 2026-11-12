@@ -255,7 +255,7 @@ class CloudTab(QWidget):
             tokens = self._busy(lambda: client.sign_in(cfg.cloud_user, password))
         elif cfg.cloud_refresh_token:
             try:
-                tokens = self._busy(lambda: client.refresh(cfg.cloud_refresh_token))
+                tokens = self._busy(lambda: sync.rotate(cfg, client))
             except CloudError:
                 error(self, t("cloud.need_password"))  # session expired: one more password entry
                 return None

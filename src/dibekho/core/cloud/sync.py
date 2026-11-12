@@ -33,11 +33,17 @@ def session(cfg, timeout: float | None = None) -> tuple[CloudClient, str] | None
     if not (cfg.cloud_url and cfg.cloud_key and cfg.cloud_user and cfg.cloud_refresh_token):
         return None
     client = CloudClient(cfg.cloud_url, cfg.cloud_key, **({"timeout": timeout} if timeout else {}))
+    return client, rotate(cfg, client)["access_token"]
+
+
+def rotate(cfg, client: CloudClient) -> dict:
+    """Swap the saved refresh token for a new one (they rotate: two refreshes with the same token at once would
+    leave one of them holding a used token), saved at once. -> {"access_token", "refresh_token"}."""
     with _SESSION_LOCK:
         tokens = client.refresh(cfg.cloud_refresh_token)
         cfg.cloud_refresh_token = tokens["refresh_token"]
         cfg.save()
-    return client, tokens["access_token"]
+    return tokens
 
 
 def fetch_state(client: CloudClient, access_token: str) -> dict | None:

@@ -15,7 +15,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from dibekho.core import activity, backup
 from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud import sync as cloud_sync
-from dibekho.core.cloud.client import CloudError
+from dibekho.core.cloud.client import CloudError, SessionExpired
 from dibekho.i18n import t
 
 PERIOD = 60_000  # ms between rounds when nothing happens here
@@ -35,6 +35,7 @@ class SyncRunner(QObject):
         self.busy = False
         self.last_ok: datetime | None = None
         self.last_error = ""
+        self.signed_out = False
         self._done.connect(lambda then, result, err: then(result, err))
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.start)
@@ -57,7 +58,9 @@ class SyncRunner(QObject):
         if conflicts:
             parts.append(t("sync.conflicts", n=conflicts))
         queued = twoway.queued_count(self.ctx.conn)
-        if self.last_error:
+        if self.signed_out:
+            parts.append(t("sync.signed_out", n=queued))
+        elif self.last_error:
             parts.append(t("sync.offline", n=queued))
         elif self.last_ok:
             parts.append(t("sync.ok", at=self.last_ok.strftime("%H:%M")) + (f" · {t('sync.queued', n=queued)}" if queued else ""))
@@ -80,6 +83,7 @@ class SyncRunner(QObject):
     def _failed(self, err) -> None:
         self.busy = False
         self.last_error = str(err)
+        self.signed_out = isinstance(err, SessionExpired)
         activity.log("error", f"cloud sync: {err}")
         self.status_changed.emit()
 
@@ -140,7 +144,7 @@ class SyncRunner(QObject):
 
     def _finished(self) -> None:
         self.busy = False
-        self.last_ok, self.last_error = datetime.now(), ""
+        self.last_ok, self.last_error, self.signed_out = datetime.now(), "", False
         try:  # once a day, a full copy of the shared data as it now is (also for an app left open for days)
             backup.daily_backup(self.ctx.conn, self.ctx.ws, prefix=backup.SHARED_PREFIX)
         except (OSError, sqlite3.DatabaseError) as exc:

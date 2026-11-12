@@ -694,6 +694,7 @@
   "undo.product_merge": "Gộp mặt hàng trùng",
   "sync.conflicts": "⚠ {n} chỗ cần chọn bản giữ",
   "sync.offline": "Cloud: chưa kết nối được — {n} thay đổi chờ gửi",
+  "sync.signed_out": "Cloud: cần gõ lại mật khẩu ở Cài đặt → Cloud — {n} thay đổi chờ gửi",
   "sync.ok": "Cloud: đã đồng bộ lúc {at}",
   "sync.queued": "{n} thay đổi chờ gửi",
   "sync.waiting": "Cloud: đang kết nối…",

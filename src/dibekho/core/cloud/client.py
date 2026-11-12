@@ -29,6 +29,10 @@ class CloudError(Exception):
     """Shown to the user as-is (Vietnamese, like other core errors)."""
 
 
+class SessionExpired(CloudError):
+    """The saved sign-in is no longer valid (expired, or signed out everywhere): the password is needed once more."""
+
+
 def full_email(username: str) -> str:
     username = username.strip()
     return username if "@" in username else f"{username}@{EMAIL_DOMAIN}"
@@ -53,10 +57,14 @@ class CloudClient:
 
     def refresh(self, refresh_token: str) -> dict:
         """Refresh tokens rotate: the caller must store the new refresh_token."""
-        return self._tokens(self._post(
-            f"{self.base}/auth/v1/token?grant_type=refresh_token",
-            {"refresh_token": refresh_token},
-        ))
+        try:
+            data = self._post(f"{self.base}/auth/v1/token?grant_type=refresh_token", {"refresh_token": refresh_token})
+        except CloudError as exc:
+            if "refresh token" in str(exc).lower():
+                raise SessionExpired("Phiên đăng nhập Cloud của máy này đã hết (có thể do bấm Đăng xuất trên web). "
+                                     "Vào Cài đặt → Cloud, gõ mật khẩu rồi bấm Đồng bộ ngay.") from exc
+            raise
+        return self._tokens(data)
 
     def rpc(self, name: str, args: dict, access_token: str):
         return self._post(f"{self.base}/rest/v1/rpc/{name}", args, access_token)

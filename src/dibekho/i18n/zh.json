@@ -694,6 +694,7 @@
   "undo.product_merge": "合并重复商品",
   "sync.conflicts": "⚠ {n} 处需要选择保留哪个版本",
   "sync.offline": "云端：未连接 — {n} 项更改等待发送",
+  "sync.signed_out": "云端：请在 设置 → 云端 重新输入密码 — {n} 项更改待发送",
   "sync.ok": "云端：已于 {at} 同步",
   "sync.queued": "{n} 项更改等待发送",
   "sync.waiting": "云端：正在连接…",

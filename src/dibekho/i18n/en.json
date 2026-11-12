@@ -694,6 +694,7 @@
   "undo.product_merge": "Merge duplicate products",
   "sync.conflicts": "⚠ {n} item(s) need a choice",
   "sync.offline": "Cloud: not connected — {n} change(s) waiting",
+  "sync.signed_out": "Cloud: type the password again in Settings → Cloud — {n} changes waiting",
   "sync.ok": "Cloud: synced at {at}",
   "sync.queued": "{n} change(s) waiting",
   "sync.waiting": "Cloud: connecting…",

@@ -73,3 +73,32 @@ def test_a_daily_copy_of_the_shared_data_beside_the_opening_one(ws):
     shared = backup.daily_backup(conn, ws, today=day, prefix=backup.SHARED_PREFIX)
     assert shared is not None and shared.name == "DiBeKho_dulieu-chung_2026-11-12.sqlite"
     assert backup.daily_backup(conn, ws, today=day, prefix=backup.SHARED_PREFIX) is None  # once a day
+
+
+def test_a_sign_in_ended_elsewhere_asks_for_the_password_not_for_the_network(monkeypatch):
+    """Signing out on the web once ended the app's sign-in too; the app only said 'chưa kết nối được'."""
+    import pytest
+
+    from dibekho.core.cloud.client import CloudClient, CloudError, SessionExpired
+
+    client = CloudClient("https://example.supabase.co", "k")
+
+    def refused(*args, **kwargs):
+        raise CloudError("Cloud báo lỗi 400: Invalid Refresh Token: Refresh Token Not Found")
+    monkeypatch.setattr(client, "_post", refused)
+    with pytest.raises(SessionExpired, match="gõ mật khẩu"):
+        client.refresh("old")
+
+    def offline(*args, **kwargs):
+        raise CloudError("Không kết nối được Cloud. Kiểm tra mạng rồi thử lại.")
+    monkeypatch.setattr(client, "_post", offline)
+    with pytest.raises(CloudError) as caught:
+        client.refresh("old")
+    assert not isinstance(caught.value, SessionExpired)
+
+
+def test_web_sign_out_ends_only_this_browser():
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parent.parent / "webapp" / "app.js").read_text(encoding="utf-8")
+    assert 'signOut({ scope: "local" })' in app and "signOut()" not in app
