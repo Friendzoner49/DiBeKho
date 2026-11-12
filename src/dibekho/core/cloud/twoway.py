@@ -312,6 +312,12 @@ def empty(batch: dict) -> bool:
     return not any(batch.values())
 
 
+def nothing_new(pulled: dict) -> bool:
+    """The pull brought no row from elsewhere: merging changes nothing on screen, so sending what is queued here is
+    safe even while the user is typing on a page."""
+    return not any((pulled or {}).get("tables", {}).values())
+
+
 # ---- resolving a conflict -----------------------------------------------------------------------------------------
 
 def resolve(conn, conflict: Conflict, keep_mine: bool) -> None:

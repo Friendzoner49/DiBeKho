@@ -109,11 +109,13 @@ class SyncRunner(QObject):
         if result is None:
             self.busy = False
             return None
-        if not self.is_safe():
+        client, token, pulled = result
+        # rows from elsewhere wait until the user is not typing (Kiểm kê, Cần xử lý, an open window); what was saved
+        # here still goes at once when nothing came in (a transfer saved from Kiểm kê once waited for ever)
+        if not self.is_safe() and not twoway.nothing_new(pulled):
             self.busy = False
             self.soon.start(RETRY_UNSAFE)
             return None
-        client, token, pulled = result
         conn = self.ctx.conn
         merged = twoway.merge(conn, pulled)
         try:

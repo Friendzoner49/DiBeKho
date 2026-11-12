@@ -93,3 +93,20 @@ def test_the_main_window_shows_the_cloud_state_only_in_cloud_mode(setup):
     assert not window.sync_btn.isHidden() and "Cloud" in window.sync_btn.text()
     window._owner_timer.stop()
     window.sync.timer.stop()
+
+
+def test_what_was_saved_here_goes_even_while_the_user_stays_on_a_busy_page(setup):
+    """A transfer saved from Kiểm kê once waited for ever: the round was put off as long as the user stayed there."""
+    from dibekho.ui.sync_runner import SyncRunner
+
+    app, ctx, pg = setup
+    with db.transaction(ctx.conn):
+        catalog.create_product(ctx.conn, "Keo A")
+    twoway.start_from_this_machine(ctx.conn)
+    runner = SyncRunner(ctx, lambda: False, lambda text: None)
+    runner.start()
+    _wait(app, runner)
+    assert pg.query("select name_vi from public.products")[0]["name_vi"] == "Keo A"
+    assert twoway.queued_count(ctx.conn) == 0
+    runner.timer.stop()
+    runner.soon.stop()
