@@ -225,7 +225,10 @@ def test_finish_and_reconcile_a_count(conn):
 
     still = PatchClient([{"id": "c1", "kind": "stock_count", "result": {"doc_id": doc_id, "stamp": stamp}}])
     assert inbox.reconcile_applied(conn, still, "tok") == 0
-    undone = PatchClient([{"id": "c2", "kind": "stock_count", "result": {"doc_id": doc_id + 50, "stamp": stamp}}])
+    # approved on the other owner machine, which numbers its documents differently: the same count, it stays recorded
+    other_machine = PatchClient([{"id": "c3", "kind": "stock_count", "result": {"doc_id": doc_id + 50, "stamp": stamp}}])
+    assert inbox.reconcile_applied(conn, other_machine, "tok") == 0 and not other_machine.patches
+    undone = PatchClient([{"id": "c2", "kind": "stock_count", "result": {"doc_id": doc_id, "stamp": "2001-01-01 00:00:00"}}])
     assert inbox.reconcile_applied(conn, undone, "tok") == 1  # its count document is gone: back to pending
     files = PatchClient([{"id": "f", "kind": "delivery_file", "result": {"file": "a.xlsx", "hash": "h"}}])
     assert inbox.reconcile_applied(conn, files, "tok") == 0 and not files.patches  # files are never reverted

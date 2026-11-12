@@ -5,6 +5,8 @@ const fs = require("fs");
 const path = require("path");
 
 const W = path.join(__dirname, "..", "webapp");
+// as on a page opened by a LAN address (http://192.168.x.x): no crypto.randomUUID there
+if (globalThis.crypto) Object.defineProperty(globalThis.crypto, "randomUUID", { value: undefined, configurable: true });
 global.DBK_SCHEMA = require(path.join(W, "schema.js"));
 const PKG = require(path.join(W, "package.js"));
 const initSqlJs = require(path.join(W, "vendor", "sql-wasm.js"));

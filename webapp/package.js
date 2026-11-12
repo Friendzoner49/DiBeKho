@@ -211,9 +211,15 @@ const DBK_PKG = (() => {
     return { db, manifest };
   }
 
+  /** A v4 uuid. crypto.randomUUID exists only on https or localhost; the page is also opened by a LAN address
+      (http://192.168.x.x), where getRandomValues still works. */
   function newUuid() {
-    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-    return require("crypto").randomUUID();
+    const c = typeof crypto !== "undefined" ? crypto : require("crypto").webcrypto;
+    const b = c.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
   }
 
   /** Cloud rows of the package, like core/cloud/replica.snapshot: uuids from its sync_map, new ones (kept consistent
@@ -298,6 +304,6 @@ const DBK_PKG = (() => {
   }
 
   return { migrate, buildDatabase, buildPackage, readPackage, cloudRows, liveKeys, buildBatch, summary, loadLibs,
-           PackageError };
+           newUuid, PackageError };
 })();
 if (typeof module !== "undefined") module.exports = DBK_PKG;

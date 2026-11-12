@@ -417,8 +417,9 @@ def reconcile_applied(conn, client: CloudClient, access_token: str, limit: int =
     for row in rows:
         result = row.get("result") or {}
         if row.get("kind") == STOCK_COUNT and result.get("stamp"):
-            exists = conn.execute("SELECT 1 FROM documents WHERE id = ? AND kind = 'stock_count' AND created_at = ?",
-                                  (result.get("doc_id"), result["stamp"])).fetchone()
+            # by its time only: doc_id is the approving machine's own number, another owner machine numbers differently
+            exists = conn.execute("SELECT 1 FROM documents WHERE kind = 'stock_count' AND created_at = ?",
+                                  (result["stamp"],)).fetchone()
         elif result.get("code"):
             exists = conn.execute("SELECT 1 FROM documents WHERE kind = 'receipt' AND code = ?",
                                   (result["code"],)).fetchone()

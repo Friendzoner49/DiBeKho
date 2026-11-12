@@ -510,7 +510,7 @@ function deliveryFileWindow() {
       const buf = await file.arrayBuffer();
       const digest = await crypto.subtle.digest("SHA-256", buf);
       const sha256 = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
-      const path = `${crypto.randomUUID()}/phieu.xlsx`;  // ASCII-only key; the real name travels in the payload
+      const path = `${DBK_PKG.newUuid()}/phieu.xlsx`;  // ASCII-only key; the real name travels in the payload
       const up = await sb.storage.from("inbox-files").upload(path, buf, { contentType: XLSX_MIME, upsert: false });
       if (up.error) fail(`Không tải được file lên: ${up.error.message}`);
       await sendRequest("delivery_file", { file_path: path, file_name: file.name, size: file.size, sha256, note: $("df-note").value.trim() });
