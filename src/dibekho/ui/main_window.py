@@ -420,6 +420,8 @@ class MainWindow(QMainWindow):
         """Pull the web inbox into 'Cần xử lý', and when another machine pushed after our last push AND this
         machine holds unpushed changes, say so now, before more work piles onto both sides. The choice itself
         happens at push time (ask, never silent)."""
+        if self.ctx.conn is None:  # the window is gone or the file is being replaced
+            return
         self._pull_async(check_conflict=True, notify=True)
 
     # ------------------------------------------------------------ the owner's commands from the web
@@ -441,7 +443,7 @@ class MainWindow(QMainWindow):
     def _apply_owner_waiting(self) -> None:
         """Carry out the owner's web items now: one undo point for the batch, push so the web shows the result, and say
         plainly what was done and by whom, so nobody presses Hoàn tác blindly."""
-        if not self.ctx.owner_waiting or not self._owner_safe():
+        if self.ctx.conn is None or not self.ctx.owner_waiting or not self._owner_safe():
             return
         items, self.ctx.owner_waiting = self.ctx.owner_waiting, []
         try:

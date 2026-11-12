@@ -20,6 +20,29 @@ def _isolated_config_dir(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(workspace, "config_dir", lambda: folder)
 
 
+@pytest.fixture(autouse=True)
+def _no_timers_left_behind():
+    """Windows a test made stay alive (Qt owns them) and their timers kept firing in later tests, on a closed
+    database. After each test every timer still running is stopped."""
+    yield
+    import sys
+
+    if "PySide6.QtWidgets" not in sys.modules:
+        return
+    from PySide6.QtCore import QObject, QTimer
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        return
+    for w in app.topLevelWidgets():
+        for timer in w.findChildren(QTimer):
+            timer.stop()
+    for obj in app.findChildren(QObject):
+        if isinstance(obj, QTimer):
+            obj.stop()
+
+
 @pytest.fixture
 def conn():
     c = db.connect(":memory:")
