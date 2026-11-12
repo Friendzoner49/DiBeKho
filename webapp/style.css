@@ -1,133 +1,224 @@
-/* DiBeKho web: the same layout and soft look as the desktop app (left bar, grey buttons, yellow columns to type in),
-   so the people who know the app find everything in the same place. Plain CSS; the page's CSP forbids inline styles. */
+/* DiBeKho web. Bộ mặt: Soft (P13) — sidebar trắng không viền, nội dung trên nền xám nhạt, khối trắng nổi nhẹ.
+   Bố cục, vị trí nút và thao tác giữ đúng như app trên máy tính (khách lớn tuổi đã quen); chỉ phần nhìn theo evon.
+   CSS thuần (CSP style-src 'self'): không inline style, không font/CDN ngoài.
+   ĐỔI MÀU NHẤN: chỉ hai dòng --primary / --primary-hover (và --primary-light đi theo). */
 :root {
-  --bg: #efefef; --panel: #ffffff; --text: #1c1e21; --muted: #6b7178;
-  --line: #cfd3d8; --soft: #f6f6f6; --accent: #2a82c9; --red: #d32f2f;
-  --row-red: #fde2e1; --row-orange: #ffd9a8; --yellow: #fff4cc; --sel: #cfe3f7;
   color-scheme: light;
+  --app-font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+
+  /* màu nhấn: xanh của app (đậm hơn một bậc để chữ trắng trên nút đạt 5:1) */
+  --primary: #1f6fb2;
+  --primary-hover: #2a7cc0;
+  --primary-foreground: #ffffff;
+  --primary-light: rgb(31 111 178 / 0.10);
+  --ring-focus: rgb(31 111 178 / 0.16);
+
+  --background: #f4f4f6;
+  --surface: #ffffff;
+  --foreground: #2c2c2c;
+  --muted: #6b6b70;
+  --border: #f2f2f4;          /* đường tóc: kẻ dòng bảng, vạch chia */
+  --border-strong: #dedee3;   /* viền ô nhập và nút viền: chỗ gõ / chỗ bấm phải nhìn ra được */
+  --item-hover: #f4f4f6;
+  --surface-hover: #f8f8fa;
+  --button-hover: #e4e4e7;          /* nút đứng thẳng trên nền trang xám */
+  --button-hover-surface: #f1f1f3;  /* nút trên khối trắng (cửa sổ, bảng) */
+  --secondary: #e7e8ec;
+  --elevation-card: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 2px 8px -2px rgb(0 0 0 / 0.06);
+  --elevation-popover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --elevation-modal: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* vai màu giữ như app: dòng cam = sắp hết, dòng đỏ = tồn âm, cột vàng = ô để gõ số */
+  --row-orange: #ffe7c7;
+  --row-red: #ffe1e3;
+  --yellow: #fff6d1;
+  --yellow-focus: #fffbe8;
+  --danger: #c70036;
+  --error-text: #d1000a;
+  --warning-bg: #fff4e0;
+  --warning: #a14400;
+
+  --radius: 12px;
+  --radius-sm: 10px;
+}
+
+/* ===== thanh cuộn tự ẩn (evon tokens.css, I18) ===== */
+* { --scrollbar-thumb: transparent; }
+*:hover { --scrollbar-thumb: color-mix(in srgb, var(--foreground) 16%, transparent); }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--foreground) 40%, transparent); }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  *:hover { scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent; }
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-       font: 16px/1.45 "Segoe UI", system-ui, Roboto, sans-serif; }
+body { margin: 0; background: var(--background); color: var(--foreground);
+       font: 16px/1.5 var(--app-font); -webkit-font-smoothing: antialiased; }
 .hidden { display: none !important; }
-.hint { color: var(--muted); font-size: 14px; }
-.error { color: var(--red); min-height: 1.2em; margin: 4px 0; white-space: pre-line; }
-h1 { font-size: 22px; margin: 6px 0 4px; }
-h2 { font-size: 17px; margin: 18px 0 6px; }
-h3 { font-size: 16px; margin: 16px 0 6px; }
+.hint { color: var(--muted); font-size: 14px; text-wrap: pretty; }
+.error { color: var(--error-text); min-height: 1.2em; margin: 4px 0; white-space: pre-line; font-size: 15px; }
+h1 { font-size: 24px; font-weight: 600; margin: 4px 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; }
 
-/* who may see what: body.role-desktop (owner), role-editor (staff), role-viewer */
+/* ai thấy gì: body.role-desktop (chủ), role-editor (nhân viên), role-viewer */
 body:not(.role-desktop) .only-owner { display: none !important; }
 body:not(.role-desktop):not(.role-editor) .only-writer { display: none !important; }
 body:not(.role-editor) .only-staff { display: none !important; }
 
-/* controls: like the app's buttons and fields */
-input, select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
-                color: var(--text); font: inherit; min-height: 34px; }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-button { padding: 6px 14px; min-height: 34px; border: 1px solid #bfc4ca; border-radius: 6px;
-         background: linear-gradient(#fafafa, #ececec); color: var(--text); font: inherit; cursor: pointer; }
-button:hover { background: #e4eef8; border-color: var(--accent); }
-button:disabled { opacity: .55; cursor: default; }
-button.primary-btn { font-weight: 600; border-color: var(--accent); }
+/* ===== ô nhập, chọn ===== */
+input, select { height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+                background: var(--surface); color: var(--foreground); font: inherit; font-size: 15px; }
+input::placeholder { color: var(--muted); }
+input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring-focus); }
+input[type="file"] { padding: 6px 8px; height: auto; }
+select { appearance: none; padding-right: 34px; cursor: pointer;
+         background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b6b70' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center; }
+label.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+label.check input { appearance: none; flex: none; width: 22px; height: 22px; padding: 0; margin: 0; cursor: pointer;
+                    border: 1.5px solid #c9c9cf; border-radius: 6px; background: var(--surface) center / 14px no-repeat; }
+label.check input[type="radio"] { border-radius: 50%; }
+label.check input:checked { border-color: var(--primary); background-color: var(--primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17 19 7.5'/%3E%3C/svg%3E"); }
+label.check input[type="radio"]:checked { background-image: none; box-shadow: inset 0 0 0 4px var(--surface); }
+label.check { min-height: 40px; }
+label.check.big { font-weight: 600; font-size: 17px; margin-right: 20px; }
+
+/* ===== nút: viền (mặc định), chính (nền nhấn), phẳng ===== */
+button { height: 40px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+         background: var(--surface); color: var(--foreground); font: inherit; font-size: 15px; font-weight: 500;
+         cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s; }
+button:hover { background: var(--button-hover); }
+dialog button:hover, .scroll button:hover { background: var(--button-hover-surface); }
+button:disabled { opacity: .5; cursor: default; }
+button:focus { outline: none; }  /* evon I13: nút không vẽ vòng focus; ô nhập có viền xanh khi gõ */
+button.primary-btn, .login .primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+button.primary-btn:hover, .login .primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 button.flat { border-color: transparent; background: transparent; }
-button.back { font-weight: 600; }
-label.check { display: inline-flex; align-items: center; gap: 6px; }
-label.check input { min-height: 0; width: 18px; height: 18px; }
-label.check.big { font-weight: 700; font-size: 17px; margin-right: 18px; }
+button.flat:hover { background: var(--item-hover); }
+button.back { border-color: transparent; background: transparent; padding-left: 8px; color: var(--primary); }
+button.back:hover { background: var(--primary-light); }
 
-/* login */
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-.login { max-width: 360px; margin: 12vh auto; padding: 24px; }
+/* ===== đăng nhập ===== */
+.card { background: var(--surface); border-radius: 16px; box-shadow: var(--elevation-card), 0 0 0 1px rgb(0 0 0 / 0.03); }
+.login { max-width: 380px; margin: 12vh auto; padding: 28px; }
 .login h1 { margin: 0 0 4px; }
-.login label { display: block; margin: 12px 0 0; font-size: 14px; color: var(--muted); }
-.login input { width: 100%; margin-top: 4px; }
-.login .primary { width: 100%; margin-top: 16px; font-weight: 600; border-color: var(--accent); }
+.login label { display: block; margin: 16px 0 0; font-size: 14px; font-weight: 500; color: var(--muted); }
+.login input { width: 100%; margin-top: 6px; height: 44px; }
+.login .primary { width: 100%; margin-top: 20px; height: 44px; }
 
-/* shell: left bar + main, as in the app */
-.shell { display: flex; gap: 10px; padding: 10px; min-height: 100vh; align-items: flex-start; }
-.side { flex: 0 0 190px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line);
-        border-radius: 8px; padding: 4px; position: sticky; top: 10px; }
-.nav { text-align: left; border: none; background: transparent; border-radius: 3px; padding: 6px 8px; min-height: 0; font-size: 16px; }
-.nav:hover { background: #e9f1fa; }
-.nav.active { background: var(--accent); color: #fff; }
-.nav.alert:not(.active) { color: var(--red); }
-.main { flex: 1; min-width: 0; }
-.topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+/* ===== khung: thanh trái + nội dung, như app ===== */
+.shell { display: flex; min-height: 100vh; align-items: flex-start; }
+.side { flex: 0 0 216px; align-self: stretch; display: flex; flex-direction: column; gap: 4px;
+        background: var(--surface); padding: 20px 12px; position: sticky; top: 0; height: 100vh; }
+.nav { height: 44px; text-align: left; border: none; background: transparent; border-radius: var(--radius-sm);
+       padding: 0 12px; font-size: 16px; font-weight: 400; color: rgb(44 44 44 / 0.78); }
+.nav:hover { background: var(--item-hover); }
+.nav.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+.nav.alert:not(.active) { color: var(--error-text); font-weight: 500; }
+.main { flex: 1; min-width: 0; padding: 16px 28px 40px; }
+.topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; min-height: 44px; }
 .spacer { flex: 1; }
-.page { padding: 0 10px 30px; }
-.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-.row label { display: inline-flex; align-items: center; gap: 6px; }
-.row .grow { flex: 1; min-width: 200px; }
+.page { padding: 0 0 32px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.row label { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+.row .grow { flex: 1; min-width: 220px; }
 .row label.grow input { flex: 1; }
-.row.foot { margin-top: 10px; }
-input.wide { width: 100%; max-width: 640px; }
-.banner { background: var(--row-orange); padding: 6px 10px; border-radius: 6px; }
-.backbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.backbar h1 { margin: 6px 0; }
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 8px 0; }
-.stab { border-radius: 6px 6px 0 0; border-bottom: none; }
-.stab.active { background: var(--panel); font-weight: 600; }
+.row.foot { margin-top: 14px; }
+input.wide { width: 100%; max-width: 640px; height: 44px; }
+.banner { background: var(--warning-bg); color: var(--warning); font-weight: 500; padding: 10px 14px; border-radius: var(--radius-sm); }
+.backbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.backbar h1 { margin: 4px 0; }
+.tabs { display: flex; gap: 4px; margin: 12px 0 16px; box-shadow: inset 0 -1px 0 var(--border-strong); }
+.stab { border: none; border-radius: 0; background: transparent; color: var(--muted); padding: 0 14px;
+        box-shadow: inset 0 -2px 0 transparent; }
+.stab:hover { background: transparent; color: var(--foreground); }
+.stab.active { color: var(--foreground); font-weight: 600; box-shadow: inset 0 -2px 0 var(--primary); }
 
-/* tables: like the app's (grid lines, sticky header, selected row blue) */
-.scroll { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; max-height: 70vh; }
+/* ===== bảng: khối trắng nổi nhẹ, kẻ ngang mảnh, dòng chọn xanh nhạt ===== */
+.scroll { overflow: auto; background: var(--surface); border-radius: var(--radius); max-height: 70vh;
+          box-shadow: var(--elevation-card), 0 0 0 1px rgb(0 0 0 / 0.03); }
 .scroll.tall { max-height: 52vh; }
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { padding: 5px 8px; text-align: left; border: 1px solid #e1e4e8; }
-td { white-space: nowrap; }  /* one line per row, scroll sideways, like the app's tables */
-th { position: sticky; top: 0; z-index: 1; background: #f3f4f6; font-weight: 600; text-align: center; min-width: 84px; }  /* long titles take 2 lines, like the app */
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 15px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+td { white-space: nowrap; }  /* một dòng mỗi hàng, kéo ngang như bảng của app */
+th { position: sticky; top: 0; z-index: 1; background: var(--surface); color: var(--muted); font-size: 13px;
+     font-weight: 600; min-width: 84px; vertical-align: bottom; box-shadow: inset 0 -1px 0 var(--border-strong); border-bottom: none; }
 th.sortable { cursor: pointer; user-select: none; }
-th.sortable.asc::after { content: " ▲"; font-size: 10px; }
-th.sortable.desc::after { content: " ▼"; font-size: 10px; }
-tbody tr:nth-child(even) td { background: var(--soft); }
+th.sortable:hover { color: var(--foreground); }
+th.sortable.asc::after { content: " ↑"; color: var(--primary); }
+th.sortable.desc::after { content: " ↓"; color: var(--primary); }
+tbody tr:last-child td { border-bottom: none; }
+/* cột đầu (Mã) đứng yên khi kéo bảng sang ngang */
+th:first-child, td:first-child { position: sticky; left: 0; }
+td:first-child { background: var(--surface); z-index: 0; }
+th:first-child { z-index: 2; }
+tbody tr:hover td { background: var(--surface-hover); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+th.num { text-align: right; }
 td.strong { font-weight: 700; }
 tr.low td { background: var(--row-orange) !important; }
 tr.neg td { background: var(--row-red) !important; }
 tr.closed td { color: var(--muted); text-decoration: line-through; }
 tr.click { cursor: default; }
-tr.sel td { background: var(--sel) !important; }
+tr.sel td { background: var(--primary-light) !important; }
+tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 td.yellow, th.yellow { background: var(--yellow) !important; }
-td.yellow input, table.edit input { width: 100%; min-width: 70px; border: none; background: transparent; min-height: 30px; padding: 2px 4px; }
-td.yellow input:focus, table.edit input:focus { background: #fff; outline: 2px solid var(--accent); }
-table.edit td { padding: 2px 4px; }
-table.edit input.rf-product { min-width: 260px; }
-input.qty { text-align: right; }
+th.yellow { color: var(--warning); }
+td.yellow input, table.edit input { width: 100%; min-width: 80px; height: 36px; border: 1px solid transparent;
+                                     background: transparent; border-radius: 8px; padding: 0 8px; }
+td.yellow input:hover, table.edit input:hover { border-color: var(--border-strong); background: var(--surface); }
+td.yellow input:focus, table.edit input:focus { background: var(--surface); border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring-focus); }
+table.edit td { padding: 4px 6px; }
+table.edit input.rf-product { min-width: 280px; }
+input.qty { text-align: right; font-variant-numeric: tabular-nums; }
 .key { padding: 1px 8px; border-radius: 6px; }
 .key.low { background: var(--row-orange); }
 .key.neg { background: var(--row-red); }
 
-/* dialog windows (the app's separate windows) */
-dialog { border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; width: min(1100px, calc(100vw - 24px));
-         max-height: calc(100vh - 24px); overflow: auto; background: var(--bg); color: var(--text); }
-dialog::backdrop { background: rgba(0, 0, 0, .35); }
-.dlg-head { display: flex; align-items: center; justify-content: space-between; }
+/* ===== cửa sổ (như các cửa sổ riêng của app) ===== */
+dialog { border: none; border-radius: 16px; padding: 20px 24px; width: min(1100px, calc(100vw - 24px));
+         max-height: calc(100vh - 24px); overflow: auto; background: var(--surface); color: var(--foreground);
+         box-shadow: var(--elevation-modal), 0 0 0 1px rgb(0 0 0 / 0.04); }
+dialog::backdrop { background: rgb(20 20 30 / 0.4); }
+dialog .scroll { box-shadow: 0 0 0 1px var(--border-strong); }
+.dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .dlg-head h2 { margin: 0; font-size: 20px; }
-.dlg-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-.form2 { display: grid; grid-template-columns: max-content 1fr; gap: 6px 10px; align-items: center; margin: 8px 0; }
-.form2 > label { white-space: nowrap; }
-p.step { margin: 10px 0 4px; }
+#dlg-x { width: 40px; padding: 0; font-size: 18px; color: var(--muted); }
+.dlg-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; padding-top: 16px;
+               border-top: 1px solid var(--border); }
+.form2 { display: grid; grid-template-columns: max-content 1fr; gap: 10px 14px; align-items: center; margin: 12px 0; }
+.form2 > label { white-space: nowrap; font-size: 15px; color: var(--muted); font-weight: 500; }
+p.step { margin: 16px 0 6px; font-weight: 600; font-size: 17px; }
+dialog ul { margin: 6px 0 10px; padding-left: 22px; }
 
-/* detail pages and statistics */
-dl.info { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 12px; font-size: 15px; }
+/* ===== trang chi tiết, thống kê ===== */
+dl.info { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 10px 0 14px; font-size: 15px; }
 dl.info dt { color: var(--muted); }
 dl.info dd { margin: 0; word-break: break-word; }
-.cards { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
-.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; min-width: 130px; }
-.stat span { display: block; color: var(--muted); font-size: 13px; }
-.stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
-.grid.period { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-.grid.period label { display: inline-flex; gap: 6px; align-items: center; }
-.chart { width: 100%; max-width: 760px; height: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-.chart .bar { fill: var(--accent); }
+.cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.stat { background: var(--surface); border-radius: var(--radius); padding: 14px 18px; min-width: 150px;
+        box-shadow: var(--elevation-card), 0 0 0 1px rgb(0 0 0 / 0.03); }
+.stat span { display: block; color: var(--muted); font-size: 14px; }
+.stat b { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.grid.period { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.grid.period label { display: inline-flex; gap: 8px; align-items: center; }
+.chart { width: 100%; max-width: 760px; height: auto; background: var(--surface); border-radius: var(--radius);
+         box-shadow: var(--elevation-card), 0 0 0 1px rgb(0 0 0 / 0.03); }
+.chart .bar { fill: var(--primary); }
 .chart .axis { fill: var(--muted); font-size: 10px; }
 
-/* phones: the left bar becomes a row of buttons on top */
+/* ===== điện thoại: thanh trái thành hàng nút trên cùng ===== */
 @media (max-width: 760px) {
-  .shell { flex-direction: column; padding: 8px; }
-  .side { position: static; flex-direction: row; flex-wrap: wrap; width: 100%; flex-basis: auto; }
-  .nav { flex: 1 1 30%; text-align: center; }
-  .page { padding: 0 2px 30px; }
+  .shell { flex-direction: column; align-items: stretch; }  /* flex-start làm khung rộng bằng bảng: trang tràn ngang */
+  button { white-space: normal; height: auto; min-height: 44px; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; width: 100%; flex-basis: auto; padding: 10px; }
+  .nav { flex: 1 1 30%; text-align: center; padding: 0 6px; }
+  .main { padding: 12px 14px 32px; }
   .form2 { grid-template-columns: 1fr; }
+  input, select, button { height: 44px; }
 }
+label.check input:focus, .scroll:focus { outline: none; }  /* evon I13 */
