@@ -1,5 +1,6 @@
 """Settings tab 'Chuyển dữ liệu và sao lưu': export a package for another machine; backups and restore."""
 
+import shutil
 from dataclasses import replace
 from datetime import datetime
 
@@ -20,11 +21,12 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import backup, catalog, deliveries, transfer
+from dibekho.core.cloud import replica
 from dibekho.core.stock import stock_levels
 from dibekho.excel import master_data
 from dibekho.i18n import t
+from dibekho.ui.shared_admin import replace_shared_data
 from dibekho.ui.common import (
-    blocked_in_cloud_mode,
     YELLOW,
     ask,
     error,
@@ -390,14 +392,20 @@ class TransferPanel(QWidget):
         self.refresh()
 
     def restore(self):
-        if blocked_in_cloud_mode(self, self.ctx.conn):
-            return
         idx = selected_id(self.backups)
         if idx is None:
             error(self, t("backup.pick_first"))
             return
         chosen = self._files[idx]
         if not ask(self, t("backup.confirm_restore", name=chosen.name)):
+            return
+        if replica.enabled(self.ctx.conn):  # shared data: the cloud takes the backup first
+            def build(folder):
+                new = folder / "kho.sqlite"
+                shutil.copy2(chosen, new)
+                return new
+            if replace_shared_data(self.ctx, self, build, t("admin.what_restore")):
+                info(self, t("backup.restored"))
             return
         try:
             backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-khoi-phuc")

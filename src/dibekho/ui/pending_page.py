@@ -20,11 +20,11 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, backup, catalog, deliveries, inbox, transfer
+from dibekho.core.cloud import replica
 from dibekho.core.stock import set_location, stock_levels
 from dibekho.core.text import fmt_qty, matches_words, parse_number
 from dibekho.i18n import t
 from dibekho.ui.common import (
-    blocked_in_cloud_mode,
     GREY,
     NoWheelCombo,
     ask,
@@ -41,6 +41,7 @@ from dibekho.ui.common import (
 from dibekho.ui.catalog_import import import_catalog_file
 from dibekho.ui.page import Page
 from dibekho.ui.receipt_page import review_receipt
+from dibekho.ui.shared_admin import replace_shared_data
 from dibekho.ui.transfer_page import import_master_file
 from dibekho.ui.web_requests import WebRequestsPanel
 
@@ -479,14 +480,28 @@ class PendingPage(Page):
             self.rescan()
 
     def import_package(self, it):
-        if blocked_in_cloud_mode(self, self.ctx.conn):
-            return
         m = it.manifest
         text = t("transfer.confirm_import", device=m.device_name, at=m.exported_at.replace("T", " "),
                  deliveries=m.deliveries, products=m.products)
         if transfer.is_older(m):
             text += "\n\n" + t("transfer.older_version", version=m.app_version or "?", current=__version__)
         if not ask(self, text):
+            return
+        if replica.enabled(self.ctx.conn):  # shared data: the cloud takes the package first
+            def build(folder):
+                new = folder / "kho.sqlite"
+                manifest = transfer.import_package(self.ctx.ws, it.path, dest=new)
+                c = db.connect(new)
+                try:
+                    with db.transaction(c):
+                        transfer.after_import(c, manifest)
+                finally:
+                    c.close()
+                return new
+            if replace_shared_data(self.ctx, self, build, t("admin.what_package")):
+                transfer.move_to_processed(self.ctx.ws, it.path)
+                self.rescan()
+                info(self, t("transfer.imported", device=m.device_name))
             return
         if transfer.has_unsent_changes(self.ctx.conn) and not ask(self, t("transfer.unsent_warning")):
             return

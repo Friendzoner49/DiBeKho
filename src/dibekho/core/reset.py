@@ -44,5 +44,17 @@ def wipe_database(ws: Workspace) -> None:
         path = ws.db_path.with_name(ws.db_path.name + suffix)
         if path.exists():
             path.unlink()
+    _wipe_originals(ws)
+
+
+def _wipe_originals(ws: Workspace) -> None:
     shutil.rmtree(ws.originals, ignore_errors=True)
     ws.originals.mkdir(parents=True, exist_ok=True)
+
+
+def clear_files(ws: Workspace) -> int:
+    """Delete all on shared data (the database was already replaced by an empty one through the cloud): the notes go
+    back out of da-xu-ly to be read again, the kept originals go. Returns the number of notes moved."""
+    moved = deliveries.move_all_out(ws)
+    _wipe_originals(ws)
+    return moved

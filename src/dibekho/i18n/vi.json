@@ -325,7 +325,6 @@
   "cloud.restore_unpushed": "Máy này có thay đổi sau lần sao lưu lên Cloud gần nhất. Khôi phục xong chúng sẽ biến mất (vẫn còn trong bản sao lưu vừa tạo và nút Hoàn tác).\nTiếp tục?",
   "cloud.restored": "Đã khôi phục dữ liệu từ Cloud.",
   "cloud.backup_failed": "Đã đẩy dữ liệu lên Cloud, nhưng chưa lưu được bản sao lưu đầy đủ:\n{reason}",
-  "cloud.mode_blocked": "Máy này đang làm việc trên dữ liệu chung ở Cloud. Thao tác này thay toàn bộ dữ liệu bằng một bản cũ, nên tạm khoá để không làm mất việc của máy khác và của nhân viên.\nMuốn sửa một phiếu làm nhầm: mở phiếu đó và bấm Huỷ phiếu.",
   "pending.web_reject": "Từ chối",
   "web.title": "Yêu cầu từ nhân viên (web)",
   "web.hint": "Hàng về, phiếu giao hàng và kiểm kê do nhân viên gửi từ trang web. Chỉ vào sổ sau khi bạn duyệt ở đây; từ chối thì trang web báo lại cho người gửi.",
@@ -726,7 +725,7 @@
   "sync.keep_cloud": "Lấy bản trên Cloud",
   "sync.pick_first": "Hãy chọn một dòng trước.",
   "sync.mode_title": "Dữ liệu chung trên Cloud",
-  "sync.mode_hint": "Khi bật: dữ liệu trên Cloud là bản chính; máy này làm việc như bình thường (cả khi mất mạng) và tự gửi/nhận thay đổi. Hoàn tác, khôi phục và nhập gói dữ liệu tạm khoá.",
+  "sync.mode_hint": "Khi bật: dữ liệu trên Cloud là bản chính; máy này làm việc như bình thường (cả khi mất mạng) và tự gửi/nhận thay đổi. Hoàn tác chỉ huỷ được phiếu vừa lưu; khôi phục, nhập gói và xoá toàn bộ thay dữ liệu chung cho mọi người.",
   "sync.mode_off": "Đang tắt — máy này làm việc riêng.",
   "sync.turn_on": "Bật dùng dữ liệu chung",
   "sync.turn_off": "Tắt dữ liệu chung",
@@ -734,5 +733,13 @@
   "sync.confirm_upload": "Cloud chưa có dữ liệu. Đưa toàn bộ dữ liệu của máy này lên làm bản chính?",
   "sync.confirm_adopt": "Cloud đã có dữ liệu chung. Máy này sẽ dùng dữ liệu trên Cloud thay cho dữ liệu riêng của nó (dữ liệu hiện tại được sao lưu trước). Tiếp tục?",
   "sync.confirm_off": "Tắt dữ liệu chung? Máy này sẽ làm việc riêng; khi bật lại sẽ lấy dữ liệu trên Cloud.",
-  "sync.turned_on": "Đã bật dữ liệu chung. Bấm Quét lại phiếu một lần để app nhận lại các file phiếu giao hàng."
+  "sync.turned_on": "Đã bật dữ liệu chung. Bấm Quét lại phiếu một lần để app nhận lại các file phiếu giao hàng.",
+  "admin.confirm": "Máy này đang dùng dữ liệu chung trên Cloud. “{what}” sẽ thay TOÀN BỘ dữ liệu chung: trang web, nhân viên và các máy khác đều thấy dữ liệu mới, mọi việc ghi sau thời điểm đó mất đi.\n\nApp sao lưu dữ liệu hiện tại vào thư mục sao-luu trước khi thay. Tiếp tục?",
+  "admin.busy": "App đang đồng bộ với Cloud. Đợi vài giây rồi bấm lại.",
+  "admin.need_cloud": "Chưa đăng nhập Cloud trên máy này. Vào Cài đặt → Cloud, gõ mật khẩu rồi bấm Đồng bộ ngay, sau đó làm lại.",
+  "admin.failed": "Không thay được dữ liệu: {error}\nDữ liệu trên Cloud và trên máy này chưa bị đổi.",
+  "admin.local_failed": "Cloud đã nhận dữ liệu mới nhưng chưa thay được file trên máy này: {error}\nApp sẽ tự lấy dữ liệu mới ở lần đồng bộ sau.",
+  "admin.what_restore": "Khôi phục bản sao lưu",
+  "admin.what_package": "Nhập gói dữ liệu",
+  "admin.what_delete_all": "Xoá toàn bộ dữ liệu"
 }

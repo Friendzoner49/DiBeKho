@@ -837,17 +837,6 @@ def ask(parent: QWidget, text: str, title: str | None = None) -> bool:
     return answer
 
 
-def blocked_in_cloud_mode(parent: QWidget, conn) -> bool:
-    """Restore, package import and "delete all" put an old copy in place of the whole database: on data shared
-    through the cloud that would bring back or erase other machines' and the staff's work. Say so and stop."""
-    from dibekho.core.cloud import replica
-
-    if not replica.enabled(conn):
-        return False
-    info(parent, t("cloud.mode_blocked"))
-    return True
-
-
 def info(parent: QWidget, text: str) -> None:
     activity.log("info", text)
     QMessageBox.information(parent, t("app.name"), text)

@@ -21,13 +21,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dibekho import db
 from dibekho.core import activity, backup
 from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import replica, sync, twoway
 from dibekho.core.cloud.client import CloudClient, CloudError
 from dibekho.i18n import t
-from dibekho.ui.common import ask, blocked_in_cloud_mode, error, fill_table, fit_window, hint_label, info, make_table, selected_id
+from dibekho.ui.shared_admin import replace_shared_data
+from dibekho.ui.common import ask, error, fill_table, fit_window, hint_label, info, make_table, selected_id
 
 
 class CloudRestoreDialog(QDialog):
@@ -200,8 +202,6 @@ class CloudTab(QWidget):
         """Replace the local database with a full backup from the cloud: checked first, the current data
         backed up and an undo point taken, exactly like restoring a local backup (transfer_page.restore)."""
         activity.log("click", "cloud_restore")
-        if blocked_in_cloud_mode(self, self.ctx.conn):
-            return
         ctx = self.ctx
         try:
             pair = self._connect()
@@ -221,6 +221,19 @@ class CloudTab(QWidget):
                 return
             if not ask(self, t("cloud.restore_confirm", device=chosen.device,
                                at=chosen.at.strftime("%d/%m/%Y %H:%M"))):
+                return
+            if replica.enabled(ctx.conn):  # shared data: the cloud takes the backup first
+                def build(folder):
+                    path = self._busy(lambda: cloud_backup.fetch(client, token, chosen.name, folder))
+                    new = db.connect(path)
+                    try:
+                        cloud_backup.after_restore(new, ctx.cfg, chosen)
+                    finally:
+                        new.close()
+                    return path
+                if replace_shared_data(ctx, self, build, t("admin.what_restore")):
+                    self.refresh()
+                    info(self, t("cloud.restored"))
                 return
             if sync.has_unpushed(ctx.conn) and not ask(self, t("cloud.restore_unpushed")):
                 return

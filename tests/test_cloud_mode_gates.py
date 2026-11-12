@@ -1,5 +1,5 @@
-"""In cloud mode the whole-file operations (Undo, restore, package import, delete all) are locked: putting an old
-copy of the database in place would bring back or erase other machines' work, and roll back the sync queue."""
+"""In cloud mode Undo never puts an old copy of the file back (it cancels the document just saved), and the window keeps
+its size on screen. Restore / package / delete all on shared data: tests/test_cloud_admin.py."""
 
 import os
 
@@ -76,12 +76,6 @@ def test_undo_in_cloud_mode_cancels_the_document_just_saved(ctx, monkeypatch):
     window.sync.timer.stop()
 
 
-def test_local_mode_is_not_affected(ctx):
-    from dibekho.ui.common import blocked_in_cloud_mode
-
-    assert blocked_in_cloud_mode(None, ctx.conn) is False
-    replica.set_enabled(ctx.conn, True)
-    assert blocked_in_cloud_mode(None, ctx.conn) is True
 
 
 def test_a_saved_size_larger_than_the_screen_is_brought_back_inside(ctx):

@@ -325,7 +325,6 @@
   "cloud.restore_unpushed": "This computer has changes made after its last backup to the Cloud. After the restore they will be gone (they stay in the backup just made and in Undo).\nContinue?",
   "cloud.restored": "Data restored from the cloud.",
   "cloud.backup_failed": "Data was pushed to the cloud, but the full backup could not be saved:\n{reason}",
-  "cloud.mode_blocked": "This computer works on the shared data in the Cloud. This action would replace all data with an older copy, so it is locked to avoid losing work done on other computers and by staff.\nTo fix a wrong slip: open it and press Cancel document.",
   "pending.web_reject": "Reject",
   "web.title": "Staff requests (web)",
   "web.hint": "Goods in, delivery notes and stock counts sent by staff from the web page. Nothing is recorded until you approve it here; rejecting tells the sender on the web page.",
@@ -726,7 +725,7 @@
   "sync.keep_cloud": "Take the Cloud version",
   "sync.pick_first": "Pick a row first.",
   "sync.mode_title": "Shared data on the Cloud",
-  "sync.mode_hint": "When on: the Cloud holds the main copy; this computer works as usual (even offline) and sends/receives changes by itself. Undo, restore and data package import are locked.",
+  "sync.mode_hint": "When on: the data on the Cloud is the main copy; this computer works as usual (also offline) and sends/receives changes by itself. Undo only cancels the document just saved; restore, package import and delete all replace the shared data for everyone.",
   "sync.mode_off": "Off — this computer works on its own.",
   "sync.turn_on": "Turn on shared data",
   "sync.turn_off": "Turn off shared data",
@@ -734,5 +733,13 @@
   "sync.confirm_upload": "The Cloud holds no data yet. Upload all data of this computer as the main copy?",
   "sync.confirm_adopt": "The Cloud already holds the shared data. This computer will use it instead of its own data (the current data is backed up first). Continue?",
   "sync.confirm_off": "Turn off shared data? This computer will work on its own; turning it on again takes the Cloud's data.",
-  "sync.turned_on": "Shared data is on. Press Rescan once so the app finds the delivery note files again."
+  "sync.turned_on": "Shared data is on. Press Rescan once so the app finds the delivery note files again.",
+  "admin.confirm": "This computer works on shared data on the Cloud. “{what}” will replace ALL the shared data: the web page, the staff and the other computers will all see the new data, and everything written after that point is lost.\n\nThe app backs up the current data into the sao-luu folder first. Continue?",
+  "admin.busy": "The app is syncing with the Cloud. Wait a few seconds and press again.",
+  "admin.need_cloud": "Not signed in to the Cloud on this computer. Go to Settings → Cloud, type the password, press Sync now, then try again.",
+  "admin.failed": "Could not replace the data: {error}\nThe data on the Cloud and on this computer is unchanged.",
+  "admin.local_failed": "The Cloud has the new data but the file on this computer could not be replaced yet: {error}\nThe app takes the new data at the next sync.",
+  "admin.what_restore": "Restore a backup",
+  "admin.what_package": "Import a data package",
+  "admin.what_delete_all": "Delete all data"
 }

@@ -126,9 +126,10 @@ def read_manifest(path: Path) -> Manifest:
     return manifest
 
 
-def import_package(ws: Workspace, path: Path) -> Manifest:
+def import_package(ws: Workspace, path: Path, dest: Path | None = None) -> Manifest:
     """Replace local data with the package. Caller: close the connection before, reopen after,
     then call `after_import(conn, manifest)`.
+    dest: write the package's database there instead (shared data: the cloud takes it first, core.cloud.admin).
     """
     manifest = read_manifest(path)
     with tempfile.TemporaryDirectory() as tmp:
@@ -148,9 +149,12 @@ def import_package(ws: Workspace, path: Path) -> Manifest:
                 if not target.exists():
                     with z.open(name) as src, open(target, "wb") as dst:
                         shutil.copyfileobj(src, dst)
-        new_db = ws.db_path.with_suffix(".incoming")
-        shutil.copy2(Path(tmp) / "kho.sqlite", new_db)
-        os.replace(new_db, ws.db_path)
+        if dest is not None:
+            shutil.copy2(Path(tmp) / "kho.sqlite", dest)
+        else:
+            new_db = ws.db_path.with_suffix(".incoming")
+            shutil.copy2(Path(tmp) / "kho.sqlite", new_db)
+            os.replace(new_db, ws.db_path)
     _save_sender_log(ws, path, manifest)
     return manifest
 

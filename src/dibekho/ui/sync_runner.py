@@ -102,12 +102,13 @@ class SyncRunner(QObject):
             client, token = pair
             return client, token, twoway.fetch(client, token, after)
 
-        self._background(pull, lambda result, err: self._pulled(result, err, tries))
+        self._background(pull, lambda result, err: self._pulled(result, err, tries, after))
 
-    def _pulled(self, result, err, tries) -> None:
+    def _pulled(self, result, err, tries, after=None) -> None:
         if err is not None:
             return self._failed(err)
-        if result is None or self.ctx.conn is None:
+        # the data was replaced meanwhile (restore / package / delete all on shared data): this pull is stale
+        if result is None or self.ctx.conn is None or (after is not None and twoway.cursor(self.ctx.conn) != after):
             self.busy = False
             return None
         client, token, pulled = result

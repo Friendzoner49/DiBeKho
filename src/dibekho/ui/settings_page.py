@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, catalog, deliveries, reset, uninstall
+from dibekho.core.cloud import replica
 from dibekho.core.stock import low_stock_default
 from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config
@@ -36,7 +37,6 @@ from dibekho.i18n import LANGUAGES, t
 from dibekho.ui.catalog_import import start_catalog_import
 from dibekho.ui.cloud_tab import CloudTab
 from dibekho.ui.common import (
-    blocked_in_cloud_mode,
     GREY,
     NoWheelSpin,
     ask,
@@ -53,6 +53,7 @@ from dibekho.ui.common import (
     selected_id,
 )
 from dibekho.ui.license_dialog import LicenseDialog
+from dibekho.ui.shared_admin import replace_shared_data
 from dibekho.ui.log_dialog import LogDialog, TripleClickLabel
 from dibekho.ui.page import Page
 from dibekho.ui.transfer_page import TransferPanel
@@ -432,9 +433,18 @@ class SettingsPage(Page):
         self.go_pending()  # notes are read again: what is known is recorded, the rest waits here
 
     def reset_all(self):
-        if blocked_in_cloud_mode(self, self.ctx.conn):
-            return
         if not ask(self, t("reset.confirm_all")) or not ask(self, t("reset.confirm_all_again")):
+            return
+        if replica.enabled(self.ctx.conn):  # shared data: the cloud is emptied first, for every machine and the web
+            def build(folder):
+                new = folder / "kho.sqlite"
+                c = db.connect(new)  # a new, empty database
+                c.close()
+                return new
+            if replace_shared_data(self.ctx, self, build, t("admin.what_delete_all")):
+                moved = reset.clear_files(self.ctx.ws)
+                info(self, t("reset.done_all", files=moved))
+                self.go_pending()
             return
         try:
             moved = reset.reset_all(self.ctx.conn, self.ctx.ws)
