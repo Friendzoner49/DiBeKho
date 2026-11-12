@@ -1,4 +1,4 @@
-# 06 — Cloud làm gốc, app là client (quyết định 11/11/2026, CHƯA làm)
+# 06 — Cloud làm gốc, app là client (quyết định 11/11/2026; bước 1–4 đã làm, xem cuối file)
 
 > Đảo lại nguyên tắc "máy chính là nguồn sự thật" của `04-thiet-ke-chot.md` (mục đó coi là **đã bị thay thế** khi bản này được làm xong; trong lúc đó 04 vẫn mô tả đúng phần mềm đang chạy).
 > Lý do người dùng nêu: "dữ liệu lưu trên cloud mới là chính xác nhất; app như một client kết nối, đồng bộ ngược lại và thao tác trên chúng. Không cần app mở ở đâu đó mới chạy được."
@@ -37,3 +37,8 @@ Máy offline không gọi được hàm trên mạng, nên **Python trên app v�
 4. Hàng đợi offline + xung đột; kéo bản sao SQLite hằng ngày; hoàn tác bằng phiếu đảo.
 
 Ước lượng thật: nhiều tuần, đụng gần hết `core/`. Mỗi lát phải qua test song song trước khi sang lát sau.
+
+## Tiến độ
+- Bước 1–3 (bảng thật, đồng bộ 2 chiều, đồng bộ nền trong app): xong 11/11/2026.
+- Bước 4 (12/11/2026): chủ ghi trên web qua `cloud/supabase/009_web_rpc.sql` (10 hàm, mỗi hàm làm lại đúng một hàm lõi, kiểm song song ở `tests/test_cloud_web_rpc.py`); web đọc bảng thật, bố cục giống app; nhân viên vẫn gửi yêu cầu chờ duyệt. Giờ của phiếu do web ghi lấy theo đồng hồ máy chủ đổi sang giờ cửa hàng (`meta.clock_offset_min`). Hộp thư cho lệnh của chủ (`cmd_*`) không dùng nữa, gỡ sau khi người dùng xác nhận.
+- Bước 5 (chưa): Hoàn tác bằng phiếu đảo, kéo bản sao SQLite hằng ngày, nhập gói/đặt lại thành thao tác quản trị.
