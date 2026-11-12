@@ -11,6 +11,7 @@ from dibekho import db
 from dibekho.core import activity
 from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import inbox as cloud_inbox
+from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud.client import CloudClient, CloudError
 
 
@@ -47,7 +48,9 @@ def rotate(cfg, client: CloudClient) -> dict:
 def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: bool = True) -> str | None:
     """After syncing: confirm the staff requests approved here, then upload the full backup.
     Returns the reason the backup could not be made, else None."""
-    cloud_inbox.finish_applied(conn, client, access_token)
+    # on shared data a request is shown as recorded only once its document is on the cloud (nothing left to send)
+    if not (replica.enabled(conn) and twoway.queued_count(conn)):
+        cloud_inbox.finish_applied(conn, client, access_token)
     cloud_inbox.reconcile_applied(conn, client, access_token)
     if not with_backup:
         return None

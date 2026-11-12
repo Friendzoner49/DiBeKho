@@ -246,3 +246,41 @@ def test_finish_push_reports_backup_failure_but_does_not_raise(conn):
 
     reason = sync.finish_push(conn, Cfg, Client(), "tok")
     assert "Bucket not found" in reason  # shown to the user after "Đồng bộ ngay"; the push itself stands
+
+
+def test_finish_push_on_shared_data_confirms_requests_only_once_nothing_is_left_to_send(conn):
+    """Đồng bộ ngay starts a round in the background and goes straight on: the web must not show a request as
+    recorded while its document is still waiting here."""
+    from dibekho.core.cloud import inbox, replica
+
+    replica.set_enabled(conn, True)
+    with db.transaction(conn):
+        catalog.create_product(conn, "Keo")  # queued, not on the cloud yet
+        db.set_meta(conn, inbox.META_KEY, '{"req-1": 1}')
+
+    class Client:
+        def get(self, *a):
+            return []
+
+        def patch(self, *a):
+            raise AssertionError("confirmed before the document reached the cloud")
+
+    assert sync.finish_push(conn, Cfg, Client(), "tok", with_backup=False) is None
+
+
+def test_a_package_for_shared_data_is_written_aside_and_the_live_file_stays(ws, tmp_path):
+    from dibekho.core import transfer
+    from dibekho.core.workspace import Config
+
+    live = db.connect(ws.db_path)
+    with db.transaction(live):
+        catalog.create_product(live, "Keo")
+    package = transfer.export_package(live, ws, Config(workspace=str(ws.root), device_name="May kia"))
+    live.close()
+    before = ws.db_path.read_bytes()
+    dest = tmp_path / "new.sqlite"
+    manifest = transfer.import_package(ws, package, dest=dest)
+    assert ws.db_path.read_bytes() == before  # untouched until the cloud has it
+    copy = db.connect(dest)
+    assert copy.execute("SELECT name_vi FROM products").fetchone()[0] == "Keo" and manifest.device_name == "May kia"
+    copy.close()
