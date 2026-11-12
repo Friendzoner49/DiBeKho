@@ -7,7 +7,9 @@ touching this file; tests/test_cloud_core_schema.py checks the cloud has a colum
 from dataclasses import dataclass, field
 
 # meta keys that describe the shared data (the rest belong to one machine: cloud_*, last_*, device...)
-SHARED_META = ("low_stock_default", "freed_codes", "count_checked", "skipped_lines_backfilled", "product_code_max")
+# clock_offset_min: the shop's clock (minutes from UTC), so times the web writes match the app's (cloud 009)
+SHARED_META = ("low_stock_default", "freed_codes", "count_checked", "skipped_lines_backfilled", "product_code_max",
+               "clock_offset_min")
 
 
 @dataclass(frozen=True)
@@ -76,8 +78,12 @@ def ensure_triggers(conn) -> None:
     """Create any missing sync trigger (idempotent; cheap on every open). No-op before migration 010."""
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sync_outbox'").fetchone() is None:
         return
+    stored = {r[0]: r[1] for r in conn.execute("SELECT name, sql FROM sqlite_master WHERE type = 'trigger'")}
     for t in SYNCED:
         for statement in trigger_sql(t):
+            name = statement.split()[5]  # CREATE TRIGGER IF NOT EXISTS <name> ...
+            if name in stored and stored[name] != statement.replace("IF NOT EXISTS ", "", 1):
+                conn.execute(f"DROP TRIGGER {name}")  # an older version (e.g. fewer shared meta keys)
             conn.execute(statement)
 
 

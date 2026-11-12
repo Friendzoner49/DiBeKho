@@ -149,6 +149,8 @@ def apply(conn, rows: dict[str, list[dict]]) -> None:
     """Write rows pulled from the cloud into this database, in one transaction, without queueing them again.
     Parents first; deletions children first."""
     with transaction(conn):
+        # checked at commit: a merge elsewhere deletes the dropped product/customer before its rows are re-pointed
+        conn.execute("PRAGMA defer_foreign_keys = ON")
         conn.execute("UPDATE sync_flags SET value = '1' WHERE key = 'applying'")
         for t in reversed(SYNCED):
             for r in rows.get(t.name, []):

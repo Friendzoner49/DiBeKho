@@ -269,8 +269,7 @@ def load(conn, doc_id: int) -> ReceiptInput:
                         location_id=d["location_id"])
 
 
-def export_file(conn, ws: Workspace, doc_id: int) -> Path:
-    """Write the receipt to output/hang-ve/ and remember the file on the document."""
+def _write(conn, doc_id: int, path: Path) -> None:
     from dibekho.excel.receipt import write_receipt
 
     head = conn.execute(
@@ -280,6 +279,21 @@ def export_file(conn, ws: Workspace, doc_id: int) -> Path:
     lines = conn.execute(
         "SELECT l.qty, l.note, p.code, p.name_vi, p.name_zh, p.spec, p.unit, p.variant FROM document_lines l "
         "JOIN products p ON p.id = l.product_id WHERE l.document_id = ? ORDER BY l.line_no", (doc_id,)).fetchall()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_receipt(path, head, lines)
+
+
+def write_file(conn, ws: Workspace, doc_id: int, name: str) -> Path:
+    """Write the receipt's Excel file under the given name, without touching the database (a receipt entered on the
+    web, cloud 009: every machine that pulls it writes the same file and the shared row stays as it is)."""
+    path = ws.output / FOLDER / name
+    _write(conn, doc_id, path)
+    return path
+
+
+def export_file(conn, ws: Workspace, doc_id: int) -> Path:
+    """Write the receipt to output/hang-ve/ and remember the file on the document."""
+    head = conn.execute("SELECT code, doc_date FROM documents WHERE id = ?", (doc_id,)).fetchone()
     folder = ws.output / FOLDER
     base = f"HangVe_{head['code']}_{head['doc_date']}"
     path = folder / f"{base}.xlsx"
@@ -287,7 +301,7 @@ def export_file(conn, ws: Workspace, doc_id: int) -> Path:
     while path.exists():
         path = folder / f"{base}_{n}.xlsx"
         n += 1
-    write_receipt(path, head, lines)
+    _write(conn, doc_id, path)
     with db.transaction(conn):
         conn.execute("UPDATE documents SET source_file = ?, source_hash = ? WHERE id = ?",
                      (path.name, file_hash(path), doc_id))

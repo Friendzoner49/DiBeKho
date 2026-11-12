@@ -19,6 +19,7 @@ different threads."""
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from dibekho import db
 from dibekho.core import catalog
@@ -46,6 +47,7 @@ class Merged:
     separated: list[str] = field(default_factory=list)  # order codes that became separate orders
     conflicts: list[Conflict] = field(default_factory=list)  # new ones this round
     receipts_to_export: list[int] = field(default_factory=list)  # local ids whose Excel file must follow a new code
+    receipt_files: list[tuple[int, str]] = field(default_factory=list)  # receipts made on the web: (local id, file)
 
 
 # ---- small state ------------------------------------------------------------------------------------------------
@@ -131,6 +133,12 @@ def merge(conn, pulled: dict) -> Merged:
         dup_hashes = _deliveries(conn, tables, out)
         _forget_scans_of_deleted(conn, tables)
     replica.apply(conn, tables)
+    # a receipt entered on the web names the Excel file the app writes for it (cloud 009: no file hash yet)
+    for r in _live(tables["documents"]):
+        if r["kind"] == "receipt" and r["status"] == "active" and r.get("source_file") and not r.get("source_hash"):
+            local = replica.local_for(conn, "documents", r["id"])
+            if local is not None:
+                out.receipt_files.append((local, r["source_file"]))
     with db.transaction(conn):
         for h in dup_hashes:  # the scan record of a note read on both machines points at the cloud's document now
             doc = conn.execute("SELECT id FROM documents WHERE kind = 'delivery' AND source_hash = ? AND status = 'active'",
@@ -194,10 +202,12 @@ def _live(rows: list[dict]) -> list[dict]:
 
 def _renumber_products(conn, tables: dict, out: Merged) -> None:
     pulled = {r["code"]: r["id"] for r in _live(tables["products"])}
+    going = {r["id"] for r in tables["products"] if r.get("deleted")}  # e.g. merged away, its code given out again
     all_codes = set(pulled) | {r[0] for r in conn.execute("SELECT code FROM products")}
     for code, uid in pulled.items():
         row = conn.execute("SELECT id FROM products WHERE code = ?", (code,)).fetchone()
-        if row is None or replica.uid_for(conn, "products", row[0], create=False) == uid:
+        mine = None if row is None else replica.uid_for(conn, "products", row[0], create=False)
+        if row is None or mine == uid or (mine is not None and mine in going):
             continue
         used = int(db.get_meta(conn, catalog.CODE_MAX_KEY, "0") or 0)
         new = f"SP{max(_next_number(all_codes, 'SP'), used + 1):03d}"
@@ -268,8 +278,25 @@ def _forget_scans_of_deleted(conn, tables: dict) -> None:
 
 # ---- push ---------------------------------------------------------------------------------------------------------
 
+CLOCK_KEY = "clock_offset_min"
+
+
+def clock_offset() -> int:
+    """This machine's clock, minutes from UTC (Vietnam: 420)."""
+    return round(datetime.now().astimezone().utcoffset().total_seconds() / 60)
+
+
+def stamp_clock(conn) -> None:
+    """The shared data's clock, set once by the first machine that syncs: the web writes created_at in it, as the
+    app writes its local time (cloud/supabase/009_web_rpc.sql, dbk_now)."""
+    if not db.get_meta(conn, CLOCK_KEY, ""):
+        with db.transaction(conn):
+            db.set_meta(conn, CLOCK_KEY, str(clock_offset()))
+
+
 def prepare(conn) -> tuple[dict, int, set]:
     """(batch, last outbox seq in it, rows held back by conflicts)."""
+    stamp_clock(conn)
     hold = held(conn)
     batch, seq = replica.pending(conn, exclude=hold)
     return batch, seq, hold
@@ -330,6 +357,12 @@ def export_renamed(conn, ws, merged: Merged) -> None:
     now belongs to another machine's receipt)."""
     from dibekho.core import receipts
 
+    for doc_id, name in merged.receipt_files:  # entered on the web: the file only, the row stays as the web wrote it
+        if receipts.exported_file(ws, name) is None:
+            try:
+                receipts.write_file(conn, ws, doc_id, name)
+            except OSError:
+                pass  # the folder is not writable now: the data is right anyway
     for doc_id in merged.receipts_to_export:
         row = conn.execute("SELECT source_file FROM documents WHERE id = ?", (doc_id,)).fetchone()
         if row is None:
