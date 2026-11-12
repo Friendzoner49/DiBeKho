@@ -225,3 +225,18 @@ dl.info dd { margin: 0; word-break: break-word; }
   input, select, button { height: 44px; }
 }
 label.check input:focus, .scroll:focus { outline: none; }  /* evon I13 */
+
+/* ===== điện thoại: chỉ xem bảng Tồn kho (app.js PHONE) ===== */
+.only-phone { display: none; }
+body.phone .only-phone { display: inline-flex; }
+body.phone .side, body.phone .not-phone, body.phone .only-writer, body.phone .only-owner, body.phone .only-staff,
+body.phone #freshness { display: none !important; }
+body.phone .page:not(#page-stock) { display: none !important; }
+body.phone #page-stock { display: block !important; }
+body.phone .topbar { flex-wrap: wrap; gap: 8px; }
+body.phone #stock-table table { width: 100%; }
+body.phone #stock-table td { white-space: normal; }
+body.phone #stock-table td.num, body.phone #stock-table th { white-space: nowrap; }
+body.phone #stock-table th:first-child, body.phone #stock-table td:first-child { position: static; }
+body.phone #logout-phone { margin-left: auto; min-height: 40px; height: 40px; }
+

@@ -193,6 +193,11 @@ async function showApp() {
   await loadAll();
 }
 
+/* Phones only look at the stock table (user's decision 12/11/2026): no menu, no windows, nothing to edit. Decided once
+   when the page opens, from the screen width; a tablet or a computer gets the whole page. */
+const PHONE = window.matchMedia("(max-width: 760px)").matches;
+if (PHONE) document.body.classList.add("phone");
+
 function setRole(role, name) {
   userRole = role || "";
   userName = name || "";
@@ -299,7 +304,14 @@ function renderStock() {
   const isLow = (p) => lowDefault && stockOf(p.id).total < lowDefault;
   const items = all.filter((p) => (!onlyLow || isLow(p)) &&
     (!f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`)));
-  buildTable("stock-table", [
+  if (PHONE) {
+    buildTable("stock-table", [
+      { label: "Mặt hàng", get: (p) => p.name_vi, html: (p) => `${esc(p.name_vi)}<br><span class="hint">${esc(p.code)}${p.spec ? " · " + esc(p.spec) : ""}${p.variant ? " · " + esc(p.variant) : ""}</span>` },
+      { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+      { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
+      { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
+    ], items, { rowClass: (p) => (stockOf(p.id).total < 0 ? "neg" : isLow(p) ? "low" : "") });
+  } else buildTable("stock-table", [
     { label: "Mã", get: (p) => p.code },
     { label: "Mặt hàng", get: (p) => p.name_vi },
     { label: "Tên Trung", get: (p) => p.name_zh },
@@ -529,7 +541,9 @@ $("catalog-filter").addEventListener("input", renderCatalog);
 $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());
 $("reload").addEventListener("click", loadAll);
-$("logout").addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.reload(); });
+for (const id of ["logout", "logout-phone"]) {
+  $(id).addEventListener("click", async () => { await sb.auth.signOut({ scope: "local" }); location.reload(); });
+}
 
 $("remember").checked = remembering();
 try { $("user").value = store("localStorage").getItem(USER_KEY) || ""; } catch (e) { /* nothing saved */ }
