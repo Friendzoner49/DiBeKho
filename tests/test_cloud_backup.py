@@ -255,8 +255,9 @@ def test_finish_push_on_shared_data_confirms_requests_only_once_nothing_is_left_
 
     replica.set_enabled(conn, True)
     with db.transaction(conn):
-        catalog.create_product(conn, "Keo")  # queued, not on the cloud yet
-        db.set_meta(conn, inbox.META_KEY, '{"req-1": 1}')
+        pid = catalog.create_product(conn, "Keo")
+        doc = stock.insert_document(conn, "receipt", date(2026, 11, 12), [stock.Line(pid, 5)], code="HV001")
+        db.set_meta(conn, inbox.META_KEY, '{"req-1": %d}' % doc)  # approved here, still queued for the cloud
 
     class Client:
         def get(self, *a):
