@@ -83,9 +83,10 @@ class SyncRunner(QObject):
 
     def _failed(self, err) -> None:
         self.busy = False
+        if str(err) != self.last_error:  # offline for hours (lid closed, another network): one line, not one a minute
+            activity.log("error", f"cloud sync: {err}")
         self.last_error = str(err)
         self.signed_out = isinstance(err, SessionExpired)
-        activity.log("error", f"cloud sync: {err}")
         self.status_changed.emit()
 
     # ---------------------------------------------------------------- a round

@@ -197,7 +197,10 @@ async function showApp() {
    when the page opens: a touch screen (no mouse) whose short side is small. A phone turned sideways is still a phone;
    a computer with a small screen or a narrow window is not; a tablet or a computer gets the whole page. */
 const PHONE = window.matchMedia("(pointer: coarse)").matches && Math.min(window.screen.width, window.screen.height) <= 760;
-if (PHONE) document.body.classList.add("phone");
+if (PHONE) {
+  document.body.classList.add("phone");
+  $("stock-filter").placeholder = "Lọc theo tên, mã, quy cách…";
+}
 
 function setRole(role, name) {
   userRole = role || "";
@@ -306,12 +309,14 @@ function renderStock() {
   const items = all.filter((p) => (!onlyLow || isLow(p)) &&
     (!f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`)));
   if (PHONE) {
-    buildTable("stock-table", [
-      { label: "Mặt hàng", get: (p) => p.name_vi, html: (p) => `${esc(p.name_vi)}<br><span class="hint">${esc(p.code)}${p.spec ? " · " + esc(p.spec) : ""}${p.variant ? " · " + esc(p.variant) : ""}</span>` },
-      { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
-      { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
-      { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
-    ], items, { rowClass: (p) => (stockOf(p.id).total < 0 ? "neg" : isLow(p) ? "low" : "") });
+    // a phone: one card per product, nothing to scroll sideways; long names wrap in full (variants differ at the end)
+    $("stock-table").innerHTML = '<div class="pcards">' + items.map((p) => {
+      const s = stockOf(p.id), cls = s.total < 0 ? " neg" : isLow(p) ? " low" : "";
+      const sub = [p.code, p.spec, p.variant].filter(Boolean).map(esc).join(" · ");
+      return `<div class="pcard${cls}"><div class="pc-main"><div class="pc-name">${esc(p.name_vi)}</div>` +
+        `<div class="pc-sub">${sub}</div><div class="pc-sub">Kho tổng ${fmtQty(s[1])} · Văn phòng ${fmtQty(s[2])}</div></div>` +
+        `<div class="pc-total"><span>${fmtQty(s.total)}</span><small>${esc(p.unit || "")}</small></div></div>`;
+    }).join("") + "</div>";
   } else buildTable("stock-table", [
     { label: "Mã", get: (p) => p.code },
     { label: "Mặt hàng", get: (p) => p.name_vi },
@@ -331,7 +336,8 @@ function renderStock() {
   });
   const low = all.filter(isLow).length, negative = all.filter((p) => stockOf(p.id).total < 0).length;
   $("stock-banner").classList.toggle("hidden", !low);
-  $("stock-banner").textContent = `⚠ ${low} mặt hàng sắp hết (dưới ${fmtQty(lowDefault)}) — nên đặt thêm hàng. Tick “Chỉ hiện hàng sắp hết” để xem riêng.`;
+  $("stock-banner").textContent = `⚠ ${low} mặt hàng sắp hết (dưới ${fmtQty(lowDefault)}) — nên đặt thêm hàng.` +
+    (PHONE ? "" : " Tick “Chỉ hiện hàng sắp hết” để xem riêng.");
   $("stock-summary").textContent = `${all.length} mặt hàng · ${low} sắp hết (cam) · ${negative} tồn âm (đỏ — thiếu hàng về hoặc chưa kiểm kê)`;
 }
 

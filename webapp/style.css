@@ -233,10 +233,24 @@ body.phone .side, body.phone .not-phone, body.phone .only-writer, body.phone .on
 body.phone #freshness { display: none !important; }
 body.phone .page:not(#page-stock) { display: none !important; }
 body.phone #page-stock { display: block !important; }
-body.phone .topbar { flex-wrap: wrap; gap: 8px; }
-body.phone #stock-table table { width: 100%; }
-body.phone #stock-table td { white-space: normal; }
-body.phone #stock-table td.num, body.phone #stock-table th { white-space: nowrap; }
-body.phone #stock-table th:first-child, body.phone #stock-table td:first-child { position: static; }
-body.phone #logout-phone { margin-left: auto; min-height: 40px; height: 40px; }
+body.phone .topbar { flex-wrap: wrap; gap: 4px 8px; padding-top: env(safe-area-inset-top); }  /* iPhone: below the clock */
+body.phone #reload, body.phone #logout-phone { height: 40px; min-height: 40px; padding: 0 12px; white-space: nowrap;
+                                               display: inline-flex; align-items: center; }
+body.phone .topbar .spacer { flex: 1; }
+body.phone #who { order: 3; flex: 0 0 100%; font-size: 13px; }
+body.phone .main { padding: 8px 12px 32px; }
+body.phone h1 { margin: 12px 0 8px; }
+/* one card per product (app.js renderStock): the name wraps in full, the total stands out on the right */
+.pcards { display: flex; flex-direction: column; gap: 8px; }
+.pcard { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border-radius: var(--radius);
+         padding: 12px 14px; box-shadow: 0 0 0 1px var(--border); }
+.pcard.low { background: var(--row-orange); box-shadow: none; }
+.pcard.neg { background: var(--row-red); box-shadow: none; }
+.pc-main { flex: 1; min-width: 0; }
+.pc-name { font-size: 16px; line-height: 1.35; font-weight: 500; overflow-wrap: anywhere; }
+.pc-sub { font-size: 14px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.pcard.low .pc-sub, .pcard.low .pc-total small, .pcard.neg .pc-sub, .pcard.neg .pc-total small { color: #55555a; }  /* 4.5:1 on cam/đỏ */
+.pc-total { text-align: right; flex: none; }
+.pc-total span { display: block; font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pc-total small { font-size: 13px; color: var(--muted); }
 

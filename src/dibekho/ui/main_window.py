@@ -403,5 +403,7 @@ class MainWindow(QMainWindow):
         return QApplication.activeModalWidget() is None and self.nav.currentRow() not in UNSAFE_PAGES
 
     def _inbox_tick(self) -> None:
+        if not self.ctx.cfg.cloud_refresh_token:  # the cloud is not set up here (the customers): nothing to ask
+            return
         if self.ctx.conn is not None and QApplication.activeModalWidget() is None:
             self._pull_async(notify=True)
