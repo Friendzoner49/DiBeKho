@@ -5,7 +5,21 @@
 
 "use strict";
 
-const sb = supabase.createClient(DIBEKHO_CLOUD.url, DIBEKHO_CLOUD.key);
+/* "Nhớ tôi": ticked = the sign-in survives closing the browser (localStorage) and the name is filled in next time;
+   not ticked = it ends with the browser (sessionStorage), for a shared computer. Storage may be blocked (private
+   window): then nothing is kept and the page still works. */
+const REMEMBER_KEY = "dibekho_remember", USER_KEY = "dibekho_user";
+function store(kind) { try { return window[kind]; } catch (e) { return null; } }
+function remembering() { try { return store("localStorage").getItem(REMEMBER_KEY) !== "0"; } catch (e) { return true; } }
+const authStorage = {
+  getItem(k) { try { return store(remembering() ? "localStorage" : "sessionStorage").getItem(k); } catch (e) { return null; } },
+  setItem(k, v) { try { store(remembering() ? "localStorage" : "sessionStorage").setItem(k, v); } catch (e) { /* not kept */ } },
+  removeItem(k) {
+    for (const kind of ["localStorage", "sessionStorage"]) { try { store(kind).removeItem(k); } catch (e) { /* none */ } }
+  },
+};
+const sb = supabase.createClient(DIBEKHO_CLOUD.url, DIBEKHO_CLOUD.key,
+                                 { auth: { storage: authStorage, persistSession: true } });
 const EMAIL_DOMAIN = "dibekho.local";
 const KIND_VI = { delivery: "Phiếu giao hàng", receipt: "Hàng về", stock_count: "Kiểm kê",
                   transfer: "Chuyển hàng", trial: "Dùng thử" };
@@ -151,6 +165,15 @@ async function signIn() {
   const user = $("user").value.trim();
   const email = user.includes("@") ? user : `${user}@${EMAIL_DOMAIN}`;
   $("login-error").textContent = "";
+  const remember = $("remember").checked;
+  try {
+    store("localStorage").setItem(REMEMBER_KEY, remember ? "1" : "0");
+    if (remember) store("localStorage").setItem(USER_KEY, user); else store("localStorage").removeItem(USER_KEY);
+    if (!remember) {  // a sign-in kept from before must not outlive this one
+      const ls = store("localStorage");
+      Object.keys(ls).filter((k) => k.startsWith("sb-")).forEach((k) => ls.removeItem(k));
+    }
+  } catch (e) { /* storage blocked: nothing is remembered */ }
   const { error } = await sb.auth.signInWithPassword({ email, password: $("password").value });
   if (error) {
     $("login-error").textContent = /credentials/i.test(error.message)
@@ -507,6 +530,9 @@ $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());
 $("reload").addEventListener("click", loadAll);
 $("logout").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+
+$("remember").checked = remembering();
+try { $("user").value = store("localStorage").getItem(USER_KEY) || ""; } catch (e) { /* nothing saved */ }
 
 if (!window.__DIBEKHO_TEST__) {
   sb.auth.getSession().then(({ data: { session } }) => {

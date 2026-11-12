@@ -109,6 +109,9 @@ button.back:hover { background: var(--primary-light); }
 .login label { display: block; margin: 16px 0 0; font-size: 14px; font-weight: 500; color: var(--muted); }
 .login input { width: 100%; margin-top: 6px; height: 44px; }
 .login .primary { width: 100%; margin-top: 20px; height: 44px; }
+.login label.check { display: flex; margin: 12px 0 0; font-size: 16px; color: var(--foreground); }
+.login label.check input { width: 22px; height: 22px; margin: 0; }
+.login label.check + .hint { margin: 2px 0 0; font-size: 13px; }
 
 /* ===== khung: thanh trái + nội dung, như app ===== */
 .shell { display: flex; min-height: 100vh; align-items: flex-start; }
