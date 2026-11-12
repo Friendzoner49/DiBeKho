@@ -12,56 +12,114 @@
 <!-- Đăng nhập -->
 <div id="login" class="card login hidden">
   <h1>DiBeKho</h1>
-  <p class="hint">Xem tồn kho và gửi yêu cầu cho máy chính. Dữ liệu là bản máy chính gửi lên lần gần nhất.</p>
+  <p class="hint">Dữ liệu kho dùng chung với app trên máy tính.</p>
   <label>Tên đăng nhập <input id="user" autocomplete="username"></label>
   <label>Mật khẩu <input id="password" type="password" autocomplete="current-password"></label>
   <button id="login-btn" class="primary">Đăng nhập</button>
   <p id="login-error" class="error"></p>
 </div>
 
-<!-- Trang chính -->
-<div id="app" class="hidden">
-  <header>
-    <span class="brand">DiBeKho</span>
-    <nav>
-      <button data-tab="stock" class="tab active">Tồn kho</button>
-      <button data-tab="orders" class="tab">Đơn hàng</button>
-      <button data-tab="customers" class="tab">Khách hàng</button>
-      <button data-tab="stats" class="tab">Thống kê</button>
-      <button data-tab="send" class="tab hidden" id="send-tab">Gửi yêu cầu</button>
-    </nav>
-    <span id="freshness" class="freshness"></span>
-    <button id="logout" class="flat">Đăng xuất</button>
-  </header>
+<!-- Trang chính: bố cục giống app (thanh bên trái, nút chung ở trên) -->
+<div id="app" class="shell hidden">
+  <aside class="side">
+    <button data-page="stock" class="nav active">Tồn kho</button>
+    <button data-page="pending" class="nav" id="nav-pending">Cần xử lý</button>
+    <button data-page="search" class="nav">Tra cứu</button>
+    <button data-page="receipts" class="nav">Hàng về</button>
+    <button data-page="count" class="nav">Kiểm kê</button>
+    <button data-page="settings" class="nav">Cài đặt</button>
+  </aside>
 
-  <main>
-    <div class="toolbar" id="toolbar">
-      <input id="filter" placeholder="Tìm (không cần gõ dấu)…">
-      <button id="reload" class="flat" title="Tải lại dữ liệu">⟳ Tải lại</button>
+  <section class="main">
+    <div class="topbar">
+      <button id="reload">⟳ Tải lại dữ liệu</button>
+      <button id="send-delivery" class="only-writer">Gửi phiếu giao hàng (file Excel)…</button>
+      <span id="freshness" class="hint"></span>
+      <span class="spacer"></span>
+      <span id="who" class="hint"></span>
     </div>
     <p id="load-error" class="error"></p>
-    <div id="tab-stock" class="pane"></div>
-    <div id="tab-orders" class="pane hidden"></div>
-    <div id="tab-customers" class="pane hidden"></div>
 
-    <div id="tab-stats" class="pane hidden">
-      <div class="card form">
-        <div class="grid">
-          <label>Kỳ <select id="st-period"><option value="day">Ngày</option><option value="month" selected>Tháng</option>
-            <option value="quarter">Quý</option><option value="year">Năm</option><option value="range">Khoảng tự chọn</option></select></label>
-          <label id="st-l-day" class="hidden">Ngày <input id="st-day" type="date"></label>
-          <label id="st-l-month">Tháng <input id="st-month" type="month"></label>
-          <label id="st-l-year" class="hidden">Năm <input id="st-year" type="number" min="2000" max="2100"></label>
-          <label id="st-l-quarter" class="hidden">Quý <select id="st-quarter"><option value="1">1</option><option value="2">2</option>
-            <option value="3">3</option><option value="4">4</option></select></label>
-          <label id="st-l-from" class="hidden">Từ ngày <input id="st-from" type="date"></label>
-          <label id="st-l-to" class="hidden">Đến ngày <input id="st-to" type="date"></label>
-          <label>Phạm vi <select id="st-scope"><option value="all">Tất cả</option><option value="category">Nhóm hàng</option>
-            <option value="product">Một mặt hàng</option><option value="customer">Một khách (chỉ số xuất)</option></select></label>
-          <label id="st-l-value" class="hidden">Chọn <select id="st-value"></select></label>
-          <label>Chia theo <select id="st-by"><option value="none">Không chia</option><option value="day">Ngày</option>
-            <option value="month">Tháng</option></select></label>
-        </div>
+    <!-- Tồn kho -->
+    <div id="page-stock" class="page">
+      <h1>Tồn kho</h1>
+      <p class="hint">Tồn được tính từ kiểm kê, hàng về và các phiếu giao hàng, chia theo Kho tổng và Văn phòng. Nháy đúp một dòng để xem lịch sử vào ra.</p>
+      <div class="row">
+        <input id="stock-filter" class="grow" placeholder="Lọc theo tên, mã, quy cách (gõ không dấu cũng được)…">
+        <label class="check"><input id="stock-low" type="checkbox"> Chỉ hiện hàng sắp hết</label>
+      </div>
+      <p id="stock-banner" class="banner hidden"></p>
+      <div id="stock-table"></div>
+      <p id="stock-summary" class="hint"></p>
+    </div>
+
+    <!-- Cần xử lý -->
+    <div id="page-pending" class="page hidden">
+      <h1>Cần xử lý</h1>
+      <h2>Đơn chưa chọn nơi lấy hàng</h2>
+      <p class="hint">Phiếu giao hàng mới tạm trừ ở Kho tổng. Chọn nơi đã lấy hàng cho từng đơn.</p>
+      <div id="pending-unplaced"></div>
+      <h2>Yêu cầu gửi từ web</h2>
+      <p class="hint" id="pending-inbox-hint">Yêu cầu của nhân viên nằm chờ ở đây cho tới khi chủ duyệt trên app (mục Cần xử lý của app).</p>
+      <div id="pending-inbox"></div>
+    </div>
+
+    <!-- Tra cứu -->
+    <div id="page-search" class="page hidden">
+      <h1>Tra cứu</h1>
+      <p class="hint">Tìm trong mọi thông tin: mặt hàng (tiếng Việt/Trung), khách, số điện thoại, mã phiếu, ghi chú. Gõ không dấu cũng được.</p>
+      <input id="search-input" class="wide" placeholder="Gõ để tìm…">
+      <div id="search-results"></div>
+      <div class="row more">
+        <span class="hint">Xem thêm:</span>
+        <button data-sub="orders">Danh sách đơn hàng</button>
+        <button data-sub="customers">Danh sách khách hàng</button>
+        <button data-sub="stats">Thống kê và xuất Excel</button>
+      </div>
+    </div>
+
+    <!-- Tra cứu → Đơn hàng -->
+    <div id="page-orders" class="page hidden">
+      <div class="backbar"><button class="back" data-back="search">← Tra cứu</button><h1>Đơn hàng</h1></div>
+      <p class="hint">Nháy đúp một đơn để xem chi tiết.</p>
+      <div class="row">
+        <label>Loại phiếu <select id="orders-kind"></select></label>
+        <input id="orders-filter" class="grow" placeholder="Tìm mã phiếu hoặc tên khách…">
+        <label class="check"><input id="orders-closed" type="checkbox"> Gồm cả phiếu đã huỷ</label>
+      </div>
+      <div id="orders-table"></div>
+      <p id="orders-count" class="hint"></p>
+    </div>
+
+    <!-- Tra cứu → Khách hàng -->
+    <div id="page-customers" class="page hidden">
+      <div class="backbar"><button class="back" data-back="search">← Tra cứu</button><h1>Khách hàng</h1></div>
+      <p class="hint">Khách hàng được lấy tự động từ phiếu giao hàng. Nháy đúp để xem khách hay mua gì.<span class="only-owner"> Muốn gộp: bấm chọn từ 2 khách trở lên rồi bấm Gộp khách hàng….</span></p>
+      <div class="row">
+        <input id="customers-filter" class="grow" placeholder="Tìm tên, số điện thoại, địa chỉ…">
+        <button id="customers-merge" class="only-owner">Gộp khách hàng…</button>
+      </div>
+      <div id="customers-table"></div>
+    </div>
+
+    <!-- Tra cứu → Thống kê -->
+    <div id="page-stats" class="page hidden">
+      <div class="backbar"><button class="back" data-back="search">← Tra cứu</button><h1>Thống kê</h1></div>
+      <div class="row wrap">
+        <label>Kỳ <select id="st-period"><option value="day">Ngày</option><option value="month" selected>Tháng</option>
+          <option value="quarter">Quý</option><option value="year">Năm</option><option value="range">Khoảng tự chọn</option></select></label>
+        <label id="st-l-day" class="hidden">Ngày <input id="st-day" type="date"></label>
+        <label id="st-l-month">Tháng <input id="st-month" type="month"></label>
+        <label id="st-l-year" class="hidden">Năm <input id="st-year" type="number" min="2000" max="2100"></label>
+        <label id="st-l-quarter" class="hidden">Quý <select id="st-quarter"><option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option></select></label>
+        <label id="st-l-from" class="hidden">Từ ngày <input id="st-from" type="date"></label>
+        <label id="st-l-to" class="hidden">Đến ngày <input id="st-to" type="date"></label>
+        <label>Phạm vi <select id="st-scope"><option value="all">Tất cả</option><option value="category">Nhóm hàng</option>
+          <option value="product">Một mặt hàng</option><option value="customer">Một khách (chỉ số xuất)</option></select></label>
+        <label id="st-l-value" class="hidden">Chọn <select id="st-value"></select></label>
+        <label>Chia theo <select id="st-by"><option value="none">Không chia</option><option value="day">Ngày</option>
+          <option value="month">Tháng</option></select></label>
       </div>
       <div id="st-summary"></div>
       <div id="st-chart"></div>
@@ -69,147 +127,81 @@
       <div id="st-top"></div>
     </div>
 
-    <div id="detail" class="pane hidden"></div>
+    <!-- chi tiết mặt hàng / khách (mở từ các trang trên) -->
+    <div id="page-detail" class="page hidden"></div>
 
-    <div id="tab-send" class="pane hidden">
-      <p class="hint" id="staff-banner">Yêu cầu gửi đi sẽ nằm chờ. Chỉ khi chủ duyệt trên máy chính thì mới vào sổ.</p>
-      <p class="hint hidden" id="owner-banner">Bạn đăng nhập bằng tài khoản chủ: lệnh sẽ được <b>máy chính tự thực hiện</b> khi app đang mở, không cần duyệt lại. Kết quả hiện ở mục “Đã gửi” bên dưới (đã làm hoặc lý do không làm được).</p>
-      <div class="chips" id="send-kinds">
-        <button class="chip active" data-send="receipt">Hàng về</button>
-        <button class="chip" data-send="delivery">Phiếu giao hàng (file Excel)</button>
-        <button class="chip" data-send="count">Kiểm kê</button>
-        <button class="chip owner hidden" data-send="transfer">Chuyển hàng</button>
-        <button class="chip owner hidden" data-send="trial">Xuất dùng thử</button>
-        <button class="chip owner hidden" data-send="product">Mặt hàng</button>
-        <button class="chip owner hidden" data-send="customer">Gộp khách hàng</button>
+    <!-- Hàng về -->
+    <div id="page-receipts" class="page hidden">
+      <h1>Hàng về</h1>
+      <p class="hint">Cách nhập hàng về: 1. Bấm ‘＋ Nhập hàng về…’. 2. Chọn hàng từ đâu về (cửa khẩu / công ty mẹ, hoặc khách trả lại). 3. Chọn mặt hàng, gõ số lượng. 4. Bấm ‘Lưu phiếu hàng về’.<span class="only-staff"> Phiếu của nhân viên sẽ chờ chủ duyệt rồi mới vào sổ.</span></p>
+      <div class="row">
+        <button id="receipt-new" class="only-writer">＋ Nhập hàng về…</button>
+        <button id="receipt-edit" class="only-owner">Sửa phiếu đã chọn…</button>
       </div>
-
-      <!-- hàng về -->
-      <div id="send-receipt" class="card form">
-        <h2 id="rc-title">Gửi phiếu hàng về</h2>
-        <p class="hint hidden" id="rc-editing"></p>
-        <button id="rc-cancel-edit" class="flat hidden">Thôi, không sửa phiếu nữa</button>
-        <div class="grid">
-          <label>Ngày <input id="rc-date" type="date"></label>
-          <label>Hàng về từ <select id="rc-kind"><option value="supplier">Cửa khẩu / công ty mẹ</option><option value="return">Khách trả lại</option></select></label>
-          <label id="rc-l-source">Tên nơi gửi <input id="rc-source" placeholder="Cửa khẩu / công ty mẹ…"></label>
-          <label id="rc-l-customer" class="hidden">Khách trả lại <select id="rc-customer"></select></label>
-          <label id="rc-l-ref" class="hidden">Mã đơn đã giao (nếu có) <input id="rc-ref"></label>
-          <label>Nhập vào <select id="rc-loc"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select></label>
-        </div>
-        <div id="rc-lines"></div>
-        <button id="rc-add" class="flat">＋ Thêm dòng</button>
-        <label>Ghi chú <input id="rc-note"></label>
-        <button id="rc-send" class="primary narrow">Gửi lên máy chính</button>
-        <p id="rc-msg" class="hint"></p>
-        <p id="rc-error" class="error"></p>
-      </div>
-
-      <!-- phiếu giao hàng: file Excel -->
-      <div id="send-delivery" class="card form hidden">
-        <h2>Gửi phiếu giao hàng</h2>
-        <p class="hint">Chọn file Excel phiếu giao hàng (.xlsx, tối đa 2 MB), đúng file đang dùng. Máy chính sẽ đọc như mọi phiếu khác.</p>
-        <label>File phiếu <input id="dl-file" type="file" accept=".xlsx"></label>
-        <label>Ghi chú <input id="dl-note"></label>
-        <button id="dl-send" class="primary narrow">Gửi lên máy chính</button>
-        <p id="dl-msg" class="hint"></p>
-        <p id="dl-error" class="error"></p>
-      </div>
-
-      <!-- kiểm kê -->
-      <div id="send-count" class="card form hidden">
-        <h2>Gửi phiếu kiểm kê</h2>
-        <p class="hint">Đếm xong rồi mới gửi: chênh lệch được tính theo lúc bạn bấm gửi. Dòng để trống = không kiểm mặt hàng đó; hàng đã hết thì ghi 0.</p>
-        <div class="grid">
-          <label>Ngày kiểm kê <input id="ct-date" type="date"></label>
-          <label>Nơi kiểm kê <select id="ct-loc"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select></label>
-        </div>
-        <button id="ct-fill" class="flat">Điền sẵn tất cả mặt hàng đang bán</button>
-        <button id="ct-clear" class="flat">Xoá hết các dòng</button>
-        <div id="ct-lines"></div>
-        <button id="ct-add" class="flat">＋ Thêm dòng</button>
-        <label>Ghi chú <input id="ct-note"></label>
-        <button id="ct-send" class="primary narrow">Gửi lên máy chính</button>
-        <p id="ct-msg" class="hint"></p>
-        <p id="ct-error" class="error"></p>
-      </div>
-
-      <!-- chủ: chuyển hàng giữa hai nơi -->
-      <div id="send-transfer" class="card form hidden">
-        <h2>Chuyển hàng giữa hai nơi</h2>
-        <div class="grid">
-          <label>Ngày <input id="tr-date" type="date"></label>
-          <label>Từ <select id="tr-from"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select></label>
-          <label>Đến <select id="tr-to"><option value="1">Kho tổng</option><option value="2" selected>Văn phòng</option></select></label>
-        </div>
-        <div id="tr-lines"></div>
-        <button id="tr-add" class="flat">＋ Thêm dòng</button>
-        <label>Ghi chú <input id="tr-note"></label>
-        <button id="tr-send" class="primary narrow">Gửi lệnh cho máy chính</button>
-        <p id="tr-msg" class="hint"></p><p id="tr-error" class="error"></p>
-      </div>
-
-      <!-- chủ: xuất dùng thử -->
-      <div id="send-trial" class="card form hidden">
-        <h2>Xuất dùng thử</h2>
-        <p class="hint">Hàng mở ra dùng thử hoặc dùng nội bộ, không bán: trừ tồn ở một nơi, không có khách.</p>
-        <div class="grid">
-          <label>Ngày <input id="tu-date" type="date"></label>
-          <label>Lấy từ <select id="tu-loc"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select></label>
-        </div>
-        <div id="tu-lines"></div>
-        <button id="tu-add" class="flat">＋ Thêm dòng</button>
-        <label>Ghi chú <input id="tu-note"></label>
-        <button id="tu-send" class="primary narrow">Gửi lệnh cho máy chính</button>
-        <p id="tu-msg" class="hint"></p><p id="tu-error" class="error"></p>
-      </div>
-
-      <!-- chủ: mặt hàng -->
-      <div id="send-product" class="card form hidden">
-        <h2>Mặt hàng</h2>
-        <label>Làm gì <select id="pd-action"><option value="add">Thêm mặt hàng mới</option>
-          <option value="edit">Sửa hoặc ngừng dùng một mặt hàng</option><option value="merge">Gộp hai mặt hàng trùng</option></select></label>
-        <div id="pd-pick-box" class="hidden"><label>Mặt hàng cần sửa <input id="pd-pick" list="products-dl" placeholder="Gõ mã hoặc tên hàng…"></label></div>
-        <div id="pd-fields">
-          <div class="grid">
-            <label>Tên tiếng Việt <input id="pd-name-vi"></label>
-            <label>Tên tiếng Trung <input id="pd-name-zh"></label>
-            <label>Quy cách <input id="pd-spec"></label>
-            <label>Loại / màu <input id="pd-variant"></label>
-            <label>Đơn vị <input id="pd-unit"></label>
-            <label>Nhóm <input id="pd-category" list="categories-dl"></label>
-          </div>
-          <label id="pd-l-note" class="hidden">Ghi chú tồn kho <input id="pd-note"></label>
-          <label id="pd-l-active" class="check hidden"><input id="pd-active" type="checkbox"> Đang dùng (bỏ chọn = ngừng dùng)</label>
-          <label id="pd-l-dup" class="check"><input id="pd-dup" type="checkbox"> Vẫn tạo dù có thể trùng mặt hàng đã có</label>
-        </div>
-        <div id="pd-merge-box" class="hidden">
-          <label>Mặt hàng thứ nhất <input id="pd-a" list="products-dl" placeholder="Gõ mã hoặc tên hàng…"></label>
-          <label>Mặt hàng thứ hai <input id="pd-b" list="products-dl" placeholder="Gõ mã hoặc tên hàng…"></label>
-          <p class="hint">Mã lớn hơn được gộp vào mã nhỏ hơn: mọi phiếu, tồn và tên đã học chuyển sang mã nhỏ.</p>
-        </div>
-        <button id="pd-send" class="primary narrow">Gửi lệnh cho máy chính</button>
-        <p id="pd-msg" class="hint"></p><p id="pd-error" class="error"></p>
-        <datalist id="categories-dl"></datalist>
-      </div>
-
-      <!-- chủ: gộp khách hàng -->
-      <div id="send-customer" class="card form hidden">
-        <h2>Gộp khách hàng</h2>
-        <p class="hint">Chọn từ 2 khách trở lên cùng là một người; mọi phiếu của họ chuyển sang một khách mang tên bạn nhập.</p>
-        <input id="cm-filter" placeholder="Tìm khách…">
-        <div id="cm-list" class="picklist"></div>
-        <label>Tên khách sau khi gộp <input id="cm-name"></label>
-        <button id="cm-send" class="primary narrow">Gửi lệnh cho máy chính</button>
-        <p id="cm-msg" class="hint"></p><p id="cm-error" class="error"></p>
-      </div>
-
-      <h2>Đã gửi</h2>
-      <div id="rc-sent"></div>
-      <datalist id="products-dl"></datalist>
+      <h2>Các lần hàng về:</h2>
+      <div id="receipts-table"></div>
     </div>
-  </main>
+
+    <!-- Kiểm kê -->
+    <div id="page-count" class="page hidden">
+      <h1>Kiểm kê</h1>
+      <p class="hint">Đếm hàng thực tế ở từng nơi rồi nhập vào 2 cột vàng (Kho tổng, Văn phòng). Nơi nào để trống thì không đổi. Chỉ những mặt hàng có số đếm mới được ghi.<span class="only-staff"> Kiểm kê của nhân viên sẽ chờ chủ duyệt; chênh lệch tính theo lúc bấm gửi.</span></p>
+      <div class="row wrap">
+        <label>Ngày kiểm kê: <input id="count-date" type="date"></label>
+        <label class="grow">Ghi chú <input id="count-note"></label>
+        <button id="count-transfer" class="only-owner">Chuyển hàng…</button>
+        <button id="count-trial" class="only-owner">Xuất dùng thử…</button>
+      </div>
+      <div class="row wrap">
+        <button data-doclist="transfer">Phiếu chuyển hàng…</button>
+        <button data-doclist="trial">Phiếu dùng thử…</button>
+        <button data-doclist="stock_count">Phiếu kiểm kê…</button>
+      </div>
+      <div id="count-table"></div>
+      <div class="row foot">
+        <span id="count-summary" class="hint"></span>
+        <span class="spacer"></span>
+        <button id="count-clear" class="only-writer">Xoá hết số đã nhập</button>
+        <button id="count-save" class="only-writer primary-btn">Lưu kiểm kê</button>
+      </div>
+      <p id="count-msg" class="hint"></p>
+    </div>
+
+    <!-- Cài đặt -->
+    <div id="page-settings" class="page hidden">
+      <h1>Cài đặt</h1>
+      <div class="tabs">
+        <button data-stab="general" class="stab active">Chung</button>
+        <button data-stab="products" class="stab">Danh mục mặt hàng</button>
+      </div>
+      <div id="stab-general" class="spane">
+        <dl class="info" id="settings-info"></dl>
+        <button id="logout">Đăng xuất</button>
+      </div>
+      <div id="stab-products" class="spane hidden">
+        <p class="hint">Chọn một dòng rồi bấm Sửa mặt hàng… (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng, ghi chú tồn kho hoặc ngừng dùng.</p>
+        <div class="row wrap">
+          <input id="catalog-filter" class="grow" placeholder="Lọc theo tên, mã, quy cách…">
+          <button id="catalog-add" class="only-owner">Thêm mặt hàng</button>
+          <button id="catalog-edit" class="only-owner">Sửa mặt hàng…</button>
+          <button id="catalog-merge" class="only-owner">Gộp mặt hàng trùng…</button>
+        </div>
+        <div id="catalog-table"></div>
+      </div>
+    </div>
+  </section>
 </div>
+
+<!-- cửa sổ (như các cửa sổ của app) -->
+<dialog id="dlg">
+  <div class="dlg-head"><h2 id="dlg-title"></h2><button id="dlg-x" class="flat" title="Đóng">✕</button></div>
+  <div id="dlg-body"></div>
+  <p id="dlg-error" class="error"></p>
+  <div id="dlg-buttons" class="dlg-buttons"></div>
+</dialog>
+<datalist id="products-dl"></datalist>
+<datalist id="suppliers-dl"></datalist>
+<datalist id="categories-dl"></datalist>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"
         integrity="sha384-2zrRDgDHSYB/GN3nFW3fsZXoxEhKIr3N2h63Tc6DEOB9JJdFIu8xMJT2Cph/gBil" crossorigin="anonymous"></script>
@@ -217,6 +209,6 @@
 <script src="stats.js"></script>
 <script src="app.js"></script>
 <script src="views.js"></script>
-<script src="owner.js"></script>
+<script src="forms.js"></script>
 </body>
 </html>

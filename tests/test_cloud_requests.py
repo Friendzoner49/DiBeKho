@@ -1,7 +1,7 @@
 """Staff requests from the web: Excel delivery notes and stock counts (core.cloud.inbox)."""
 
 import hashlib
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -204,8 +204,9 @@ def test_count_is_per_place(conn):
     pid = _product(conn)
     with db.transaction(conn):
         stock.stock_count(conn, date(2026, 11, 1), {(pid, stock.MAIN): 20, (pid, stock.OFFICE): 4})
-    item = _count_item([{"product_id": pid, "qty": 6}], location=stock.OFFICE, sent="2026-11-12T08:00:00Z",
-                       day="2026-11-12")
+    sent = datetime.now(timezone.utc) + timedelta(minutes=5)  # after the count above, whatever the time of day
+    item = _count_item([{"product_id": pid, "qty": 6}], location=stock.OFFICE, sent=sent.isoformat(),
+                       day=date.today().isoformat())
     (row,) = inbox.count_preview(conn, item)
     assert (row.system, row.diff) == (4, 2)  # only the office is compared
     inbox.apply_count(conn, item)

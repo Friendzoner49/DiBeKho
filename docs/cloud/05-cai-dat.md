@@ -16,7 +16,9 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 3. `cloud/supabase/003_low_stock.sql` — **chỉ khi project được tạo trước khi có file này** (project mới đã có sẵn trong 001).
 4. `cloud/supabase/004_staff_requests.sql` — yêu cầu của nhân viên: kiểm kê và phiếu giao hàng Excel (thêm loại yêu cầu, kho riêng tư `inbox-files`, giới hạn kích thước). **Bắt buộc nếu muốn nhân viên gửi kiểm kê/phiếu giao.**
 5. `cloud/supabase/005_full_view.sql` — gương có thêm bảng biến động tồn và vài cột, để web có **lịch sử vào ra, chi tiết mặt hàng/khách, Thống kê**. **Chạy xong thì mở app bấm Đồng bộ ngay một lần** (không thì web chưa có dữ liệu mới). Dự án cài mới đã có sẵn trong 001.
-6. `cloud/supabase/006_owner_commands.sql` — **chủ thao tác trên web**: thêm các loại lệnh và chỉ cho tài khoản `desktop` gửi lệnh (nhân viên `editor` vẫn chỉ gửi 3 loại yêu cầu cũ). Dự án cài mới đã có sẵn trong 001.
+6. `cloud/supabase/006_owner_commands.sql` — lệnh của chủ kiểu cũ qua hộp thư (web mới không dùng nữa, chạy cho đủ thứ tự). Dự án cài mới đã có sẵn trong 001.
+7. `cloud/supabase/007_core.sql` + `008_sync_rpc.sql` — bảng thật của **Dữ liệu chung** và đồng bộ 2 chiều.
+8. `cloud/supabase/009_web_rpc.sql` — **chủ ghi thẳng trên web** (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, nơi lấy hàng, mặt hàng, gộp khách). **Bắt buộc cho trang web mới.** Chạy lại nhiều lần không sao.
 
 ## 3. Tạo tài khoản
 
@@ -38,37 +40,31 @@ select id, 'Nguoi xem', 'editor' from auth.users where email = 'khach1@dibekho.l
 
 Quên mật khẩu: không có email khôi phục — vào Authentication → Users, mở tài khoản và đặt lại mật khẩu.
 
-### Nhân viên gửi yêu cầu, chủ duyệt cuối ngày
+### Trang web giờ làm việc thẳng trên dữ liệu chung (từ 12/11/2026, SQL 009)
 
-Nhân viên (`editor`) vào trang web → tab **Gửi yêu cầu**: **Hàng về**, **Phiếu giao hàng** (tải file Excel .xlsx, tối đa 2 MB), **Kiểm kê** (đếm xong mới gửi; có nút điền sẵn toàn bộ mặt hàng, ô trống = không đếm).
-Chủ mở app trên máy chính (hoặc bấm **Quét lại phiếu**) → **Cần xử lý** → mục **Yêu cầu từ nhân viên (web)**, có tên người gửi:
+Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud), trang web đọc và ghi **bảng thật** trên Cloud (không còn bản gương chờ máy chính đẩy lên). Bố cục web **giống app**: thanh bên trái *Tồn kho · Cần xử lý · Tra cứu · Hàng về · Kiểm kê · Cài đặt*, nút cùng tên, cùng chỗ (Chuyển hàng…/Xuất dùng thử…/Phiếu chuyển hàng… ở Kiểm kê; Đơn hàng/Khách hàng/Thống kê là nút trong Tra cứu; Thêm/Sửa/Gộp mặt hàng ở Cài đặt → Danh mục mặt hàng). Bấm một dòng để chọn, nháy đúp để mở, như app.
 
-- **Hàng về**: xem tóm tắt, *Vào sổ…*. **Phiếu giao hàng**: *Vào sổ…* đặt file vào thư mục phiếu giao hàng, app đọc như mọi phiếu (hàng lạ hiện ở Cần xử lý, "Mở file gốc" dùng được, đọc trùng bị chặn theo nội dung file).
-- **Kiểm kê**: hộp duyệt cho xem đếm được / tồn máy lúc nhân viên gửi / chênh lệch từng mặt hàng. Chênh lệch tính theo **lúc nhân viên gửi**, không phải lúc chủ duyệt; phiếu giao vào sổ sau lúc đó (ngày ≤ ngày đếm) hiện ở mục *đơn đọc sau kiểm kê* để chủ quyết (Giữ số đã kiểm kê / Trừ thêm đơn này).
-- Nút **Vào sổ tất cả hàng về và phiếu giao hàng** duyệt một lượt; kiểm kê luôn duyệt từng phiếu. Phiếu hỏng được liệt kê lại, không làm dừng cả lượt.
-- Nhân viên thấy trạng thái từng yêu cầu ngay trên web (chờ duyệt / đã vào sổ / bị từ chối). Hoàn tác trên máy chính một phiếu hàng về hoặc kiểm kê đã duyệt thì yêu cầu đó quay về hàng chờ.
-- Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần thêm vai trò riêng và lớp xem (view) — chưa làm.
+**Chủ (`desktop`, ví dụ `maychinh`)** làm thẳng, **không cần app mở**: nhập/sửa phiếu hàng về, chuyển hàng (cả sửa phiếu), xuất dùng thử, kiểm kê (2 cột vàng Kho tổng/Văn phòng), huỷ phiếu, chọn nơi lấy hàng (ở chi tiết đơn và ở Cần xử lý), thêm/sửa/ngừng dùng/gộp mặt hàng, gộp khách hàng. Mỗi việc là một hàm trong `cloud/supabase/009_web_rpc.sql`, làm đúng như hàm của app và được kiểm song song với app (`tests/test_cloud_web_rpc.py`). App trên máy tính nhận thay đổi ở lần đồng bộ kế tiếp; phiếu hàng về nhập trên web được app tự tạo file Excel trong `output/hang-ve/`.
+- Kiểm tra trùng khi thêm mặt hàng trên web chỉ bắt **trùng hẳn** (cùng tên, quy cách, loại/màu, không dấu); kiểu "trông giống" (gợi ý theo tên Trung…) chỉ có trong app.
+- Nhập hàng về trên web chưa có "★ Mặt hàng mới": thêm mặt hàng ở Cài đặt → Danh mục mặt hàng trước.
+- Giờ trên phiếu theo đồng hồ của cửa hàng (`meta.clock_offset_min`, máy đồng bộ đầu tiên tự ghi; thiếu thì lấy giờ Việt Nam).
+- Hoàn tác của app vẫn khoá khi bật dữ liệu chung; nhầm thì Huỷ phiếu / sửa phiếu.
+- Chưa bật dữ liệu chung thì mọi việc ghi của chủ trên web bị từ chối kèm lời nhắc (để không ghi vào chỗ không ai đọc).
 
-### Chủ làm trên web y hệt app (tài khoản `desktop`, ví dụ `maychinh`)
+**Nhân viên (`editor`)** vẫn **gửi yêu cầu chờ duyệt** từ cùng các nút (＋ Nhập hàng về…, Lưu kiểm kê, Gửi phiếu giao hàng (file Excel)…); chủ duyệt trong app → **Cần xử lý** → *Yêu cầu từ nhân viên (web)*, như trước:
+- **Hàng về**: xem tóm tắt, *Vào sổ…*. **Phiếu giao hàng**: *Vào sổ…* đặt file vào thư mục phiếu giao hàng, app đọc như mọi phiếu.
+- **Kiểm kê**: chênh lệch tính theo **lúc nhân viên gửi**; đếm cả 2 nơi thì thành 2 yêu cầu (mỗi nơi một). Phiếu giao vào sổ sau lúc đó hiện ở *đơn đọc sau kiểm kê*.
+- Nhân viên thấy trạng thái ở trang **Cần xử lý** của web (chờ duyệt / đã vào sổ / bị từ chối).
+- Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần vai trò riêng — chưa làm.
 
-Đăng nhập web bằng tài khoản chủ → tab **Thao tác**. Có đủ: hàng về (cửa khẩu / khách trả lại), phiếu giao hàng (file Excel), kiểm kê, **chuyển hàng**, **xuất dùng thử**, **mặt hàng** (thêm — có kiểm tra trùng như app —, sửa, ngừng dùng, ghi chú tồn kho, gộp trùng), **gộp khách hàng**; ở chi tiết phiếu: **huỷ phiếu**, **đặt nơi lấy/nhập hàng**, **sửa phiếu hàng về**; ở chi tiết mặt hàng: sửa / ngừng dùng. (App không có chức năng sửa thông tin khách nên web cũng không.)
-
-- Lệnh của chủ **không cần duyệt lại**: máy chính tự thực hiện khi app đang mở (kiểm tra mỗi ~3 phút và mỗi lần mở/Quét lại/Đồng bộ ngay), rồi tự đồng bộ để web thấy kết quả. Web hiện ở mục “Đã gửi”: ✔ việc đã làm, hoặc ✖ lý do không làm được.
-- **Chỉ làm ở lúc an toàn**: không có hộp thoại đang mở, và người dùng không đang ở **Cần xử lý** hoặc **Kiểm kê** (nơi đang gõ dở). Mỗi đợt có **một điểm Hoàn tác** ("Lệnh của chủ từ web"); app hiện hộp thông báo ai làm gì để nhân viên không bấm Hoàn tác mù quáng.
-- **Mỗi lệnh chỉ chạy một lần**, ghi nhớ ở `cloud_state.json` cạnh `config.json` (ngoài cơ sở dữ liệu nên Hoàn tác không làm lệnh chạy lại). Phiếu/mặt hàng/khách trong lệnh được nhận diện bằng **dấu vân tay** (id + mã + giờ tạo): nếu máy chính đã Hoàn tác/khôi phục sau khi trang web tải, lệnh bị từ chối kèm lý do thay vì trúng nhầm dòng khác.
-- Chỉ tài khoản có vai trò `desktop` được nghe lời; vai trò không xác định được thì không bao giờ tự thực hiện (hỏng đường đọc hồ sơ ⇒ mọi thứ chờ duyệt tay).
-- Hạn chế: cần app mở ở đâu đó mới có hiệu lực; sau Hoàn tác, phiếu hàng về/kiểm kê của chủ quay lại **Cần xử lý** để duyệt tay, còn lệnh sửa mặt hàng/khách vẫn hiện ✔ trên web dù đã bị hoàn tác.
-- Sau khi chạy 005, **mở app bấm Đồng bộ ngay một lần**: web cần dấu vân tay mới của các dòng dữ liệu, không thì lệnh báo “dữ liệu web chưa đủ mới”.
-- `tests/test_web_contract.py` cho Chrome thật điền và bấm mọi form của chủ rồi cho máy chính chạy đúng các lệnh đó: tên trường hai bên mà lệch là test đỏ.
+**Lệnh của chủ kiểu cũ** (`cmd_*` qua hộp thư, SQL 006): web không gửi nữa. App vẫn còn đoạn xử lý các lệnh cũ còn sót; sẽ gỡ sau khi người dùng xác nhận bản mới chạy ổn.
 
 ### Web xem được những gì (giống app)
 
-- **Tồn kho**: bấm một mặt hàng → tồn theo nơi, **lịch sử vào ra** có số dư sau từng dòng, khách lấy nhiều nhất, xuất file CSV.
-- **Đơn hàng**: lọc theo loại phiếu; bấm một dòng → đầu phiếu (khách, nơi lấy hàng, nguồn, phí, tổng tiền, file gốc) + các dòng hàng có giá.
-- **Khách hàng**: bấm một khách → doanh thu và phí theo kỳ chọn, mặt hàng hay mua (giá thấp–cao), các đơn.
-- **Thống kê**: kỳ (ngày/tháng/quý/năm/khoảng), phạm vi (tất cả/nhóm/một mặt hàng/một khách), chia theo ngày/tháng; tồn đầu–nhập–xuất–điều chỉnh–tồn cuối, doanh thu, top xuất nhiều, biểu đồ, xuất CSV.
-- Số liệu Thống kê trên web được kiểm tự động bằng `tests/test_web_stats.py` (chạy `webapp/stats.js` dưới `node` và so với `core/stats.py` ở nhiều bộ lọc), nên hai nơi luôn khớp.
-- File CSV (UTF-8 có BOM) mở thẳng bằng Excel. Dữ liệu web chỉ mới bằng lần đồng bộ gần nhất của máy chính.
+- **Tồn kho**: nháy đúp một mặt hàng → tồn theo nơi, **lịch sử vào ra** có số dư sau từng dòng, khách lấy nhiều nhất, xuất file CSV.
+- **Tra cứu → Đơn hàng / Khách hàng / Thống kê**: như app; Chi tiết đơn mở thành cửa sổ (chủ có Huỷ phiếu, Lấy hàng từ, Sửa phiếu…).
+- Số liệu Thống kê trên web được kiểm tự động bằng `tests/test_web_stats.py` (chạy `webapp/stats.js` dưới `node` và so với `core/stats.py`), nên hai nơi luôn khớp.
+- `tests/test_web_contract.py` cho Chrome thật bấm mọi cửa sổ của chủ (và của nhân viên), chạy đúng các lệnh trang gửi đi trên Postgres thử, rồi app kéo về và kiểm kết quả: tên trường hai bên mà lệch là test đỏ.
 
 ## 4. Nối app trên máy chính
 

@@ -14,7 +14,7 @@ import pytest
 
 from dibekho import db
 from dibekho.core import catalog, stats, stock
-from dibekho.core.cloud import mirror
+from dibekho.core.cloud import replica
 
 ROOT = Path(__file__).resolve().parent.parent
 NODE = shutil.which("node")
@@ -93,10 +93,12 @@ def _cases(ids, customers):
     ]
 
 
-def _js_filters(f):
+def _js_filters(conn, f):
     if f is None:
         return {}
-    return {"productIds": f.product_ids, "categories": f.categories, "customerIds": f.customer_ids}
+    uid = lambda table, ids: [replica.uid_for(conn, table, i) for i in ids] if ids else ids  # noqa: E731
+    return {"productIds": uid("products", f.product_ids), "categories": f.categories,
+            "customerIds": uid("customers", f.customer_ids)}
 
 
 def _close(x, y, what):
@@ -108,14 +110,16 @@ def _close(x, y, what):
 
 def test_web_statistics_match_the_app(conn, tmp_path):
     ids, customers = _build(conn)
-    payload = mirror.build_payload(conn, "dev", "May")
-    data = {k: payload[k] for k in ("products", "customers", "documents", "movements")}
-    data["lines"] = payload["document_lines"]
+    # the rows exactly as the web reads them from the cloud's tables (uuid ids, true/false)
+    rows = replica.snapshot(conn)
+    data = {"products": rows["products"], "customers": rows["customers"], "documents": rows["documents"],
+            "lines": rows["document_lines"], "movements": rows["stock_movements"]}
+    local = {r[0]: int(r[1]) for r in conn.execute("SELECT uid, local_id FROM sync_map WHERE tbl = 'products'")}
 
     cases = _cases(ids, customers)
     (tmp_path / "in.json").write_text(json.dumps({
         "data": data,
-        "cases": [{"start": s.isoformat(), "end": e.isoformat(), "filters": _js_filters(f), "by": by}
+        "cases": [{"start": s.isoformat(), "end": e.isoformat(), "filters": _js_filters(conn, f), "by": by}
                   for _, s, e, f, by in cases]}), encoding="utf-8")
     (tmp_path / "run.js").write_text(RUNNER, encoding="utf-8")
     done = subprocess.run([NODE, str(tmp_path / "run.js"), str(ROOT / "webapp" / "stats.js"), str(tmp_path / "in.json")],
@@ -125,7 +129,7 @@ def test_web_statistics_match_the_app(conn, tmp_path):
 
     for (label, start, end, filters, by), js in zip(cases, results):
         py_rows = {r.product_id: r for r in stats.summary(conn, start, end, filters, by)}
-        js_rows = {r["product_id"]: r for r in js["summary"]}
+        js_rows = {local[r["product_id"]]: r for r in js["summary"]}
         assert set(js_rows) == set(py_rows), f"{label}: which products are listed"
         for pid, py in py_rows.items():
             row = js_rows[pid]
@@ -142,7 +146,7 @@ def test_web_statistics_match_the_app(conn, tmp_path):
             _close(js["money"][field], getattr(money, field), f"{label}: money {field}")
 
         py_top = [(r.product_id, r.qty_out) for r in stats.top_out(conn, start, end, filters)]
-        js_top = [(r["product_id"], r["qty_out"]) for r in js["top"]]
+        js_top = [(local[r["product_id"]], r["qty_out"]) for r in js["top"]]
         assert sorted(js_top) == sorted(py_top), f"{label}: top out"
         assert [q for _, q in js_top] == sorted((q for _, q in js_top), reverse=True), f"{label}: top order"
 

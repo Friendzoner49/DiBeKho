@@ -1,6 +1,7 @@
-/* DiBeKho web viewer (MVP-1, read-only).
-   Plain JS on purpose: no build step, easy to edit (docs/cloud/04-thiet-ke-chot.md, section 7).
-   Reads the mirror_* tables the desktop pushes; writes nothing. */
+/* DiBeKho web: the shop's shared data (the cloud's real tables, docs/cloud/06-cloud-la-goc.md), laid out like the
+   desktop app so the same people find the same buttons in the same places (user's request 12/11/2026).
+   Plain JS on purpose: no build step, easy to edit. Reads with supabase-js; the owner writes through the functions of
+   cloud/supabase/009_web_rpc.sql (forms.js), staff send requests to web_inbox that the owner approves in the app. */
 
 "use strict";
 
@@ -10,19 +11,20 @@ const KIND_VI = { delivery: "Phiếu giao hàng", receipt: "Hàng về", stock_c
                   transfer: "Chuyển hàng", trial: "Dùng thử" };
 const KIND_ORDER = ["delivery", "receipt", "stock_count", "transfer", "trial"];
 const STATUS_VI = { active: "", cancelled: "đã huỷ", replaced: "đã thay" };
+const PLACE = { 1: "Kho tổng", 2: "Văn phòng" };
 
 const $ = (id) => document.getElementById(id);
-const data = { products: [], customers: [], documents: [], lines: [], stock: [], movements: [] };
-let stockByProduct = {}, customerById = {}, productById = {}, linesByDoc = {};
-const sortState = { stock: { i: null, dir: 1 }, orders: { i: null, dir: 1 }, customers: { i: null, dir: 1 }, stats: { i: null, dir: 1 } };
-let orderKind = "all";
-let lowDefault = 30;  // the app's alarm level, sent with each push (sync_state.low_stock_default)
+const data = { products: [], customers: [], suppliers: [], documents: [], lines: [], movements: [], meta: {} };
+let productById = {}, customerById = {}, supplierById = {}, docById = {}, linesByDoc = {}, stockByProduct = {};
+let userRole = "", userName = "";
+let lowDefault = 30;  // the app's alarm level (meta low_stock_default; 0 = off)
+const isOwner = () => userRole === "desktop";
+const isStaff = () => userRole === "editor";
 
 /* ---------------------------------------------------------------- helpers */
 
 function unaccent(s) {
-  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replaceAll("đ", "d");  // đ -> d, like the app's unaccent()
+  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replaceAll("đ", "d");
 }
 
 function matches(needle, hay) {
@@ -30,11 +32,15 @@ function matches(needle, hay) {
 }
 
 function fmtQty(n) {
-  if (n === null || n === undefined) return "";
+  if (n === null || n === undefined || n === "") return "";
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000).replace(".", ",");
 }
 
-// the cloud keeps UTC: show the viewer's own time zone, like the app does
+function fmtMoney(n) {
+  return n === null || n === undefined ? "" : Number(n).toLocaleString("vi-VN");
+}
+
+// the cloud keeps UTC in updated_at: show the viewer's own clock, like the app
 function fmtTime(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return "";
@@ -42,18 +48,44 @@ function fmtTime(iso) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function fmtMoney(n) {
-  return n === null || n === undefined ? "" : Number(n).toLocaleString("vi-VN");
-}
-
 function esc(s) {
-  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-/* Sortable table: cols = [{label, get, num?, cls?}], rowClass/rowAttr optional per item.
-   Clicking a header sorts by that column; clicking again flips the direction. */
-function buildTable(pane, cols, items, { rowClass = () => "", rowAttr = () => "", footer = "", into = null, rerender = null } = {}) {
-  const st = sortState[pane];
+// the viewer's own calendar day (toISOString() gives the UTC day)
+function todayLocal() {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** A typed quantity: '1,5' and '1.5' both mean one and a half, full-width digits too (like the app). "" -> null. */
+function parseQty(text) {
+  const s = String(text ?? "").normalize("NFKC").trim().replace(",", ".");
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function productName(p) {
+  return [p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
+}
+
+function productLabel(p) {
+  return [p.code, p.name_vi, p.spec, p.variant, p.name_zh].filter(Boolean).join(" · ");
+}
+
+const stockOf = (id) => stockByProduct[id] || { total: 0, 1: 0, 2: 0 };
+const activeProducts = () => data.products.filter((p) => p.active)
+  .sort((a, b) => (a.category || "").localeCompare(b.category || "", "vi") || a.name_vi.localeCompare(b.name_vi, "vi") ||
+                  (a.spec || "").localeCompare(b.spec || "", "vi"));
+
+/* Sortable table, like the app's: click a header to sort; click a row to select it (select: "one" | "many"),
+   double-click to open it. cols = [{label, get, num?, cls?, html?}]. */
+const tableState = {};
+
+function buildTable(into, cols, items, opts = {}) {
+  const st = tableState[into] ||= { i: null, dir: 1, sel: new Set() };
+  const keyOf = opts.key || ((x) => x.id);
   let rows = items;
   if (st.i !== null && cols[st.i]) {
     const c = cols[st.i];
@@ -63,22 +95,51 @@ function buildTable(pane, cols, items, { rowClass = () => "", rowAttr = () => ""
       return String(va ?? "").localeCompare(String(vb ?? ""), "vi") * st.dir;
     });
   }
+  const alive = new Set(items.map(keyOf));
+  for (const k of [...st.sel]) if (!alive.has(k)) st.sel.delete(k);
   const head = cols.map((c, i) =>
-    `<th data-i="${i}" class="sortable ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${c.label}</th>`).join("");
-  const body = rows.map((item) =>
-    `<tr class="${rowClass(item)}" ${rowAttr(item)}>` +
-    cols.map((c) => `<td class="${c.cls || ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") +
-    "</tr>").join("");
-  const el = $(into || `tab-${pane}`);
-  el.innerHTML = `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${footer}`;
+    `<th data-i="${i}" class="sortable ${c.num ? "num" : ""} ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${esc(c.label)}</th>`).join("");
+  const body = rows.map((item) => {
+    const k = keyOf(item);
+    return `<tr data-k="${esc(k)}" class="${opts.rowClass ? opts.rowClass(item) : ""} ${st.sel.has(k) ? "sel" : ""}">` +
+      cols.map((c) => `<td class="${c.cls || ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") + "</tr>";
+  }).join("");
+  const el = $(into);
+  el.innerHTML = `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
+    (opts.empty && !rows.length ? `<p class="hint">${esc(opts.empty)}</p>` : "");
+  const byKey = new Map(items.map((x) => [String(keyOf(x)), x]));
   for (const th of el.querySelectorAll("th.sortable")) {
     th.addEventListener("click", () => {
       const i = Number(th.dataset.i);
       if (st.i === i) st.dir *= -1; else { st.i = i; st.dir = 1; }
-      (rerender || render)();
+      buildTable(into, cols, items, opts);
     });
   }
+  for (const tr of el.querySelectorAll("tbody tr")) {
+    const item = byKey.get(tr.dataset.k);
+    if (opts.select) {
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest("input, select, button")) return;
+        const k = keyOf(item);
+        if (opts.select === "many") { st.sel.has(k) ? st.sel.delete(k) : st.sel.add(k); }
+        else { st.sel.clear(); st.sel.add(k); }
+        for (const other of el.querySelectorAll("tbody tr")) {
+          const it = byKey.get(other.dataset.k);
+          other.classList.toggle("sel", !!it && st.sel.has(keyOf(it)));
+        }
+      });
+    }
+    if (opts.open) {
+      tr.classList.add("click");
+      tr.addEventListener("dblclick", (e) => { if (!e.target.closest("input, select, button")) opts.open(item); });
+    }
+  }
   return el;
+}
+
+function selected(into) {
+  const st = tableState[into];
+  return st ? [...st.sel] : [];
 }
 
 /* ---------------------------------------------------------------- login */
@@ -99,435 +160,355 @@ async function signIn() {
 async function showApp() {
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
-  // filter by our own id: the desktop account may read every profile row, which would break maybeSingle()
+  // filter by our own id: the owner's account may read every profile row
   const { data: { user } } = await sb.auth.getUser();
-  const { data: prof } = await sb.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
-  userRole = prof ? prof.role : "";
-  if (prof && (prof.role === "editor" || prof.role === "desktop")) {
-    $("send-tab").classList.remove("hidden");
-  }
+  const { data: prof } = await sb.from("profiles").select("role,display_name").eq("user_id", user.id).maybeSingle();
+  setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0]);
   await loadAll();
-  initSendForm();
-  initStats();
-  initOwnerMode();
+}
+
+function setRole(role, name) {
+  userRole = role || "";
+  userName = name || "";
+  document.body.classList.remove("role-desktop", "role-editor", "role-viewer");
+  if (userRole) document.body.classList.add(`role-${userRole}`);
+  const what = { desktop: "chủ", editor: "nhân viên", viewer: "chỉ xem" }[userRole] || "chưa có quyền";
+  $("who").textContent = `${userName} (${what})`;
 }
 
 /* ---------------------------------------------------------------- data */
 
-async function fetchAll(tableName, order) {
-  // PostgREST pages at 1000 rows: loop so a long history still loads completely
+async function fetchAll(table, key = "id") {
+  // PostgREST pages at 1000 rows: a stable order is required or rows repeat/vanish between pages
   const out = [];
   for (let from = 0; ; from += 1000) {
-    let q = sb.from(tableName).select("*").range(from, from + 999);
-    if (order) q = q.order(...order);
-    const { data: rows, error } = await q;
+    const { data: rows, error } = await sb.from(table).select("*").eq("deleted", false).order(key).range(from, from + 999);
     if (error) throw error;
     out.push(...rows);
     if (rows.length < 1000) return out;
   }
 }
 
+/** The tables the web reads (tests/test_web_loads_all_tables.py keeps this list complete). */
+const WEB_TABLES = ["products", "customers", "suppliers", "documents", "document_lines", "stock_movements", "meta"];
+
 async function loadAll() {
   $("load-error").textContent = "";
   try {
-    const [products, customers, documents, lines, stock, movements, state] = await Promise.all([
-      fetchAll("mirror_products", ["category"]),
-      fetchAll("mirror_customers", ["name"]),
-      fetchAll("mirror_documents", ["doc_date", { ascending: false }]),
-      fetchAll("mirror_document_lines"),
-      fetchAll("mirror_stock"),
-    fetchAll("mirror_movements"),
-      sb.from("sync_state").select("*").maybeSingle(),
+    const [products, customers, suppliers, documents, lines, movements, meta] = await Promise.all([
+      fetchAll("products"), fetchAll("customers"), fetchAll("suppliers"), fetchAll("documents"),
+      fetchAll("document_lines"), fetchAll("stock_movements"), fetchAll("meta", "key"),
     ]);
-    Object.assign(data, { products, customers, documents, lines, stock, movements });
-    stockByProduct = {}; linesByDoc = {}; customerById = {}; productById = {};
-    for (const s of stock) {
-      const t = stockByProduct[s.product_id] ||= { total: 0, 1: 0, 2: 0 };
-      t.total += s.qty; t[s.location_id] = (t[s.location_id] || 0) + s.qty;
-    }
-    for (const l of lines) (linesByDoc[l.document_id] ||= []).push(l);
-    for (const c of customers) customerById[c.id] = c;
-    for (const p of products) productById[p.id] = p;
-    if (state.data) {
-      const when = fmtTime(state.data.last_push_at);
-      $("freshness").textContent = `Dữ liệu từ máy ${state.data.device_name}, lúc ${when}`;
-      // the app's alarm level (0 = off); an older push or a project without the column falls back to the app's 30
-      const level = Number(state.data.low_stock_default);
-      lowDefault = Number.isFinite(level) && state.data.low_stock_default !== null ? level : 30;
-    }
-    render();
+    setData({ products, customers, suppliers, documents, lines, movements, meta });
   } catch (e) {
     $("load-error").textContent = `Không tải được dữ liệu: ${e.message || e}`;
+    return;
   }
+  renderAll();
+  loadInbox();
 }
 
-/* ---------------------------------------------------------------- render */
-
-function render() {
-  const f = $("filter").value;
-  renderStock(f); renderOrders(f); renderCustomers(f);
+function setData(d) {
+  Object.assign(data, d, { meta: {} });
+  for (const m of d.meta) data.meta[m.key] = m.value;
+  productById = {}; customerById = {}; supplierById = {}; docById = {}; linesByDoc = {}; stockByProduct = {};
+  for (const p of data.products) productById[p.id] = p;
+  for (const c of data.customers) customerById[c.id] = c;
+  for (const s of data.suppliers) supplierById[s.id] = s;
+  for (const doc of data.documents) {
+    doc.supplier_name = (supplierById[doc.supplier_id] || {}).name || "";
+    docById[doc.id] = doc;
+  }
+  for (const l of data.lines) (linesByDoc[l.document_id] ||= []).push(l);
+  for (const m of data.movements) {
+    const t = stockByProduct[m.product_id] ||= { total: 0, 1: 0, 2: 0, lastOut: "" };
+    t.total += m.qty; t[m.location_id] = (t[m.location_id] || 0) + m.qty;
+    if (m.kind === "delivery_out" && m.occurred_on > t.lastOut) t.lastOut = m.occurred_on;
+  }
+  const level = Number(data.meta.low_stock_default);
+  lowDefault = data.meta.low_stock_default !== undefined && Number.isFinite(level) ? level : 30;
+  let newest = "";
+  for (const list of [d.products, d.customers, d.documents, d.movements, d.lines]) {
+    for (const r of list) if (r.updated_at && r.updated_at > newest) newest = r.updated_at;
+  }
+  $("freshness").textContent = newest ? `Dữ liệu chung · thay đổi gần nhất lúc ${fmtTime(newest)}` : "";
+  // suggestion lists of the forms
+  $("products-dl").innerHTML = activeProducts().map((p) => `<option value="${esc(productLabel(p))}">`).join("");
+  $("suppliers-dl").innerHTML = data.suppliers.map((s) => `<option value="${esc(s.name)}">`).join("");
+  $("categories-dl").innerHTML = [...new Set(data.products.map((p) => p.category).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "vi")).map((c) => `<option value="${esc(c)}">`).join("");
 }
 
-function renderStock(f) {
-  const stockOf = (p) => stockByProduct[p.id] || { total: 0, 1: 0, 2: 0 };
-  const items = data.products
-    .filter((p) => p.active)
-    .filter((p) => !f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`));
-  const stockTable = buildTable("stock", [
+function productFromLabel(text) {
+  const t = String(text || "").trim();
+  if (!t) return null;
+  return activeProducts().find((p) => productLabel(p) === t) || activeProducts().find((p) => p.code === t.split(" ")[0]) || null;
+}
+
+/* ---------------------------------------------------------------- navigation (the app's left bar) */
+
+let page = "stock";
+let backTo = "stock";
+
+function showPage(name) {
+  if (name !== "detail") backTo = name;
+  page = name;
+  document.querySelectorAll(".page").forEach((p) => p.classList.toggle("hidden", p.id !== `page-${name}`));
+  const top = ["orders", "customers", "stats"].includes(name) ? "search" : name === "detail" ? null : name;
+  if (top) document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.page === top));
+  window.scrollTo(0, 0);
+}
+
+function renderAll() {
+  renderStock(); renderPendingUnplaced(); renderSearch(); renderOrders(); renderCustomers(); renderReceipts();
+  renderCount(); renderCatalog(); renderSettingsInfo();
+  if (!$("page-stats").dataset.ready) { initStats(); $("page-stats").dataset.ready = "1"; } else { syncStatsControls(); renderStats(); }
+}
+
+/* ---------------------------------------------------------------- Tồn kho */
+
+function renderStock() {
+  const f = $("stock-filter").value, onlyLow = $("stock-low").checked;
+  const all = activeProducts();
+  const isLow = (p) => lowDefault && stockOf(p.id).total < lowDefault;
+  const items = all.filter((p) => (!onlyLow || isLow(p)) &&
+    (!f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`)));
+  buildTable("stock-table", [
     { label: "Mã", get: (p) => p.code },
     { label: "Mặt hàng", get: (p) => p.name_vi },
     { label: "Tên Trung", get: (p) => p.name_zh },
     { label: "Quy cách", get: (p) => p.spec },
-    { label: "Loại/màu", get: (p) => p.variant },
-    { label: "Nhóm", get: (p) => p.category },
-    { label: "Tồn", get: (p) => stockOf(p).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p).total) },
-    { label: "Kho tổng", get: (p) => stockOf(p)[1], num: true, cls: "num qty", html: (p) => fmtQty(stockOf(p)[1]) },
-    { label: "Văn phòng", get: (p) => stockOf(p)[2], num: true, cls: "num qty", html: (p) => fmtQty(stockOf(p)[2]) },
+    { label: "Loại / màu", get: (p) => p.variant },
+    { label: "Nhóm hàng", get: (p) => p.category },
     { label: "Đơn vị", get: (p) => p.unit },
-    { label: "Ghi chú", get: (p) => p.stock_note },
+    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+    { label: "Ghi chú tồn kho", get: (p) => p.stock_note },
+    { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
+    { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
+    { label: "Xuất gần nhất", get: (p) => stockOf(p.id).lastOut || "" },
   ], items, {
-    // same rule as the app (stock.is_low): negative = red, below the alarm level = orange
-    rowClass: (p) => {
-      const total = stockOf(p).total;
-      return "click " + (total < 0 ? "neg" : (lowDefault && total < lowDefault ? "low" : ""));
-    },
-    rowAttr: (p) => `data-pid="${p.id}"`,
-    footer: `<p class="hint">${items.length} mặt hàng. <span class="key low">Cam</span> dưới mức báo động` +
-            `${lowDefault ? ` (${fmtQty(lowDefault)})` : " (đang tắt)"}, <span class="key neg">đỏ</span> tồn âm. ` +
-            `Bấm tiêu đề cột để sắp xếp, bấm một dòng để xem lịch sử vào ra.</p>`,
+    rowClass: (p) => (stockOf(p.id).total < 0 ? "neg" : isLow(p) ? "low" : ""),
+    select: "one", open: (p) => showProduct(p.id),
   });
-  for (const tr of stockTable.querySelectorAll("tr[data-pid]")) {
-    tr.addEventListener("click", () => showProduct(Number(tr.dataset.pid)));
-  }
+  const low = all.filter(isLow).length, negative = all.filter((p) => stockOf(p.id).total < 0).length;
+  $("stock-banner").classList.toggle("hidden", !low);
+  $("stock-banner").textContent = `⚠ ${low} mặt hàng sắp hết (dưới ${fmtQty(lowDefault)}) — nên đặt thêm hàng. Tick “Chỉ hiện hàng sắp hết” để xem riêng.`;
+  $("stock-summary").textContent = `${all.length} mặt hàng · ${low} sắp hết (cam) · ${negative} tồn âm (đỏ — thiếu hàng về hoặc chưa kiểm kê)`;
 }
 
-function renderOrders(f) {
-  const filtered = data.documents.filter((d) => {
-    if (orderKind !== "all" && d.kind !== orderKind) return false;
-    if (!f) return true;
-    const customer = customerById[d.customer_id];
-    const inLines = (linesByDoc[d.id] || []).some((l) => {
-      const p = productById[l.product_id];
-      return p && matches(f, `${p.code} ${p.name_vi} ${p.name_zh}`);
-    });
-    return matches(f, `${d.code} ${customer ? customer.name : ""} ${KIND_VI[d.kind] || d.kind} ${d.note}`) || inLines;
-  });
+/* ---------------------------------------------------------------- Cần xử lý */
 
-  // one chip per document kind, like the app's separate lists; counts follow the search box
-  const counts = {};
-  for (const d of data.documents) counts[d.kind] = (counts[d.kind] || 0) + 1;
-  const chips = ["all", ...KIND_ORDER.filter((k) => counts[k])].map((k) =>
-    `<button class="chip ${orderKind === k ? "active" : ""}" data-kind="${k}">` +
-    `${k === "all" ? "Tất cả" : KIND_VI[k]} (${k === "all" ? data.documents.length : counts[k]})</button>`).join("");
-
-  const showCustomer = orderKind === "all" || orderKind === "delivery" || orderKind === "receipt";
-  const cols = [
+function renderPendingUnplaced() {
+  const items = data.documents.filter((d) => d.kind === "delivery" && d.status === "active" && d.location_set === false)
+    .sort((a, b) => a.doc_date.localeCompare(b.doc_date));
+  buildTable("pending-unplaced", [
     { label: "Ngày", get: (d) => d.doc_date },
-    ...(orderKind === "all" ? [{ label: "Loại", get: (d) => KIND_VI[d.kind] || d.kind }] : []),
-    { label: "Mã", get: (d) => d.code },
-    ...(showCustomer ? [{ label: "Khách hàng", get: (d) => (customerById[d.customer_id] || {}).name || "" }] : []),
-    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
-    { label: "Tổng tiền", get: (d) => d.note_total, num: true, cls: "num", html: (d) => fmtMoney(d.note_total) },
-  ];
-  const el = buildTable("orders", cols, filtered.slice(0, 500), {
-    rowClass: (d) => `doc ${d.status !== "active" ? "closed" : ""}`,
-    rowAttr: (d) => `data-doc="${d.id}" data-cols="${cols.length}"`,
-    footer: `<p class="hint">Bấm một dòng để xem chi tiết. Hiện tối đa 500 phiếu mới nhất.</p>`,
-  });
-  el.insertAdjacentHTML("afterbegin", `<div class="chips">${chips}</div>`);
-  for (const chip of el.querySelectorAll(".chip")) {
-    chip.addEventListener("click", () => { orderKind = chip.dataset.kind; render(); });
-  }
-  for (const tr of el.querySelectorAll("tr.doc")) tr.addEventListener("click", () => toggleLines(tr));
-}
-
-function toggleLines(tr) {
-  const next = tr.nextElementSibling;
-  if (next && next.classList.contains("detail")) { next.remove(); return; }
-  const doc = data.documents.find((d) => String(d.id) === tr.dataset.doc);
-  if (!doc) return;
-  const detail = document.createElement("tr");
-  detail.className = "detail";
-  detail.innerHTML = `<td colspan="${tr.dataset.cols}">${orderDetailHtml(doc)}</td>`;
-  tr.after(detail);
-  bindOrderActions(detail, doc);  // owner.js: cancel, set place, edit receipt
-}
-
-function renderCustomers(f) {
-  const items = data.customers.filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`));
-  const customerTable = buildTable("customers", [
-    { label: "Khách hàng", get: (c) => c.name },
-    { label: "Người liên hệ", get: (c) => c.contact },
-    { label: "Điện thoại", get: (c) => c.phone },
-    { label: "Địa chỉ", get: (c) => c.address },
-  ], items, {
-    rowClass: () => "click",
-    rowAttr: (c) => `data-cid="${c.id}"`,
-    footer: `<p class="hint">Bấm một dòng để xem doanh thu và các đơn của khách.</p>`,
-  });
-  for (const tr of customerTable.querySelectorAll("tr[data-cid]")) {
-    tr.addEventListener("click", () => showCustomer(Number(tr.dataset.cid)));
-  }
-}
-
-/* ---------------------------------------------------------------- staff requests (web_inbox) */
-
-const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-const MAX_FILE = 2 * 1024 * 1024;  // same limit as the bucket and the desktop check
-let productLabels = {};  // "SP001 · name · spec" -> product id
-
-// the viewer's own calendar day: toISOString() would give the UTC day, a day off after midnight in Vietnam
-function todayLocal() {
-  const d = new Date(), p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-function productLabel(p) {
-  return [p.code, p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
-}
-
-function initSendForm() {
-  $("rc-date").value = todayLocal();
-  $("ct-date").value = todayLocal();
-  productLabels = {};
-  $("products-dl").innerHTML = data.products.filter((p) => p.active).map((p) => {
-    const label = productLabel(p);
-    productLabels[label] = p.id;
-    return `<option value="${esc(label)}">`;
-  }).join("");
-  initReceiptCustomers();
-  if (!$("rc-lines").children.length) { addLine(); addLine(); addLine(); }
-  if (!$("ct-lines").children.length) { addCountLine(); addCountLine(); addCountLine(); }
-  loadSent();
-}
-
-/* ---- goods in */
-
-function addLine() {
-  const row = document.createElement("div");
-  row.className = "line";
-  row.innerHTML = `<input class="rc-product" list="products-dl" placeholder="Gõ mã hoặc tên hàng…">` +
-    `<input class="rc-qty" type="number" min="0" step="any" placeholder="SL">` +
-    `<input class="rc-lnote" placeholder="Ghi chú">` +
-    `<button class="flat rc-del" title="Xoá dòng">✕</button>`;
-  row.querySelector(".rc-del").addEventListener("click", () => row.remove());
-  $("rc-lines").append(row);
-}
-
-async function sendReceipt() {
-  $("rc-error").textContent = ""; $("rc-msg").textContent = "";
-  const lines = [];
-  for (const row of $("rc-lines").querySelectorAll(".line")) {
-    const label = row.querySelector(".rc-product").value.trim();
-    const qty = parseFloat(row.querySelector(".rc-qty").value.replace(",", "."));
-    if (!label && !row.querySelector(".rc-qty").value) continue;  // empty row
-    const id = productLabels[label];
-    if (!id) { $("rc-error").textContent = `Không nhận ra mặt hàng "${label}". Hãy chọn từ danh sách gợi ý.`; return; }
-    if (!(qty > 0)) { $("rc-error").textContent = `Số lượng của "${label}" phải lớn hơn 0.`; return; }
-    lines.push({ product_id: id, code: productById[id].code, qty, note: row.querySelector(".rc-lnote").value.trim() });
-  }
-  if (!lines.length) { $("rc-error").textContent = "Chưa có dòng hàng nào."; return; }
-  const payload = {
-    doc_date: $("rc-date").value,
-    location_id: Number($("rc-loc").value),
-    note: $("rc-note").value.trim(),
-    lines,
-  };
-  if ($("rc-kind").value === "return") {
-    const customer = Number($("rc-customer").value);
-    if (!customer) { $("rc-error").textContent = "Hãy chọn khách trả lại hàng."; return; }
-    Object.assign(payload, { source: "return", customer_id: customer, ref_code: $("rc-ref").value.trim() });
-  } else {
-    if (!$("rc-source").value.trim()) { $("rc-error").textContent = "Hãy ghi nguồn hàng."; return; }
-    Object.assign(payload, { source: "supplier", supplier_name: $("rc-source").value.trim() });
-  }
-  if (receiptEdit) { await sendReceiptEdit(payload); return; }  // the owner editing a receipt (owner.js)
-  const { error } = await sb.from("web_inbox").insert({ kind: "receipt", payload });
-  if (error) { $("rc-error").textContent = `Không gửi được: ${error.message}`; return; }
-  $("rc-msg").textContent = "Đã gửi. Phiếu sẽ vào sổ sau khi máy chính duyệt.";
-  $("rc-lines").innerHTML = ""; addLine(); addLine(); addLine();
-  $("rc-note").value = "";
-  loadSent();
-}
-
-/* ---- delivery note (Excel file) */
-
-async function sendDelivery() {
-  const fail = (text) => { $("dl-error").textContent = text; };
-  $("dl-error").textContent = ""; $("dl-msg").textContent = "";
-  const file = $("dl-file").files[0];
-  if (!file) return fail("Hãy chọn file phiếu giao hàng.");
-  if (!/\.xlsx$/i.test(file.name)) return fail("Chỉ nhận file Excel .xlsx. Nếu là file .xls, hãy mở bằng Excel rồi Lưu thành .xlsx.");
-  if (file.size === 0) return fail("File trống.");
-  if (file.size > MAX_FILE) return fail("File lớn hơn 2 MB.");
-  $("dl-send").disabled = true;
-  try {
-    const buf = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest("SHA-256", buf);
-    const sha256 = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
-    // an ASCII-only storage key; the real file name travels in the payload
-    const path = `${crypto.randomUUID()}/phieu.xlsx`;
-    const up = await sb.storage.from("inbox-files").upload(path, buf, { contentType: XLSX_MIME, upsert: false });
-    if (up.error) return fail(`Không tải được file lên: ${up.error.message}`);
-    const { error } = await sb.from("web_inbox").insert({
-      kind: "delivery_file",
-      payload: { file_path: path, file_name: file.name, size: file.size, sha256, note: $("dl-note").value.trim() },
+    { label: "Mã đơn", get: (d) => d.code },
+    { label: "Khách hàng", get: (d) => (customerById[d.customer_id] || {}).name || "" },
+    { label: "Mặt hàng", get: (d) => (linesByDoc[d.id] || []).map((l) => `${(productById[l.product_id] || {}).code || "?"}×${fmtQty(l.qty)}`).join(", ") },
+    { label: "Lấy hàng từ", get: () => "", html: (d) => isOwner()
+        ? `<select data-place="${esc(d.id)}"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select> ` +
+          `<button data-place-save="${esc(d.id)}">Lưu</button>` : "chưa chọn" },
+  ], items, { open: (d) => showOrder(d.id), empty: "Không có đơn nào chờ chọn nơi lấy hàng." });
+  for (const btn of $("pending-unplaced").querySelectorAll("[data-place-save]")) {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.placeSave;
+      const sel = $("pending-unplaced").querySelector(`select[data-place="${CSS.escape(id)}"]`);
+      ownerAction(() => rpcWrite("web_set_location", { p_doc: id, p_location: Number(sel.value) }));
     });
-    if (error) return fail(`Không gửi được: ${error.message}`);
-    $("dl-msg").textContent = "Đã gửi. Phiếu sẽ được đọc sau khi máy chính duyệt.";
-    $("dl-file").value = ""; $("dl-note").value = "";
-    loadSent();
-  } finally {
-    $("dl-send").disabled = false;
   }
+  updatePendingBadge();
 }
 
-/* ---- stock count */
+let inboxRows = [];
 
-function addCountLine(product) {
-  const row = document.createElement("div");
-  row.className = "line count";
-  row.innerHTML = `<input class="ct-product" list="products-dl" placeholder="Gõ mã hoặc tên hàng…">` +
-    `<input class="ct-qty" inputmode="decimal" placeholder="Đếm được">` +
-    `<button class="flat ct-del" title="Xoá dòng">✕</button>`;
-  if (product) {
-    const input = row.querySelector(".ct-product");
-    input.value = productLabel(product);
-    input.readOnly = true;  // pre-filled rows only need a number
-  }
-  row.querySelector(".ct-del").addEventListener("click", () => row.remove());
-  $("ct-lines").append(row);
-}
-
-function fillCountLines() {
-  $("ct-lines").innerHTML = "";
-  data.products.filter((p) => p.active)
-    .sort((a, b) => (a.category || "").localeCompare(b.category || "", "vi") || a.code.localeCompare(b.code))
-    .forEach((p) => addCountLine(p));
-}
-
-async function sendCount() {
-  const fail = (text) => { $("ct-error").textContent = text; };
-  $("ct-error").textContent = ""; $("ct-msg").textContent = "";
-  const day = $("ct-date").value;
-  if (!day) return fail("Hãy chọn ngày kiểm kê.");
-  if (day > todayLocal()) return fail("Ngày kiểm kê không được ở tương lai.");
-  const lines = [], seen = new Set();
-  for (const row of $("ct-lines").querySelectorAll(".line")) {
-    const label = row.querySelector(".ct-product").value.trim();
-    const raw = row.querySelector(".ct-qty").value.trim();
-    if (!raw) continue;  // blank = this product was not counted
-    const id = productLabels[label];
-    if (!id) return fail(`Không nhận ra mặt hàng "${label}". Hãy chọn từ danh sách gợi ý.`);
-    const qty = Number(raw.replace(",", "."));
-    if (!Number.isFinite(qty) || qty < 0) return fail(`Số đếm của "${label}" không hợp lệ (phải là số từ 0 trở lên).`);
-    if (seen.has(id)) return fail(`Mặt hàng "${label}" bị nhập hai lần.`);
-    seen.add(id);
-    lines.push({ product_id: id, code: productById[id].code, qty });
-  }
-  if (!lines.length) return fail("Chưa có mặt hàng nào được đếm.");
-  const place = $("ct-loc").selectedOptions[0].text;
-  // a count cannot be edited after sending: ask once
-  if (!confirm(`Gửi kiểm kê ${lines.length} mặt hàng tại ${place}, ngày ${day}?`)) return;
-  const payload = { count_date: day, location_id: Number($("ct-loc").value), note: $("ct-note").value.trim(), lines };
-  $("ct-send").disabled = true;
-  try {
-    const { error } = await sb.from("web_inbox").insert({ kind: "stock_count", payload });
-    if (error) return fail(`Không gửi được: ${error.message}`);
-    $("ct-msg").textContent = "Đã gửi. Kiểm kê sẽ vào sổ sau khi máy chính duyệt.";
-    $("ct-lines").innerHTML = ""; addCountLine(); addCountLine(); addCountLine();
-    $("ct-note").value = "";
-    loadSent();
-  } finally {
-    $("ct-send").disabled = false;
-  }
-}
-
-/* ---- what was sent */
-
-const SENT_KIND = {
-  receipt: "Hàng về", delivery_file: "Phiếu giao hàng", stock_count: "Kiểm kê",
-  cmd_transfer: "Chuyển hàng", cmd_trial: "Xuất dùng thử", cmd_product_add: "Thêm mặt hàng",
-  cmd_product_edit: "Sửa mặt hàng", cmd_product_merge: "Gộp mặt hàng", cmd_customer_merge: "Gộp khách hàng",
-  cmd_cancel_doc: "Huỷ phiếu", cmd_set_location: "Đặt nơi lấy/nhập hàng", cmd_receipt_edit: "Sửa phiếu hàng về",
+const INBOX_KIND = {
+  receipt: "Hàng về", delivery_file: "Phiếu giao hàng (file)", stock_count: "Kiểm kê",
+  cmd_transfer: "Chuyển hàng (lệnh cũ)", cmd_trial: "Xuất dùng thử (lệnh cũ)", cmd_product_add: "Thêm mặt hàng (lệnh cũ)",
+  cmd_product_edit: "Sửa mặt hàng (lệnh cũ)", cmd_product_merge: "Gộp mặt hàng (lệnh cũ)", cmd_customer_merge: "Gộp khách (lệnh cũ)",
+  cmd_cancel_doc: "Huỷ phiếu (lệnh cũ)", cmd_set_location: "Đặt nơi (lệnh cũ)", cmd_receipt_edit: "Sửa phiếu hàng về (lệnh cũ)",
 };
 
-function sentDetail(r) {
+function inboxDetail(r) {
   const p = r.payload || {};
-  if (p.summary) return p.summary;  // an owner command carries its own one-line description
+  if (p.summary) return p.summary;
   if (r.kind === "delivery_file") return p.file_name || "";
-  if (r.kind === "stock_count") {
-    return `${p.count_date || ""} · ${p.location_id === 2 ? "Văn phòng" : "Kho tổng"} · ${(p.lines || []).length} mặt hàng`;
-  }
-  return `${p.doc_date || ""} · ${p.supplier_name || ""} · ${(p.lines || []).length} dòng`;
+  if (r.kind === "stock_count") return `${p.count_date || ""} · ${PLACE[p.location_id] || "Kho tổng"} · ${(p.lines || []).length} mặt hàng`;
+  return `${p.doc_date || ""} · ${p.supplier_name || (customerById[p.customer_id] || {}).name || ""} · ${(p.lines || []).length} dòng`;
 }
 
-function sentStatus(r) {
+function inboxStatus(r) {
   const res = r.result || {};
-  if (r.status === "rejected") return res.reason ? `✖ Không làm được: ${esc(res.reason)}` : "✖ Bị từ chối";
-  if (r.status !== "applied") return isOwner() && r.kind.startsWith("cmd_") ? "⏳ Chờ máy chính thực hiện" : "⏳ Chờ máy chính duyệt";
-  if (res.summary) return `✔ ${esc(res.summary)}`;
-  if (r.kind === "delivery_file") return res.already ? "✔ Máy chính đã có phiếu này" : "✔ Đã nhận, máy chính đang đọc";
-  return `✔ Đã vào sổ${res.code ? ` (${esc(res.code)})` : ""}`;
+  if (r.status === "rejected") return res.reason ? `✖ Không vào sổ: ${res.reason}` : "✖ Bị từ chối";
+  if (r.status !== "applied") return "⏳ Chờ chủ duyệt trên app";
+  if (r.kind === "delivery_file") return res.already ? "✔ App đã có phiếu này" : "✔ Đã nhận, app đang đọc";
+  return `✔ Đã vào sổ${res.code ? ` (${res.code})` : ""}`;
 }
 
-async function senderNames() {
-  const { data: rows } = await sb.from("profiles").select("user_id,display_name");
-  return new Map((rows || []).map((p) => [p.user_id, p.display_name || ""]));
+async function loadInbox() {
+  if (!userRole || userRole === "viewer") { $("pending-inbox").innerHTML = ""; inboxRows = []; updatePendingBadge(); return; }
+  const { data: rows, error } = await sb.from("web_inbox").select("*").order("created_at", { ascending: false }).limit(50);
+  inboxRows = error || !rows ? [] : rows;
+  let names = new Map();
+  if (isOwner()) {
+    const { data: profs } = await sb.from("profiles").select("user_id,display_name");
+    names = new Map((profs || []).map((p) => [p.user_id, p.display_name || ""]));
+  }
+  buildTable("pending-inbox", [
+    { label: "Gửi lúc", get: (r) => fmtTime(r.created_at) },
+    ...(isOwner() ? [{ label: "Người gửi", get: (r) => names.get(r.created_by) || "" }] : []),
+    { label: "Loại", get: (r) => INBOX_KIND[r.kind] || r.kind },
+    { label: "Nội dung", get: inboxDetail },
+    { label: "Trạng thái", get: inboxStatus },
+  ], inboxRows, { empty: "Chưa có yêu cầu nào." });
+  updatePendingBadge();
 }
 
-async function loadSent() {
-  const { data: rows, error } = await sb.from("web_inbox").select("*")
-    .order("created_at", { ascending: false }).limit(50);
-  if (error || !rows) return;
-  const names = isOwner() ? await senderNames() : null;
-  $("rc-sent").innerHTML = `<div class="scroll"><table><thead><tr>` +
-    `<th>Gửi lúc</th>${names ? "<th>Người gửi</th>" : ""}<th>Loại</th><th>Nội dung</th><th>Trạng thái</th></tr></thead><tbody>` +
-    rows.map((r) => `<tr><td>${esc(fmtTime(r.created_at))}</td>` +
-      `${names ? `<td>${esc(names.get(r.created_by) || "")}</td>` : ""}<td>${esc(SENT_KIND[r.kind] || r.kind)}</td>` +
-      `<td>${esc(sentDetail(r))}</td><td>${sentStatus(r)}</td></tr>`).join("") +
-    `</tbody></table></div>`;
+function updatePendingBadge() {
+  const unplaced = data.documents.filter((d) => d.kind === "delivery" && d.status === "active" && d.location_set === false).length;
+  const waiting = inboxRows.filter((r) => r.status === "pending").length;
+  const n = unplaced + waiting;
+  $("nav-pending").textContent = n ? `Cần xử lý  (${n})` : "Cần xử lý";
+  $("nav-pending").classList.toggle("alert", n > 0);
+}
+
+/* ---------------------------------------------------------------- Tra cứu */
+
+function renderSearch() {
+  const f = $("search-input").value.trim();
+  const out = $("search-results");
+  if (!f) { out.innerHTML = ""; return; }
+  const products = data.products.filter((p) => matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`));
+  const customers = data.customers.filter((c) => matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`));
+  const docs = data.documents.filter((d) => matches(f, `${d.code} ${d.note} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name}`))
+    .sort((a, b) => b.doc_date.localeCompare(a.doc_date)).slice(0, 200);
+  out.innerHTML = `<h2>Mặt hàng (${products.length})</h2><div id="sr-products"></div>` +
+    `<h2>Khách hàng (${customers.length})</h2><div id="sr-customers"></div><h2>Phiếu (${docs.length})</h2><div id="sr-docs"></div>`;
+  buildTable("sr-products", [
+    { label: "Mã", get: (p) => p.code }, { label: "Mặt hàng", get: productName }, { label: "Tên Trung", get: (p) => p.name_zh },
+    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+  ], products, { open: (p) => showProduct(p.id) });
+  buildTable("sr-customers", [
+    { label: "Khách hàng", get: (c) => c.name }, { label: "Điện thoại", get: (c) => c.phone }, { label: "Địa chỉ", get: (c) => c.address },
+  ], customers, { open: (c) => showCustomer(c.id) });
+  buildTable("sr-docs", [
+    { label: "Ngày", get: (d) => d.doc_date }, { label: "Loại", get: (d) => KIND_VI[d.kind] || d.kind }, { label: "Mã", get: (d) => d.code },
+    { label: "Khách / nguồn", get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
+    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
+  ], docs, { open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : "") });
+}
+
+/* ---------------------------------------------------------------- Đơn hàng */
+
+function renderOrders() {
+  const kindSel = $("orders-kind");
+  if (!kindSel.options.length) {
+    kindSel.innerHTML = `<option value="all">Tất cả</option>` + KIND_ORDER.map((k) => `<option value="${k}">${KIND_VI[k]}</option>`).join("");
+    kindSel.value = "delivery";
+  }
+  const kind = kindSel.value, f = $("orders-filter").value, withClosed = $("orders-closed").checked;
+  const items = data.documents.filter((d) => (kind === "all" || d.kind === kind) && (withClosed || d.status === "active") &&
+      (!f || matches(f, `${d.code} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name} ${d.note}`)))
+    .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
+  buildTable("orders-table", [
+    { label: "Ngày", get: (d) => d.doc_date },
+    ...(kind === "all" ? [{ label: "Loại", get: (d) => KIND_VI[d.kind] || d.kind }] : []),
+    { label: "Mã", get: (d) => d.code },
+    { label: "Khách / nguồn", get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
+    { label: "Nơi", get: placeOf },
+    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
+    { label: "Tổng tiền", get: (d) => d.note_total, num: true, cls: "num", html: (d) => fmtMoney(d.note_total) },
+  ], items, { select: "one", open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : "") });
+  $("orders-count").textContent = `${items.length} phiếu`;
+}
+
+/* ---------------------------------------------------------------- Khách hàng */
+
+function renderCustomers() {
+  const f = $("customers-filter").value;
+  const items = data.customers.filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`))
+    .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  const revenue = {};
+  for (const d of data.documents) {
+    if (d.kind !== "delivery" || d.status !== "active" || !d.customer_id) continue;
+    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = (revenue[d.customer_id] || 0) + l.amount;
+  }
+  buildTable("customers-table", [
+    { label: "Khách hàng", get: (c) => c.name }, { label: "Người liên hệ", get: (c) => c.contact },
+    { label: "Điện thoại", get: (c) => c.phone }, { label: "Địa chỉ", get: (c) => c.address },
+    { label: "Doanh thu", get: (c) => revenue[c.id] ?? null, num: true, cls: "num", html: (c) => fmtMoney(revenue[c.id]) },
+  ], items, { select: isOwner() ? "many" : null, open: (c) => showCustomer(c.id) });
+}
+
+/* ---------------------------------------------------------------- Hàng về */
+
+function renderReceipts() {
+  const items = data.documents.filter((d) => d.kind === "receipt")
+    .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
+  buildTable("receipts-table", [
+    { label: "Ngày về", get: (d) => d.doc_date },
+    { label: "Mã", get: (d) => d.code },
+    { label: "Nguồn hàng", get: (d) => (d.receipt_source === "return" ? "Khách trả lại" : "Cửa khẩu / công ty mẹ") },
+    { label: "Nhà cung cấp / khách", get: (d) => d.supplier_name || (customerById[d.customer_id] || {}).name || "" },
+    { label: "Nhập vào", get: (d) => PLACE[d.location_id] || "" },
+    { label: "Số mặt hàng", get: (d) => (linesByDoc[d.id] || []).length, num: true, cls: "num" },
+    { label: "Tổng số lượng", get: (d) => (linesByDoc[d.id] || []).reduce((a, l) => a + l.qty, 0), num: true, cls: "num",
+      html: (d) => fmtQty((linesByDoc[d.id] || []).reduce((a, l) => a + l.qty, 0)) },
+    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
+    { label: "Ghi chú", get: (d) => d.note },
+  ], items, { select: "one", open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : ""),
+              empty: "Chưa có lần hàng về nào." });
+}
+
+/* ---------------------------------------------------------------- Cài đặt */
+
+function renderCatalog() {
+  const f = $("catalog-filter").value;
+  const items = data.products.filter((p) => !f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category}`))
+    .sort((a, b) => a.code.localeCompare(b.code, "vi", { numeric: true }));
+  buildTable("catalog-table", [
+    { label: "Mã", get: (p) => p.code }, { label: "Mặt hàng", get: (p) => p.name_vi }, { label: "Tên Trung", get: (p) => p.name_zh },
+    { label: "Quy cách", get: (p) => p.spec }, { label: "Loại / màu", get: (p) => p.variant }, { label: "Đơn vị", get: (p) => p.unit },
+    { label: "Nhóm hàng", get: (p) => p.category }, { label: "Đang dùng", get: (p) => (p.active ? "✔" : "") },
+  ], items, { select: "one", open: (p) => (isOwner() ? productForm(p) : showProduct(p.id)), rowClass: (p) => (p.active ? "" : "closed") });
+}
+
+function renderSettingsInfo() {
+  const what = { desktop: "Chủ (làm được mọi việc như trên app)", editor: "Nhân viên (gửi yêu cầu, chủ duyệt trên app)",
+                 viewer: "Chỉ xem" }[userRole] || "Chưa được cấp quyền";
+  $("settings-info").innerHTML = `<dt>Tài khoản</dt><dd>${esc(userName)}</dd><dt>Quyền</dt><dd>${esc(what)}</dd>` +
+    `<dt>Báo động khi tồn dưới</dt><dd>${lowDefault ? esc(fmtQty(lowDefault)) : "đang tắt"} (đổi trong app: Cài đặt → Danh mục mặt hàng)</dd>` +
+    `<dt>Dữ liệu</dt><dd>${esc($("freshness").textContent)}</dd>`;
 }
 
 /* ---------------------------------------------------------------- wiring */
 
-let activeTab = "stock";
-const NO_SEARCH_TABS = ["send", "stats"];  // the search box does not apply to the forms and the statistics
-
-function showActivePane() {
-  document.querySelectorAll(".pane").forEach((p) => p.classList.add("hidden"));
-  $(`tab-${activeTab}`).classList.remove("hidden");
-  $("toolbar").classList.toggle("hidden", NO_SEARCH_TABS.includes(activeTab));
-}
-
-for (const btn of document.querySelectorAll(".tab")) {
+for (const btn of document.querySelectorAll(".nav")) btn.addEventListener("click", () => showPage(btn.dataset.page));
+for (const btn of document.querySelectorAll("[data-sub]")) btn.addEventListener("click", () => showPage(btn.dataset.sub));
+for (const btn of document.querySelectorAll("[data-back]")) btn.addEventListener("click", () => showPage(btn.dataset.back));
+for (const btn of document.querySelectorAll(".stab")) {
   btn.addEventListener("click", () => {
-    activeTab = btn.dataset.tab;
-    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b === btn));
-    showActivePane();
+    document.querySelectorAll(".stab").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".spane").forEach((p) => p.classList.toggle("hidden", p.id !== `stab-${btn.dataset.stab}`));
   });
 }
-for (const chip of document.querySelectorAll("#send-kinds .chip")) {
-  chip.addEventListener("click", () => {
-    document.querySelectorAll("#send-kinds .chip").forEach((c) => c.classList.toggle("active", c === chip));
-    document.querySelectorAll("#send-kinds .chip").forEach((c) => $(`send-${c.dataset.send}`).classList.toggle("hidden", c !== chip));
-  });
-}
-$("rc-add").addEventListener("click", addLine);
-$("rc-send").addEventListener("click", sendReceipt);
-$("dl-send").addEventListener("click", sendDelivery);
-$("ct-add").addEventListener("click", () => addCountLine());
-$("ct-fill").addEventListener("click", fillCountLines);
-$("ct-clear").addEventListener("click", () => { $("ct-lines").innerHTML = ""; addCountLine(); addCountLine(); addCountLine(); });
-$("ct-send").addEventListener("click", sendCount);
+$("stock-filter").addEventListener("input", renderStock);
+$("stock-low").addEventListener("change", renderStock);
+$("search-input").addEventListener("input", renderSearch);
+$("orders-kind").addEventListener("change", renderOrders);
+$("orders-filter").addEventListener("input", renderOrders);
+$("orders-closed").addEventListener("change", renderOrders);
+$("customers-filter").addEventListener("input", renderCustomers);
+$("catalog-filter").addEventListener("input", renderCatalog);
 $("login-btn").addEventListener("click", signIn);
 $("password").addEventListener("keydown", (e) => e.key === "Enter" && signIn());
-$("filter").addEventListener("input", render);
 $("reload").addEventListener("click", loadAll);
 $("logout").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
 
-sb.auth.getSession().then(({ data: { session } }) => {
-  (session ? showApp() : Promise.resolve()).finally(() => {
-    if (!session) $("login").classList.remove("hidden");
+if (!window.__DIBEKHO_TEST__) {
+  sb.auth.getSession().then(({ data: { session } }) => {
+    (session ? showApp() : Promise.resolve()).finally(() => {
+      if (!session) $("login").classList.remove("hidden");
+    });
   });
-});
+}

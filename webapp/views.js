@@ -1,5 +1,5 @@
 /* DiBeKho web: the detail windows and the statistics screen -- the information the app's own windows show,
-   computed from the mirror tables loaded by app.js (data, productById, customerById, linesByDoc, ...).
+   computed from the shared tables loaded by app.js (data, productById, customerById, linesByDoc, ...).
    Statistics come from stats.js, which tests/test_web_stats.py keeps identical to the app's core/stats.py. */
 
 "use strict";
@@ -13,7 +13,6 @@ const MOVE_KIND = {
   transfer_out: "Chuyển đi", transfer_in: "Chuyển đến", transfer_reverse: "Huỷ chuyển hàng",
   trial_out: "Dùng thử", trial_reverse: "Huỷ dùng thử",
 };
-const PLACE = { 1: "Kho tổng", 2: "Văn phòng" };
 const STATUS_TEXT = { active: "Hiệu lực", cancelled: "Đã huỷ", replaced: "Đã thay bằng bản sửa" };
 
 /* ---------------------------------------------------------------- helpers */
@@ -45,17 +44,15 @@ function csvButton(container, filename, headers, rows) {
 }
 
 function backBar(title) {
-  return `<div class="backbar"><button class="flat" id="detail-back">← Quay lại</button><h2>${esc(title)}</h2></div>`;
+  return `<div class="backbar"><button class="back" id="detail-back">← Quay lại</button><h1>${esc(title)}</h1></div>`;
 }
 
 function openDetail(html) {
-  document.querySelectorAll(".pane").forEach((p) => p.classList.add("hidden"));
-  $("toolbar").classList.add("hidden");
-  const box = $("detail");
+  const back = backTo;
+  const box = $("page-detail");
   box.innerHTML = html;
-  box.classList.remove("hidden");
-  $("detail-back").addEventListener("click", showActivePane);
-  window.scrollTo(0, 0);
+  showPage("detail");
+  $("detail-back").addEventListener("click", () => showPage(back));
   return box;
 }
 
@@ -65,7 +62,7 @@ function productName(p) {
   return [p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
 }
 
-/* ---------------------------------------------------------------- order detail (inside the orders table) */
+/* ---------------------------------------------------------------- order detail (the app's Chi tiết đơn window) */
 
 function placeOf(d) {
   if (d.kind === "transfer") return `${PLACE[d.location_id] || "?"} → ${PLACE[d.to_location_id] || "?"}`;
@@ -99,8 +96,7 @@ function orderDetailHtml(d) {
            `<td>${esc(l.note)}</td></tr>`;
   });
   return `<dl class="info">${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` +
-    plainTable(["Mã", "Mặt hàng", "Quy cách", "SL", "Đơn giá", "Thành tiền", "Ghi chú"], rows, 3) +
-    ownerActionsHtml(d);  // the owner's buttons (owner.js); empty for everyone else
+    plainTable(["Mã", "Mặt hàng", "Quy cách", "SL", "Đơn giá", "Thành tiền", "Ghi chú"], rows, 3);
 }
 
 /* ---------------------------------------------------------------- product detail */
@@ -108,7 +104,7 @@ function orderDetailHtml(d) {
 function productHistory(id) {
   const docs = new Map(data.documents.map((d) => [d.id, d]));
   const moves = data.movements.filter((m) => m.product_id === id)
-    .sort((a, b) => a.occurred_on.localeCompare(b.occurred_on) || a.id - b.id);
+    .sort((a, b) => a.occurred_on.localeCompare(b.occurred_on) || String(a.created_at).localeCompare(String(b.created_at)));
   let balance = 0;
   return moves.map((m) => {
     balance += m.qty;
@@ -134,7 +130,13 @@ function showProduct(id) {
     `<div class="stat"><span>Văn phòng</span><b>${fmtQty(st[2])}</b></div></div>` +
     `<h3>Lịch sử vào ra (mới nhất trước)</h3><div id="ph-table"></div>` +
     `<h3>Khách lấy nhiều nhất</h3><div id="ph-top"></div>`);
-  addProductActions(box, p);  // owner.js: edit / stop using this product
+  if (isOwner()) {
+    const bar = document.createElement("div");
+    bar.className = "row";
+    bar.innerHTML = `<button>Sửa mặt hàng…</button>`;
+    bar.querySelector("button").addEventListener("click", () => productForm(p));
+    box.querySelector(".backbar").after(bar);
+  }
   const newest = history.slice().reverse();
   $("ph-table").innerHTML = plainTable(["Ngày", "Loại", "Mã phiếu", "Khách / nguồn", "Nơi", "Số lượng", "Tồn sau", "Phiếu"],
     newest.map((m) => `<tr class="${m.status && m.status !== "active" ? "closed" : ""}"><td>${esc(m.occurred_on)}</td>` +
@@ -190,7 +192,8 @@ function customerStats(id, from, to) {
       perProduct.set(l.product_id, row);
     }
   }
-  return { docs: docs.sort((a, b) => b.doc_date.localeCompare(a.doc_date) || b.id - a.id), goods, fees, unpriced, perProduct, ids, docById };
+  return { docs: docs.sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true })),
+           goods, fees, unpriced, perProduct, ids, docById };
 }
 
 function showCustomer(id, from, to) {
@@ -222,10 +225,10 @@ function showCustomer(id, from, to) {
   $("cd-orders").innerHTML = plainTable(["Ngày", "Mã", "Tiền hàng", "Phí khác", ""],
     s.docs.map((d) => {
       const goods = (linesByDoc[d.id] || []).reduce((a, l) => a + (l.amount || 0), 0);
-      return `<tr class="doc" data-doc="${d.id}" data-cols="5"><td>${esc(d.doc_date)}</td><td>${esc(d.code)}</td>` +
-             `<td class="num">${fmtMoney(goods)}</td><td class="num">${fmtMoney(d.fee_amount)}</td><td class="hint">xem chi tiết</td></tr>`;
+      return `<tr class="click" data-doc="${esc(d.id)}"><td>${esc(d.doc_date)}</td><td>${esc(d.code)}</td>` +
+             `<td class="num">${fmtMoney(goods)}</td><td class="num">${fmtMoney(d.fee_amount)}</td><td class="hint">nháy đúp để xem</td></tr>`;
     }), 2);
-  for (const tr of $("cd-orders").querySelectorAll("tr.doc")) tr.addEventListener("click", () => toggleLines(tr));
+  for (const tr of $("cd-orders").querySelectorAll("tr[data-doc]")) tr.addEventListener("dblclick", () => showOrder(tr.dataset.doc));
   csvButton(box, `KhachHang_${c.name.replace(/[^\p{L}\p{N}]+/gu, "_")}.csv`,
     ["Mã", "Mặt hàng", "Quy cách", "Tổng SL", "Số đơn", "Lần cuối", "Doanh thu", "Giá thấp", "Giá cao"],
     prodRows.map((r) => [r.p.code, r.p.name_vi, r.p.spec, r.qty, r.times, r.last, r.revenue, r.min, r.max]));
@@ -282,8 +285,8 @@ function statsRange() {
 function statsFilters() {
   const scope = $("st-scope").value, value = $("st-value").value;
   if (scope === "category") return { categories: [value] };
-  if (scope === "product") return { productIds: [Number(value)] };
-  if (scope === "customer") return { customerIds: [Number(value)] };
+  if (scope === "product") return { productIds: [value] };
+  if (scope === "customer") return { customerIds: [value] };
   return {};
 }
 
@@ -326,10 +329,8 @@ function renderStats() {
       { label: `${b} xuất`, get: (r) => r.per_bucket[b][1], num: true, cls: "num qty", html: (r) => fmtQty(r.per_bucket[b][1]) },
     ]),
   ];
-  const el = buildTable("stats", cols, rows, {
-    into: "st-table", rerender: renderStats,
-    footer: `<p class="hint">${rows.length} mặt hàng. Bấm tiêu đề cột để sắp xếp.</p>`,
-  });
+  const el = buildTable("st-table", cols, rows, { key: (r) => r.product_id });
+  el.insertAdjacentHTML("beforeend", `<p class="hint">${rows.length} mặt hàng. Bấm tiêu đề cột để sắp xếp.</p>`);
   csvButton(el, `ThongKe_${start}_${end}.csv`, cols.map((c) => c.label), rows.map((r) => cols.map((c) => c.get(r))));
 
   $("st-chart").innerHTML = chartHtml(S.dailyOut(model, start, end, f));

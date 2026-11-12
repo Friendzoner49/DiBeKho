@@ -100,6 +100,18 @@ def check(conn, item: dict) -> tuple[receipts.ReceiptInput, list[str]]:
     return receipt_input(conn, payload_of(item))
 
 
+def local_id(conn, table: str, value) -> int:
+    """An id the web sent: the shared data's uuid (cloud mode, docs/cloud/06) or this database's own number (the mirror
+    of before). Raises ValueError when it is neither; an unknown uuid gives -1 (no such row here)."""
+    text = str(value if value is not None else "")
+    if "-" in text:
+        from dibekho.core.cloud import replica
+
+        found = replica.local_for(conn, table, text)
+        return -1 if found is None else found
+    return int(text)
+
+
 def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
     errors: list[str] = []
     try:
@@ -111,13 +123,14 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
     lines = []
     for raw in p.get("lines") or []:
         try:
-            product_id, qty = int(raw.get("product_id")), float(raw.get("qty"))
+            product_id, qty = local_id(conn, "products", raw.get("product_id")), float(raw.get("qty"))
         except (TypeError, ValueError):
             errors.append("Có dòng hàng không đọc được.")
             continue
         row = conn.execute("SELECT code, active FROM products WHERE id = ?", (product_id,)).fetchone()
         if row is None:
-            errors.append(f"Mặt hàng #{product_id} không còn trong danh mục (đã xoá hoặc gộp).")
+            errors.append(f"Mặt hàng {raw.get('code') or '#' + str(raw.get('product_id'))} không còn trong danh mục "
+                          "(đã xoá hoặc gộp).")
             continue
         if raw.get("code") and raw.get("code") != row["code"]:  # the web sends the code it saw: the id may mean another product now
             errors.append(f"Mặt hàng {raw.get('code')} đã thay đổi trên máy chính (có thể đã Hoàn tác). Hãy tải lại trang web.")
@@ -132,7 +145,11 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
     customer_id, customer_name = None, ""
     if source == receipts.RETURN:  # goods a customer sent back
         if p.get("customer_id") is not None:
-            row = conn.execute("SELECT id FROM customers WHERE id = ?", (p.get("customer_id"),)).fetchone()
+            try:
+                cid = local_id(conn, "customers", p.get("customer_id"))
+            except ValueError:
+                cid = -1
+            row = conn.execute("SELECT id FROM customers WHERE id = ?", (cid,)).fetchone()
             if row is None:
                 errors.append("Khách hàng không còn trong danh sách (có thể đã gộp).")
             else:
@@ -308,13 +325,14 @@ def check_count(conn, item: dict) -> tuple[date, int, list[tuple[int, float]], l
     lines, seen = [], set()
     for raw in p.get("lines") or []:
         try:
-            product_id, qty = int(raw.get("product_id")), float(raw.get("qty"))
+            product_id, qty = local_id(conn, "products", raw.get("product_id")), float(raw.get("qty"))
         except (TypeError, ValueError):
             errors.append("Có dòng kiểm kê không đọc được.")
             continue
         row = conn.execute("SELECT code FROM products WHERE id = ?", (product_id,)).fetchone()
         if row is None:
-            errors.append(f"Mặt hàng #{product_id} không còn trong danh mục (đã xoá hoặc gộp).")
+            errors.append(f"Mặt hàng {raw.get('code') or '#' + str(raw.get('product_id'))} không còn trong danh mục "
+                          "(đã xoá hoặc gộp).")
         elif raw.get("code") and raw.get("code") != row["code"]:
             errors.append(f"Mặt hàng {raw.get('code')} đã thay đổi trên máy chính (có thể đã Hoàn tác). Hãy tải lại trang web.")
         elif qty < 0 or qty != qty:

@@ -1,110 +1,112 @@
-/* Driven by tests/test_web_contract.py inside headless Chrome. It fills in and presses the web forms of the owner on
-   the data of a real database (window.__FIXTURE__ = the mirror payload), captures every row the page would insert
-   into web_inbox, and hands them back for the desktop to carry out. No network: sb.from(...).insert is a stub. */
+/* Driven by tests/test_web_contract.py inside headless Chrome. Fills in and presses the owner's windows of the web
+   page on the shared data of a real shop (window.__FIXTURE__ = the cloud's rows), captures every function call the page
+   would make (sb.rpc) and every staff request (web_inbox insert), and hands them back; the test then runs those calls on
+   a real Postgres and lets the app pull the result. No network here: sb is stubbed. */
 
 (async () => {
-  const out = { captured: [], checks: {}, error: null };
+  const out = { calls: [], requests: [], checks: {}, error: null };
   try {
     const F = window.__FIXTURE__;
-    Object.assign(data, F);
-    productById = {}; customerById = {}; linesByDoc = {}; stockByProduct = {};
-    for (const p of data.products) productById[p.id] = p;
-    for (const c of data.customers) customerById[c.id] = c;
-    for (const l of data.lines) (linesByDoc[l.document_id] ||= []).push(l);
-    sb.from = () => ({ insert: async (row) => { out.captured.push(row); return { error: null }; } });
-    loadSent = async () => {};
+    const reload = async () => { setData(JSON.parse(JSON.stringify(F))); renderAll(); };
+    loadAll = reload;           // after a write the page reloads: give it the same rows back
+    loadInbox = async () => {};
+    sb.rpc = async (fn, args) => { out.calls.push({ fn, args }); return { data: { code: "X", dropped: "Y" }, error: null }; };
+    sb.from = () => ({ insert: async (row) => { out.requests.push(row); return { error: null }; } });
     window.confirm = () => true;
     window.alert = () => {};
 
-    const wait = () => new Promise((r) => setTimeout(r, 25));
-    const code = (c) => data.products.find((p) => p.code === c);
-    const label = (c) => productLabel(code(c));
-    const docBy = (kind, c) => data.documents.find((d) => d.kind === kind && d.code === c);
-    const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
-    const press = async (id) => { $(id).click(); await wait(); };
-    const setRow = (prefix, i, c, qty) => {
-      while ($(`${prefix}-lines`).children.length <= i) addLineRow(prefix, true);
-      const row = $(`${prefix}-lines`).children[i];
-      row.querySelector(`.${prefix}-product`).value = label(c);
-      row.querySelector(`.${prefix}-qty`).value = String(qty);
+    const wait = () => new Promise((r) => setTimeout(r, 30));
+    const prod = (code) => data.products.find((p) => p.code === code);
+    const docBy = (kind, code) => data.documents.find((d) => d.kind === kind && d.code === code && d.status === "active");
+    const press = async (label) => {
+      const btn = [...document.querySelectorAll("#dlg-buttons button")].find((b) => b.textContent === label);
+      if (!btn) throw new Error(`no button “${label}” in: ${$("dlg-title").textContent}`);
+      btn.click(); await wait(); await wait();
+      if ($("dlg-error").textContent) throw new Error(`${label}: ${$("dlg-error").textContent}`);
     };
+    const typeIn = (el, value) => { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); };
+    const qtyRow = (tbody, code) => $(tbody).querySelector(`tr[data-pid="${prod(code).id}"] input`);
+    const shown = (id) => getComputedStyle($(id)).display !== "none";
 
-    // staff see none of the owner's tools
-    userRole = "editor";
-    initSendForm(); initOwnerMode();
-    out.checks.staffChipsHidden = Array.from(document.querySelectorAll(".chip.owner")).every((c) => c.classList.contains("hidden"));
-    out.checks.staffActions = ownerActionsHtml(docBy("delivery", "7"));
+    // staff: no owner buttons, the goods-in and count buttons are there
+    setRole("editor", "NV");
+    await reload();
+    out.checks.staff = { transfer: shown("count-transfer"), receipt: shown("receipt-new"), save: shown("count-save"),
+                         editReceipt: shown("receipt-edit") };
+    // staff send a goods-in request
+    receiptForm(null);
+    typeIn($("rf-lines").querySelector(".rf-product"), productLabel(prod("SP002")));
+    typeIn($("rf-lines").querySelector(".rf-qty"), "4,5");
+    $("rf-supplier").value = "Cua khau";
+    await press("Lưu phiếu hàng về");
+    // ...and a count of the office
+    typeIn($("count-table").querySelector(`input[data-count="${prod("SP001").id}"][data-place="2"]`), "3");
+    $("count-save").click(); await wait(); await wait();
 
-    userRole = "desktop";
-    initOwnerMode();
-    out.checks.ownerChipsShown = Array.from(document.querySelectorAll(".chip.owner")).every((c) => !c.classList.contains("hidden"));
-    out.checks.ownerTabLabel = $("send-tab").textContent;
+    setRole("desktop", "Chủ");
+    await reload();
+    out.checks.owner = { transfer: shown("count-transfer"), merge: shown("catalog-merge") };
 
     // 1. transfer
-    $("tr-date").value = "2026-11-05"; $("tr-from").value = "1"; $("tr-to").value = "2";
-    setRow("tr", 0, "SP001", 12); $("tr-note").value = "ban tai van phong";
-    await press("tr-send");
+    transferForm(null);
+    $("tf-date").value = "2026-11-05"; $("tf-from").value = "1"; $("tf-to").value = "2";
+    $("tf-note").value = "ban tai van phong";
+    qtyRow("tf-lines", "SP001").value = "12";
+    await press("Lưu phiếu chuyển");
     // 2. trial use
-    $("tu-date").value = "2026-11-06"; $("tu-loc").value = "2"; setRow("tu", 0, "SP001", 2);
-    await press("tu-send");
+    trialForm();
+    $("tu-date").value = "2026-11-06"; $("tu-loc").value = "2";
+    qtyRow("tu-lines", "SP001").value = "2";
+    await press("Lưu phiếu dùng thử");
     // 3. add a product
-    $("pd-action").value = "add"; syncProductForm(); fillProductForm(null);
-    $("pd-name-vi").value = "Keo D"; $("pd-spec").value = "25kg"; $("pd-unit").value = "thung"; $("pd-category").value = "Keo";
-    await press("pd-send");
+    productForm(null);
+    $("pf-name_vi").value = "Keo D"; $("pf-spec").value = "25kg"; $("pf-unit").value = "thung"; $("pf-category").value = "Keo";
+    await press("Thêm mặt hàng");
     // 4. edit / stop a product
-    $("pd-action").value = "edit"; syncProductForm();
-    $("pd-pick").value = label("SP001"); fire($("pd-pick"), "change");
-    $("pd-name-vi").value = "Keo A moi"; $("pd-note").value = "2 thung mop"; $("pd-active").checked = false;
-    await press("pd-send");
-    // 5. merge two products
-    $("pd-action").value = "merge"; syncProductForm();
-    $("pd-a").value = label("SP003"); $("pd-b").value = label("SP002");
-    await press("pd-send");
-    // 6. merge customers
-    renderCustomerPicker();
-    for (const box of $("cm-list").querySelectorAll("input")) {
-      const c = customerById[Number(box.value)];
-      if (c.name === "Khach X" || c.name === "Khach Y") box.checked = true;
+    productForm(prod("SP001"));
+    $("pf-name_vi").value = "Keo A moi"; $("pf-stock_note").value = "2 thung mop"; $("pf-active").checked = false;
+    await press("Lưu");
+    // 5. merge two products (SP003 into SP002)
+    mergeProductsWindow(prod("SP003"));
+    $("mg-table").querySelector(`tr[data-k="${prod("SP002").id}"]`).click();
+    await press("Gộp");
+    // 6. merge customers: pick the rows in the Khách hàng list, then the button
+    for (const c of data.customers.filter((x) => x.name === "Khach X" || x.name === "Khach Y")) {
+      $("customers-table").querySelector(`tr[data-k="${c.id}"]`).click();
     }
+    $("customers-merge").click(); await wait();
     $("cm-name").value = "Khach XY";
-    await press("cm-send");
-    // 7. cancel a delivery, 8. set the place of another
-    const shelf = document.createElement("div");
-    document.body.append(shelf);
-    const d7 = docBy("delivery", "7"), d8 = docBy("delivery", "8");
-    const box7 = document.createElement("div"); box7.innerHTML = ownerActionsHtml(d7); shelf.append(box7); bindOrderActions(box7, d7);
-    box7.querySelector('[data-act="cancel"]').click(); await wait();
-    const box8 = document.createElement("div"); box8.innerHTML = ownerActionsHtml(d8); shelf.append(box8); bindOrderActions(box8, d8);
-    box8.querySelector("[data-act-place]").value = "2";
-    box8.querySelector('[data-act="place"]').click(); await wait();
-    // 9. edit the goods-in receipt
-    startReceiptEdit(docBy("receipt", "HV001"));
-    out.checks.editTitle = $("rc-title").textContent;
-    $("rc-lines").children[0].querySelector(".rc-qty").value = "60";
-    await press("rc-send");
-    out.checks.editLeftAfterSend = receiptEdit === null;
-    // 10. a new goods-in slip (supplier), 11. one for returned goods
-    $("rc-date").value = "2026-11-07"; $("rc-kind").value = "supplier"; syncReceiptKind(); $("rc-source").value = "Cua khau";
-    $("rc-lines").innerHTML = ""; addLine();
-    $("rc-lines").children[0].querySelector(".rc-product").value = label("SP002");
-    $("rc-lines").children[0].querySelector(".rc-qty").value = "5";
-    await press("rc-send");
-    $("rc-kind").value = "return"; syncReceiptKind();
-    out.checks.returnFieldsShown = !$("rc-l-customer").classList.contains("hidden") && !$("rc-l-ref").classList.contains("hidden");
-    const cust = data.customers.find((c) => c.name === "Cong ty A");
-    $("rc-customer").value = String(cust.id); $("rc-ref").value = "7";
-    $("rc-lines").innerHTML = ""; addLine();
-    $("rc-lines").children[0].querySelector(".rc-product").value = label("SP002");
-    $("rc-lines").children[0].querySelector(".rc-qty").value = "1";
-    await press("rc-send");
-    // 12. a stock count
-    $("ct-date").value = todayLocal(); $("ct-loc").value = "1";
-    $("ct-lines").innerHTML = ""; addCountLine();
-    $("ct-lines").children[0].querySelector(".ct-product").value = label("SP002");
-    $("ct-lines").children[0].querySelector(".ct-qty").value = "18";
-    await press("ct-send");
+    await press("Gộp khách hàng");
+    // 7. cancel a delivery
+    showOrder(docBy("delivery", "7").id);
+    await press("Huỷ phiếu");
+    // 8. where delivery 8 was taken from
+    showOrder(docBy("delivery", "8").id);
+    $("od-place").value = "2";
+    $("od-place-save").click(); await wait(); await wait();
+    dlg.close();
+    // 9. edit the goods-in receipt HV001 (from the Hàng về page: select it, Sửa phiếu đã chọn…)
+    $("receipts-table").querySelector(`tr[data-k="${docBy("receipt", "HV001").id}"]`).click();
+    $("receipt-edit").click(); await wait();
+    out.checks.editTitle = $("dlg-title").textContent;
+    typeIn($("rf-lines").querySelector(".rf-qty"), "60");
+    await press("Lưu phiếu đã sửa");
+    // 10. a new receipt, returned by a customer
+    receiptForm(null);
+    document.querySelector('input[name="rf-src"][value="return"]').click();
+    out.checks.returnFields = shown("rf-customer") && !shown("rf-supplier");
+    $("rf-customer").value = data.customers.find((c) => c.name === "Cong ty A").id;
+    $("rf-ref").value = "7";
+    typeIn($("rf-lines").querySelector(".rf-product"), productLabel(prod("SP001")));
+    typeIn($("rf-lines").querySelector(".rf-qty"), "1");
+    await press("Lưu phiếu hàng về");
+    // 11. a stock count of Kho tổng, typed into the yellow column of the Kiểm kê page
+    $("count-date").value = "2026-11-07";
+    typeIn($("count-table").querySelector(`input[data-count="${prod("SP002").id}"][data-place="1"]`), "18");
+    $("count-save").click(); await wait(); await wait();
+    out.checks.countMsg = $("count-msg").textContent;
   } catch (e) {
-    out.error = String((e && e.stack) || e);
+    out.error = String(e && e.stack || e);
   }
   document.body.setAttribute("data-probe", JSON.stringify(out));
 })();
