@@ -58,8 +58,12 @@ def test_undo_in_cloud_mode_cancels_the_document_just_saved(ctx, monkeypatch):
     with db.transaction(ctx.conn):
         doc = stock.record_trial_use(ctx.conn, date(2026, 11, 12), stock.MAIN, [stock.Line(a, 2)])
         undo.remember_doc(ctx.conn, "trial_use", doc)
+    ctx.undo_point("stock_note")  # a later action that is not a document: nothing left to take back
+    assert undo.cloud_latest(ctx.conn) is None
+    with db.transaction(ctx.conn):
+        undo.remember_doc(ctx.conn, "trial_use", doc)
     window = MainWindow(ctx)
-    window._update_undo()
+    ctx.notify()  # what the dialogs do after saving
     assert window.undo_btn.isEnabled() and "DT001" in window.undo_btn.text()
     monkeypatch.setattr(main_window, "ask", lambda parent, text: True)
     monkeypatch.setattr(main_window, "info", lambda parent, text: ctx.told.append(text))
