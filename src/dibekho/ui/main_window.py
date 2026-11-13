@@ -155,7 +155,8 @@ class MainWindow(QMainWindow):
         """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed.
         allow_partial=True after 'Apply': waiting notes are imported with their approved lines."""
         try:
-            result = deliveries.scan(self.ctx.conn, self.ctx.ws, allow_partial)
+            with activity.slow_watch("scan"):
+                result = deliveries.scan(self.ctx.conn, self.ctx.ws, allow_partial)
         except Exception as exc:
             error(self, t("main.scan_failed", error=str(exc)))
             return None

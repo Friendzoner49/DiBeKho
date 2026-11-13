@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
+from dibekho.core import activity
 from dibekho.ui.common import AppContext, hint_label, title_label
 
 
@@ -19,7 +20,7 @@ class Page(QWidget):
 
     def _on_changed(self):
         if self.isVisible():
-            self.refresh()
+            self._timed_refresh()
         else:
             self._dirty = True
 
@@ -27,6 +28,10 @@ class Page(QWidget):
         super().showEvent(event)
         if self._dirty:
             self._dirty = False
+            self._timed_refresh()
+
+    def _timed_refresh(self):
+        with activity.slow_watch(f"refresh {type(self).__name__}"):
             self.refresh()
 
     def refresh(self):

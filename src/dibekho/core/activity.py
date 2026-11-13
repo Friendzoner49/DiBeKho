@@ -14,6 +14,7 @@ the user's own machines.
 """
 
 import os
+import time
 import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -49,6 +50,27 @@ def log(kind: str, text: str = "") -> None:
             _trim(_path)
     except OSError:
         pass
+
+
+SLOW_MS = 700  # a step the user waits on longer than this is written to app.log as [slow]
+
+
+class slow_watch:
+    """with activity.slow_watch("refresh StockPage"): ...  -> '[slow] refresh StockPage 1234 ms' when it took long,
+    so a report like 'the app is slow' can be traced to the step (nothing is written when it was quick)."""
+
+    def __init__(self, label: str):
+        self.label = label
+
+    def __enter__(self):
+        self._t0 = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        ms = (time.perf_counter() - self._t0) * 1000
+        if ms >= SLOW_MS:
+            log("slow", f"{self.label} {ms:.0f} ms")
+        return False
 
 
 def log_exception(kind: str = "error", text: str = "") -> None:

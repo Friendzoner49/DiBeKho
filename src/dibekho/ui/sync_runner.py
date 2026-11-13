@@ -120,7 +120,8 @@ class SyncRunner(QObject):
             self.soon.start(RETRY_UNSAFE)
             return None
         conn = self.ctx.conn
-        merged = twoway.merge(conn, pulled)
+        with activity.slow_watch("cloud merge"):
+            merged = twoway.merge(conn, pulled)
         try:
             twoway.export_renamed(conn, self.ctx.ws, merged)
         except OSError as exc:
