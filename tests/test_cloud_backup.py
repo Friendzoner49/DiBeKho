@@ -1,5 +1,6 @@
 """Full cloud backups: upload/prune/list/fetch/validate, a whole restore, and the Storage HTTP shapes."""
 
+import gzip
 import hashlib
 import io
 import json
@@ -52,11 +53,12 @@ def _seed(conn):
 def test_name_roundtrip_and_foreign_names_ignored():
     when = datetime(2026, 11, 11, 9, 30, 0, tzinfo=timezone.utc)
     name = cloud_backup.make_name("May Chinh!", 9, when)
-    assert name == "2026-11-11T09-30-00Z__MayChinh__s9.sqlite"
+    assert name == "2026-11-11T09-30-00Z__MayChinh__s9.sqlite.gz"
     item = cloud_backup.parse_name(name, 1234)
     assert item.device == "MayChinh" and item.schema == 9 and item.size == 1234
     assert item.at.astimezone(timezone.utc) == when
     assert cloud_backup.parse_name("notes.txt") is None
+    assert cloud_backup.parse_name("2026-11-11T09-30-00Z__May__s9.sqlite").schema == 9  # made before gzip
 
 
 def test_prune_keeps_the_newest_and_list_is_newest_first():
@@ -76,10 +78,17 @@ def test_upload_snapshot_is_a_restorable_database(conn, tmp_path):
     store = FakeStorage()
     name = cloud_backup.upload_snapshot(conn, Cfg, store, "tok")
     assert name in store.files
+    assert gzip.decompress(store.files[name])[:16] == b"SQLite format 3\x00"  # sent compressed (the cloud's space is limited)
     path = cloud_backup.fetch(store, "tok", name, tmp_path / "dl")
     copy = sqlite3.connect(path)
     assert copy.execute("SELECT SUM(qty) FROM stock_movements WHERE product_id = ?", (pid,)).fetchone()[0] == 40
     assert copy.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+    copy.close()
+    # a backup uploaded before gzip (plain .sqlite) still restores
+    old = name.removesuffix(".gz")
+    store.files[old] = gzip.decompress(store.files[name])
+    assert sqlite3.connect(cloud_backup.fetch(store, "tok", old, tmp_path / "dl2")).execute(
+        "SELECT COUNT(*) FROM products").fetchone()[0] >= 1
     copy.close()
 
 
@@ -348,7 +357,7 @@ def test_finish_push_also_sends_the_kept_notes_and_the_backup_list_ignores_their
     assert sync.finish_push(conn, Cfg, store, "tok", ws=ws, originals_seconds=10) is None
     assert f"phieu-goc/{a}" in store.files
     backups = cloud_backup.list_backups(store, "tok")
-    assert len(backups) == 1 and backups[0].name.endswith(".sqlite")
+    assert len(backups) == 1 and backups[0].name.endswith(".sqlite.gz")
     assert cloud_backup.prune(store, "tok", keep=0) == 1 and f"phieu-goc/{a}" in store.files  # notes never pruned
 
 

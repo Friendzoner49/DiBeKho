@@ -273,6 +273,21 @@ function initStats() {
   renderStats();
 }
 
+/* Never a blank page: no data yet says so, an error is written where the table would be. */
+function renderStats() {
+  const out = $("st-table");
+  if (!data.products.length) {
+    $("st-summary").innerHTML = ""; $("st-chart").innerHTML = ""; $("st-top").innerHTML = "";
+    out.innerHTML = `<p class="hint">Chưa có dữ liệu. Bấm “Tải lại dữ liệu” ở trên cùng.</p>`;
+    return;
+  }
+  try { drawStats(); } catch (e) {
+    console.error(e);
+    $("st-chart").innerHTML = ""; $("st-top").innerHTML = "";
+    out.innerHTML = `<p class="error">Không tính được thống kê (hãy chụp dòng này gửi người hỗ trợ): ${esc(e.message || String(e))}</p>`;
+  }
+}
+
 function syncStatsControls() {
   const period = $("st-period").value;
   const show = { day: ["day"], month: ["month"], quarter: ["year", "quarter"], year: ["year"], range: ["from", "to"] }[period];
@@ -307,8 +322,7 @@ function statsFilters() {
   return {};
 }
 
-function renderStats() {
-  if (!data.products.length) return;
+function drawStats() {
   const [start, end] = statsRange();
   const out = $("st-table");
   if (!start || !end || start > end || Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end))) {

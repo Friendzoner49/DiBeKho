@@ -468,7 +468,7 @@ This part is **optional**. Use it only when several computers (and the web page)
 - **↶ Undo** only cancels a goods-in, transfer, trial use or stock count **just saved on this computer** (the document stays, marked cancelled). Anything else: **Cancel document**, edit the document, or correct it by hand.
 - **Restoring a backup**, **importing a data package** and **Delete all data** replace the data **for everyone** (other computers and the web page). The app asks and backs up first, and needs internet.
 
-**Cloud backups:** each **Sync now** and each time you close the app, a full backup goes to the cloud (30 are kept), with the original delivery note files. To get one back: **Settings → Cloud → Restore from cloud…**. Every day the app also copies `DiBeKho_dulieu-chung_<date>.sqlite` into `sao-luu/`.
+**Cloud backups:** each **Sync now** and each time you close the app, a full backup goes to the cloud (the newest 10 are kept, compressed), with the original delivery note files. To get one back: **Settings → Cloud → Restore from cloud…**. Every day the app also copies `DiBeKho_dulieu-chung_<date>.sqlite` into `sao-luu/`.
 
 **Web page:** open the address you were given and sign in with your name and password. It is laid out **like the app** (same buttons in the same places). The owner writes directly; staff send requests that the owner approves in the app under **To do → Staff requests (web)**. On a phone it only shows Stock.
 

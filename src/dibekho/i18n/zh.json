@@ -314,7 +314,7 @@
   "cloud.push_ok": "已同步，并已将备份发送到云端。",
   "cloud.restore_btn": "从云端恢复…",
   "cloud.restore_title": "从云端备份恢复",
-  "cloud.restore_hint": "选择一份完整备份（云端保留最近 30 份）。应用会先备份当前数据，之后可以点“撤销”。",
+  "cloud.restore_hint": "选择一份完整备份（云端保留最近 10 份）。应用会先备份当前数据，之后可以点“撤销”。",
   "cloud.restore_go": "恢复",
   "cloud.col_at": "时间",
   "cloud.col_device": "电脑",

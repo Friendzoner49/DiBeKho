@@ -314,7 +314,7 @@
   "cloud.push_ok": "Đã đồng bộ và gửi bản sao lưu lên Cloud.",
   "cloud.restore_btn": "Khôi phục từ Cloud…",
   "cloud.restore_title": "Khôi phục từ bản sao lưu trên Cloud",
-  "cloud.restore_hint": "Chọn một bản sao lưu đầy đủ (Cloud giữ 30 bản gần nhất). App sẽ sao lưu dữ liệu hiện tại trước khi thay, và bạn có thể bấm Hoàn tác.",
+  "cloud.restore_hint": "Chọn một bản sao lưu đầy đủ (Cloud giữ 10 bản gần nhất). App sẽ sao lưu dữ liệu hiện tại trước khi thay, và bạn có thể bấm Hoàn tác.",
   "cloud.restore_go": "Khôi phục",
   "cloud.col_at": "Thời điểm",
   "cloud.col_device": "Máy",

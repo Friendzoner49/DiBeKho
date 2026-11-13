@@ -2,7 +2,8 @@
 
 The mirror tables are a summary for the web (stock is aggregated, many columns are left out), so they cannot
 rebuild the database. This is the real backup: a consistent copy of kho.sqlite (backup.snapshot), a few hundred
-KB, uploaded after every successful push. The newest KEEP are kept. Restore goes through the same replace path
+KB, gzip-compressed (about a third of the size; the cloud's free space is limited), uploaded when the app closes
+after a change and on Đồng bộ ngay. The newest KEEP are kept (older .sqlite files without gzip still restore). Restore goes through the same replace path
 as a local backup (core.backup.restore), after the checks below.
 
 The delivery notes kept in data/phieu-goc/<sha256>.xlsx (for Mở file gốc / Khôi phục file) go to the same private
@@ -11,6 +12,7 @@ seconds per push; they are never pruned (old database backups still point at the
 this machine lacks, each checked against its hash before it is written.
 """
 
+import gzip
 import hashlib
 import re
 import sqlite3
@@ -26,10 +28,10 @@ from dibekho.core import backup, transfer
 from dibekho.core.cloud.client import CloudClient, CloudError
 from dibekho.core.workspace import Workspace
 
-KEEP = 30
+KEEP = 10  # the machines keep their own daily backups too; the cloud only needs the last days
 ORIGINALS = "phieu-goc"  # folder of the kept delivery notes in the bucket
 # 2026-11-11T09-30-00Z__FRIENDZONER__s9.sqlite  (UTC time, machine name, schema version)
-_NAME = re.compile(r"^(?P<at>\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ)__(?P<device>.+)__s(?P<schema>\d+)\.sqlite$")
+_NAME = re.compile(r"^(?P<at>\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ)__(?P<device>.+)__s(?P<schema>\d+)\.sqlite(\.gz)?$")
 
 
 @dataclass
@@ -47,7 +49,7 @@ def _safe_device(name: str) -> str:
 
 def make_name(device_name: str, schema_version: int, now: datetime | None = None) -> str:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    return f"{now:%Y-%m-%dT%H-%M-%SZ}__{_safe_device(device_name)}__s{schema_version}.sqlite"
+    return f"{now:%Y-%m-%dT%H-%M-%SZ}__{_safe_device(device_name)}__s{schema_version}.sqlite.gz"
 
 
 def parse_name(name: str, size: int = 0) -> CloudBackup | None:
@@ -63,7 +65,7 @@ def upload_snapshot(conn, cfg, client: CloudClient, token: str) -> str:
     schema = conn.execute("PRAGMA user_version").fetchone()[0]
     name = make_name(cfg.device_name, schema)
     with tempfile.TemporaryDirectory() as tmp:
-        data = backup.snapshot(conn, Path(tmp) / "kho.sqlite").read_bytes()
+        data = gzip.compress(backup.snapshot(conn, Path(tmp) / "kho.sqlite").read_bytes(), compresslevel=6)
     client.storage_upload(name, data, token)
     prune(client, token)
     return name
@@ -91,6 +93,11 @@ def fetch(client: CloudClient, token: str, name: str, folder: Path) -> Path:
     """Download one backup into `folder` and check it is a usable DiBeKho database of this or an older version.
     Raises CloudError with a plain Vietnamese reason; nothing local is touched."""
     data = client.storage_download(name, token)
+    if name.endswith(".gz"):
+        try:
+            data = gzip.decompress(data)
+        except (OSError, EOFError) as exc:
+            raise CloudError(f"Bản sao lưu trên Cloud bị hỏng: {exc}") from exc
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "kho.sqlite"
     path.write_bytes(data)

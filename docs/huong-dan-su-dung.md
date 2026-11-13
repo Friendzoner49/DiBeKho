@@ -469,7 +469,7 @@ Phần này **không bắt buộc**. Chỉ dùng khi muốn nhiều máy (và tr
 - **↶ Hoàn tác** chỉ huỷ được phiếu hàng về, chuyển hàng, dùng thử hoặc kiểm kê **vừa lưu trên chính máy này** (phiếu vẫn còn, ghi là đã huỷ). Việc khác: **Huỷ phiếu**, sửa phiếu hoặc sửa lại bằng tay.
 - **Khôi phục bản sao lưu**, **nhập gói dữ liệu**, **Xoá toàn bộ dữ liệu** sẽ thay dữ liệu **cho mọi người** (các máy khác và trang web). App hỏi trước, sao lưu trước, và cần có mạng.
 
-**Sao lưu trên Cloud:** mỗi lần bấm **Đồng bộ ngay** và khi tắt app, app gửi một bản sao lưu đầy đủ lên Cloud (giữ 30 bản), kèm các file phiếu giao hàng gốc. Lấy lại: **Cài đặt → Cloud → Khôi phục từ Cloud…**. Mỗi ngày app cũng chép một bản `DiBeKho_dulieu-chung_<ngày>.sqlite` vào `sao-luu/`.
+**Sao lưu trên Cloud:** mỗi lần bấm **Đồng bộ ngay** và khi tắt app, app gửi một bản sao lưu đầy đủ lên Cloud (giữ 10 bản gần nhất, có nén cho nhẹ), kèm các file phiếu giao hàng gốc. Lấy lại: **Cài đặt → Cloud → Khôi phục từ Cloud…**. Mỗi ngày app cũng chép một bản `DiBeKho_dulieu-chung_<ngày>.sqlite` vào `sao-luu/`.
 
 **Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Chủ ghi thẳng được; nhân viên gửi yêu cầu, chủ duyệt trong app ở **Cần xử lý → Yêu cầu từ nhân viên (web)**. Trên điện thoại chỉ xem Tồn kho.
 

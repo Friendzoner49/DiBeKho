@@ -314,7 +314,7 @@
   "cloud.push_ok": "Synced, and a backup was sent to the Cloud.",
   "cloud.restore_btn": "Restore from cloud…",
   "cloud.restore_title": "Restore from a cloud backup",
-  "cloud.restore_hint": "Pick a full backup (the cloud keeps the newest 30). The app backs up the current data first, and you can press Undo.",
+  "cloud.restore_hint": "Pick a full backup (the cloud keeps the newest 10). The app backs up the current data first, and you can press Undo.",
   "cloud.restore_go": "Restore",
   "cloud.col_at": "When",
   "cloud.col_device": "Machine",

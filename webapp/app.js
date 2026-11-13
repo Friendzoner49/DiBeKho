@@ -304,10 +304,17 @@ function showPage(name) {
   window.scrollTo(0, 0);
 }
 
+/* Each part draws on its own: one that fails (odd data) says so at the top instead of leaving every page after it blank
+   (user, 13/11/2026: Thống kê stayed empty). */
 function renderAll() {
-  renderStock(); renderPendingUnplaced(); renderSearch(); renderOrders(); renderCustomers(); renderReceipts();
-  renderCount(); renderCatalog(); renderSettingsInfo();
-  if (!$("page-stats").dataset.ready) { initStats(); $("page-stats").dataset.ready = "1"; } else { syncStatsControls(); renderStats(); }
+  const failed = [];
+  const parts = [renderStock, renderPendingUnplaced, renderSearch, renderOrders, renderCustomers, renderReceipts,
+                 renderCount, renderCatalog, renderSettingsInfo,
+                 () => { if (!$("page-stats").dataset.ready) { initStats(); $("page-stats").dataset.ready = "1"; } else { syncStatsControls(); renderStats(); } }];
+  for (const part of parts) {
+    try { part(); } catch (e) { console.error(e); failed.push(`${part.name || "Thống kê"}: ${e.message || e}`); }
+  }
+  if (failed.length) $("load-error").textContent = `Một phần trang bị lỗi (hãy chụp dòng này gửi người hỗ trợ): ${failed.join(" · ")}`;
 }
 
 /* ---------------------------------------------------------------- Tồn kho */

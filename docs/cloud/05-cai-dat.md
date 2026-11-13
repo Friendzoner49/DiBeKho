@@ -23,6 +23,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 10. `cloud/supabase/011_accounts.sql` — **quản lý tài khoản ngay trên web** (liệt kê, đổi vai trò, thu hồi quyền; có chốt chặn không tự khoá mình). Chạy sau 009 (dùng một hàm của 009). Chạy lại nhiều lần không sao. Muốn tạo tài khoản và đặt lại mật khẩu trên web thì cần thêm Edge Function ở **mục 5b**.
 11. `cloud/supabase/012_web_settings.sql` — cỡ giao diện web dùng chung cho mọi máy (chỉ tài khoản `maychinh` đổi được, ở Cài đặt → Chung). Chạy sau 011.
 12. `cloud/supabase/013_return_prices.sql` — hàng khách trả lại có **Đơn giá trả lại** và được trừ khỏi doanh thu (phiếu trả hàng nhập trên web). Chạy sau 010; **chạy lại 009 hoặc 010 thì chạy lại 013**.
+13. `cloud/supabase/014_drop_mirror.sql` — xoá các bảng `mirror_*` và hàm `replace_mirror` của mô hình gương cũ (không app/web nào dùng nữa; riêng `mirror_snapshot` giữ 30 bản dữ liệu dạng jsonb). Chạy lại được.
 
 ## 3. Tạo tài khoản
 
@@ -113,9 +114,9 @@ Chạy lại nhiều lần không sao. ⚠ Script chưa chạy thử với khoá
 
 ## 6. Sao lưu và khôi phục
 
-Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ lần trước), app tải lên một bản sao đầy đủ `kho.sqlite` (khoảng 300 KB), Cloud giữ 30 bản gần nhất.
+Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ lần trước), app tải lên một bản sao đầy đủ `kho.sqlite` **nén gzip** (`…sqlite.gz`, khoảng 1/3 cỡ gốc: dữ liệu thật 13/11/2026 là 550 KB → 165 KB), Cloud giữ **10 bản** gần nhất (từ 0.5.1; trước đó 30 bản không nén — bản `.sqlite` cũ vẫn khôi phục được và tự bị xoá dần).
 **Khôi phục:** Cài đặt → Cloud → **Khôi phục từ Cloud…** → chọn bản. App kiểm tra, sao lưu dữ liệu hiện tại, tạo điểm Hoàn tác rồi mới thay.
-**File Excel phiếu gốc** (`data/phieu-goc/`, cho Mở file gốc / Khôi phục file) cũng lên Cloud, cùng kho riêng tư, thư mục `phieu-goc/`: mỗi file một lần (tên = mã băm nội dung), tối đa 90 giây mỗi lần Đồng bộ ngay và 4 giây lúc tắt app (phần còn lại để lần sau); không bao giờ bị xoá vì bản sao lưu cũ vẫn trỏ tới. Khôi phục từ Cloud tải về những file máy đang thiếu (kiểm mã băm trước khi ghi). Chỉ tài khoản chủ đọc được; trang web và gói web vẫn **không** có file phiếu gốc. Không cần SQL mới. Các bảng `mirror_*` cũ không còn dùng.
+**File Excel phiếu gốc** (`data/phieu-goc/`, cho Mở file gốc / Khôi phục file) cũng lên Cloud, cùng kho riêng tư, thư mục `phieu-goc/`: mỗi file một lần (tên = mã băm nội dung), tối đa 90 giây mỗi lần Đồng bộ ngay và 4 giây lúc tắt app (phần còn lại để lần sau); không bao giờ bị xoá vì bản sao lưu cũ vẫn trỏ tới. Khôi phục từ Cloud tải về những file máy đang thiếu (kiểm mã băm trước khi ghi). Chỉ tài khoản chủ đọc được; trang web và gói web vẫn **không** có file phiếu gốc. Không cần SQL mới. Các bảng `mirror_*` cũ đã xoá bằng SQL 014.
 **Nhật ký thao tác của từng máy chính** (`data/app.log`, gồm các bước chạy chậm `[slow]` và lỗi) cũng lên kho riêng tư này, thư mục `nhat-ky/`, mỗi máy một file nén thay bản cũ, tối đa 10 phút một lần (trong lượt đồng bộ nền). Người phát triển tải về bằng `python -X utf8 scripts/fetch_cloud_logs.py <thư mục>` (dùng đăng nhập Cloud của máy đó). Nhật ký có tên khách và tên file: không đưa ra ngoài. Không cần SQL mới.
 
 **Thay toàn bộ dữ liệu chung** (khôi phục / nhập gói / xoá toàn bộ khi bật dữ liệu chung) là MỘT lần gửi. Đo 13/11/2026 trên bản sao gói thử thật (73 mặt hàng, 97 phiếu, 476 biến động): 2 171 dòng, 459 KB, 0,2 giây trên PGlite. Supabase cho tài khoản đăng nhập tối đa 8 giây mỗi câu lệnh (tài liệu Supabase "Timeouts"), nên còn dư nhiều; dữ liệu nhiều năm mới cần xem lại. Người dùng đã thử thành công trên Supabase thật (13/11/2026).
@@ -123,5 +124,5 @@ Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ l�
 ## 7. Giới hạn gói Free cần nhớ
 
 - Project **tự tạm dừng sau khoảng 1 tuần không có hoạt động** (dữ liệu giữ nguyên). Mở app hằng ngày là đủ giữ tỉnh; sau kỳ nghỉ dài, vào dashboard bấm *Restore project*.
-- Cơ sở dữ liệu 500 MB, kho lưu trữ 1 GB: dữ liệu DiBeKho dùng dưới 1% — kiểm lại bảng giá trên supabase.com/pricing định kỳ.
+- Cơ sở dữ liệu 500 MB, kho lưu trữ 1 GB. Đo 13/11/2026: các bảng dữ liệu chừng 1–2 MB (sau SQL 014), kho file khoảng 8 MB (bản sao lưu + 64 phiếu gốc ~17 KB/file). Phiếu gốc tăng khoảng 12 MB/năm (2 phiếu/ngày). Kiểm lại bảng giá trên supabase.com/pricing định kỳ.
 - Gói Free không có sao lưu tự động của Supabase: bản sao lưu ở mục 6 là cái duy nhất ngoài máy.
