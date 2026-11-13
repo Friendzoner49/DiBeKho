@@ -10,7 +10,9 @@
 create or replace function public.dbk_account_owner() returns uuid language plpgsql stable
 security definer set search_path = public as $$
 begin
-    if auth.uid() is null or public.my_role() is distinct from 'desktop' then
+    -- only ONE account manages accounts (customer's decision 13/11/2026: the main machine's login, not every owner)
+    if auth.uid() is null or public.my_role() is distinct from 'desktop'
+       or (select lower(email) from auth.users where id = auth.uid()) is distinct from 'maychinh@dibekho.local' then
         raise exception 'Chỉ tài khoản của chủ mới quản lý được tài khoản.';
     end if;
     return auth.uid();

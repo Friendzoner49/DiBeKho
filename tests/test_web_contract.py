@@ -204,7 +204,7 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     # 13: Cài đặt → Tài khoản: the owner has the tab, staff do not; bad input never leaves the page; the buttons send
     # what the Edge Function (create, reset) and SQL 011 (role, revoke) take, and not one call touches oneself
     checks = out["checks"]
-    assert checks["accountsTabStaff"] is False and checks["accountsTabOwner"] is True and checks["accountRows"] == 3
+    assert checks["accountsTabStaff"] is False and checks["accountsTabOtherOwner"] is False and checks["accountsTabOwner"] is True and checks["accountRows"] == 3
     assert "chưa giống nhau" in checks["pwMismatch"] and "ít nhất 8" in checks["pwShort"] and "@dibekho.local" in checks["userAt"]
     assert checks["pwAfterCreate"] == "" and checks["ownerCreateAsked"] == 1
     lan = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"

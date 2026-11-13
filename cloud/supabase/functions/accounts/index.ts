@@ -65,12 +65,16 @@ function authMessage(error, fallback) {
  * deps = {
  *   getUserId(token) -> uuid | null            // checks the token with the Auth server
  *   roleOf(userId) -> 'desktop' | 'editor' | 'viewer' | ''
+ *   emailOf(userId) -> string                  // only ADMIN_EMAIL manages accounts
  *   createUser({email, password}) -> {id} | throws {message, code}
  *   deleteUser(id), setPassword(id, password) -> throws {message, code}
  *   insertProfile({user_id, display_name, role}) -> throws
  *   userExists(id) -> boolean
  * }
  */
+// the one login allowed to create accounts and reset passwords (customer's decision 13/11/2026)
+const ADMIN_EMAIL = "maychinh@dibekho.local";
+
 function makeHandler(deps) {
   return async function handle(request) {
     if (request.method === "OPTIONS") return reply(204, null);
@@ -100,7 +104,13 @@ function makeHandler(deps) {
     } catch (e) {
       return fail("Không kiểm tra được quyền của tài khoản này. Thử lại sau.");
     }
-    if (role !== "desktop") return fail("Chỉ tài khoản của chủ mới tạo hoặc đổi mật khẩu cho tài khoản khác được.");
+    let email = "";
+    try {
+      email = role === "desktop" ? String((await deps.emailOf(caller)) || "").toLowerCase() : "";
+    } catch (e) {
+      return fail("Không kiểm tra được quyền của tài khoản này. Thử lại sau.");
+    }
+    if (role !== "desktop" || email !== ADMIN_EMAIL) return fail("Chỉ tài khoản của chủ mới tạo hoặc đổi mật khẩu cho tài khoản khác được.");
 
     if (body?.action === "create") return create(body);
     if (body?.action === "reset_password") return resetPassword(body);
@@ -187,6 +197,7 @@ if (typeof Deno !== "undefined" && typeof Deno.serve === "function") {
     Deno.serve(makeHandler({
       getUserId: async (token) => (await admin.auth.getUser(token)).data?.user?.id ?? null,
       roleOf: async (id) => must(await admin.from("profiles").select("role").eq("user_id", id).maybeSingle())?.role ?? "",
+      emailOf: async (id) => (await admin.auth.admin.getUserById(id)).data?.user?.email ?? "",
       createUser: async ({ email, password }) => must(await admin.auth.admin.createUser({ email, password, email_confirm: true })).user,
       deleteUser: async (id) => must(await admin.auth.admin.deleteUser(id)),
       setPassword: async (id, password) => must(await admin.auth.admin.updateUserById(id, { password })),

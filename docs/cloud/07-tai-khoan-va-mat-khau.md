@@ -6,7 +6,7 @@ Mỗi người dùng trang web (và app khi bật dữ liệu chung) có **một
 
 ## 0. Cách nhanh: ngay trên trang web (khuyên dùng)
 
-Chủ đăng nhập web → **Cài đặt** → tab **Tài khoản** (chỉ chủ thấy, điện thoại không có). Cần làm một lần trước: chạy SQL 011 và cài Edge Function `accounts` ([05-cai-dat.md](05-cai-dat.md), mục 2 bước 10 và mục 5b).
+Đăng nhập web bằng tài khoản **`maychinh`** (tài khoản của máy chính) → **Cài đặt** → tab **Tài khoản**. **Chỉ `maychinh` thấy và dùng được tab này**: các tài khoản chủ khác, nhân viên và điện thoại đều không (khách lớn tuổi nên không ai khác làm được; máy chủ Supabase cũng từ chối, không chỉ ẩn nút). Cần làm một lần trước: chạy SQL 011 và cài Edge Function `accounts` ([05-cai-dat.md](05-cai-dat.md), mục 2 bước 10 và mục 5b).
 
 Chọn một dòng trong danh sách rồi bấm nút:
 - **Tạo tài khoản…**: gõ tên đăng nhập, tên hiển thị, chọn vai trò, gõ mật khẩu **hai lần**. Mật khẩu do bạn gõ; trang web không lưu và không hiện lại. Tạo vai trò **chủ** thì hỏi xác nhận thêm một lần.

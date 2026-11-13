@@ -22,11 +22,12 @@ for (const k of ["log", "error", "warn", "info", "debug"]) console[k] = (...a) =
 function fake(over = {}) {
   const calls = [];
   const deps = {
-    tokens: { "owner-token": OWNER, "staff-token": STAFF },
-    roles: { [OWNER]: "desktop", [STAFF]: "editor" },
+    tokens: { "owner-token": OWNER, "staff-token": STAFF, "owner2-token": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
+    roles: { [OWNER]: "desktop", [STAFF]: "editor", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb": "desktop" },
     users: new Set([TARGET]),
     async getUserId(t) { calls.push(["getUserId"]); if (over.tokenThrows) throw new Error("auth down"); return this.tokens[t] ?? null; },
     async roleOf(id) { calls.push(["roleOf", id]); if (over.roleThrows) throw new Error("db down"); return this.roles[id] ?? ""; },
+    async emailOf(id) { calls.push(["emailOf", id]); return id === OWNER ? "MayChinh@dibekho.local" : id === STAFF ? "nv@dibekho.local" : "quanly@dibekho.local"; },
     async createUser(a) { calls.push(["createUser", a.email, a.password]); if (over.createThrows) throw over.createThrows; return { id: "11111111-1111-4111-8111-111111111111" }; },
     async deleteUser(id) { calls.push(["deleteUser", id]); if (over.deleteThrows) throw new Error("x"); },
     async setPassword(id, p) { calls.push(["setPassword", id, p]); if (over.setThrows) throw over.setThrows; },
@@ -62,6 +63,8 @@ out.roleCheckThrows = await ask({ roleThrows: true }, create());
 out.badJson = await ask({}, { raw: "{not json" });
 out.unknownAction = await ask({}, { body: { action: "delete_everything" } });
 out.staffCreates = await ask({}, { token: "staff-token", ...create() });
+out.otherOwnerCreates = await ask({}, { token: "owner2-token", ...create() });
+out.otherOwnerResets = await ask({}, { token: "owner2-token", body: { action: "reset_password", user_id: TARGET, password: SECRET } });
 out.staffResets = await ask({}, { token: "staff-token", body: { action: "reset_password", user_id: TARGET, password: SECRET } });
 out.created = await ask({}, create({ username: "  NhanVien1 ", display_name: "  Lan   kho " }));
 out.createdNoName = await ask({}, create());

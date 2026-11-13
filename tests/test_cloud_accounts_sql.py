@@ -51,7 +51,7 @@ def test_the_owner_lists_everyone_with_roles_and_accounts_without_a_role(pg):
 
 
 def test_only_the_owner_manages_accounts(pg):
-    for who in (STAFF, VIEWER, NEW, None):
+    for who in (STAFF, VIEWER, NEW, None, OWNER2):  # OWNER2 is an owner too, but not the main machine's login
         with pytest.raises(PgError, match="Chỉ tài khoản của chủ"):
             _call(pg, "web_accounts_list", who)
         with pytest.raises(PgError, match="Chỉ tài khoản của chủ"):

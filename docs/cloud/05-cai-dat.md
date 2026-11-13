@@ -92,7 +92,7 @@ Từ đó: tắt app tự đẩy, mở app tự kéo phiếu từ web. Mật kh�
 
 ## 5b. Tạo tài khoản và đặt lại mật khẩu ngay trên web (Edge Function `accounts`)
 
-Tạo tài khoản và đặt mật khẩu cần khoá quản trị của Supabase. Khoá đó **không bao giờ** được đưa vào trang web hay repo, nên việc này làm trong một Edge Function chạy bên Supabase (mã ở `cloud/supabase/functions/accounts/index.ts`). Các việc còn lại (xem danh sách, đổi vai trò, thu hồi) là SQL 011. Làm một lần:
+Tạo tài khoản và đặt mật khẩu cần khoá quản trị của Supabase. Khoá đó **không bao giờ** được đưa vào trang web hay repo, nên việc này làm trong một Edge Function (chỉ tài khoản `maychinh` gọi được) chạy bên Supabase (mã ở `cloud/supabase/functions/accounts/index.ts`). Các việc còn lại (xem danh sách, đổi vai trò, thu hồi) là SQL 011. Làm một lần:
 
 1. Chạy `011_accounts.sql` (mục 2, bước 10).
 2. Trang quản trị Supabase → **Edge Functions** → **Deploy a new function** → chọn cách viết trong trình soạn thảo (**Via Editor**) → đặt tên **`accounts`** (đúng như vậy) → xoá mã mẫu, dán toàn bộ nội dung file `cloud/supabase/functions/accounts/index.ts` → **Deploy**.

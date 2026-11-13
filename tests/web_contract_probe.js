@@ -141,7 +141,9 @@
     const accTab = () => getComputedStyle(document.querySelector('[data-stab="accounts"]')).display !== "none";
     setRole("editor", "NV");
     out.checks.accountsTabStaff = accTab();
-    setRole("desktop", "Chủ");
+    setRole("desktop", "Quan ly", false);
+    out.checks.accountsTabOtherOwner = accTab();
+    setRole("desktop", "Chủ", true);
     out.checks.accountsTabOwner = accTab();
     currentUserId = OWN;
     await loadAccounts();

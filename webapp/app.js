@@ -32,6 +32,7 @@ const data = { products: [], customers: [], suppliers: [], documents: [], lines:
 let productById = {}, customerById = {}, supplierById = {}, docById = {}, linesByDoc = {}, stockByProduct = {};
 let userRole = "", userName = "", currentUserId = "";
 let lowDefault = 30;  // the app's alarm level (meta low_stock_default; 0 = off)
+const ACCOUNT_ADMIN = "maychinh@dibekho.local";  // the one login that manages accounts (the server checks it too)
 const isOwner = () => userRole === "desktop";
 const isStaff = () => userRole === "editor";
 
@@ -190,7 +191,8 @@ async function showApp() {
   const { data: { user } } = await sb.auth.getUser();
   currentUserId = user.id;
   const { data: prof } = await sb.from("profiles").select("role,display_name").eq("user_id", user.id).maybeSingle();
-  setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0]);
+  setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0],
+          (user.email || "").toLowerCase() === ACCOUNT_ADMIN);
   await loadAll();
 }
 
@@ -203,10 +205,11 @@ if (PHONE) {
   $("stock-filter").placeholder = "Lọc theo tên, mã, quy cách…";
 }
 
-function setRole(role, name) {
+function setRole(role, name, accountAdmin = false) {
   userRole = role || "";
   userName = name || "";
   document.body.classList.remove("role-desktop", "role-editor", "role-viewer");
+  document.body.classList.toggle("account-admin", role === "desktop" && !!accountAdmin);
   if (userRole) document.body.classList.add(`role-${userRole}`);
   const what = { desktop: "chủ", editor: "nhân viên", viewer: "chỉ xem" }[userRole] || "chưa có quyền";
   $("who").textContent = `${userName} (${what})`;

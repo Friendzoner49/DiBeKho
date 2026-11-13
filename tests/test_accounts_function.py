@@ -38,7 +38,7 @@ def test_nothing_happens_without_a_valid_owner(r):
         assert r[key]["status"] == 401, key
         assert not _touched(r[key], "createUser") and not _touched(r[key], "roleOf"), key
     assert r["roleCheckThrows"]["json"]["ok"] is False and not _touched(r["roleCheckThrows"], "createUser")
-    for key in ("staffCreates", "staffResets"):
+    for key in ("staffCreates", "staffResets", "otherOwnerCreates", "otherOwnerResets"):  # another owner is refused too
         assert r[key]["json"]["ok"] is False and "Chỉ tài khoản của chủ" in r[key]["json"]["error"], key
         assert not _touched(r[key], "createUser") and not _touched(r[key], "setPassword"), key
     assert r["badJson"]["status"] == 400 and r["unknownAction"]["status"] == 400
