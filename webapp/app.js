@@ -114,11 +114,11 @@ function buildTable(into, cols, items, opts = {}) {
   const alive = new Set(items.map(keyOf));
   for (const k of [...st.sel]) if (!alive.has(k)) st.sel.delete(k);
   const head = cols.map((c, i) =>
-    `<th data-i="${i}" class="sortable ${c.num ? "num" : ""} ${c.stick ? "stick-r" : ""} ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${esc(c.label)}</th>`).join("");
+    `<th data-i="${i}" class="sortable ${c.num ? "num" : ""} ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${esc(c.label)}</th>`).join("");
   const body = rows.map((item) => {
     const k = keyOf(item);
     return `<tr data-k="${esc(k)}" class="${opts.rowClass ? opts.rowClass(item) : ""} ${st.sel.has(k) ? "sel" : ""}">` +
-      cols.map((c) => `<td class="${c.cls || ""}${c.stick ? " stick-r" : ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") + "</tr>";
+      cols.map((c) => `<td class="${c.cls || ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") + "</tr>";
   }).join("");
   const el = $(into);
   el.innerHTML = `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
@@ -193,6 +193,7 @@ async function showApp() {
   const { data: prof } = await sb.from("profiles").select("role,display_name").eq("user_id", user.id).maybeSingle();
   setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0],
           (user.email || "").toLowerCase() === ACCOUNT_ADMIN);
+  loadSharedScale();
   await loadAll();
 }
 
@@ -323,13 +324,13 @@ function renderStock() {
     }).join("") + "</div>";
   } else buildTable("stock-table", [
     { label: "Mã", get: (p) => p.code },
-    { label: "Mặt hàng", get: (p) => p.name_vi },
-    { label: "Tên Trung", get: (p) => p.name_zh },
+    { label: "Mặt hàng", get: (p) => p.name_vi, cls: "wrap" },
+    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+    { label: "Tên Trung", get: (p) => p.name_zh, cls: "wrap" },
     { label: "Quy cách", get: (p) => p.spec },
     { label: "Loại / màu", get: (p) => p.variant },
     { label: "Nhóm hàng", get: (p) => p.category },
     { label: "Đơn vị", get: (p) => p.unit },
-    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, stick: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
     { label: "Ghi chú tồn kho", get: (p) => p.stock_note },
     { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
     { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
@@ -547,12 +548,32 @@ const SCALE_KEY = "dibekho_ui_scale";
 function uiScale() {
   try { const v = Number(store("localStorage").getItem(SCALE_KEY)); return [100, 120, 140].includes(v) ? v : 120; } catch (e) { return 120; }
 }
-function applyScale() { document.documentElement.style.zoom = PHONE ? "" : String(uiScale() / 100); }
+function applyScale() {
+  const z = PHONE ? 1 : uiScale() / 100;
+  document.documentElement.style.zoom = PHONE ? "" : String(z);
+  document.documentElement.style.setProperty("--z", String(z));  // vh units ignore zoom: the stylesheet divides by it
+}
+function keepScale(v) { try { store("localStorage").setItem(SCALE_KEY, String(v)); } catch (e) { /* not kept */ } }
 applyScale();
 $("ui-scale").value = String(uiScale());
-$("ui-scale").addEventListener("change", () => {
-  try { store("localStorage").setItem(SCALE_KEY, $("ui-scale").value); } catch (e) { /* not kept */ }
-  applyScale();
+// the size is shared by every machine: maychinh sets it in the cloud, every browser reads it after signing in
+async function loadSharedScale() {
+  try {
+    const { data } = await sb.from("web_settings").select("value").eq("key", "ui_scale").maybeSingle();
+    const v = Number(data && data.value);
+    if ([100, 120, 140].includes(v)) { keepScale(v); applyScale(); $("ui-scale").value = String(v); }
+  } catch (e) { /* not set yet, or SQL 012 not run: keep the default */ }
+}
+$("ui-scale").addEventListener("change", async () => {
+  const v = $("ui-scale").value;
+  try {
+    const { error } = await sb.rpc("web_setting_set", { p_key: "ui_scale", p_value: v });
+    if (error) throw error;
+    keepScale(v); applyScale();
+  } catch (e) {
+    alert("Chưa đổi được cỡ giao diện cho mọi máy" + (String(e && e.message || e).includes("web_setting_set") ? " (cần chạy SQL 012 trên Supabase)." : "."));
+    $("ui-scale").value = String(uiScale());
+  }
 });
 
 // the name at the top right opens Cài đặt → Chung, where the Đăng xuất button is
