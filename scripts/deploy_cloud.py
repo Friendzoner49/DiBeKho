@@ -81,7 +81,7 @@ def run_function(ref):
         target.mkdir(parents=True)
         shutil.copy(ROOT / "cloud" / "supabase" / "functions" / "accounts" / "index.ts", target / "index.ts")
         # --no-verify-jwt: the function checks the caller itself, and this avoids the "Invalid JWT" 401
-        done = subprocess.run([npx(), "--yes", "supabase", "functions", "deploy", "accounts", "--project-ref", ref,
+        done = subprocess.run([npx(), "--yes", "supabase", "functions", "deploy", "accounts", f"--remote={ref}", "--yes",
                                "--use-api", "--no-verify-jwt", "--workdir", work], env=env, cwd=work)
     if done.returncode:
         sys.exit("Triển khai hàm accounts lỗi (xem chữ báo ở trên).")
