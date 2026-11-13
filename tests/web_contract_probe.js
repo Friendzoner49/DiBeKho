@@ -10,7 +10,11 @@
     const reload = async () => { setData(JSON.parse(JSON.stringify(F))); renderAll(); };
     loadAll = reload;           // after a write the page reloads: give it the same rows back
     loadInbox = async () => {};
-    sb.rpc = async (fn, args) => { out.calls.push({ fn, args }); return { data: { code: "X", dropped: "Y" }, error: null }; };
+    sb.rpc = async (fn, args) => {
+      if (fn === "web_api_version") return { data: 10, error: null };  // a read: the SQL the page needs is there
+      out.calls.push({ fn, args });
+      return { data: { code: "X", dropped: "Y" }, error: null };
+    };
     sb.from = () => ({ insert: async (row) => { out.requests.push(row); return { error: null }; } });
     window.confirm = () => true;
     window.alert = () => {};
@@ -35,6 +39,7 @@
                          editReceipt: shown("receipt-edit") };
     // staff send a goods-in request
     receiptForm(null);
+    out.checks.staffStar = !!$("rf-lines").querySelector(".rf-star");  // only the owner makes new products
     typeIn($("rf-lines").querySelector(".rf-product"), productLabel(prod("SP002")));
     typeIn($("rf-lines").querySelector(".rf-qty"), "4,5");
     $("rf-supplier").value = "Cua khau";
@@ -105,6 +110,23 @@
     typeIn($("count-table").querySelector(`input[data-count="${prod("SP002").id}"][data-place="1"]`), "18");
     $("count-save").click(); await wait(); await wait();
     out.checks.countMsg = $("count-msg").textContent;
+    // 12. a receipt with "★ Mặt hàng mới": one really new, one that is already in the catalog (the page asks, the
+    // owner says yes: the existing product is used instead of a duplicate)
+    receiptForm(null);
+    $("rf-supplier").value = "Cong ty me";
+    const rows = $("rf-lines").querySelectorAll("tr");
+    rows[0].querySelector(".rf-star").click();
+    typeIn(rows[0].querySelector(".rf-n-name_vi"), "Son lot");
+    typeIn(rows[0].querySelector(".rf-n-name_zh"), "底漆");
+    typeIn(rows[0].querySelector(".rf-n-spec"), "18L/Thung");
+    typeIn(rows[0].querySelector(".rf-n-category"), "Son");
+    typeIn(rows[0].querySelector(".rf-qty"), "10");
+    out.checks.starSpec = rows[0].querySelector(".rf-spec").textContent;
+    rows[1].querySelector(".rf-star").click();
+    typeIn(rows[1].querySelector(".rf-n-name_vi"), "mang  b");
+    typeIn(rows[1].querySelector(".rf-n-spec"), "3MM");
+    typeIn(rows[1].querySelector(".rf-qty"), "2");
+    await press("Lưu phiếu hàng về");
   } catch (e) {
     out.error = String(e && e.stack || e);
   }

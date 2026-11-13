@@ -10,7 +10,7 @@ from dibekho import db
 from dibekho.core import backup, catalog, receipts, stock
 from dibekho.core.cloud import admin, replica, twoway
 from dibekho.core.cloud.client import CloudError
-from tests.pgdb import ALL_FILES, FakeCloud, PgError, Session, needs_pg
+from tests.pgdb import WEB_FILES, FakeCloud, PgError, Session, needs_pg
 
 pytestmark = needs_pg
 OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -19,7 +19,7 @@ STAFF = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
 
 @pytest.fixture
 def shop(tmp_path):
-    pg = Session([*ALL_FILES, "cloud/supabase/009_web_rpc.sql"])
+    pg = Session(WEB_FILES)
     pg.add_account(OWNER)
     pg.add_account(STAFF, "editor")
     cloud = FakeCloud(pg)

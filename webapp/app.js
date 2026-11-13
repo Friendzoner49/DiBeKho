@@ -1,7 +1,7 @@
 /* DiBeKho web: the shop's shared data (the cloud's real tables, docs/cloud/06-cloud-la-goc.md), laid out like the
    desktop app so the same people find the same buttons in the same places (user's request 12/11/2026).
    Plain JS on purpose: no build step, easy to edit. Reads with supabase-js; the owner writes through the functions of
-   cloud/supabase/009_web_rpc.sql (forms.js), staff send requests to web_inbox that the owner approves in the app. */
+   cloud/supabase/009_web_rpc.sql + 010 (forms.js), staff send requests to web_inbox that the owner approves in the app. */
 
 "use strict";
 

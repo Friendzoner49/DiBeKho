@@ -85,3 +85,5 @@ class FakeCloud:
 
             raise CloudError("timed out")
         return rows[0]["r"]
+# the owner's writes from the web, in the order the user runs them on Supabase
+WEB_FILES = [*ALL_FILES, "cloud/supabase/009_web_rpc.sql", "cloud/supabase/010_web_receipt_new_products.sql"]

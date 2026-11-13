@@ -177,6 +177,13 @@ td.yellow input:hover, table.edit input:hover { border-color: var(--border-stron
 td.yellow input:focus, table.edit input:focus { background: var(--surface); border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring-focus); }
 table.edit td { padding: 4px 6px; }
 table.edit input.rf-product { min-width: 280px; }
+.rf-pick { display: flex; gap: 4px; align-items: center; }
+.rf-pick button.rf-star { flex: none; white-space: nowrap; color: var(--primary); }
+.rf-newbox { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 4px; padding: 6px;
+             border: 1px dashed var(--primary); border-radius: 8px; min-width: 320px; }
+.rf-newbox b { grid-column: 1 / -1; color: var(--primary); }
+.rf-newbox button.rf-unstar { grid-column: 1 / -1; justify-self: start; }
+table.edit .rf-newbox input { border-color: var(--border-strong); background: var(--surface); }
 input.qty { text-align: right; font-variant-numeric: tabular-nums; }
 .key { padding: 1px 8px; border-radius: 6px; }
 .key.low { background: var(--row-orange); }

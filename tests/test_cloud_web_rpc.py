@@ -14,12 +14,12 @@ import pytest
 from dibekho import db
 from dibekho.core import catalog, receipts, stock
 from dibekho.core.cloud import replica, twoway
-from tests.pgdb import ALL_FILES, FakeCloud, PgError, Session, needs_pg
+from tests.pgdb import WEB_FILES, FakeCloud, PgError, Session, needs_pg
 
 pytestmark = needs_pg
 OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 STAFF = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
-FILES = [*ALL_FILES, "cloud/supabase/009_web_rpc.sql"]
+FILES = WEB_FILES
 TABLES = ("meta", "document_skipped_lines", "stock_movements", "document_lines", "documents", "ignored_lines",
           "product_aliases", "products", "customers", "suppliers")
 
@@ -187,6 +187,46 @@ def test_a_receipt_made_on_the_web_gets_its_excel_file_on_the_machine(shop, tmp_
         twoway.export_renamed(s, ws, m)
     assert (ws.output / receipts.FOLDER / "HangVe_HV002_2026-11-07.xlsx").exists()
     assert twoway.queued_count(s) == 0  # writing the file changed nothing to send back
+
+
+def test_a_receipt_with_new_products_creates_them_like_the_app(shop):
+    s, twin, call, cloud = shop
+    NP = receipts.NewProduct
+    receipts.save(twin, receipts.ReceiptInput(date(2026, 11, 8), receipts.SUPPLIER, supplier_name="Công ty mẹ",
+                                              lines=[receipts.ReceiptLineInput(10, new=NP("Sơn  lót", "底漆", "18L/Thùng",
+                                                                                          category="Sơn")),
+                                                     receipts.ReceiptLineInput(4, _pid(twin, "SP001")),
+                                                     receipts.ReceiptLineInput(2, new=NP("Keo A", spec="15kg/Thùng",
+                                                                                         variant="Đỏ", unit="xô"))]))
+    out = call("web_receipt", p=({"doc_date": "2026-11-08", "source": "supplier", "supplier_name": "Công ty mẹ",
+                                  "lines": [{"new": {"name_vi": "Sơn  lót", "name_zh": "底漆", "spec": "18L/Thùng",
+                                                     "category": "Sơn"}, "qty": 10, "note": ""},
+                                            *_lines(s, ("SP001", 4, "")),
+                                            {"new": {"name_vi": "Keo A", "spec": "15kg/Thùng", "variant": "Đỏ",
+                                                     "unit": "xô"}, "qty": 2, "note": ""}]}, "jsonb"))
+    assert out["code"] == "HV002"
+    _same(s, twin, cloud)
+    assert {r[0] for r in s.execute("SELECT code FROM products")} >= {"SP004", "SP005"}
+
+
+def test_a_receipt_that_fails_leaves_no_new_product(shop, pg):
+    s, twin, call, cloud = shop
+    before = pg.query("select count(*) as n from public.products")[0]["n"]
+    for lines in ([{"new": {"name_vi": "Hàng X"}, "qty": 1}, {"new": {"name_vi": "hàng  x"}, "qty": 2}],
+                  [{"new": {"name_vi": "Hàng X"}, "qty": 1}, {"product_id": None, "qty": 1}],
+                  [{"new": {"name_vi": "Hàng X"}, "qty": 0}],
+                  [{"new": {"name_vi": "  "}, "qty": 1}]):
+        with pytest.raises(PgError):
+            call("web_receipt", p=({"doc_date": "2026-11-08", "source": "supplier", "supplier_name": "Công ty mẹ",
+                                    "lines": lines}, "jsonb"))
+    assert pg.query("select count(*) as n from public.products")[0]["n"] == before
+    # the code a failed receipt would have used is still the next one
+    assert call("web_product_add", p=({"name_vi": "Hàng X"}, "jsonb"))["code"] == "SP004"
+
+
+def test_the_web_can_tell_the_new_receipt_function_is_there(shop):
+    s, twin, call, cloud = shop
+    assert cloud.session.query("select public.web_api_version() as v", sub=OWNER)[0]["v"] >= 10
 
 
 def test_transfer_and_editing_it(shop):

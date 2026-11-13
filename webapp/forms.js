@@ -41,7 +41,7 @@ function openDialog(title, html, buttons, closeLabel = "Huỷ bỏ") {
 
 /** A form with something typed in asks before closing, like the app (receipt_form.confirm_close). */
 function dirtyForm() {
-  return [...$("dlg-body").querySelectorAll("input.qty, input.rf-product")].some((i) => i.value.trim() !== "");
+  return [...$("dlg-body").querySelectorAll("input.qty, input.rf-product, .rf-newbox input")].some((i) => i.value.trim() !== "");
 }
 
 function closeDialog() {
@@ -121,8 +121,16 @@ function showOrder(id) {
 
 /* ---------------------------------------------------------------- Nhập hàng về (receipt_form) */
 
+const NEW_FIELDS = [["name_vi", "Tên tiếng Việt (bắt buộc)"], ["name_zh", "Tên tiếng Trung"], ["spec", "Quy cách (vd. 20kg/Thùng)"],
+                    ["variant", "Loại / màu"], ["unit", "Đơn vị (trống = tự đoán)"], ["category", "Nhóm hàng"]];
+
+/** A row of the receipt: a product of the catalog, or (the owner's ★ button) a new one made when the receipt is saved. */
 function receiptRow(product, qty, note) {
-  return `<tr><td><input class="rf-product" list="products-dl" placeholder="— Gõ mã hoặc tên hàng —" value="${esc(product ? productLabel(product) : "")}"></td>` +
+  const star = isOwner() ? `<button class="flat rf-star" title="Mặt hàng chưa có trong kho: gõ thông tin của nó, mặt hàng sẽ được thêm vào danh mục khi lưu phiếu">★ Mặt hàng mới…</button>` : "";
+  return `<tr><td><div class="rf-pick"><input class="rf-product" list="products-dl" placeholder="— Gõ mã hoặc tên hàng —" value="${esc(product ? productLabel(product) : "")}">${star}</div>` +
+    `<div class="rf-newbox hidden"><b>★ Mặt hàng mới</b>` +
+    NEW_FIELDS.map(([k, ph]) => `<input class="rf-n-${k}" placeholder="${esc(ph)}"${k === "category" ? ' list="categories-dl"' : ""}>`).join("") +
+    `<button class="flat rf-unstar">↩ Chọn mặt hàng có sẵn</button></div></td>` +
     `<td class="rf-spec">${esc(product ? product.spec : "")}</td><td class="rf-unit">${esc(product ? product.unit : "")}</td>` +
     `<td><input class="rf-qty qty" inputmode="decimal" value="${esc(qty ?? "")}"></td>` +
     `<td><input class="rf-note" value="${esc(note || "")}"></td><td><button class="flat rf-del" title="Xoá dòng này">✕</button></td></tr>`;
@@ -148,7 +156,8 @@ function receiptForm(edit) {
        <label>Ghi chú:</label><input id="rf-note" value="${esc(edit ? edit.note : "")}">
      </div>
      <p class="step">2. Hàng về những gì?</p>
-     <p class="hint">Gõ mã hoặc tên rồi chọn trong danh sách gợi ý. Dòng không gõ số lượng sẽ được bỏ qua. Mặt hàng mới: thêm ở Cài đặt → Danh mục mặt hàng trước.</p>
+     <p class="hint">Gõ mã hoặc tên rồi chọn trong danh sách gợi ý. Dòng không gõ số lượng sẽ được bỏ qua. ${isOwner()
+       ? "Mặt hàng chưa có trong kho: bấm ★ Mặt hàng mới… ở dòng đó." : "Mặt hàng chưa có trong kho: nhờ chủ thêm vào danh mục trước."}</p>
      <div class="scroll"><table class="edit"><thead><tr><th>Mặt hàng</th><th>Quy cách</th><th>Đơn vị</th><th>Số lượng</th><th>Ghi chú</th><th></th></tr></thead>
        <tbody id="rf-lines">${(lines.length ? lines.map((l) => receiptRow(productById[l.product_id], fmtQty(l.qty), l.note))
                                             : [1, 2, 3].map(() => receiptRow(null))).join("")}</tbody></table></div>
@@ -165,24 +174,61 @@ function receiptForm(edit) {
   };
   body.querySelectorAll('input[name="rf-src"]').forEach((r) => r.addEventListener("change", sync));
   body.addEventListener("input", (e) => {
+    const tr = e.target.closest("tr");
     if (e.target.classList.contains("rf-product")) {
-      const p = productFromLabel(e.target.value), tr = e.target.closest("tr");
+      const p = productFromLabel(e.target.value);
       tr.querySelector(".rf-spec").textContent = p ? p.spec : "";
       tr.querySelector(".rf-unit").textContent = p ? p.unit : "";
+    } else if (tr && tr.dataset.new) {
+      tr.querySelector(".rf-spec").textContent = tr.querySelector(".rf-n-spec").value.trim();
+      tr.querySelector(".rf-unit").textContent = tr.querySelector(".rf-n-unit").value.trim();
     }
     summary();
   });
-  body.addEventListener("click", (e) => { if (e.target.classList.contains("rf-del")) { e.target.closest("tr").remove(); summary(); } });
+  body.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr");
+    if (e.target.classList.contains("rf-del")) { tr.remove(); summary(); }
+    if (e.target.classList.contains("rf-star") || e.target.classList.contains("rf-unstar")) {
+      setRowNew(tr, e.target.classList.contains("rf-star"));
+      summary();
+    }
+  });
   $("rf-add").addEventListener("click", () => { $("rf-lines").insertAdjacentHTML("beforeend", receiptRow(null)); });
   sync(); summary();
 }
 
-/** -> [{product, qty, note}] of the rows with a quantity; quiet: skip bad rows instead of failing. */
+/** Turn a receipt row into a new product (★) or back into a product of the catalog (`product`: put that one in). */
+function setRowNew(tr, on, product) {
+  if (on) tr.dataset.new = "1"; else delete tr.dataset.new;
+  tr.querySelector(".rf-pick").classList.toggle("hidden", on);
+  tr.querySelector(".rf-newbox").classList.toggle("hidden", !on);
+  if (!on && product) tr.querySelector(".rf-product").value = productLabel(product);
+  const p = on ? null : productFromLabel(tr.querySelector(".rf-product").value);
+  tr.querySelector(".rf-spec").textContent = on ? tr.querySelector(".rf-n-spec").value.trim() : (p ? p.spec : "");
+  tr.querySelector(".rf-unit").textContent = on ? tr.querySelector(".rf-n-unit").value.trim() : (p ? p.unit : "");
+  (on ? tr.querySelector(".rf-n-name_vi") : tr.querySelector(".rf-product")).focus();
+}
+
+const newLabel = (n) => [n.name_vi, n.spec, n.variant].filter(Boolean).join(" · ");
+
+/** -> [{product, qty, note} | {new, qty, note, tr}] of the rows with a quantity; quiet: skip bad rows instead of failing. */
 function collectReceiptLines(quiet) {
-  const out = [], seen = new Map();
+  const out = [], seen = new Map(), newSeen = new Map();
   [...$("rf-lines").querySelectorAll("tr")].forEach((tr, i) => {
-    const label = tr.querySelector(".rf-product").value.trim();
     const qty = parseQty(tr.querySelector(".rf-qty").value);
+    if (tr.dataset.new) {  // receipts.problems: a name, and the same new product not on two rows
+      const n = {};
+      for (const [k] of NEW_FIELDS) n[k] = DibeDupes.clean(tr.querySelector(`.rf-n-${k}`).value);
+      if (qty === null || qty === 0) return;
+      if (!n.name_vi) { if (quiet) return; fail(`Dòng ${i + 1}: mặt hàng mới phải có tên tiếng Việt.`); }
+      if (!(qty > 0)) { if (quiet) return; fail(`Dòng ${i + 1}: số lượng phải là số lớn hơn 0.`); }
+      const key = ["name_vi", "spec", "variant"].map((k) => DibeDupes.unaccent(n[k]).replaceAll(" ", "")).join("|");
+      if (newSeen.has(key)) { if (quiet) return; fail(`“★ ${newLabel(n)}” có ở 2 dòng (dòng ${newSeen.get(key)} và ${i + 1}). Hãy gộp số lượng vào một dòng.`); }
+      newSeen.set(key, i + 1);
+      out.push({ new: n, qty, note: tr.querySelector(".rf-note").value.trim(), tr });
+      return;
+    }
+    const label = tr.querySelector(".rf-product").value.trim();
     if (qty === null && !label) return;
     if (qty === null || qty === 0) return;  // no quantity: the row is skipped (like the app)
     const p = productFromLabel(label);
@@ -199,8 +245,27 @@ async function saveReceipt(edit) {
   const source = document.querySelector('input[name="rf-src"]:checked').value;
   const day = $("rf-date").value;
   if (!day) fail("Hãy chọn ngày về.");
-  const lines = collectReceiptLines(false);
+  let lines = collectReceiptLines(false);
   if (!lines.length) fail("Chưa có mặt hàng nào có số lượng.");
+  if (lines.some((l) => l.new)) {
+    const { data: version, error } = await sb.rpc("web_api_version");
+    if (error || !(version >= 10)) {
+      fail("Máy chủ chưa được cập nhật để thêm mặt hàng mới ngay trong phiếu (người cài đặt cần chạy SQL 010). " +
+           "Trong lúc chờ: thêm mặt hàng ở Cài đặt → Danh mục mặt hàng trước, rồi chọn nó trong phiếu.");
+    }
+    // receipts.same_as_existing: a new product that looks like one in the catalog -> use that one instead?
+    for (const l of lines.filter((x) => x.new)) {
+      const [same] = DibeDupes.findPossibleDuplicates(data.products, l.new.name_vi, l.new.name_zh, l.new.spec, l.new.variant);
+      if (same && !same.active) {  // a stopped product cannot be picked in a receipt
+        if (!confirm(`Mặt hàng mới “${newLabel(l.new)}” trông giống ${productLabel(same)}, đang NGỪNG DÙNG.\n\n` +
+                     "Muốn dùng lại mặt hàng đó: bấm Huỷ, bật lại ở Cài đặt → Danh mục mặt hàng. Vẫn tạo mặt hàng mới?")) return false;
+      } else if (same && confirm(`Mặt hàng mới “${newLabel(l.new)}” trông giống mặt hàng đã có trong kho: ${productLabel(same)}.\n\n` +
+                          `Dùng mặt hàng có sẵn (${same.code}) thay vì tạo mặt hàng trùng?`)) {
+        setRowNew(l.tr, false, same);
+      }
+    }
+    lines = collectReceiptLines(false);
+  }
   const p = { doc_date: day, source, location_id: Number($("rf-loc").value), note: $("rf-note").value.trim() };
   let who;
   if (source === "supplier") {
@@ -219,12 +284,14 @@ async function saveReceipt(edit) {
   if (day > todayLocal() && !confirm("Ngày về sau hôm nay. Vẫn lưu?")) return false;
   const total = lines.reduce((a, l) => a + l.qty, 0);
   const text = `Ngày về: ${day}\n${who}\nNhập vào: ${PLACE[p.location_id]}\n\n` +
-    lines.map((l) => `• ${productName(l.product)}: ${fmtQty(l.qty)} ${l.product.unit || ""}`).join("\n") +
-    `\n\nTổng: ${fmtQty(total)}\n` + (edit ? "\nPhiếu cũ sẽ được thay bằng phiếu này (phiếu cũ vẫn xem được trong lịch sử).\n" : "") +
+    lines.map((l) => (l.new ? `• ★ ${newLabel(l.new)}: ${fmtQty(l.qty)} ${l.new.unit}`
+                            : `• ${productName(l.product)}: ${fmtQty(l.qty)} ${l.product.unit || ""}`)).join("\n") +
+    `\n\nTổng: ${fmtQty(total)}\n` + (lines.some((l) => l.new) ? "\n★ = mặt hàng mới, sẽ được thêm vào danh mục.\n" : "") + (edit ? "\nPhiếu cũ sẽ được thay bằng phiếu này (phiếu cũ vẫn xem được trong lịch sử).\n" : "") +
     (isOwner() ? "\nLưu phiếu này vào kho?" : "\nGửi phiếu này cho chủ duyệt?");
   if (!confirm(text)) return false;
   if (isOwner()) {
-    p.lines = lines.map((l) => ({ product_id: l.product.id, qty: l.qty, note: l.note }));
+    p.lines = lines.map((l) => (l.new ? { new: l.new, qty: l.qty, note: l.note }
+                                      : { product_id: l.product.id, qty: l.qty, note: l.note }));
     const out = await rpcWrite("web_receipt", edit ? { p, p_replaces: edit.id } : { p });
     alert(`Đã lưu phiếu hàng về ${out.code}. File Excel của phiếu sẽ có trong app (output/hang-ve) khi app đồng bộ.`);
   } else {
@@ -441,6 +508,15 @@ function productForm(p) {
         await rpcWrite("web_product_edit", { p_id: p.id, p: fields });
         alert(`Đã lưu mặt hàng ${p.code}.`);
         return true;
+      }
+      const [same] = DibeDupes.findPossibleDuplicates(data.products, fields.name_vi, fields.name_zh, fields.spec, fields.variant);
+      if (same) {
+        if (confirm(`Mặt hàng này trông giống ${productLabel(same)} (mã ${same.code}) đã có trong kho.\n\n` +
+                    "Mở mặt hàng có sẵn đó để sửa, thay vì tạo mặt hàng trùng?")) {
+          productForm(same);
+          return false;
+        }
+        fields.allow_duplicate = true;
       }
       let out;
       try {

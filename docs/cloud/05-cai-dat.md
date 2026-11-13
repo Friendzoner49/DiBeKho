@@ -19,6 +19,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 6. `cloud/supabase/006_owner_commands.sql` — lệnh của chủ kiểu cũ qua hộp thư (web mới không dùng nữa, chạy cho đủ thứ tự). Dự án cài mới đã có sẵn trong 001.
 7. `cloud/supabase/007_core.sql` + `008_sync_rpc.sql` — bảng thật của **Dữ liệu chung** và đồng bộ 2 chiều.
 8. `cloud/supabase/009_web_rpc.sql` — **chủ ghi thẳng trên web** (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, nơi lấy hàng, mặt hàng, gộp khách). **Bắt buộc cho trang web mới.** Chạy lại nhiều lần không sao.
+9. `cloud/supabase/010_web_receipt_new_products.sql` — **"★ Mặt hàng mới" khi nhập hàng về trên web**: mặt hàng mới được tạo cùng lúc với phiếu (phiếu lỗi thì không để lại mặt hàng thừa). Chạy sau 009; chạy lại nhiều lần không sao. Chưa chạy thì web báo "người cài đặt cần chạy SQL 010" khi bấm lưu phiếu có ★.
 
 ## 3. Tạo tài khoản
 
@@ -45,8 +46,7 @@ Quên mật khẩu: không có email khôi phục — vào Authentication → Us
 Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud), trang web đọc và ghi **bảng thật** trên Cloud (không còn bản gương chờ máy chính đẩy lên). Bố cục web **giống app**: thanh bên trái *Tồn kho · Cần xử lý · Tra cứu · Hàng về · Kiểm kê · Cài đặt*, nút cùng tên, cùng chỗ (Chuyển hàng…/Xuất dùng thử…/Phiếu chuyển hàng… ở Kiểm kê; Đơn hàng/Khách hàng/Thống kê là nút trong Tra cứu; Thêm/Sửa/Gộp mặt hàng ở Cài đặt → Danh mục mặt hàng). Bấm một dòng để chọn, nháy đúp để mở, như app (điện thoại: chạm lần nữa vào dòng đã chọn).
 
 **Chủ (`desktop`, ví dụ `maychinh`)** làm thẳng, **không cần app mở**: nhập/sửa phiếu hàng về, chuyển hàng (cả sửa phiếu), xuất dùng thử, kiểm kê (2 cột vàng Kho tổng/Văn phòng), huỷ phiếu, chọn nơi lấy hàng (ở chi tiết đơn và ở Cần xử lý), thêm/sửa/ngừng dùng/gộp mặt hàng, gộp khách hàng. Mỗi việc là một hàm trong `cloud/supabase/009_web_rpc.sql`, làm đúng như hàm của app và được kiểm song song với app (`tests/test_cloud_web_rpc.py`). App trên máy tính nhận thay đổi ở lần đồng bộ kế tiếp; phiếu hàng về nhập trên web được app tự tạo file Excel trong `output/hang-ve/`.
-- Kiểm tra trùng khi thêm mặt hàng trên web chỉ bắt **trùng hẳn** (cùng tên, quy cách, loại/màu, không dấu); kiểu "trông giống" (gợi ý theo tên Trung…) chỉ có trong app.
-- Nhập hàng về trên web chưa có "★ Mặt hàng mới": thêm mặt hàng ở Cài đặt → Danh mục mặt hàng trước.
+- Thêm mặt hàng (Cài đặt → Thêm, hoặc ★ Mặt hàng mới khi nhập hàng về): web hỏi khi mặt hàng **trông giống** một mặt hàng đã có, đúng như app (cùng cách so tên Việt + tên Trung + quy cách; `webapp/dupes.js`, kiểm song song với app ở `tests/test_web_dupes.py`). ★ chỉ có ở tài khoản chủ; nhân viên nhờ chủ thêm mặt hàng trước.
 - Giờ trên phiếu theo đồng hồ của cửa hàng (`meta.clock_offset_min`, máy đồng bộ đầu tiên tự ghi; thiếu thì lấy giờ Việt Nam).
 - Khôi phục bản sao lưu, Khôi phục từ Cloud, nhập gói dữ liệu, Xoá toàn bộ dữ liệu khi bật dữ liệu chung: **thay dữ liệu chung cho mọi người** (web, nhân viên, máy khác). App hỏi, sao lưu trước, gửi lên Cloud trong một lần rồi mới thay file trên máy; cần có mạng và không còn thay đổi chờ gửi.
 - Hoàn tác khi bật dữ liệu chung: chỉ huỷ phiếu hàng về / chuyển hàng / dùng thử / kiểm kê vừa lưu trên máy đó (phiếu vẫn còn, ghi là đã huỷ). Việc khác làm nhầm: Huỷ phiếu / sửa phiếu / sửa tay. Mỗi ngày, sau lần đồng bộ đầu tiên, app chép một bản `sao-luu/DiBeKho_dulieu-chung_<ngày>.sqlite`.

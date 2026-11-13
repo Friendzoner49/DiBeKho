@@ -22,7 +22,7 @@ import pytest
 from dibekho import db
 from dibekho.core import catalog, receipts, stock
 from dibekho.core.cloud import inbox, replica, twoway
-from tests.pgdb import ALL_FILES, FakeCloud, Session, needs_pg
+from tests.pgdb import WEB_FILES, FakeCloud, Session, needs_pg
 
 ROOT = Path(__file__).resolve().parent.parent
 OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -73,7 +73,7 @@ def _shop(conn):
 
 @pytest.fixture
 def cloud_shop(tmp_path):
-    pg = Session([*ALL_FILES, "cloud/supabase/009_web_rpc.sql"])
+    pg = Session(WEB_FILES)
     pg.add_account(OWNER)
     conn = db.connect(tmp_path / "shop.sqlite")
     replica.set_enabled(conn, True)
@@ -147,11 +147,13 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert "HV001" in out["checks"]["editTitle"]
     assert out["checks"]["returnFields"] is True
     assert out["checks"]["countMsg"] == "Đã lưu kiểm kê."
+    assert out["checks"]["staffStar"] is False
+    assert out["checks"]["starSpec"] == "18L/Thung"
 
     calls = out["calls"]
     assert [c["fn"] for c in calls] == [
         "web_transfer", "web_trial", "web_product_add", "web_product_edit", "web_product_merge", "web_customer_merge",
-        "web_cancel", "web_set_location", "web_receipt", "web_receipt", "web_stock_count"]
+        "web_cancel", "web_set_location", "web_receipt", "web_receipt", "web_stock_count", "web_receipt"]
     for c in calls:
         _call(pg, c["fn"], c["args"])
     r = twoway.sync_round(conn, cloud, OWNER, "Shop")
@@ -166,7 +168,9 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Keo D' AND spec = '25kg' AND unit = 'thung'") == 1
     a = conn.execute("SELECT * FROM products WHERE id = ?", (ids["a"],)).fetchone()
     assert (a["name_vi"], a["stock_note"], a["active"]) == ("Keo A moi", "2 thung mop", 0)
-    assert _count(conn, "SELECT COUNT(*) FROM products WHERE code = 'SP003'") == 0  # merged into SP002
+    assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Keo C'") == 0  # merged into SP002
+    # its freed code went to the first new product made after the merge (step 12), as in the app
+    assert _count(conn, "SELECT COUNT(*) FROM products WHERE code = 'SP003' AND name_vi = 'Son lot'") == 1
     assert _count(conn, "SELECT COUNT(*) FROM products WHERE id = ?", ids["b"]) == 1
 
     assert _count(conn, "SELECT COUNT(*) FROM customers WHERE name IN ('Khach X', 'Khach Y')") == 0
@@ -187,7 +191,15 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     counted = conn.execute("SELECT l.qty, l.location_id FROM document_lines l JOIN documents d ON d.id = l.document_id "
                            "WHERE d.kind = 'stock_count'").fetchall()
     assert [tuple(r) for r in counted] == [(18, stock.MAIN)]
-    assert stock.stock_levels(conn, by_location=True)[(ids["b"], stock.MAIN)] == 18
+    assert stock.stock_levels(conn, by_location=True)[(ids["b"], stock.MAIN)] == 18 + 2  # counted, then step 12
+
+    # 12: the new product came with its receipt; the look-alike became the existing Mang B, not a second one
+    star = conn.execute("SELECT id FROM documents WHERE kind = 'receipt' AND code = 'HV003'").fetchone()["id"]
+    got = conn.execute("SELECT p.name_vi, p.name_zh, p.spec, p.category, l.qty FROM document_lines l "
+                       "JOIN products p ON p.id = l.product_id WHERE l.document_id = ? ORDER BY l.line_no",
+                       (star,)).fetchall()
+    assert [tuple(r) for r in got] == [("Son lot", "底漆", "18L/Thung", "Son", 10), ("Mang B", "", "3mm", "Mang", 2)]
+    assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Mang B'") == 1
 
 
 def test_staff_requests_from_the_web_are_read_by_the_apps_approval(cloud_shop, tmp_path):

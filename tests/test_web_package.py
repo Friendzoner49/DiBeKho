@@ -18,7 +18,7 @@ from dibekho.core import catalog, deliveries, receipts, stock, transfer
 from dibekho.core.cloud import admin, twoway
 from dibekho.core.workspace import Config, Workspace
 from tests.conftest import make_note
-from tests.pgdb import ALL_FILES, FakeCloud, Session, needs_pg
+from tests.pgdb import WEB_FILES, FakeCloud, Session, needs_pg
 
 ROOT = Path(__file__).resolve().parent.parent
 NODE = shutil.which("node")
@@ -91,7 +91,7 @@ def _picture(conn):
 def cloud_shop(tmp_path):
     if NODE is None:
         pytest.skip("Node is not installed")
-    pg = Session([*ALL_FILES, "cloud/supabase/009_web_rpc.sql"])
+    pg = Session(WEB_FILES)
     pg.add_account(OWNER)
     cloud = FakeCloud(pg)
     ws = Workspace(tmp_path / "a")

@@ -7,7 +7,7 @@ from datetime import date
 from dibekho import db
 from dibekho.core import backup, catalog, receipts, stock, undo
 from dibekho.core.cloud import replica, twoway
-from tests.pgdb import ALL_FILES, FakeCloud, Session, needs_pg
+from tests.pgdb import WEB_FILES, FakeCloud, Session, needs_pg
 
 OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -37,7 +37,7 @@ def test_only_the_last_saved_document_and_only_while_it_is_active(tmp_path):
 
 @needs_pg
 def test_the_cancel_reaches_the_cloud_and_a_cancel_from_elsewhere_ends_it(tmp_path):
-    pg = Session([*ALL_FILES, "cloud/supabase/009_web_rpc.sql"])
+    pg = Session(WEB_FILES)
     try:
         pg.add_account(OWNER)
         cloud = FakeCloud(pg)
