@@ -102,6 +102,7 @@ def write_template(path: Path, products, today: date) -> Path:
 SOURCE_LABELS = {
     "supplier": "Cửa khẩu / công ty mẹ  口岸/母公司",
     "return": "Khách hàng trả lại  客户退货",
+    "other": "Nhà cung cấp khác  其他供应商",
 }
 _THIN = Side(style="thin", color="999999")
 _BOX = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_THIN)
@@ -128,14 +129,15 @@ def write_receipt(path: Path, head, lines) -> Path:
     ws["A1"] = "PHIẾU HÀNG VỀ  到货单"
     ws["A1"].font = Font(bold=True, size=14)
     source = head["receipt_source"]
-    who = head["supplier_name"] if source == "supplier" else head["customer_name"]
+    named = source in ("supplier", "other")
+    who = head["supplier_name"] if named else head["customer_name"]
     # labels must not start with 'Mã' (the reader takes that row as the table header)
     rows = [
         ("Ngày về  到货日期:", date.fromisoformat(head["doc_date"])),
         ("Ghi chú  备注:", head["note"]),
         ("Số phiếu  单号:", head["code"]),
         ("Nguồn hàng  来源:", SOURCE_LABELS.get(source, "")),
-        ("Nhà cung cấp  供应商:" if source == "supplier" else "Khách hàng  客户:", who or ""),
+        ("Nhà cung cấp  供应商:" if named else "Khách hàng  客户:", who or ""),
     ]
     if source == "return" and head["ref_code"]:
         rows.append(("Đơn gốc  原订单:", head["ref_code"]))

@@ -745,5 +745,9 @@
   "admin.what_delete_all": "删除全部数据",
   "money.returned": " · 已扣除客户退货：{returned}",
   "receipt_form.return_price": "退货单价",
-  "receipt_form.return_price_hint": "客户退回的货物按“退货单价”从销售额中扣除（已自动填入客户的购买价；可修改，留空则不扣除）。"
+  "receipt_form.return_price_hint": "客户退回的货物按“退货单价”从销售额中扣除（已自动填入客户的购买价；可修改，留空则不扣除）。",
+  "receipt_form.source_other": "其他供应商",
+  "receipt_form.source_short_other": "其他供应商",
+  "receipt_form.need_supplier_other": "请输入供应商名称（或点击最近使用的名称）。",
+  "receipt_form.recent_suppliers": "最近："
 }

@@ -189,6 +189,7 @@ This note is **shared** with the note column on the Stock count page, and shows 
 2. Where the goods come from:
    - **Border gate / parent company**: type the supplier, or pick one used before.
    - **Customer return**: pick the customer, and the order if you know it. The **Refund unit price** column is filled in with what the customer paid (on that order, or their latest purchase); change it if you refund a different amount, or leave it empty to take nothing off the revenue.
+   - **Another supplier**: type the supplier's name, or click one of the 3 most recent names shown below it.
 3. Choose **Date in** and **Put in**: **Main warehouse** or **Office**.
 4. Three products are suggested (what usually comes from this supplier, or what is running low). Type a **quantity** on each row; rows without a quantity are skipped.
    - Another product: click its name → **🔍 Choose a product from the catalog…**. The search box takes **any words, no accents or dashes needed**, e.g. `fs101 xam 10kg`; packing, type/colour, Chinese name and stock have their own columns to tell same-named products apart. One match left: press Enter to take it.

@@ -495,12 +495,13 @@ function renderCustomers() {
 /* ---------------------------------------------------------------- Hàng về */
 
 function renderReceipts() {
-  const items = data.documents.filter((d) => d.kind === "receipt")
+  // a receipt replaced by its edited version is not listed, like the app (user's request 13/11/2026)
+  const items = data.documents.filter((d) => d.kind === "receipt" && d.status !== "replaced")
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
   buildTable("receipts-table", [
     { label: "Ngày về", get: (d) => d.doc_date },
     { label: "Mã", get: (d) => d.code },
-    { label: "Nguồn hàng", get: (d) => (d.receipt_source === "return" ? "Khách trả lại" : "Cửa khẩu / công ty mẹ") },
+    { label: "Nguồn hàng", get: (d) => ({ return: "Khách trả lại", other: "Nhà cung cấp khác" }[d.receipt_source] || "Cửa khẩu / công ty mẹ") },
     { label: "Nhà cung cấp / khách", get: (d) => d.supplier_name || (customerById[d.customer_id] || {}).name || "" },
     { label: "Nhập vào", get: (d) => PLACE[d.location_id] || "" },
     { label: "Số mặt hàng", get: (d) => (linesByDoc[d.id] || []).length, num: true, cls: "num" },

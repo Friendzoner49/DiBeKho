@@ -22,7 +22,10 @@ from dibekho.core.workspace import Workspace
 
 SUPPLIER = "supplier"  # border gate / parent company
 RETURN = "return"      # goods a customer sent back
-SOURCES = (SUPPLIER, RETURN)
+OTHER = "other"        # another supplier, its name typed (user's request 13/11/2026)
+SOURCES = (SUPPLIER, RETURN, OTHER)
+NAMED = (SUPPLIER, OTHER)  # sources whose supplier is a typed name (suppliers table)
+RECENT = 3                # recent other suppliers offered as one-click buttons
 FOLDER = "hang-ve"     # output/hang-ve/
 SUGGESTED = 3
 
@@ -54,7 +57,7 @@ class ReceiptLineInput:
 class ReceiptInput:
     doc_date: date
     source: str
-    supplier_name: str = ""       # source 'supplier'
+    supplier_name: str = ""       # source 'supplier' or 'other'
     customer_name: str = ""       # source 'return'
     customer_id: int | None = None
     ref_code: str = ""            # source 'return': the order the goods came back from (optional)
@@ -69,14 +72,22 @@ class ReceiptInput:
 
 # ---- what the window offers ---------------------------------------------------------------------------------
 
-def supplier_names(conn) -> list[str]:
-    """Suppliers used before, the most recent first."""
-    return [r[0] for r in conn.execute(
-        """
-        SELECT s.name FROM suppliers s
-        LEFT JOIN documents d ON d.supplier_id = s.id
-        GROUP BY s.id ORDER BY MAX(COALESCE(d.created_at, s.created_at)) DESC, s.name
-        """)]
+def supplier_names(conn, source: str | None = None, limit: int | None = None) -> list[str]:
+    """Suppliers used before, the most recent first. source: only those of receipts from that source ('supplier'
+    also takes receipts from before 0.3 without one); limit: the first few (the 3 buttons of 'Nhà cung cấp khác')."""
+    if source is None:
+        sql = """SELECT s.name FROM suppliers s LEFT JOIN documents d ON d.supplier_id = s.id
+                 GROUP BY s.id ORDER BY MAX(COALESCE(d.created_at, s.created_at)) DESC, s.name"""
+        args: list = []
+    else:
+        sql = """SELECT s.name FROM suppliers s JOIN documents d ON d.supplier_id = s.id
+                 WHERE d.kind = 'receipt' AND d.status <> 'replaced' AND d.receipt_source IN (?, ?)
+                 GROUP BY s.id ORDER BY MAX(d.doc_date) DESC, MAX(d.created_at) DESC, s.name"""
+        args = [source, "" if source == SUPPLIER else source]
+    if limit:
+        sql += " LIMIT ?"
+        args.append(limit)
+    return [r[0] for r in conn.execute(sql, args)]
 
 
 def customer_orders(conn, customer_id: int, limit: int = 20) -> list[str]:
@@ -204,6 +215,8 @@ def problems(data: ReceiptInput) -> list[str]:
         found.append(("receipt_form.need_source", {}))
     elif data.source == SUPPLIER and not clean(data.supplier_name):
         found.append(("receipt_form.need_supplier", {}))
+    elif data.source == OTHER and not clean(data.supplier_name):
+        found.append(("receipt_form.need_supplier_other", {}))
     elif data.source == RETURN and not (data.customer_id or clean(data.customer_name)):
         found.append(("receipt_form.need_customer", {}))
     lines = data.filled()
@@ -289,7 +302,7 @@ def save(conn, data: ReceiptInput, replaces: int | None = None, ws: Workspace | 
             close_document(conn, replaces, "replaced")
             code = old["code"] or code
         supplier_id, customer_id = None, None
-        if data.source == SUPPLIER:
+        if data.source in NAMED:
             supplier_id = _supplier_id(conn, data.supplier_name)
         else:
             customer_id = data.customer_id or catalog.upsert_customer(conn, data.customer_name)

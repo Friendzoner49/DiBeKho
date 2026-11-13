@@ -745,5 +745,9 @@
   "admin.what_delete_all": "Delete all data",
   "money.returned": " · less goods customers sent back: {returned}",
   "receipt_form.return_price": "Refund unit price",
-  "receipt_form.return_price_hint": "Goods a customer sends back come off the revenue at the Refund unit price (filled in with what the customer paid; you can change it, or leave it empty to take nothing off)."
+  "receipt_form.return_price_hint": "Goods a customer sends back come off the revenue at the Refund unit price (filled in with what the customer paid; you can change it, or leave it empty to take nothing off).",
+  "receipt_form.source_other": "Another supplier",
+  "receipt_form.source_short_other": "Another supplier",
+  "receipt_form.need_supplier_other": "Type the supplier's name (or click a recent one).",
+  "receipt_form.recent_suppliers": "Recent:"
 }

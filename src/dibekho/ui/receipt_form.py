@@ -24,10 +24,11 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QTableWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from dibekho.core import activity, catalog, receipts, undo
-from dibekho.core.receipts import RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
+from dibekho.core.receipts import NAMED, OTHER, RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
 from dibekho.core.text import fmt_money, fmt_qty, unaccent
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -115,6 +116,7 @@ class ReceiptForm(QDialog):
         self.products = {p["id"]: p for p in catalog.products(ctx.conn, include_inactive=True)}
         self.rows: list[_Row] = []
         self._loading = True
+        self._last_source = SUPPLIER  # the supplier list is refilled when the source changes
 
         lay = QVBoxLayout(self)
         lay.addWidget(title_label(self.windowTitle()))
@@ -124,8 +126,9 @@ class ReceiptForm(QDialog):
         src_row = QHBoxLayout()
         self.src_supplier = QRadioButton(t("receipt_form.source_supplier"))
         self.src_return = QRadioButton(t("receipt_form.source_return"))
+        self.src_other = QRadioButton(t("receipt_form.source_other"))
         self.sources = QButtonGroup(self)
-        for b in (self.src_supplier, self.src_return):
+        for b in (self.src_supplier, self.src_return, self.src_other):
             f = b.font()
             f.setPointSize(f.pointSize() + 2)
             f.setBold(True)
@@ -152,6 +155,20 @@ class ReceiptForm(QDialog):
         self.supplier.setMinimumWidth(520)
         self.supplier_label = QLabel(t("receipt_form.supplier") + ":")
         form.addRow(self.supplier_label, self.supplier)
+        # 'Nhà cung cấp khác': the 3 most recent ones, one click each (the name can still be typed)
+        self.recent_box = QWidget()
+        recent_row = QHBoxLayout(self.recent_box)
+        recent_row.setContentsMargins(0, 0, 0, 0)
+        self.recent_label = QLabel(t("receipt_form.recent_suppliers"))
+        recent_row.addWidget(self.recent_label)
+        self.recent_buttons = []
+        for name in receipts.supplier_names(ctx.conn, OTHER, receipts.RECENT):
+            b = QPushButton(name)
+            b.clicked.connect(lambda _=False, n=name: self.supplier.setCurrentText(n))
+            recent_row.addWidget(b)
+            self.recent_buttons.append(b)
+        recent_row.addStretch()
+        form.addRow("", self.recent_box)
 
         self.customer = NoWheelCombo()
         self.customer.setEditable(True)
@@ -221,7 +238,10 @@ class ReceiptForm(QDialog):
             self._load(draft)
         else:
             self.src_supplier.setChecked(True)
-            names = receipts.supplier_names(ctx.conn)
+            self._last_source = SUPPLIER
+            names = receipts.supplier_names(ctx.conn, SUPPLIER)
+            self.supplier.clear()
+            self.supplier.addItems(names)
             self.supplier.setCurrentText(names[0] if names else "")
             for _ in range(receipts.SUGGESTED):
                 self.add_row(suggested=True)
@@ -238,7 +258,7 @@ class ReceiptForm(QDialog):
     # ---- state -----------------------------------------------------------------------------------------------
 
     def source(self) -> str:
-        return RETURN if self.src_return.isChecked() else SUPPLIER
+        return RETURN if self.src_return.isChecked() else OTHER if self.src_other.isChecked() else SUPPLIER
 
     def customer_id(self) -> int | None:
         i = self.customer.currentIndex()
@@ -261,7 +281,8 @@ class ReceiptForm(QDialog):
         return any(r.qty.value() > 0 for r in self.rows) or self.doc_id is not None
 
     def _load(self, data: ReceiptInput):
-        (self.src_return if data.source == RETURN else self.src_supplier).setChecked(True)
+        {RETURN: self.src_return, OTHER: self.src_other}.get(data.source, self.src_supplier).setChecked(True)
+        self._last_source = data.source
         self.date.setDate(to_qdate(data.doc_date))
         self.location.setCurrentIndex(max(self.location.findData(data.location_id), 0))
         self.supplier.setCurrentText(data.supplier_name)
@@ -408,9 +429,24 @@ class ReceiptForm(QDialog):
         ret = self.source() == RETURN
         for w in (self.supplier, self.supplier_label):
             w.setVisible(not ret)
+        self.recent_box.setVisible(self.source() == OTHER and bool(self.recent_buttons))
+        if self.source() != self._last_source and not self._loading:
+            self._last_source = self.source()
+            self._fill_suppliers()
         for w in (self.customer, self.customer_label, self.order, self.order_label, self.price_hint):
             w.setVisible(ret)
         self.table.setColumnHidden(PRICE, not ret)
+
+    def _fill_suppliers(self):
+        """The supplier list of the chosen source; 'Nhà cung cấp khác' starts empty (the user types or clicks)."""
+        if self.source() not in NAMED:
+            return
+        names = receipts.supplier_names(self.ctx.conn, self.source())
+        self.supplier.blockSignals(True)
+        self.supplier.clear()
+        self.supplier.addItems(names)
+        self.supplier.setCurrentText(names[0] if names and self.source() == SUPPLIER else "")
+        self.supplier.blockSignals(False)
 
     def _fill_orders(self):
         text = self.order.currentText()
@@ -460,7 +496,7 @@ class ReceiptForm(QDialog):
                 texts.append("• " + t(key, **values))
             error(self, t("receipt_form.cannot_save") + "\n\n" + "\n".join(dict.fromkeys(texts)))
             return
-        if (data.source == SUPPLIER and receipts.looks_like_place(data.supplier_name)
+        if (data.source in NAMED and receipts.looks_like_place(data.supplier_name)
                 and not ask(self, t("receipt_form.supplier_is_place", name=data.supplier_name))):
             self.supplier.setFocus()
             return
@@ -499,8 +535,8 @@ class ReceiptForm(QDialog):
         self.accept()
 
     def _confirm_text(self, data: ReceiptInput) -> str:
-        if data.source == SUPPLIER:
-            who = t("receipt_form.source_supplier") + ": " + data.supplier_name
+        if data.source in NAMED:
+            who = t(f"receipt_form.source_{data.source}") + ": " + data.supplier_name
         else:
             who = t("receipt_form.source_return") + ": " + data.customer_name
             if data.ref_code:

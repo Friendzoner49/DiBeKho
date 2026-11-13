@@ -148,7 +148,7 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
         lines.append(line)
     if not lines:
         errors.append("Phiếu không có dòng hàng nào dùng được.")
-    source = receipts.RETURN if p.get("source") == receipts.RETURN else receipts.SUPPLIER
+    source = p.get("source") if p.get("source") in receipts.SOURCES else receipts.SUPPLIER
     customer_id, customer_name = None, ""
     if source == receipts.RETURN:  # goods a customer sent back
         if p.get("customer_id") is not None:
@@ -170,7 +170,7 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
                                                     clean(str(p.get("ref_code") or "")), doc_date)
     data = receipts.ReceiptInput(
         doc_date, source,
-        supplier_name=(clean(str(p.get("supplier_name") or "")) or "Web") if source == receipts.SUPPLIER else "",
+        supplier_name=(clean(str(p.get("supplier_name") or "")) or "Web") if source in receipts.NAMED else "",
         customer_name=customer_name, customer_id=customer_id,
         ref_code=clean(str(p.get("ref_code") or "")) if source == receipts.RETURN else "",
         note=clean(str(p.get("note") or "")), lines=lines, location_id=location)

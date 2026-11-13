@@ -133,7 +133,9 @@ class ReceiptPage(Page):
         self.layout_.addWidget(self.table)
 
     def refresh(self):
-        docs = queries.documents(self.ctx.conn, "receipt", include_closed=True)
+        # a receipt replaced by its edited version is not listed (the user's request: less clutter; the edit keeps
+        # the code, and the old version stays in the database and in Chi tiết mặt hàng's history)
+        docs = [d for d in queries.documents(self.ctx.conn, "receipt", include_closed=True) if d["status"] != "replaced"]
         fill_table(self.table, [[d["code"], date_item(d["doc_date"]), source_text(d), from_text(d),
                                  num_item(d["line_count"]), num_item(d["total_qty"]), d["note"],
                                  status_text(d["status"])] for d in docs],

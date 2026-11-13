@@ -295,3 +295,57 @@ def test_a_return_fills_in_the_price_the_customer_paid_and_keeps_a_typed_one(app
     assert row.price.value() == 0 and form.data().lines[form.rows.index(row)].unit_price is None
     form.saved_doc = 0
     form.close()
+
+
+def test_another_supplier_is_typed_with_three_recent_ones_and_replaced_receipts_are_not_listed(app, ws):
+    import dibekho.ui.receipt_form as rf
+    from datetime import date
+
+    from dibekho.core import receipts
+    from dibekho.core.receipts import OTHER, SUPPLIER, ReceiptInput, ReceiptLineInput
+    from dibekho.ui.receipt_page import ReceiptPage
+
+    ctx = _ctx(ws)
+    a, b, _ = _same_name_products(ctx.conn)
+    for day, name in ((1, "Đại lý Một"), (2, "Đại lý Hai"), (3, "Đại lý Ba"), (4, "Đại lý Bốn"), (5, "Đại lý Một")):
+        receipts.save(ctx.conn, ReceiptInput(date(2026, 11, day), OTHER, supplier_name=name,
+                                             lines=[ReceiptLineInput(1, a)]))
+    receipts.save(ctx.conn, ReceiptInput(date(2026, 11, 6), SUPPLIER, supplier_name="Cửa khẩu Lạng Sơn",
+                                         lines=[ReceiptLineInput(1, b)]))
+    assert receipts.supplier_names(ctx.conn, OTHER, receipts.RECENT) == ["Đại lý Một", "Đại lý Bốn", "Đại lý Ba"]
+    assert receipts.supplier_names(ctx.conn, SUPPLIER) == ["Cửa khẩu Lạng Sơn"]
+    assert receipts.problems(ReceiptInput(date(2026, 11, 7), OTHER, lines=[ReceiptLineInput(1, a)])) == [
+        ("receipt_form.need_supplier_other", {})]
+
+    form = rf.ReceiptForm(ctx)
+    assert form.supplier.currentText() == "Cửa khẩu Lạng Sơn" and form.recent_box.isHidden()
+    form.src_other.setChecked(True)
+    assert not form.recent_box.isHidden() and form.supplier.currentText() == ""  # typed or clicked, never guessed
+    assert [btn.text() for btn in form.recent_buttons] == ["Đại lý Một", "Đại lý Bốn", "Đại lý Ba"]
+    form.recent_buttons[1].click()
+    form._set_product(form.rows[0], a)
+    form.rows[0].qty.setValue(3)
+    data = form.data()
+    assert (data.source, data.supplier_name) == (OTHER, "Đại lý Bốn")
+    assert "Nhà cung cấp khác: Đại lý Bốn" in form._confirm_text(data)
+    doc = receipts.save(ctx.conn, data)
+    row = ctx.conn.execute("SELECT d.receipt_source, s.name FROM documents d JOIN suppliers s ON s.id = d.supplier_id "
+                           "WHERE d.id = ?", (doc,)).fetchone()
+    assert tuple(row) == (OTHER, "Đại lý Bốn")
+    form.saved_doc = 0
+    form.close()
+    edited = receipts.load(ctx.conn, doc)
+    assert edited.source == OTHER  # editing keeps the source
+    form = rf.ReceiptForm(ctx, doc_id=doc)
+    assert form.src_other.isChecked() and form.supplier.currentText() == "Đại lý Bốn"
+    form.saved_doc = 0
+    form.close()
+    edited.lines[0].qty = 4
+    new_doc = receipts.save(ctx.conn, edited, replaces=doc)  # the old version becomes 'replaced'
+
+    page = ReceiptPage(ctx, lambda: None)
+    page.refresh()
+    listed = [page.table.item(r, 0).text() for r in range(page.table.rowCount())]
+    code = ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (new_doc,)).fetchone()[0]
+    assert listed.count(code) == 1 and len(listed) == 7  # 6 receipts + the edit; the replaced one is gone
+    assert "Nhà cung cấp khác" in [page.table.item(r, 2).text() for r in range(page.table.rowCount())]
