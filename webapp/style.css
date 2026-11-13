@@ -153,6 +153,10 @@ th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--bo
 td { white-space: nowrap; }  /* một dòng mỗi hàng, kéo ngang như bảng của app */
 th { position: sticky; top: 0; z-index: 1; background: var(--surface); color: var(--muted); font-size: 13px;
      font-weight: 600; min-width: 84px; vertical-align: bottom; box-shadow: inset 0 -1px 0 var(--border-strong); border-bottom: none; }
+/* a column that stays in view while the rest scrolls sideways (Tồn on the stock list) */
+th.stick-r, td.stick-r { position: sticky; right: 0; box-shadow: -1px 0 0 var(--border); }
+th.stick-r { z-index: 3; }
+td.stick-r { z-index: 2; background: var(--surface); }
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--foreground); }
 th.sortable.asc::after { content: " ↑"; color: var(--primary); }

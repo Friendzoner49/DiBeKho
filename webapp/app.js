@@ -96,7 +96,7 @@ const activeProducts = () => data.products.filter((p) => p.active)
 
 /* Sortable table, like the app's: click a header to sort; click a row to select it (select: "one" | "many"),
    double-click to open it. cols = [{label, get, num?, cls?, html?}]. */
-const tableState = {};
+const tableState = { "stock-table": { i: 0, dir: 1, sel: new Set() } };  // Tồn kho opens sorted by code (SP001…)
 
 function buildTable(into, cols, items, opts = {}) {
   const st = tableState[into] ||= { i: null, dir: 1, sel: new Set() };
@@ -108,17 +108,17 @@ function buildTable(into, cols, items, opts = {}) {
     rows = items.slice().sort((a, b) => {
       const va = c.get(a), vb = c.get(b);
       if (c.num) return ((va ?? -Infinity) - (vb ?? -Infinity)) * st.dir;
-      return String(va ?? "").localeCompare(String(vb ?? ""), "vi") * st.dir;
+      return String(va ?? "").localeCompare(String(vb ?? ""), "vi", { numeric: true }) * st.dir;
     });
   }
   const alive = new Set(items.map(keyOf));
   for (const k of [...st.sel]) if (!alive.has(k)) st.sel.delete(k);
   const head = cols.map((c, i) =>
-    `<th data-i="${i}" class="sortable ${c.num ? "num" : ""} ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${esc(c.label)}</th>`).join("");
+    `<th data-i="${i}" class="sortable ${c.num ? "num" : ""} ${c.stick ? "stick-r" : ""} ${st.i === i ? (st.dir > 0 ? "asc" : "desc") : ""}">${esc(c.label)}</th>`).join("");
   const body = rows.map((item) => {
     const k = keyOf(item);
     return `<tr data-k="${esc(k)}" class="${opts.rowClass ? opts.rowClass(item) : ""} ${st.sel.has(k) ? "sel" : ""}">` +
-      cols.map((c) => `<td class="${c.cls || ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") + "</tr>";
+      cols.map((c) => `<td class="${c.cls || ""}${c.stick ? " stick-r" : ""}">${c.html ? c.html(item) : esc(c.get(item))}</td>`).join("") + "</tr>";
   }).join("");
   const el = $(into);
   el.innerHTML = `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
@@ -329,7 +329,7 @@ function renderStock() {
     { label: "Loại / màu", get: (p) => p.variant },
     { label: "Nhóm hàng", get: (p) => p.category },
     { label: "Đơn vị", get: (p) => p.unit },
-    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, stick: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
     { label: "Ghi chú tồn kho", get: (p) => p.stock_note },
     { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
     { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
@@ -541,6 +541,20 @@ for (const btn of document.querySelectorAll(".stab")) {
     document.querySelectorAll(".spane").forEach((p) => p.classList.toggle("hidden", p.id !== `stab-${btn.dataset.stab}`));
   });
 }
+/* Interface size: 120% by default (easier to hit for older eyes and fingers); only maychinh gets the choice, kept in
+   this browser. A phone keeps its own card layout. */
+const SCALE_KEY = "dibekho_ui_scale";
+function uiScale() {
+  try { const v = Number(store("localStorage").getItem(SCALE_KEY)); return [100, 120, 140].includes(v) ? v : 120; } catch (e) { return 120; }
+}
+function applyScale() { document.documentElement.style.zoom = PHONE ? "" : String(uiScale() / 100); }
+applyScale();
+$("ui-scale").value = String(uiScale());
+$("ui-scale").addEventListener("change", () => {
+  try { store("localStorage").setItem(SCALE_KEY, $("ui-scale").value); } catch (e) { /* not kept */ }
+  applyScale();
+});
+
 // the name at the top right opens Cài đặt → Chung, where the Đăng xuất button is
 $("who").addEventListener("click", () => {
   if (PHONE) return;  // a phone has its own Đăng xuất button

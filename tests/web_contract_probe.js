@@ -145,6 +145,16 @@
     out.checks.accountsTabOtherOwner = accTab();
     setRole("desktop", "Chủ", true);
     out.checks.accountsTabOwner = accTab();
+    // stock list: opens sorted by code, Tồn stays in view, interface 120%, size choice only for the account manager
+    renderStock();
+    const codes = [...$("stock-table").querySelectorAll("tbody tr td:first-child")].map((td) => td.textContent);
+    out.checks.stockSorted = codes.join() === codes.slice().sort((a, b) => a.localeCompare(b, "vi", { numeric: true })).join() && codes.length > 1;
+    out.checks.stockStick = !!$("stock-table").querySelector("th.stick-r") && !!$("stock-table").querySelector("td.stick-r");
+    out.checks.zoom = document.documentElement.style.zoom;
+    out.checks.scaleOwner = getComputedStyle($("ui-scale").parentElement).display !== "none";
+    setRole("desktop", "Quan ly", false);
+    out.checks.scaleOther = getComputedStyle($("ui-scale").parentElement).display !== "none";
+    setRole("desktop", "Chủ", true);
     currentUserId = OWN;
     await loadAccounts();
     out.checks.accountRows = accounts.length;
