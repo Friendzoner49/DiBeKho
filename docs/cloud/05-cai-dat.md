@@ -1,6 +1,6 @@
 # Cài đặt DiBeKho Cloud từ đầu (tự làm, ~20 phút)
 
-Dùng khi dựng lại project Supabase mới, hoặc chuyển sang tài khoản khác. Thiết kế: `04-thiet-ke-chot.md`.
+Dùng khi dựng lại project Supabase mới, hoặc chuyển sang tài khoản khác. Thiết kế: `06-cloud-la-goc.md`.
 Không bao giờ đưa **service_role key** hay mật khẩu database vào app, trang web hay repo.
 
 ## 1. Tạo project Supabase

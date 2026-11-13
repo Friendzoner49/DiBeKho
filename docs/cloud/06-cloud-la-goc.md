@@ -1,6 +1,6 @@
 # 06 — Cloud làm gốc, app là client (quyết định 11/11/2026; bước 1–5 đã làm, xem cuối file)
 
-> Đảo lại nguyên tắc "máy chính là nguồn sự thật" của `04-thiet-ke-chot.md` (mục đó coi là **đã bị thay thế** khi bản này được làm xong; trong lúc đó 04 vẫn mô tả đúng phần mềm đang chạy).
+> Đảo lại nguyên tắc "máy chính là nguồn sự thật" của `04-thiet-ke-chot.md` — đã thay thế hẳn (bước 1–5 xong). Các tài liệu cũ `01`–`04` (audit, khả thi, câu hỏi, thiết kế Gương + Hộp thư) đã gỡ khỏi repo 13/11/2026; xem lại trong lịch sử git nếu cần (các file SQL 001–006 còn nhắc tới chúng).
 > Lý do người dùng nêu: "dữ liệu lưu trên cloud mới là chính xác nhất; app như một client kết nối, đồng bộ ngược lại và thao tác trên chúng. Không cần app mở ở đâu đó mới chạy được."
 
 ## Quyết định đã chốt (11/11/2026)

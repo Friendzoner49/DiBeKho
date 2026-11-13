@@ -9,7 +9,7 @@ Three kinds (cloud/supabase/001_init.sql + 004_staff_requests.sql):
 
 Nothing reaches the books before the owner approves. A receipt or count is applied locally first; its cloud row is
 marked 'applied' only after a later successful push, and only while the created document still exists -- so an Undo
-before the push simply lets the request come back as pending (docs/cloud/04-thiet-ke-chot.md, section 3). The
+before the push simply lets the request come back as pending. The
 link request -> document lives in meta, so it travels with data packages and rolls back together with the data.
 """
 

@@ -363,7 +363,7 @@ class MainWindow(QMainWindow):
         self.ctx.close()
         super().closeEvent(event)
 
-    # ------------------------------------------------------------ cloud (docs/cloud/04, step 6)
+    # ------------------------------------------------------------ cloud (docs/cloud/06-cloud-la-goc.md)
 
     def _cloud_backup_on_close(self):
         """Closing a work session: confirm the staff requests approved here and put a full backup on the cloud when the
