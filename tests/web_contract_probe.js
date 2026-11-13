@@ -40,21 +40,12 @@
     const qtyRow = (tbody, code) => $(tbody).querySelector(`tr[data-pid="${prod(code).id}"] input`);
     const shown = (id) => getComputedStyle($(id)).display !== "none";
 
-    // staff: no owner buttons, the goods-in and count buttons are there
+    // staff only look (user, 13/11/2026: the web is for emergencies): no goods-in, no count, no delivery file
     setRole("editor", "NV");
     await reload();
     out.checks.staff = { transfer: shown("count-transfer"), receipt: shown("receipt-new"), save: shown("count-save"),
-                         editReceipt: shown("receipt-edit") };
-    // staff send a goods-in request
-    receiptForm(null);
-    out.checks.staffStar = !!$("rf-lines").querySelector(".rf-star");  // only the owner makes new products
-    typeIn($("rf-lines").querySelector(".rf-product"), productLabel(prod("SP002")));
-    typeIn($("rf-lines").querySelector(".rf-qty"), "4,5");
-    $("rf-supplier").value = "Cua khau";
-    await press("Lưu phiếu hàng về");
-    // ...and a count of the office
-    typeIn($("count-table").querySelector(`input[data-count="${prod("SP001").id}"][data-place="2"]`), "3");
-    $("count-save").click(); await wait(); await wait();
+                         editReceipt: shown("receipt-edit"), sendFile: shown("send-delivery"),
+                         countBoxes: !!$("count-table").querySelector("input[data-count]") };
 
     setRole("desktop", "Chủ");
     await reload();

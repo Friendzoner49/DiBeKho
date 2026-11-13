@@ -495,8 +495,8 @@ function renderCustomers() {
 /* ---------------------------------------------------------------- Hàng về */
 
 function renderReceipts() {
-  // a receipt replaced by its edited version is not listed, like the app (user's request 13/11/2026)
-  const items = data.documents.filter((d) => d.kind === "receipt" && d.status !== "replaced")
+  // only active receipts are listed, like the app: replaced (edited) and cancelled ones are left out (user, 13/11/2026)
+  const items = data.documents.filter((d) => d.kind === "receipt" && d.status === "active")
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
   buildTable("receipts-table", [
     { label: "Ngày về", get: (d) => d.doc_date },

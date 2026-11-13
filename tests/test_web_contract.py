@@ -14,14 +14,14 @@ import re
 import shutil
 import subprocess
 import threading
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from dibekho import db
 from dibekho.core import catalog, receipts, stock
-from dibekho.core.cloud import inbox, replica, twoway
+from dibekho.core.cloud import replica, twoway
 from tests.pgdb import WEB_FILES, FakeCloud, Session, needs_pg
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -142,7 +142,9 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     pg, conn, cloud, ids = cloud_shop
     out = _run_page(pg, tmp_path)
 
-    assert out["checks"]["staff"] == {"transfer": False, "receipt": True, "save": True, "editReceipt": False}
+    assert out["checks"]["staff"] == {"transfer": False, "receipt": False, "save": False, "editReceipt": False,
+                                      "sendFile": False, "countBoxes": False}  # staff only look (13/11/2026)
+    assert out["requests"] == []
     assert out["checks"]["owner"] == {"transfer": True, "merge": True}
     assert "HV001" in out["checks"]["editTitle"]
     assert out["checks"]["returnFields"] is True
@@ -153,7 +155,6 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     back = [c for c in out["calls"] if c["fn"] == "web_receipt" and c["args"]["p"]["source"] == "return"]
     assert [ln.get("unit_price") for ln in back[0]["args"]["p"]["lines"]] == [95.5]
     assert out["checks"]["countMsg"] == "Đã lưu kiểm kê."
-    assert out["checks"]["staffStar"] is False
     assert out["checks"]["starSpec"] == "18L/Thung"
 
     calls = out["calls"]
@@ -232,15 +233,3 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert sum(1 for c in acc if c.get("rpc") == "web_accounts_list") >= 4  # the list reloads after every change
 
 
-def test_staff_requests_from_the_web_are_read_by_the_apps_approval(cloud_shop, tmp_path):
-    pg, conn, cloud, ids = cloud_shop
-    out = _run_page(pg, tmp_path)
-    receipt, count = out["requests"]
-    assert (receipt["kind"], count["kind"]) == ("receipt", "stock_count")
-    data, errors = inbox.receipt_input(conn, receipt["payload"])
-    assert errors == []
-    assert [(ln.product_id, ln.qty) for ln in data.lines] == [(ids["b"], 4.5)]
-    # sent now: the page dates the count today (a fixed date here turned red the next day)
-    item = {"payload": count["payload"], "created_at": datetime.now(timezone.utc).isoformat()}
-    day, place, lines, errors = inbox.check_count(conn, item)
-    assert errors == [] and place == stock.OFFICE and lines == [(ids["a"], 3)]

@@ -470,7 +470,7 @@ const countTyped = {};  // product id -> {1: text, 2: text}, kept while the page
 
 function renderCount() {
   if (!$("count-date").value) $("count-date").value = todayLocal();
-  const writer = isOwner() || isStaff();
+  const writer = isOwner();  // staff no longer send counts from the web (user, 13/11/2026)
   const items = activeProducts();
   const cell = (p, place) => writer
     ? `<input class="qty" inputmode="decimal" data-count="${esc(p.id)}" data-place="${place}" value="${esc((countTyped[p.id] || {})[place] || "")}">`

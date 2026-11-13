@@ -69,8 +69,8 @@ h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; }
 /* ai thấy gì: body.role-desktop (chủ), role-editor (nhân viên), role-viewer */
 body:not(.role-desktop) .only-owner { display: none !important; }
 body:not(.account-admin) .only-admin { display: none !important; }  /* only the main machine's login manages accounts */
-body:not(.role-desktop):not(.role-editor) .only-writer { display: none !important; }
-body:not(.role-editor) .only-staff { display: none !important; }
+body:not(.role-desktop) .only-writer { display: none !important; }  /* staff only look (user, 13/11/2026: the web is for emergencies) */
+.only-staff { display: none !important; }
 
 /* ===== ô nhập, chọn ===== */
 input, select { height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
