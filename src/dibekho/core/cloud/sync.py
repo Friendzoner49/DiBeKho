@@ -45,8 +45,10 @@ def rotate(cfg, client: CloudClient) -> dict:
     return tokens
 
 
-def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: bool = True) -> str | None:
-    """After syncing: confirm the staff requests approved here, then upload the full backup.
+def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: bool = True, ws=None,
+                originals_seconds: float | None = None) -> str | None:
+    """After syncing: confirm the staff requests approved here, then upload the full backup and (ws given) the
+    kept delivery notes not yet on the cloud, for at most originals_seconds.
     Returns the reason the backup could not be made, else None."""
     # on shared data a request is shown as recorded only once its document is on the cloud (nothing left to send)
     if not (replica.enabled(conn) and twoway.queued_count(conn)):
@@ -62,6 +64,14 @@ def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: 
     with db.transaction(conn):
         db.set_meta(conn, "cloud_last_push_at", datetime.now().isoformat(timespec="seconds"))
         db.log(conn, "cloud_backup", name)
+    if ws is not None:
+        try:
+            sent, left = cloud_backup.upload_originals(ws, client, access_token, originals_seconds)
+        except CloudError as exc:
+            activity.log("error", f"cloud originals: {exc}")
+            return str(exc)
+        if sent or left:
+            activity.log("cloud", f"originals: {sent} uploaded, {left} left for next time")
     return None
 
 

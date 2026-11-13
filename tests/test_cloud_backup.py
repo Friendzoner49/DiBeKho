@@ -1,5 +1,6 @@
 """Full cloud backups: upload/prune/list/fetch/validate, a whole restore, and the Storage HTTP shapes."""
 
+import hashlib
 import io
 import json
 import sqlite3
@@ -285,3 +286,102 @@ def test_a_package_for_shared_data_is_written_aside_and_the_live_file_stays(ws, 
     copy = db.connect(dest)
     assert copy.execute("SELECT name_vi FROM products").fetchone()[0] == "Keo" and manifest.device_name == "May kia"
     copy.close()
+
+
+# ---- the kept delivery notes (data/phieu-goc) -------------------------------------------------------------------
+
+class FolderStorage(FakeStorage):
+    """Storage with folders, as Supabase lists them: the root shows a folder entry, a prefix shows its files."""
+
+    def storage_list(self, token, prefix="", limit=200, offset=0):
+        if prefix:
+            names = sorted(n[len(prefix) + 1:] for n in self.files if n.startswith(prefix + "/"))
+            return [{"name": n, "metadata": {"size": 1}} for n in names][offset:offset + limit]
+        rows = [{"name": n, "metadata": {"size": len(d)}} for n, d in self.files.items() if "/" not in n]
+        if any("/" in n for n in self.files):
+            rows.append({"name": "phieu-goc", "id": None, "metadata": None})
+        return rows
+
+    def get(self, *a):
+        return []
+
+
+def _note(ws, text: str) -> str:
+    data = text.encode()
+    name = hashlib.sha256(data).hexdigest() + ".xlsx"
+    ws.originals.mkdir(parents=True, exist_ok=True)
+    (ws.originals / name).write_bytes(data)
+    return name
+
+
+def test_kept_notes_go_up_once_and_lock_files_stay_home(ws):
+    store = FolderStorage()
+    a, b = _note(ws, "phieu 1"), _note(ws, "phieu 2")
+    (ws.originals / ("~$" + a)).write_bytes(b"lock")
+    assert cloud_backup.upload_originals(ws, store, "tok") == (2, 0)
+    assert set(store.files) == {f"phieu-goc/{a}", f"phieu-goc/{b}"}
+    assert cloud_backup.upload_originals(ws, store, "tok") == (0, 0)  # FakeStorage refuses an overwrite
+    c = _note(ws, "phieu 3")
+    assert cloud_backup.upload_originals(ws, store, "tok") == (1, 0) and f"phieu-goc/{c}" in store.files
+
+
+def test_kept_notes_stop_at_the_time_limit_and_finish_next_time(ws):
+    store = FolderStorage()
+    for i in range(3):
+        _note(ws, f"phieu {i}")
+    assert cloud_backup.upload_originals(ws, store, "tok", max_seconds=-1) == (0, 3)
+    assert cloud_backup.upload_originals(ws, store, "tok") == (3, 0)
+
+
+def test_many_kept_notes_are_listed_page_by_page(ws, monkeypatch):
+    store = FolderStorage()
+    for i in range(5):
+        store.files[f"phieu-goc/{i:064x}.xlsx"] = b"x"
+    real = store.storage_list
+    monkeypatch.setattr(store, "storage_list", lambda token, prefix="", limit=200, offset=0: real(token, prefix, 2, offset))
+    assert len(cloud_backup.cloud_originals(store, "tok")) == 5
+
+
+def test_finish_push_also_sends_the_kept_notes_and_the_backup_list_ignores_their_folder(ws, conn):
+    store = FolderStorage()
+    a = _note(ws, "phieu 1")
+    assert sync.finish_push(conn, Cfg, store, "tok", ws=ws, originals_seconds=10) is None
+    assert f"phieu-goc/{a}" in store.files
+    backups = cloud_backup.list_backups(store, "tok")
+    assert len(backups) == 1 and backups[0].name.endswith(".sqlite")
+    assert cloud_backup.prune(store, "tok", keep=0) == 1 and f"phieu-goc/{a}" in store.files  # notes never pruned
+
+
+def test_a_restore_brings_back_the_kept_notes_it_lacks_and_skips_a_damaged_one(ws, tmp_path):
+    from dibekho.core.workspace import Workspace
+
+    store = FolderStorage()
+    a, b = _note(ws, "phieu 1"), _note(ws, "phieu 2")
+    cloud_backup.upload_originals(ws, store, "tok")
+    bad = hashlib.sha256(b"real").hexdigest() + ".xlsx"
+    store.files[f"phieu-goc/{bad}"] = b"tampered"
+    other = Workspace(tmp_path / "may-moi")
+    other.ensure()
+    (other.originals / a).write_bytes(b"phieu 1")  # already here: not downloaded again
+    downloads = []
+    real = store.storage_download
+    store.storage_download = lambda name, token: downloads.append(name) or real(name, token)
+    assert cloud_backup.fetch_originals(other, store, "tok") == (1, 1)
+    assert (other.originals / b).read_bytes() == b"phieu 2"
+    assert not (other.originals / bad).exists() and not list(other.originals.glob("*.tai-ve"))
+    assert f"phieu-goc/{a}" not in downloads
+
+
+def test_a_restore_offline_does_not_fail_on_the_notes(ws):
+    class Offline(FolderStorage):
+        def storage_list(self, *a, **k):
+            raise CloudError("Không kết nối được Cloud.")
+
+    assert cloud_backup.fetch_originals(ws, Offline(), "tok") == (0, 0)
+
+
+def test_storage_list_of_a_folder_request(monkeypatch):
+    seen = _capture(monkeypatch, reply=b"[]")
+    CloudClient("https://xxx.supabase.co", "key1").storage_list("tok", prefix="phieu-goc", limit=1000, offset=1000)
+    assert json.loads(seen[-1].data)["prefix"] == "phieu-goc"
+    assert json.loads(seen[-1].data)["offset"] == 1000 and json.loads(seen[-1].data)["limit"] == 1000

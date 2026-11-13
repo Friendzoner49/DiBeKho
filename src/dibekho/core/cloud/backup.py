@@ -4,21 +4,30 @@ The mirror tables are a summary for the web (stock is aggregated, many columns a
 rebuild the database. This is the real backup: a consistent copy of kho.sqlite (backup.snapshot), a few hundred
 KB, uploaded after every successful push. The newest KEEP are kept. Restore goes through the same replace path
 as a local backup (core.backup.restore), after the checks below.
+
+The delivery notes kept in data/phieu-goc/<sha256>.xlsx (for Mở file gốc / Khôi phục file) go to the same private
+bucket under phieu-goc/, each file once (its name is its content hash, so it never changes), a bounded number of
+seconds per push; they are never pruned (old database backups still point at them). A restore downloads the ones
+this machine lacks, each checked against its hash before it is written.
 """
 
+import hashlib
 import re
 import sqlite3
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
 from dibekho import db
-from dibekho.core import backup
+from dibekho.core import backup, transfer
 from dibekho.core.cloud.client import CloudClient, CloudError
+from dibekho.core.workspace import Workspace
 
 KEEP = 30
+ORIGINALS = "phieu-goc"  # folder of the kept delivery notes in the bucket
 # 2026-11-11T09-30-00Z__FRIENDZONER__s9.sqlite  (UTC time, machine name, schema version)
 _NAME = re.compile(r"^(?P<at>\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ)__(?P<device>.+)__s(?P<schema>\d+)\.sqlite$")
 
@@ -125,3 +134,59 @@ def after_restore(conn, cfg, chosen: CloudBackup) -> None:
         if chosen.device != _safe_device(cfg.device_name):
             conn.execute("UPDATE scanned_files SET status = 'missing_ignored' WHERE status IN ('imported', 'missing')")
         db.log(conn, "cloud_restore", chosen.name)
+
+
+# ---- the kept delivery notes (data/phieu-goc) ------------------------------------------------------------------
+
+def cloud_originals(client: CloudClient, token: str) -> set[str]:
+    """Names (<sha256>.xlsx) of the delivery notes already in the bucket."""
+    found, offset, page = set(), 0, 1000
+    while True:
+        rows = client.storage_list(token, prefix=ORIGINALS, limit=page, offset=offset)
+        if not rows:  # read on until an empty page: the server may hand out fewer than asked per page
+            return found
+        found.update(r["name"] for r in rows if transfer.ORIGINAL_NAME.fullmatch(r.get("name") or ""))
+        offset += len(rows)
+
+
+def upload_originals(ws: Workspace, client: CloudClient, token: str, max_seconds: float | None = None) -> tuple[int, int]:
+    """Upload the kept notes the bucket does not have yet, stopping after max_seconds (the rest go next time).
+    -> (uploaded, still to upload)."""
+    local = transfer.original_files(ws)
+    if not local:
+        return 0, 0
+    have = cloud_originals(client, token)
+    todo = [f for f in local if f.name not in have]
+    started, done = time.monotonic(), 0
+    for f in todo:
+        if max_seconds is not None and time.monotonic() - started > max_seconds:
+            break
+        client.storage_upload(f"{ORIGINALS}/{f.name}", f.read_bytes(), token)
+        done += 1
+    return done, len(todo) - done
+
+
+def fetch_originals(ws: Workspace, client: CloudClient, token: str) -> tuple[int, int]:
+    """After a restore: download the kept notes this machine lacks. A file whose content does not match its name
+    is not written. Never raises for one file. -> (downloaded, failed)."""
+    try:
+        names = cloud_originals(client, token)
+    except CloudError:
+        return 0, 0
+    have = {f.name for f in transfer.original_files(ws)}
+    ws.originals.mkdir(parents=True, exist_ok=True)
+    done = failed = 0
+    for name in sorted(names - have):
+        try:
+            data = client.storage_download(f"{ORIGINALS}/{name}", token)
+        except CloudError:
+            failed += 1
+            continue
+        if hashlib.sha256(data).hexdigest() + ".xlsx" != name:
+            failed += 1
+            continue
+        tmp = ws.originals / (name + ".tai-ve")
+        tmp.write_bytes(data)
+        tmp.replace(ws.originals / name)
+        done += 1
+    return done, failed

@@ -91,9 +91,10 @@ class CloudClient:
         self._raw("POST", f"/storage/v1/object/{bucket}/{quote(name)}", data, access_token,
                   "application/octet-stream")
 
-    def storage_list(self, access_token: str, bucket: str = BUCKET) -> list[dict]:
+    def storage_list(self, access_token: str, bucket: str = BUCKET, prefix: str = "", limit: int = 200,
+                     offset: int = 0) -> list[dict]:
         rows = self._request(f"{self.base}/storage/v1/object/list/{bucket}",
-                             {"prefix": "", "limit": 200, "offset": 0,
+                             {"prefix": prefix, "limit": limit, "offset": offset,
                               "sortBy": {"column": "name", "order": "desc"}}, access_token, "POST")
         return rows if isinstance(rows, list) else []
 

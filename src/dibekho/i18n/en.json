@@ -324,6 +324,7 @@
   "cloud.restore_confirm": "Replace all data on this machine with the backup from machine “{device}” at {at}?\nThe current data is backed up first and can be undone.\nNote: the original Excel delivery notes are not part of the backup.",
   "cloud.restore_unpushed": "This computer has changes made after its last backup to the Cloud. After the restore they will be gone (they stay in the backup just made and in Undo).\nContinue?",
   "cloud.restored": "Data restored from the cloud.",
+  "cloud.originals_failed": "{n} kept delivery note files could not be downloaded (unstable connection?). Those orders cannot open their original file for now; restore from the cloud again when the connection is stable to fetch the rest.",
   "cloud.backup_failed": "Data was pushed to the cloud, but the full backup could not be saved:\n{reason}",
   "pending.web_reject": "Reject",
   "web.title": "Staff requests (web)",

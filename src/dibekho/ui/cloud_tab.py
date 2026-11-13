@@ -31,6 +31,8 @@ from dibekho.i18n import t
 from dibekho.ui.shared_admin import replace_shared_data
 from dibekho.ui.common import ask, error, fill_table, fit_window, hint_label, info, make_table, selected_id
 
+ORIGINALS_SECONDS = 90  # s of kept delivery notes uploaded per Đồng bộ ngay (the first time can be many)
+
 
 class CloudRestoreDialog(QDialog):
     """Pick one of the full backups kept on the cloud (newest first)."""
@@ -148,7 +150,8 @@ class CloudTab(QWidget):
             runner = getattr(self.ctx, "sync_runner", None)
             if runner is not None and replica.enabled(self.ctx.conn):
                 runner.start()  # the shared data: a round in the background, as every minute
-            backup_problem = self._busy(lambda: sync.finish_push(self.ctx.conn, cfg, client, token))
+            backup_problem = self._busy(lambda: sync.finish_push(self.ctx.conn, cfg, client, token, ws=self.ctx.ws,
+                                                                 originals_seconds=ORIGINALS_SECONDS))
             self.ctx.notify()  # new staff requests land in Cần xử lý
         except CloudError as exc:
             error(self, str(exc))
@@ -233,7 +236,7 @@ class CloudTab(QWidget):
                     return path
                 if replace_shared_data(ctx, self, build, t("admin.what_restore")):
                     self.refresh()
-                    info(self, t("cloud.restored"))
+                    self._restored_message(client, token)
                 return
             if sync.has_unpushed(ctx.conn) and not ask(self, t("cloud.restore_unpushed")):
                 return
@@ -251,7 +254,14 @@ class CloudTab(QWidget):
             error(self, str(exc))
             return
         self.refresh()
-        info(self, t("cloud.restored"))
+        self._restored_message(client, token)
+
+    def _restored_message(self, client, token):
+        """The kept delivery notes come back too (Mở file gốc / Khôi phục file); one that fails is only reported."""
+        got, failed = self._busy(lambda: cloud_backup.fetch_originals(self.ctx.ws, client, token))
+        if got:
+            activity.log("cloud", f"originals downloaded after restore: {got}")
+        info(self, t("cloud.restored") + ("\n\n" + t("cloud.originals_failed", n=failed) if failed else ""))
 
     def _access_token(self, client: CloudClient) -> str | None:
         cfg, password = self.ctx.cfg, self.password.text()

@@ -324,6 +324,7 @@
   "cloud.restore_confirm": "Thay toàn bộ dữ liệu trên máy này bằng bản sao lưu của máy «{device}» lúc {at}?\nDữ liệu hiện tại được sao lưu trước và có thể Hoàn tác.\nLưu ý: file Excel phiếu gốc không nằm trong bản sao lưu.",
   "cloud.restore_unpushed": "Máy này có thay đổi sau lần sao lưu lên Cloud gần nhất. Khôi phục xong chúng sẽ biến mất (vẫn còn trong bản sao lưu vừa tạo và nút Hoàn tác).\nTiếp tục?",
   "cloud.restored": "Đã khôi phục dữ liệu từ Cloud.",
+  "cloud.originals_failed": "{n} file phiếu gốc chưa tải về được (mạng chập chờn?). Những đơn đó tạm thời chưa mở được file gốc; khôi phục lại từ Cloud lúc mạng ổn để tải nốt.",
   "cloud.backup_failed": "Đã đẩy dữ liệu lên Cloud, nhưng chưa lưu được bản sao lưu đầy đủ:\n{reason}",
   "pending.web_reject": "Từ chối",
   "web.title": "Yêu cầu từ nhân viên (web)",

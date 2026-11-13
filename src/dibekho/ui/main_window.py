@@ -42,6 +42,7 @@ UNSAFE_PAGES = (PENDING, COUNT)
 INBOX_POLL = 180_000  # ms between looks at the staff requests sent from the web
 CLOSE_TIMEOUT = 8  # s per cloud request while closing the app
 CLOSE_SLOW = 12  # s: when signing in already took this long, the full backup waits for next time
+CLOSE_ORIGINALS = 4  # s: kept delivery notes uploaded while closing; the rest go next time
 
 
 class MainWindow(QMainWindow):
@@ -381,7 +382,8 @@ class MainWindow(QMainWindow):
             client, token = pair
             slow = time.monotonic() - started > CLOSE_SLOW
             with_backup = cloud_sync.has_unpushed(self.ctx.conn) and not slow
-            cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token, with_backup=with_backup)
+            cloud_sync.finish_push(self.ctx.conn, self.ctx.cfg, client, token, with_backup=with_backup, ws=self.ctx.ws,
+                                   originals_seconds=CLOSE_ORIGINALS)
             if slow:
                 activity.log("cloud", "slow line on close: full backup skipped, the next close makes it")
         except CloudError as exc:

@@ -89,7 +89,9 @@ Từ đó: tắt app tự đẩy, mở app tự kéo phiếu từ web. Mật kh�
 
 Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ lần trước), app tải lên một bản sao đầy đủ `kho.sqlite` (khoảng 300 KB), Cloud giữ 30 bản gần nhất.
 **Khôi phục:** Cài đặt → Cloud → **Khôi phục từ Cloud…** → chọn bản. App kiểm tra, sao lưu dữ liệu hiện tại, tạo điểm Hoàn tác rồi mới thay.
-Bản sao lưu **không** chứa file Excel phiếu gốc. Các bảng `mirror_*` cũ không còn dùng.
+**File Excel phiếu gốc** (`data/phieu-goc/`, cho Mở file gốc / Khôi phục file) cũng lên Cloud, cùng kho riêng tư, thư mục `phieu-goc/`: mỗi file một lần (tên = mã băm nội dung), tối đa 90 giây mỗi lần Đồng bộ ngay và 4 giây lúc tắt app (phần còn lại để lần sau); không bao giờ bị xoá vì bản sao lưu cũ vẫn trỏ tới. Khôi phục từ Cloud tải về những file máy đang thiếu (kiểm mã băm trước khi ghi). Chỉ tài khoản chủ đọc được; trang web và gói web vẫn **không** có file phiếu gốc. Không cần SQL mới. Các bảng `mirror_*` cũ không còn dùng.
+
+**Thay toàn bộ dữ liệu chung** (khôi phục / nhập gói / xoá toàn bộ khi bật dữ liệu chung) là MỘT lần gửi. Đo 13/11/2026 trên bản sao gói thử thật (73 mặt hàng, 97 phiếu, 476 biến động): 2 171 dòng, 459 KB, 0,2 giây trên PGlite. Supabase cho tài khoản đăng nhập tối đa 8 giây mỗi câu lệnh (tài liệu Supabase "Timeouts"), nên còn dư nhiều; dữ liệu nhiều năm mới cần xem lại.
 
 ## 7. Giới hạn gói Free cần nhớ
 

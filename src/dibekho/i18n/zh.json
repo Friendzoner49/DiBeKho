@@ -324,6 +324,7 @@
   "cloud.restore_confirm": "用电脑“{device}”在 {at} 的备份替换本机全部数据吗？\n当前数据会先备份，且可以撤销。\n注意：原始 Excel 单据不包含在备份中。",
   "cloud.restore_unpushed": "本机在最近一次云端备份之后还有更改。恢复后这些更改将消失（仍保留在刚创建的备份和撤销中）。\n继续吗？",
   "cloud.restored": "已从云端恢复数据。",
+  "cloud.originals_failed": "有 {n} 个原始送货单文件未能下载（网络不稳定？）。这些订单暂时无法打开原始文件；网络稳定后再从云端恢复一次即可补齐。",
   "cloud.backup_failed": "数据已上传到云端，但完整备份未能保存：\n{reason}",
   "pending.web_reject": "拒绝",
   "web.title": "员工请求（网页）",
