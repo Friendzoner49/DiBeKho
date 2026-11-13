@@ -21,6 +21,7 @@ This guide goes step by step, using the exact button names on screen. Not instal
 12. [Product catalog and alert level](#12-product-catalog-and-alert-level)
 13. [Moving to another computer](#13-moving-to-another-computer)
 14. [Common situations](#14-common-situations)
+15. [Shared data through the cloud (optional)](#15-shared-data-through-the-cloud-optional)
 
 ---
 
@@ -443,5 +444,32 @@ DiBeKho/
 ├── sao-luu/           ← automatic backups
 └── data/              ← the app's data (do not edit)
 ```
+
+---
+
+## 15. Shared data through the cloud (optional)
+
+This part is **optional**. Use it only when several computers (and the web page) should see and write one set of data. Whoever installs it for you creates the accounts and fills in the **Cloud address** and **Connection key**. Without it, the app keeps working on its own computer as always.
+
+**Turning it on for a computer**
+1. **Settings → Cloud**: type your **User name** and **Password** (the password only the first time), press **Sync now**.
+2. In **Shared data on the Cloud**, press **Turn on shared data**.
+   - First computer: the app asks whether to put this computer's data on the cloud as the main copy.
+   - The next computers use the cloud data instead of their own (their old data is backed up first).
+3. Press **⟳ Rescan notes** once so the app finds the delivery note files again.
+
+**Every day** you work as before. The app sends and receives changes about every minute, **even without internet** (it sends them once the connection is back). The status line at the top tells you how it stands, for example "Cloud: synced at 09:30" or "3 change(s) waiting". If it says to type the password again: **Settings → Cloud**, type it, press **Sync now**.
+
+**The same thing changed in two places** (for example a product note): the status line shows "⚠ … item(s) need a choice". Click it, pick each row and press **Keep this computer's version** or **Take the Cloud version**.
+
+**Mistakes** (different from [section 11](#11-mistakes-undo-and-backups)):
+- **↶ Undo** only cancels a goods-in, transfer, trial use or stock count **just saved on this computer** (the document stays, marked cancelled). Anything else: **Cancel document**, edit the document, or correct it by hand.
+- **Restoring a backup**, **importing a data package** and **Delete all data** replace the data **for everyone** (other computers and the web page). The app asks and backs up first, and needs internet.
+
+**Cloud backups:** each **Sync now** and each time you close the app, a full backup goes to the cloud (30 are kept), with the original delivery note files. To get one back: **Settings → Cloud → Restore from cloud…**. Every day the app also copies `DiBeKho_dulieu-chung_<date>.sqlite` into `sao-luu/`.
+
+**Web page:** open the address you were given and sign in with your name and password. It is laid out **like the app** (same buttons in the same places). The owner writes directly; staff send requests that the owner approves in the app under **To do → Staff requests (web)**. On a phone it only shows Stock.
+
+**Turning it off:** **Settings → Cloud → Turn off shared data**. This computer then works on its own; turning it on again takes the cloud data.
 
 <sub>Screenshots use made-up data, not real customer data.</sub>

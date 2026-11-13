@@ -242,6 +242,8 @@ The app writes what you do and every error into a log (1 MB and 7 days at most; 
 
 **Change the language?** **Settings → General → Language**.
 
+**Can several computers (and a phone or browser) share one set of data?** Yes, as an **optional** extra: whoever installs it turns it on for you in **Settings → Cloud**. Without it, each computer keeps working on its own as usual. How to use it: [User guide, section 15](docs/user-guide.md#15-shared-data-through-the-cloud-optional).
+
 **Edge says "DiBeKho-windows-setup.exe isn't commonly downloaded" and cancels the download?** Edge warns because the installer has no code signature (the app is safe). Quickest: download the **`.zip`** from [Downloads](#downloads), open it and double-click the installer inside. Or keep the blocked file: in Edge's download list, hover over it → click **…** → **Keep** → **Show more** → **Keep anyway**.
 
 **Text and buttons too small or too big?** **Settings → General → Text and button size** (100–150%), then close and reopen the app.

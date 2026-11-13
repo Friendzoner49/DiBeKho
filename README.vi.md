@@ -227,6 +227,8 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 
 **Đổi ngôn ngữ?** **Cài đặt → Chung → Ngôn ngữ**.
 
+**Nhiều máy (và điện thoại, trình duyệt) dùng chung một bộ dữ liệu được không?** Được, nhưng là phần **tuỳ chọn**: người cài đặt bật giúp bạn ở **Cài đặt → Cloud**. Không bật thì mỗi máy vẫn làm việc riêng như bình thường. Cách dùng: [Hướng dẫn chi tiết, mục 15](docs/huong-dan-su-dung.md#15-dữ-liệu-chung-qua-cloud-tuỳ-chọn).
+
 **Trình duyệt Edge báo "DiBeKho-windows-setup.exe thường không được tải xuống" và huỷ tải?** Edge cảnh báo vì bộ cài chưa có chữ ký số (app an toàn). Cách nhanh nhất: tải bản **`.zip`** trong bảng [Các bản tải về](#các-bản-tải-về), mở nó rồi nháy đúp vào bộ cài bên trong. Hoặc giữ file đã bị chặn: trong danh sách tải xuống của Edge, rê chuột lên file → bấm nút **…** → chọn giữ lại (*Keep*) → **Hiển thị thêm** (*Show more*) → vẫn giữ lại (*Keep anyway*).
 
 **Chữ và nút quá nhỏ hoặc quá to?** **Cài đặt → Chung → Cỡ chữ và nút** (100–150%), tắt và mở lại app.

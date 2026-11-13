@@ -21,6 +21,7 @@ Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. 
 12. [Danh mục mặt hàng và mức báo động](#12-danh-mục-mặt-hàng-và-mức-báo-động)
 13. [Chuyển sang máy khác](#13-chuyển-sang-máy-khác)
 14. [Xử lý tình huống thường gặp](#14-xử-lý-tình-huống-thường-gặp)
+15. [Dữ liệu chung qua Cloud (tuỳ chọn)](#15-dữ-liệu-chung-qua-cloud-tuỳ-chọn)
 
 ---
 
@@ -444,5 +445,32 @@ DiBeKho/
 ├── sao-luu/           ← bản sao lưu tự động
 └── data/              ← dữ liệu của app (không sửa tay)
 ```
+
+---
+
+## 15. Dữ liệu chung qua Cloud (tuỳ chọn)
+
+Phần này **không bắt buộc**. Chỉ dùng khi muốn nhiều máy (và trang web) cùng xem, cùng ghi một bộ dữ liệu. Người cài đặt sẽ tạo tài khoản và điền sẵn **Địa chỉ Cloud** và **Mã kết nối** cho bạn. Không bật thì app vẫn làm việc riêng trên máy như mọi khi.
+
+**Bật lần đầu trên một máy**
+1. **Cài đặt → Cloud**: gõ **Tên đăng nhập** và **Mật khẩu** (chỉ cần gõ mật khẩu lần đầu), bấm **Đồng bộ ngay**.
+2. Ở khung **Dữ liệu chung trên Cloud**, bấm **Bật dùng dữ liệu chung**.
+   - Máy đầu tiên: app hỏi có đưa dữ liệu của máy này lên làm bản chính không.
+   - Các máy sau: máy đó dùng dữ liệu trên Cloud thay cho dữ liệu riêng (dữ liệu cũ được sao lưu trước).
+3. Bấm **⟳ Quét lại phiếu** một lần để app nhận lại các file phiếu giao hàng.
+
+**Hằng ngày** vẫn làm như cũ. App tự gửi và nhận thay đổi khoảng mỗi phút, **kể cả khi mất mạng** (có mạng lại thì tự gửi). Dòng trạng thái ở trên cho biết tình hình, ví dụ "Cloud: đã đồng bộ lúc 09:30" hoặc "3 thay đổi chờ gửi". Báo "cần gõ lại mật khẩu": vào **Cài đặt → Cloud**, gõ mật khẩu, bấm **Đồng bộ ngay**.
+
+**Hai nơi sửa cùng một chỗ** (ví dụ cùng sửa ghi chú một mặt hàng): dòng trạng thái báo "⚠ … chỗ cần chọn bản giữ". Bấm vào dòng đó, chọn từng dòng rồi bấm **Giữ bản của máy này** hoặc **Lấy bản trên Cloud**.
+
+**Khi làm nhầm** (khác với [mục 11](#11-khi-làm-nhầm-hoàn-tác-sao-lưu)):
+- **↶ Hoàn tác** chỉ huỷ được phiếu hàng về, chuyển hàng, dùng thử hoặc kiểm kê **vừa lưu trên chính máy này** (phiếu vẫn còn, ghi là đã huỷ). Việc khác: **Huỷ phiếu**, sửa phiếu hoặc sửa lại bằng tay.
+- **Khôi phục bản sao lưu**, **nhập gói dữ liệu**, **Xoá toàn bộ dữ liệu** sẽ thay dữ liệu **cho mọi người** (các máy khác và trang web). App hỏi trước, sao lưu trước, và cần có mạng.
+
+**Sao lưu trên Cloud:** mỗi lần bấm **Đồng bộ ngay** và khi tắt app, app gửi một bản sao lưu đầy đủ lên Cloud (giữ 30 bản), kèm các file phiếu giao hàng gốc. Lấy lại: **Cài đặt → Cloud → Khôi phục từ Cloud…**. Mỗi ngày app cũng chép một bản `DiBeKho_dulieu-chung_<ngày>.sqlite` vào `sao-luu/`.
+
+**Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Chủ ghi thẳng được; nhân viên gửi yêu cầu, chủ duyệt trong app ở **Cần xử lý → Yêu cầu từ nhân viên (web)**. Trên điện thoại chỉ xem Tồn kho.
+
+**Tắt:** **Cài đặt → Cloud → Tắt dữ liệu chung**. Máy này làm việc riêng; bật lại thì lấy dữ liệu trên Cloud.
 
 <sub>Ảnh trong hướng dẫn dùng dữ liệu giả lập, không phải dữ liệu khách hàng thật.</sub>
