@@ -81,7 +81,11 @@ Từ đó: tắt app tự đẩy, mở app tự kéo phiếu từ web. Mật kh�
 
 1. Sao `webapp/config.example.js` thành `webapp/config.js`, điền URL + publishable key (file này nằm trong `.gitignore`).
 2. Thử trên máy: `python -m http.server 8808 --directory webapp` rồi mở http://localhost:8808.
-3. Đưa lên mạng (Cloudflare Pages, miễn phí): Workers & Pages → Create → Pages → **Upload assets** → kéo thả thư mục `webapp` (gồm cả `config.js`). Mỗi lần sửa web: tải lên lại.
+3. Đưa lên mạng (Cloudflare Pages, miễn phí):
+   - Dựng bản tải lên: `uv run python scripts/make_web_deploy.py` → thư mục `dist/web/` (có `config.js` và `_headers`: chặn nhúng trang vào trang khác, không giữ bản cũ trong bộ nhớ đệm) và `dist/DiBeKho-web.zip`.
+   - Lần đầu: dash.cloudflare.com → **Workers & Pages** → **Create** → tab **Pages** → **Upload assets** → đặt tên dự án (thành địa chỉ `https://<tên>.pages.dev`; **không dùng tên khách**) → kéo thả thư mục `dist/web` → **Deploy site**.
+   - Mỗi lần sửa web: chạy lại script, vào dự án → **Create deployment** → kéo thả `dist/web` lại.
+   - Không cần đổi gì trên Supabase (đăng nhập bằng mật khẩu không dùng địa chỉ chuyển hướng).
 4. Trang có CSP và khoá toàn vẹn (SRI) cho thư viện Supabase từ CDN. Đổi phiên bản thư viện → tính lại mã băm:
    `openssl dgst -sha384 -binary supabase.min.js | openssl base64 -A` rồi sửa thuộc tính `integrity` trong `index.html`.
 
