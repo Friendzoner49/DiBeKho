@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>DiBeKho</title>
+<link rel="icon" type="image/png" href="logo.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- Đăng nhập -->
 <div id="login" class="card login hidden">
-  <h1>DiBeKho</h1>
+  <h1 class="brand"><img src="logo.png" alt="" width="40" height="40"> DiBeKho</h1>
   <p class="hint">Dữ liệu kho dùng chung với app trên máy tính.</p>
   <label>Tên đăng nhập <input id="user" autocomplete="username"></label>
   <label>Mật khẩu <input id="password" type="password" autocomplete="current-password"></label>
@@ -24,6 +25,7 @@
 <!-- Trang chính: bố cục giống app (thanh bên trái, nút chung ở trên) -->
 <div id="app" class="shell hidden">
   <aside class="side">
+    <div class="brand side-brand"><img src="logo.png" alt="" width="36" height="36"> DiBeKho</div>
     <button data-page="stock" class="nav active">Tồn kho</button>
     <button data-page="pending" class="nav" id="nav-pending">Cần xử lý</button>
     <button data-page="search" class="nav">Tra cứu</button>
@@ -182,8 +184,8 @@
       <div id="stab-general" class="spane">
         <dl class="info" id="settings-info"></dl>
         <div class="row wrap only-admin">
-          <label for="ui-scale">Cỡ giao diện (chữ và nút) trên máy này</label>
-          <select id="ui-scale"><option value="100">Vừa (100%)</option><option value="120">To (120%, mặc định)</option><option value="140">Rất to (140%)</option></select>
+          <label for="ui-scale">Cỡ giao diện (chữ và nút), áp dụng cho mọi máy</label>
+          <select id="ui-scale"><option value="100">Bình thường (100%)</option><option value="110">To hơn (110%)</option><option value="120">To nhất (120%)</option></select>
         </div>
         <button id="logout">Đăng xuất</button>
       </div>

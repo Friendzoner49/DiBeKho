@@ -325,12 +325,12 @@ function renderStock() {
   } else buildTable("stock-table", [
     { label: "Mã", get: (p) => p.code },
     { label: "Mặt hàng", get: (p) => p.name_vi, cls: "wrap" },
-    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
     { label: "Tên Trung", get: (p) => p.name_zh, cls: "wrap" },
     { label: "Quy cách", get: (p) => p.spec },
     { label: "Loại / màu", get: (p) => p.variant },
     { label: "Nhóm hàng", get: (p) => p.category },
     { label: "Đơn vị", get: (p) => p.unit },
+    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
     { label: "Ghi chú tồn kho", get: (p) => p.stock_note },
     { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
     { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
@@ -542,11 +542,11 @@ for (const btn of document.querySelectorAll(".stab")) {
     document.querySelectorAll(".spane").forEach((p) => p.classList.toggle("hidden", p.id !== `stab-${btn.dataset.stab}`));
   });
 }
-/* Interface size: 120% by default (easier to hit for older eyes and fingers); only maychinh gets the choice, kept in
+/* Interface size: 100% by default (older customers: nothing changes unless maychinh chooses); only maychinh gets the choice, kept in
    this browser. A phone keeps its own card layout. */
 const SCALE_KEY = "dibekho_ui_scale";
 function uiScale() {
-  try { const v = Number(store("localStorage").getItem(SCALE_KEY)); return [100, 120, 140].includes(v) ? v : 120; } catch (e) { return 120; }
+  try { const v = Number(store("localStorage").getItem(SCALE_KEY)); return [100, 110, 120].includes(v) ? v : 100; } catch (e) { return 100; }
 }
 function applyScale() {
   const z = PHONE ? 1 : uiScale() / 100;
@@ -561,7 +561,7 @@ async function loadSharedScale() {
   try {
     const { data } = await sb.from("web_settings").select("value").eq("key", "ui_scale").maybeSingle();
     const v = Number(data && data.value);
-    if ([100, 120, 140].includes(v)) { keepScale(v); applyScale(); $("ui-scale").value = String(v); }
+    if ([100, 110, 120].includes(v)) { keepScale(v); applyScale(); $("ui-scale").value = String(v); }
   } catch (e) { /* not set yet, or SQL 012 not run: keep the default */ }
 }
 $("ui-scale").addEventListener("change", async () => {

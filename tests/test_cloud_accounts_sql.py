@@ -132,7 +132,7 @@ def test_a_revoked_account_reads_and_writes_nothing_but_is_not_deleted(pg):
 
 
 def test_the_page_size_is_set_by_the_account_manager_and_read_by_everyone_with_a_role(pg):
-    _call(pg, "web_setting_set", OWNER, "ui_scale", "140")
+    _call(pg, "web_setting_set", OWNER, "ui_scale", "110")
     _call(pg, "web_setting_set", OWNER, "ui_scale", "120")  # changing it again replaces the value
     for who in (OWNER, OWNER2, STAFF, VIEWER):
         rows = pg.query("select value from public.web_settings where key = 'ui_scale'", sub=who)
@@ -141,7 +141,7 @@ def test_the_page_size_is_set_by_the_account_manager_and_read_by_everyone_with_a
     for who in (OWNER2, STAFF, VIEWER, NEW, None):  # another owner, staff, anyone: refused
         with pytest.raises(PgError, match="Chỉ tài khoản của chủ"):
             _call(pg, "web_setting_set", who, "ui_scale", "100")
-    for key, value in (("ui_scale", "500"), ("other", "120"), ("ui_scale", "")):
+    for key, value in (("ui_scale", "500"), ("ui_scale", "140"), ("other", "120"), ("ui_scale", "")):
         with pytest.raises(PgError, match="không hợp lệ"):
             _call(pg, "web_setting_set", OWNER, key, value)
     with pytest.raises(PgError):  # no direct writes either

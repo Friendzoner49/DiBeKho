@@ -13,7 +13,7 @@ create or replace function public.web_setting_set(p_key text, p_value text) retu
 security definer set search_path = public as $$
 begin
     perform public.dbk_account_owner();
-    if p_key is distinct from 'ui_scale' or p_value not in ('100', '120', '140') then
+    if p_key is distinct from 'ui_scale' or p_value not in ('100', '110', '120') then
         raise exception 'Cài đặt không hợp lệ.';
     end if;
     insert into public.web_settings(key, value) values (p_key, p_value)

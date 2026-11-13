@@ -149,7 +149,7 @@
     renderStock();
     const codes = [...$("stock-table").querySelectorAll("tbody tr td:first-child")].map((td) => td.textContent);
     out.checks.stockSorted = codes.join() === codes.slice().sort((a, b) => a.localeCompare(b, "vi", { numeric: true })).join() && codes.length > 1;
-    out.checks.stockStick = [...$("stock-table").querySelectorAll("thead th")].map((th) => th.textContent.trim()).slice(0, 3).join() === "Mã,Mặt hàng,Tồn";
+    out.checks.stockStick = [...$("stock-table").querySelectorAll("thead th")].map((th) => th.textContent.trim()).slice(0, 8).join() === "Mã,Mặt hàng,Tên Trung,Quy cách,Loại / màu,Nhóm hàng,Đơn vị,Tồn";
     out.checks.zoom = document.documentElement.style.zoom;
     out.checks.scaleOwner = getComputedStyle($("ui-scale").parentElement).display !== "none";
     setRole("desktop", "Quan ly", false);
