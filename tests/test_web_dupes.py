@@ -68,19 +68,15 @@ CASES = [  # what someone types for a brand-new product: name_vi, name_zh, spec,
 ]
 
 
-def _js(payload) -> dict:
-    tmp = ROOT / "tests" / "_dupes_input.json"
-    script = ROOT / "tests" / "_dupes_runner.js"
+def _js(payload, folder: Path) -> dict:
+    tmp = folder / "in.json"
+    script = folder / "run.js"
     tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     script.write_text(RUNNER, encoding="utf-8")
-    try:
-        done = subprocess.run([NODE, str(script), str(ROOT / "webapp" / "dupes.js"), str(tmp)], capture_output=True,
-                              text=True, encoding="utf-8", timeout=120)
-        assert done.returncode == 0, done.stderr[-2000:]
-        return json.loads(done.stdout)
-    finally:
-        tmp.unlink(missing_ok=True)
-        script.unlink(missing_ok=True)
+    done = subprocess.run([NODE, str(script), str(ROOT / "webapp" / "dupes.js"), str(tmp)], capture_output=True,
+                          text=True, encoding="utf-8", timeout=120)
+    assert done.returncode == 0, done.stderr[-2000:]
+    return json.loads(done.stdout)
 
 
 def _random_pairs(n=400):
@@ -103,7 +99,7 @@ def test_the_web_names_the_same_look_alikes_as_the_app(tmp_path):
     want = [[p["code"] for p in catalog.find_possible_duplicates(conn, *c)] for c in CASES]
     pairs = _random_pairs()
     scores = [[f"{c[1]} {c[0]}", c[2], p["code"]] for c in CASES for p in products]
-    got = _js({"products": products, "cases": CASES, "pairs": pairs, "scores": scores})
+    got = _js({"products": products, "cases": CASES, "pairs": pairs, "scores": scores}, tmp_path)
     assert any(want) and not all(want)  # the cases do tell look-alikes from new products
     for case, w, g in zip(CASES, want, got["dupes"]):
         assert g == w, case

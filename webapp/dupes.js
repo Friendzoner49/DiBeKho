@@ -17,7 +17,8 @@
 
   const CJK = /[㐀-䶿一-鿿]/gu;
   // Python's \b and \d are Unicode-aware (a Chinese character is a word character): the same, spelled out
-  const MODEL = /(?<![\p{L}\p{N}_])([A-Z]{2,4})\s*-?\s*(\p{Nd}{2,4})(?![\p{L}\p{N}_])/gu;
+  // (a consumed prefix, not a lookbehind: Safari before 16.4 cannot parse lookbehinds and would drop the whole file)
+  const MODEL = /(?:^|[^\p{L}\p{N}_])([A-Z]{2,4})\s*-?\s*(\p{Nd}{2,4})(?![\p{L}\p{N}_])/gu;
   const KG = /(\p{Nd}+(?:[.,]\p{Nd}+)?)\s*kg/giu;
   const DIM = /(\p{Nd}+(?:[.,]\p{Nd}+)?c?m)\s*\*\s*(\p{Nd}+(?:[.,]\p{Nd}+)?m)/giu;
 

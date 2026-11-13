@@ -18,8 +18,8 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 5. `cloud/supabase/005_full_view.sql` — gương có thêm bảng biến động tồn và vài cột, để web có **lịch sử vào ra, chi tiết mặt hàng/khách, Thống kê**. **Chạy xong thì mở app bấm Đồng bộ ngay một lần** (không thì web chưa có dữ liệu mới). Dự án cài mới đã có sẵn trong 001.
 6. `cloud/supabase/006_owner_commands.sql` — lệnh của chủ kiểu cũ qua hộp thư (web mới không dùng nữa, chạy cho đủ thứ tự). Dự án cài mới đã có sẵn trong 001.
 7. `cloud/supabase/007_core.sql` + `008_sync_rpc.sql` — bảng thật của **Dữ liệu chung** và đồng bộ 2 chiều.
-8. `cloud/supabase/009_web_rpc.sql` — **chủ ghi thẳng trên web** (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, nơi lấy hàng, mặt hàng, gộp khách). **Bắt buộc cho trang web mới.** Chạy lại nhiều lần không sao.
-9. `cloud/supabase/010_web_receipt_new_products.sql` — **"★ Mặt hàng mới" khi nhập hàng về trên web**: mặt hàng mới được tạo cùng lúc với phiếu (phiếu lỗi thì không để lại mặt hàng thừa). Chạy sau 009; chạy lại nhiều lần không sao. Chưa chạy thì web báo "người cài đặt cần chạy SQL 010" khi bấm lưu phiếu có ★.
+8. `cloud/supabase/009_web_rpc.sql` — **chủ ghi thẳng trên web** (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, nơi lấy hàng, mặt hàng, gộp khách). **Bắt buộc cho trang web mới.** Chạy lại nhiều lần không sao, **nhưng mỗi lần chạy lại 009 thì chạy lại 010 ngay sau** (009 đặt lại hàm hàng về cũ).
+9. `cloud/supabase/010_web_receipt_new_products.sql` — **"★ Mặt hàng mới" khi nhập hàng về trên web**: mặt hàng mới được tạo cùng lúc với phiếu (phiếu lỗi thì không để lại mặt hàng thừa). Chạy sau 009 (và chạy lại sau mỗi lần chạy lại 009); chạy lại nhiều lần không sao. Chưa chạy thì web báo "người cài đặt cần chạy SQL 010" khi bấm lưu phiếu có ★.
 
 ## 3. Tạo tài khoản
 
