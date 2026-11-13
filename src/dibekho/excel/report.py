@@ -25,12 +25,17 @@ def _place(location_id) -> str:
     return t(f"loc.{LOCATION_CODES[location_id]}") if location_id in LOCATION_CODES else ""
 
 
+def _back(returned) -> str:
+    """' · đã trừ hàng khách trả lại: …' when something came back in the period."""
+    return t("money.returned", returned=f"{round(returned):,}".replace(",", ".")) if returned else ""
+
+
 def _money_line(m: stats.Money) -> str:
     if m.fees is None:
-        return t("stats.money_goods", goods=f"{round(m.goods):,}".replace(",", "."), orders=m.orders)
+        return t("stats.money_goods", goods=f"{round(m.total):,}".replace(",", "."), orders=m.orders) + _back(m.returned)
     return t("stats.money", total=f"{round(m.total):,}".replace(",", "."),
              goods=f"{round(m.goods):,}".replace(",", "."), fees=f"{round(m.fees):,}".replace(",", "."),
-             orders=m.orders)
+             orders=m.orders) + _back(m.returned)
 
 
 def export(path: Path, conn, start: date, end: date, filters: stats.Filters, by: str,
@@ -179,7 +184,7 @@ def export_customer(path: Path, conn, customer_id: int, start: date | None, end:
         t("report.customer", name=c["name"], phone=c["phone"] or "—"),
         t("report.period", period=period_label),
         t("cust.money_value", total=fmt(money["total"]), orders=money["orders"], goods=fmt(money["goods"]),
-          fees=fmt(money["fees"])),
+          fees=fmt(money["fees"])) + _back(money["returned"]),
         t("report.exported_at", at=datetime.now().strftime("%d/%m/%Y %H:%M")),
     ]
     wb = openpyxl.Workbook()

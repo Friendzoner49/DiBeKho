@@ -69,6 +69,11 @@ def _build(conn):
         stock.record_trial_use(conn, date(2026, 10, 18), stock.MAIN, [stock.Line(c, 2)])
         stock.insert_document(conn, "delivery", date(2026, 10, 20), [stock.Line(a, 6, unit_price=110.0, amount=660.0)],
                               code="5", code_norm="5", customer_id=c1)
+        # a customer sends goods back: 2 of a at 100 on 25/10 (off the revenue), 1 of c without a price (nothing off)
+        back = stock.insert_document(conn, "receipt", date(2026, 10, 25),
+                                     [stock.Line(a, 2, unit_price=100.0, amount=200.0), stock.Line(c, 1)],
+                                     code="HV003", code_norm="HV003", customer_id=c1)
+        conn.execute("UPDATE documents SET receipt_source = 'return', prices_read = 1 WHERE id = ?", (back,))
         # November
         stock.stock_count(conn, date(2026, 11, 2), {(b, stock.MAIN): 70, (c, stock.OFFICE): 1})
         stock.insert_document(conn, "delivery", date(2026, 11, 5), [stock.Line(c, 8, unit_price=210.0, amount=1680.0)],
@@ -142,7 +147,7 @@ def test_web_statistics_match_the_app(conn, tmp_path):
                 _close(row["per_bucket"][bucket][1], qout, f"{label}: {pid} {bucket} out")
 
         money = stats.money(conn, start, end, filters)
-        for field in ("orders", "goods", "fees", "unpriced"):
+        for field in ("orders", "goods", "fees", "unpriced", "returned", "total"):
             _close(js["money"][field], getattr(money, field), f"{label}: money {field}")
 
         py_top = [(r.product_id, r.qty_out) for r in stats.top_out(conn, start, end, filters)]
@@ -160,7 +165,7 @@ def test_the_fixture_really_exercises_the_tricky_parts(conn):
     """Guard against the comparison above passing vacuously on an empty-looking data set."""
     ids, customers = _build(conn)
     october = {r.product_id: r for r in stats.summary(conn, date(2026, 10, 1), date(2026, 10, 31))}
-    assert october[ids["a"]].qty_out == 18 and october[ids["a"]].revenue == 1660  # the cancelled one cancels out
+    assert october[ids["a"]].qty_out == 18 and october[ids["a"]].revenue == 1460  # the cancelled one cancels out; 200 came back
     assert october[ids["c"]].adjust == -2  # trial use is an adjustment, not an out
     assert stats.money(conn, date(2026, 10, 1), date(2026, 10, 31)).fees == 30
     assert stats.money(conn, date(2026, 10, 1), date(2026, 10, 31)).unpriced == 1  # the line without a price

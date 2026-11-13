@@ -146,6 +146,9 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert out["checks"]["owner"] == {"transfer": True, "merge": True}
     assert "HV001" in out["checks"]["editTitle"]
     assert out["checks"]["returnFields"] is True
+    assert out["checks"]["returnPriceShown"] is True and out["checks"]["returnPriceAuto"] == ""
+    back = [c for c in out["calls"] if c["fn"] == "web_receipt" and c["args"]["p"]["source"] == "return"]
+    assert [ln.get("unit_price") for ln in back[0]["args"]["p"]["lines"]] == [95.5]
     assert out["checks"]["countMsg"] == "Đã lưu kiểm kê."
     assert out["checks"]["staffStar"] is False
     assert out["checks"]["starSpec"] == "18L/Thung"
@@ -159,6 +162,9 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     r = twoway.sync_round(conn, cloud, OWNER, "Shop")
     assert all(not m.conflicts for m in r.merged)
 
+    got = conn.execute("SELECT l.unit_price, l.amount FROM document_lines l JOIN documents d ON d.id = l.document_id "
+                       "WHERE d.receipt_source = 'return'").fetchall()
+    assert [tuple(r) for r in got] == [(95.5, 95.5)]  # the typed price reached the app: 95,5 off the revenue
     levels = stock.stock_levels(conn, by_location=True)
     # transfer CH001: 12 to the office; trial DT001: 2 out at the office; delivery 8 taken from the office (-3)
     assert _count(conn, "SELECT COUNT(*) FROM documents WHERE kind = 'transfer' AND code = 'CH001'") == 1

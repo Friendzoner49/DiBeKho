@@ -155,12 +155,27 @@ def test_goods_returned_by_a_customer(shop):
     s, twin, call, cloud = shop
     cust = twin.execute("SELECT id FROM customers WHERE name = 'Khách Mẫu'").fetchone()[0]
     receipts.save(twin, receipts.ReceiptInput(date(2026, 11, 6), receipts.RETURN, customer_id=cust, ref_code="76",
-                                              lines=[receipts.ReceiptLineInput(1, _pid(twin, "SP001"))]))
+                                              lines=[receipts.ReceiptLineInput(3, _pid(twin, "SP001"), unit_price=12500.5),
+                                                     receipts.ReceiptLineInput(1, _pid(twin, "SP002"))]))
+    lines = _lines(s, ("SP001", 3, ""), ("SP002", 1, ""))
+    lines[0]["unit_price"] = 12500.5  # what the customer gets back per unit; the second line has none
+    lines[1]["unit_price"] = None
     call("web_receipt", p=({"doc_date": "2026-11-06", "source": "return", "ref_code": "76",
                             "customer_id": _uid(s, "customers", s.execute(
                                 "SELECT id FROM customers WHERE name = 'Khách Mẫu'").fetchone()[0]),
-                            "lines": _lines(s, ("SP001", 1, ""))}, "jsonb"))
+                            "lines": lines}, "jsonb"))
     _same(s, twin, cloud)
+    got = s.execute("SELECT l.unit_price, l.amount, d.prices_read FROM document_lines l JOIN documents d "
+                    "ON d.id = l.document_id WHERE d.receipt_source = 'return' ORDER BY l.line_no").fetchall()
+    assert [tuple(r) for r in got] == [(12500.5, 37501.5, 1), (None, None, 1)]
+    # a price on a supplier's receipt is ignored, like receipts.save
+    lines = _lines(s, ("SP001", 2, ""))
+    lines[0]["unit_price"] = 999
+    call("web_receipt", p=({"doc_date": "2026-11-07", "source": "supplier", "supplier_name": "Cửa khẩu Đông",
+                            "lines": lines}, "jsonb"))
+    twoway.sync_round(s, cloud, OWNER, "S")
+    assert s.execute("SELECT COUNT(*) FROM document_lines l JOIN documents d ON d.id = l.document_id WHERE "
+                     "d.receipt_source = 'supplier' AND l.unit_price IS NOT NULL").fetchone()[0] == 0
 
 
 def test_editing_a_receipt_keeps_its_code(shop):

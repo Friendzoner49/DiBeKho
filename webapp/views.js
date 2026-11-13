@@ -156,14 +156,19 @@ function topCustomersOfProduct(productId, limit = 10) {
   for (const l of data.lines) {
     if (l.product_id !== productId) continue;
     const d = docs.get(l.document_id);
-    if (!d || d.kind !== "delivery" || d.status !== "active" || !customerById[d.customer_id]) continue;
+    if (!d || (d.kind !== "delivery" && !isReturn(d)) || d.status !== "active" || !customerById[d.customer_id]) continue;
     const row = per.get(d.customer_id) || { name: customerById[d.customer_id].name, qty: 0, docs: new Set(), last: "", revenue: null };
+    if (isReturn(d)) {  // sent back: only the money comes off (queries.product_top_customers)
+      if (l.amount !== null && l.amount !== undefined) row.revenue = (row.revenue || 0) - l.amount;
+      per.set(d.customer_id, row);
+      continue;
+    }
     row.qty += l.qty; row.docs.add(d.id);
     if (d.doc_date > row.last) row.last = d.doc_date;
     if (l.amount !== null && l.amount !== undefined) row.revenue = (row.revenue || 0) + l.amount;
     per.set(d.customer_id, row);
   }
-  return [...per.values()].map((r) => ({ ...r, times: r.docs.size })).sort((a, b) => b.qty - a.qty).slice(0, limit);
+  return [...per.values()].filter((r) => r.docs.size).map((r) => ({ ...r, times: r.docs.size })).sort((a, b) => b.qty - a.qty).slice(0, limit);
 }
 
 /* ---------------------------------------------------------------- customer detail */
@@ -192,7 +197,18 @@ function customerStats(id, from, to) {
       perProduct.set(l.product_id, row);
     }
   }
-  return { docs: docs.sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true })),
+  // goods this customer sent back in the period: their money comes off the revenue, per product too
+  let returned = 0;
+  for (const d of data.documents) {
+    if (d.customer_id !== id || !isReturn(d) || d.status !== "active" || (from && d.doc_date < from) || (to && d.doc_date > to)) continue;
+    for (const l of linesByDoc[d.id] || []) {
+      if (l.amount === null || l.amount === undefined) continue;
+      returned += l.amount;
+      const row = perProduct.get(l.product_id);
+      if (row) row.revenue = (row.revenue || 0) - l.amount;
+    }
+  }
+  return { returned, total: goods - returned, docs: docs.sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true })),
            goods, fees, unpriced, perProduct, ids, docById };
 }
 
@@ -207,7 +223,8 @@ function showCustomer(id, from, to) {
     `<div class="grid period"><label>Từ ngày <input id="cd-from" type="date" value="${esc(from || "")}"></label>` +
     `<label>Đến ngày <input id="cd-to" type="date" value="${esc(to || "")}"></label></div>` +
     `<div class="cards"><div class="stat"><span>Số đơn</span><b>${s.docs.length}</b></div>` +
-    `<div class="stat"><span>Doanh thu (tiền hàng)</span><b>${fmtMoney(s.goods)}</b></div>` +
+    `<div class="stat"><span>Doanh thu (tiền hàng)</span><b>${fmtMoney(s.total)}</b></div>` +
+    (s.returned ? `<div class="stat"><span>Đã trừ hàng khách trả lại</span><b>${fmtMoney(s.returned)}</b></div>` : "") +
     `<div class="stat"><span>Phí khác (tính riêng)</span><b>${fmtMoney(s.fees)}</b></div>` +
     `<div class="stat"><span>Đơn chưa có giá</span><b>${s.unpriced}</b></div></div>` +
     `<h3>Mặt hàng hay mua</h3><div id="cd-products"></div><h3>Các đơn</h3><div id="cd-orders"></div>`);
@@ -306,7 +323,8 @@ function renderStats() {
                     (a.spec || "").localeCompare(b.spec || "", "vi"));
   const money = S.money(model, start, end, f);
   $("st-summary").innerHTML =
-    `<div class="cards"><div class="stat"><span>Doanh thu (tiền hàng)</span><b>${fmtMoney(money.goods)}</b></div>` +
+    `<div class="cards"><div class="stat"><span>Doanh thu (tiền hàng)</span><b>${fmtMoney(money.total)}</b></div>` +
+    (money.returned ? `<div class="stat"><span>Đã trừ hàng khách trả lại</span><b>${fmtMoney(money.returned)}</b></div>` : "") +
     `<div class="stat"><span>Số đơn</span><b>${money.orders}</b></div>` +
     (money.fees === null ? "" : `<div class="stat"><span>Phí khác (tính riêng)</span><b>${fmtMoney(money.fees)}</b></div>`) +
     `<div class="stat"><span>Đơn chưa có giá</span><b>${money.unpriced}</b></div></div>` +

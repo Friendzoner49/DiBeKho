@@ -257,3 +257,41 @@ def test_settings_merge_duplicate_products(app, ws, monkeypatch):
     page.merge_selected()
     rows = ctx.conn.execute("SELECT id FROM products").fetchall()
     assert [r[0] for r in rows] == [a]  # SP002 merged into SP001
+
+
+def test_a_return_fills_in_the_price_the_customer_paid_and_keeps_a_typed_one(app, ws):
+    import dibekho.ui.receipt_form as rf
+    from datetime import date
+
+    from dibekho.core.stock import Line, insert_document
+
+    ctx = _ctx(ws)
+    a, b, _ = _same_name_products(ctx.conn)
+    with db.transaction(ctx.conn):
+        cust = catalog.upsert_customer(ctx.conn, "Khách Mẫu", "0900 000 010")
+        insert_document(ctx.conn, "delivery", date(2026, 10, 1), [Line(a, 5, unit_price=100, amount=500)], code="50",
+                        code_norm="50", customer_id=cust)
+        insert_document(ctx.conn, "delivery", date(2026, 10, 9), [Line(a, 5, unit_price=120, amount=600)], code="51",
+                        code_norm="51", customer_id=cust)
+    form = rf.ReceiptForm(ctx)
+    assert form.table.isColumnHidden(rf.PRICE)  # goods from a supplier: no price column
+    form.src_return.setChecked(True)
+    form.customer.setCurrentIndex(form.customer.findData(cust))
+    assert not form.table.isColumnHidden(rf.PRICE)
+    row = next(r for r in form.rows if r.product_id == a)  # suggested from what the customer bought
+    assert row.price.value() == 120                        # the latest purchase
+    form.order.setCurrentText("50")
+    row = next(r for r in form.rows if r.product_id == a)
+    assert row.price.value() == 100                        # the order the goods came back from
+    row.qty.setValue(2)
+    row.price.setValue(80)
+    row.price_typed = True                                 # what typing in the box does
+    form.order.setCurrentText("51")
+    assert row.price.value() == 80                         # a typed price stays
+    line = next(ln for ln in form.data().filled() if ln.product_id == a)
+    assert (line.qty, line.unit_price) == (2, 80)
+    assert "× 80 = 160" in form._confirm_text(form.data())
+    form._set_product(row, b)                              # another product: its own price (never bought: empty)
+    assert row.price.value() == 0 and form.data().lines[form.rows.index(row)].unit_price is None
+    form.saved_doc = 0
+    form.close()

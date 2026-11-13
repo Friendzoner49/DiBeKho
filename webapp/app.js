@@ -33,6 +33,7 @@ let productById = {}, customerById = {}, supplierById = {}, docById = {}, linesB
 let userRole = "", userName = "", currentUserId = "";
 let lowDefault = 30;  // the app's alarm level (meta low_stock_default; 0 = off)
 const ACCOUNT_ADMIN = "maychinh@dibekho.local";  // the one login that manages accounts (the server checks it too)
+const isReturn = (d) => d.kind === "receipt" && d.receipt_source === "return";  // goods a customer sent back
 const isOwner = () => userRole === "desktop";
 const isStaff = () => userRole === "editor";
 
@@ -480,8 +481,9 @@ function renderCustomers() {
     .sort((a, b) => a.name.localeCompare(b.name, "vi"));
   const revenue = {};
   for (const d of data.documents) {
-    if (d.kind !== "delivery" || d.status !== "active" || !d.customer_id) continue;
-    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = (revenue[d.customer_id] || 0) + l.amount;
+    if ((d.kind !== "delivery" && !isReturn(d)) || d.status !== "active" || !d.customer_id) continue;
+    const sign = isReturn(d) ? -1 : 1;  // goods the customer sent back come off the revenue
+    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = (revenue[d.customer_id] || 0) + sign * l.amount;
   }
   buildTable("customers-table", [
     { label: "Khách hàng", get: (c) => c.name }, { label: "Người liên hệ", get: (c) => c.contact },

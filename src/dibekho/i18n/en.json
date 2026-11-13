@@ -742,5 +742,8 @@
   "admin.local_failed": "The Cloud has the new data but the file on this computer could not be replaced yet: {error}\nThe app takes the new data at the next sync.",
   "admin.what_restore": "Restore a backup",
   "admin.what_package": "Import a data package",
-  "admin.what_delete_all": "Delete all data"
+  "admin.what_delete_all": "Delete all data",
+  "money.returned": " · less goods customers sent back: {returned}",
+  "receipt_form.return_price": "Refund unit price",
+  "receipt_form.return_price_hint": "Goods a customer sends back come off the revenue at the Refund unit price (filled in with what the customer paid; you can change it, or leave it empty to take nothing off)."
 }

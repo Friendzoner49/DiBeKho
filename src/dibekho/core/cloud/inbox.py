@@ -117,7 +117,7 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
         errors.append("Ngày không hợp lệ.")
         doc_date = date.today()
     location = p.get("location_id") if p.get("location_id") in LOCATIONS else MAIN
-    lines = []
+    lines, unpriced = [], []
     for raw in p.get("lines") or []:
         try:
             product_id, qty = local_id(conn, "products", raw.get("product_id")), float(raw.get("qty"))
@@ -135,7 +135,17 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
         if qty <= 0:
             errors.append(f"Số lượng của {row['code']} phải lớn hơn 0.")
             continue
-        lines.append(receipts.ReceiptLineInput(qty, product_id, note=clean(str(raw.get("note") or ""))))
+        line = receipts.ReceiptLineInput(qty, product_id, note=clean(str(raw.get("note") or "")))
+        if "unit_price" in raw:  # a return typed on the web carries its price (empty = takes nothing off the revenue)
+            try:
+                line.unit_price = float(raw["unit_price"]) if raw["unit_price"] not in (None, "") else None
+            except (TypeError, ValueError):
+                line.unit_price = None
+            if line.unit_price is not None and line.unit_price < 0:
+                line.unit_price = None
+        else:
+            unpriced.append(line)  # sent by an older page: priced below like the app's own form does
+        lines.append(line)
     if not lines:
         errors.append("Phiếu không có dòng hàng nào dùng được.")
     source = receipts.RETURN if p.get("source") == receipts.RETURN else receipts.SUPPLIER
@@ -154,6 +164,10 @@ def receipt_input(conn, p: dict) -> tuple[receipts.ReceiptInput, list[str]]:
         customer_name = clean(str(p.get("customer_name") or ""))
         if customer_id is None and not customer_name:
             errors.append("Hãy chọn khách hàng trả lại hàng.")
+    if source == receipts.RETURN:
+        for line in unpriced:
+            line.unit_price = receipts.return_price(conn, customer_id, line.product_id,
+                                                    clean(str(p.get("ref_code") or "")), doc_date)
     data = receipts.ReceiptInput(
         doc_date, source,
         supplier_name=(clean(str(p.get("supplier_name") or "")) or "Web") if source == receipts.SUPPLIER else "",

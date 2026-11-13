@@ -101,16 +101,19 @@
     return result;
   }
 
+  /** A receipt of goods a customer sent back: its lines carry the money given back (stats.py, queries.RETURNED). */
+  function isReturn(d) { return d.kind === "receipt" && d.receipt_source === "return"; }
+
   function revenueByProduct(data, start, end, f) {
     const docById = new Map(data.documents.map((d) => [d.id, d]));
     const productById = new Map(data.products.map((p) => [p.id, p]));
     const out = new Map();
     for (const l of data.lines) {
       const d = docById.get(l.document_id), p = productById.get(l.product_id);
-      if (!d || !p || d.kind !== "delivery" || d.status !== "active") continue;
+      if (!d || !p || (d.kind !== "delivery" && !isReturn(d)) || d.status !== "active") continue;
       if (d.doc_date < start || d.doc_date > end || l.amount === null || l.amount === undefined) continue;
       if (!productMatches(p, f) || !customerMatches(d, f)) continue;
-      out.set(l.product_id, (out.get(l.product_id) || 0) + l.amount);
+      out.set(l.product_id, (out.get(l.product_id) || 0) + (isReturn(d) ? -l.amount : l.amount));  // goods sent back come off
     }
     return out;
   }
@@ -132,17 +135,20 @@
 
   // ---- money ---------------------------------------------------------------------------------------------------
 
-  /** Revenue of the period = goods only; fees apart (null when products or groups are filtered). */
+  /** Revenue of the period = goods less what customers sent back (total); fees apart (null when products or groups
+      are filtered). goods = sold, returned = sent back. */
   function money(data, start, end, filters) {
     const f = filters || {};
     const docById = new Map(data.documents.map((d) => [d.id, d]));
     const productById = new Map(data.products.map((p) => [p.id, p]));
     const orders = new Set(), unpriced = new Set();
-    let goods = 0;
+    let goods = 0, returned = 0;
     for (const l of data.lines) {
       const d = docById.get(l.document_id), p = productById.get(l.product_id);
-      if (!d || !p || d.kind !== "delivery" || d.status !== "active") continue;
+      if (!d || !p || d.status !== "active") continue;
       if (d.doc_date < start || d.doc_date > end || !productMatches(p, f) || !customerMatches(d, f)) continue;
+      if (isReturn(d)) { returned += l.amount || 0; continue; }
+      if (d.kind !== "delivery") continue;
       orders.add(d.id);
       if (l.amount === null || l.amount === undefined) unpriced.add(d.id); else goods += l.amount;
     }
@@ -154,7 +160,7 @@
             customerMatches(d, f)) fees += d.fee_amount || 0;
       }
     }
-    return { orders: orders.size, goods, fees, unpriced: unpriced.size };
+    return { orders: orders.size, goods, fees, unpriced: unpriced.size, returned, total: goods - returned };
   }
 
   function topOut(data, start, end, filters, limit) {

@@ -350,7 +350,8 @@ class CustomerDialog(_Base):
         start, end = self._range()
         money = queries.customer_money(self.ctx.conn, self.customer_id, start, end)
         self.money.setText(t("cust.money_value", total=fmt_money(money["total"] or 0), orders=money["orders"],
-                             goods=fmt_money(money["goods"] or 0), fees=fmt_money(money["fees"] or 0)))
+                             goods=fmt_money(money["goods"] or 0), fees=fmt_money(money["fees"] or 0))
+                           + (t("money.returned", returned=fmt_money(money["returned"])) if money["returned"] else ""))
         self.unpriced.setText(t("cust.unpriced", count=money["unpriced"]) if money["unpriced"] else "")
         self.unpriced.setVisible(bool(money["unpriced"]))
         prods = queries.customer_products(self.ctx.conn, self.customer_id, start, end)

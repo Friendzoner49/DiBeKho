@@ -167,6 +167,9 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     sort_files(conn, ws, found)
     backfill_customers(conn, ws)
     backfill_prices(conn, ws)
+    from dibekho.core import receipts  # receipts imports this module
+
+    receipts.backfill_return_prices(conn)  # after the notes have their prices: a return takes its price from them
     result.pending = pending_count(conn)
     return result
 

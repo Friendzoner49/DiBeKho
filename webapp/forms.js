@@ -124,8 +124,26 @@ function showOrder(id) {
 const NEW_FIELDS = [["name_vi", "Tên tiếng Việt (bắt buộc)"], ["name_zh", "Tên tiếng Trung"], ["spec", "Quy cách (vd. 20kg/Thùng)"],
                     ["variant", "Loại / màu"], ["unit", "Đơn vị (trống = tự đoán)"], ["category", "Nhóm hàng"]];
 
+/** receipts.return_price: what this customer paid for this product on the order named, else on their latest order
+    up to the day of the return; null = never bought with a price. */
+function returnPrice(customerId, productId, refCode, day) {
+  if (!customerId || !productId) return null;
+  const ref = String(refCode || "").trim();
+  let best = null, named = null;
+  for (const d of data.documents) {
+    if (d.kind !== "delivery" || d.status !== "active" || d.customer_id !== customerId) continue;
+    const line = (linesByDoc[d.id] || []).filter((l) => l.product_id === productId && l.unit_price !== null && l.unit_price !== undefined)
+      .sort((a, b) => a.line_no - b.line_no)[0];
+    if (!line) continue;
+    const newer = (x) => !x || d.doc_date > x.d.doc_date || (d.doc_date === x.d.doc_date && d.created_at > x.d.created_at);
+    if (ref && d.code === ref && newer(named)) named = { d, price: line.unit_price };
+    if ((!day || d.doc_date <= day) && newer(best)) best = { d, price: line.unit_price };
+  }
+  return named ? named.price : best ? best.price : null;
+}
+
 /** A row of the receipt: a product of the catalog, or (the owner's ★ button) a new one made when the receipt is saved. */
-function receiptRow(product, qty, note) {
+function receiptRow(product, qty, note, price) {
   const star = isOwner() ? `<button class="flat rf-star" title="Mặt hàng chưa có trong kho: gõ thông tin của nó, mặt hàng sẽ được thêm vào danh mục khi lưu phiếu">★ Mặt hàng mới…</button>` : "";
   return `<tr><td><div class="rf-pick"><input class="rf-product" list="products-dl" placeholder="— Gõ mã hoặc tên hàng —" value="${esc(product ? productLabel(product) : "")}">${star}</div>` +
     `<div class="rf-newbox hidden"><b>★ Mặt hàng mới</b>` +
@@ -133,6 +151,7 @@ function receiptRow(product, qty, note) {
     `<button class="flat rf-unstar">↩ Chọn mặt hàng có sẵn</button></div></td>` +
     `<td class="rf-spec">${esc(product ? product.spec : "")}</td><td class="rf-unit">${esc(product ? product.unit : "")}</td>` +
     `<td><input class="rf-qty qty" inputmode="decimal" value="${esc(qty ?? "")}"></td>` +
+    `<td class="rf-ret"><input class="rf-price qty" inputmode="decimal" title="Giá trả lại cho khách, mỗi đơn vị. Để trống thì không trừ doanh thu." value="${esc(price ?? "")}"></td>` +
     `<td><input class="rf-note" value="${esc(note || "")}"></td><td><button class="flat rf-del" title="Xoá dòng này">✕</button></td></tr>`;
 }
 
@@ -158,9 +177,11 @@ function receiptForm(edit) {
      <p class="step">2. Hàng về những gì?</p>
      <p class="hint">Gõ mã hoặc tên rồi chọn trong danh sách gợi ý. Dòng không gõ số lượng sẽ được bỏ qua. ${isOwner()
        ? "Mặt hàng chưa có trong kho: bấm ★ Mặt hàng mới… ở dòng đó." : "Mặt hàng chưa có trong kho: nhờ chủ thêm vào danh mục trước."}</p>
-     <div class="scroll"><table class="edit"><thead><tr><th>Mặt hàng</th><th>Quy cách</th><th>Đơn vị</th><th>Số lượng</th><th>Ghi chú</th><th></th></tr></thead>
-       <tbody id="rf-lines">${(lines.length ? lines.map((l) => receiptRow(productById[l.product_id], fmtQty(l.qty), l.note))
+     <div class="scroll"><table class="edit"><thead><tr><th>Mặt hàng</th><th>Quy cách</th><th>Đơn vị</th><th>Số lượng</th><th class="rf-ret">Đơn giá trả lại</th><th>Ghi chú</th><th></th></tr></thead>
+       <tbody id="rf-lines">${(lines.length ? lines.map((l) => receiptRow(productById[l.product_id], fmtQty(l.qty), l.note,
+                                                                              l.unit_price === null || l.unit_price === undefined ? "" : fmtQty(l.unit_price)))
                                             : [1, 2, 3].map(() => receiptRow(null))).join("")}</tbody></table></div>
+     <p class="hint rf-ret">Hàng khách trả lại được trừ khỏi doanh thu theo Đơn giá trả lại. Trang web điền sẵn giá khách đã mua; sửa được, để trống thì không trừ.</p>
      <div class="row"><button id="rf-add">＋ Thêm dòng</button><span class="spacer"></span><span id="rf-sum" class="hint"></span></div>`,
     [{ label: edit ? "Lưu phiếu đã sửa" : "Lưu phiếu hàng về", primary: true, run: () => saveReceipt(edit) }]);
   const sync = () => {
@@ -168,14 +189,32 @@ function receiptForm(edit) {
     body.querySelectorAll(".rf-sup").forEach((e) => e.classList.toggle("hidden", r));
     body.querySelectorAll(".rf-ret").forEach((e) => e.classList.toggle("hidden", !r));
   };
+  // the price the customer paid, on every row whose price the user has not typed
+  const fillPrices = () => {
+    if (body.querySelector('input[name="rf-src"]:checked').value !== "return") return;
+    for (const tr of $("rf-lines").querySelectorAll("tr")) {
+      if (tr.dataset.priceTyped) continue;
+      const p = tr.dataset.new ? null : productFromLabel(tr.querySelector(".rf-product").value);
+      const price = p ? returnPrice($("rf-customer").value, p.id, $("rf-ref").value, $("rf-date").value) : null;
+      tr.querySelector(".rf-price").value = price === null ? "" : fmtQty(price);
+    }
+  };
+  if (edit) for (const tr of $("rf-lines").querySelectorAll("tr")) tr.dataset.priceTyped = "1";  // a saved receipt: its prices are the user's
   const summary = () => {
     const rows = collectReceiptLines(true);
     $("rf-sum").textContent = `Sẽ ghi ${rows.length} mặt hàng · tổng ${fmtQty(rows.reduce((a, l) => a + l.qty, 0))}`;
   };
-  body.querySelectorAll('input[name="rf-src"]').forEach((r) => r.addEventListener("change", sync));
+  body.querySelectorAll('input[name="rf-src"]').forEach((r) => r.addEventListener("change", () => { sync(); fillPrices(); }));
+  for (const id of ["rf-customer", "rf-ref", "rf-date"]) {
+    $(id).addEventListener("change", fillPrices);
+    $(id).addEventListener("input", fillPrices);
+  }
   body.addEventListener("input", (e) => {
     const tr = e.target.closest("tr");
+    if (e.target.classList.contains("rf-price")) tr.dataset.priceTyped = "1";
     if (e.target.classList.contains("rf-product")) {
+      delete tr.dataset.priceTyped;  // another product: its own price
+      fillPrices();
       const p = productFromLabel(e.target.value);
       tr.querySelector(".rf-spec").textContent = p ? p.spec : "";
       tr.querySelector(".rf-unit").textContent = p ? p.unit : "";
@@ -193,7 +232,7 @@ function receiptForm(edit) {
       summary();
     }
   });
-  $("rf-add").addEventListener("click", () => { $("rf-lines").insertAdjacentHTML("beforeend", receiptRow(null)); });
+  $("rf-add").addEventListener("click", () => { $("rf-lines").insertAdjacentHTML("beforeend", receiptRow(null)); sync(); });
   sync(); summary();
 }
 
@@ -214,8 +253,14 @@ const newLabel = (n) => [n.name_vi, n.spec, n.variant].filter(Boolean).join(" ·
 /** -> [{product, qty, note} | {new, qty, note, tr}] of the rows with a quantity; quiet: skip bad rows instead of failing. */
 function collectReceiptLines(quiet) {
   const out = [], seen = new Map(), newSeen = new Map();
+  const isBack = document.querySelector('input[name="rf-src"]:checked').value === "return";
   [...$("rf-lines").querySelectorAll("tr")].forEach((tr, i) => {
     const qty = parseQty(tr.querySelector(".rf-qty").value);
+    let price = isBack ? parseQty(tr.querySelector(".rf-price").value) : null;  // null = takes nothing off the revenue
+    if (price !== null && !(price >= 0)) {
+      if (quiet) price = null; else if (qty) fail(`Dòng ${i + 1}: Đơn giá trả lại phải là số (hoặc để trống).`);
+    }
+    if (price === 0) price = null;
     if (tr.dataset.new) {  // receipts.problems: a name, and the same new product not on two rows
       const n = {};
       for (const [k] of NEW_FIELDS) n[k] = DibeDupes.clean(tr.querySelector(`.rf-n-${k}`).value);
@@ -225,7 +270,7 @@ function collectReceiptLines(quiet) {
       const key = ["name_vi", "spec", "variant"].map((k) => DibeDupes.unaccent(n[k]).replaceAll(" ", "")).join("|");
       if (newSeen.has(key)) { if (quiet) return; fail(`“★ ${newLabel(n)}” có ở 2 dòng (dòng ${newSeen.get(key)} và ${i + 1}). Hãy gộp số lượng vào một dòng.`); }
       newSeen.set(key, i + 1);
-      out.push({ new: n, qty, note: tr.querySelector(".rf-note").value.trim(), tr });
+      out.push({ new: n, qty, price, note: tr.querySelector(".rf-note").value.trim(), tr });
       return;
     }
     const label = tr.querySelector(".rf-product").value.trim();
@@ -236,7 +281,7 @@ function collectReceiptLines(quiet) {
     if (!(qty > 0)) { if (quiet) return; fail(`Dòng ${i + 1}: số lượng phải là số lớn hơn 0.`); }
     if (seen.has(p.id)) { if (quiet) return; fail(`“${productName(p)}” có ở 2 dòng (dòng ${seen.get(p.id)} và ${i + 1}). Hãy gộp số lượng vào một dòng.`); }
     seen.set(p.id, i + 1);
-    out.push({ product: p, qty, note: tr.querySelector(".rf-note").value.trim() });
+    out.push({ product: p, qty, price, note: tr.querySelector(".rf-note").value.trim() });
   });
   return out;
 }
@@ -280,22 +325,32 @@ async function saveReceipt(edit) {
     if (!p.customer_id) fail("Chọn khách hàng trả lại hàng.");
     p.ref_code = $("rf-ref").value.trim();
     who = `Khách trả lại: ${(customerById[p.customer_id] || {}).name || ""}`;
+    if (isOwner() && lines.some((l) => l.price !== null)) {
+      const { data: version, error } = await sb.rpc("web_api_version");
+      if (error || !(version >= 13)) {
+        fail("Máy chủ chưa được cập nhật để ghi Đơn giá trả lại (người cài đặt cần chạy SQL 013). " +
+             "Trong lúc chờ: xoá trống các ô Đơn giá trả lại rồi lưu, hoặc nhập phiếu này trong app.");
+      }
+    }
   }
+  const back = source === "return";
+  const money = (l) => (back && l.price !== null ? ` × ${fmtMoney(l.price)} = ${fmtMoney(Math.round(l.qty * l.price * 100) / 100)}` : "");
+  const priced = (line, l) => (back ? { ...line, unit_price: l.price } : line);
   if (day > todayLocal() && !confirm("Ngày về sau hôm nay. Vẫn lưu?")) return false;
   const total = lines.reduce((a, l) => a + l.qty, 0);
   const text = `Ngày về: ${day}\n${who}\nNhập vào: ${PLACE[p.location_id]}\n\n` +
     lines.map((l) => (l.new ? `• ★ ${newLabel(l.new)}: ${fmtQty(l.qty)} ${l.new.unit}`
-                            : `• ${productName(l.product)}: ${fmtQty(l.qty)} ${l.product.unit || ""}`)).join("\n") +
+                            : `• ${productName(l.product)}: ${fmtQty(l.qty)} ${l.product.unit || ""}`) + money(l)).join("\n") +
     `\n\nTổng: ${fmtQty(total)}\n` + (lines.some((l) => l.new) ? "\n★ = mặt hàng mới, sẽ được thêm vào danh mục.\n" : "") + (edit ? "\nPhiếu cũ sẽ được thay bằng phiếu này (phiếu cũ vẫn xem được trong lịch sử).\n" : "") +
     (isOwner() ? "\nLưu phiếu này vào kho?" : "\nGửi phiếu này cho chủ duyệt?");
   if (!confirm(text)) return false;
   if (isOwner()) {
-    p.lines = lines.map((l) => (l.new ? { new: l.new, qty: l.qty, note: l.note }
-                                      : { product_id: l.product.id, qty: l.qty, note: l.note }));
+    p.lines = lines.map((l) => priced(l.new ? { new: l.new, qty: l.qty, note: l.note }
+                                            : { product_id: l.product.id, qty: l.qty, note: l.note }, l));
     const out = await rpcWrite("web_receipt", edit ? { p, p_replaces: edit.id } : { p });
     alert(`Đã lưu phiếu hàng về ${out.code}. File Excel của phiếu sẽ có trong app (output/hang-ve) khi app đồng bộ.`);
   } else {
-    p.lines = lines.map((l) => ({ product_id: l.product.id, code: l.product.code, qty: l.qty, note: l.note }));
+    p.lines = lines.map((l) => priced({ product_id: l.product.id, code: l.product.code, qty: l.qty, note: l.note }, l));
     await sendRequest("receipt", p);
     alert("Đã gửi. Phiếu sẽ vào sổ sau khi chủ duyệt trên app.");
   }

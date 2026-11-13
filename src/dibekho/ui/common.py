@@ -383,10 +383,12 @@ def money_text(m) -> str:
     """'Doanh thu 12.000.000 = tiền hàng … + phí khác …' for a stats.Money (fees unknown when products are
     filtered: fees belong to no product)."""
     if m.fees is None:
-        text = t("stats.money_goods", goods=fmt_money(m.goods), orders=m.orders)
+        text = t("stats.money_goods", goods=fmt_money(m.total), orders=m.orders)
     else:
         text = t("stats.money", total=fmt_money(m.total), goods=fmt_money(m.goods), fees=fmt_money(m.fees),
                  orders=m.orders)
+    if m.returned:
+        text += t("money.returned", returned=fmt_money(m.returned))
     if m.unpriced:
         text += " · " + t("stats.unpriced", count=m.unpriced)
     return text

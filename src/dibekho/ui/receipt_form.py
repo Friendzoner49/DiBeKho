@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from dibekho.core import activity, catalog, receipts, undo
 from dibekho.core.receipts import RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
-from dibekho.core.text import fmt_qty, unaccent
+from dibekho.core.text import fmt_money, fmt_qty, unaccent
 from dibekho.i18n import t
 from dibekho.ui.common import (
     NoWheelCombo,
@@ -49,7 +49,7 @@ from dibekho.ui.common import (
 )
 from dibekho.ui.settings_page import ProductEditor
 
-PRODUCT, SPEC, UNIT, QTY, NOTE, REMOVE = range(6)
+PRODUCT, SPEC, UNIT, QTY, PRICE, NOTE, REMOVE = range(7)
 
 
 class NewProductDialog(ProductEditor):
@@ -88,6 +88,13 @@ class _Row:
         self.qty.setDecimals(2)
         self.qty.setSpecialValueText(" ")  # 0 shows empty: nothing typed yet
         self.qty.setMinimumWidth(110)
+        # a customer's return only: what they get back per unit (comes off the revenue); 0 shows empty = not known
+        self.price = NoWheelSpin()
+        self.price.setRange(0, 1e12)
+        self.price.setDecimals(2)
+        self.price.setSpecialValueText(" ")
+        self.price.setMinimumWidth(120)
+        self.price_typed = False  # the user typed it: the app no longer fills it in
         self.note = QLineEdit()
         self.remove = QPushButton("✕")
         self.remove.setToolTip(t("receipt_form.remove_row"))
@@ -169,16 +176,18 @@ class ReceiptForm(QDialog):
         # 2. lines
         lay.addWidget(QLabel(t("receipt_form.step_lines")))
         lay.addWidget(hint_label(t("receipt_form.lines_hint")))
-        self.table = QTableWidget(0, 6)
+        self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels([t("col.product"), t("col.spec"), t("col.unit"), t("col.qty"),
-                                              t("col.note"), ""])
+                                              t("receipt_form.return_price"), t("col.note"), ""])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(PRODUCT, QHeaderView.Stretch)
-        for col, width in ((SPEC, 120), (UNIT, 80), (QTY, 130), (NOTE, 200), (REMOVE, 50)):
+        for col, width in ((SPEC, 120), (UNIT, 80), (QTY, 130), (PRICE, 150), (NOTE, 200), (REMOVE, 50)):
             header.setSectionResizeMode(col, QHeaderView.Interactive)
             self.table.setColumnWidth(col, width)
         self.table.verticalHeader().setDefaultSectionSize(40)
         lay.addWidget(self.table)
+        self.price_hint = hint_label(t("receipt_form.return_price_hint"))
+        lay.addWidget(self.price_hint)
         add = QPushButton(t("receipt_form.add_row"))
         add.clicked.connect(lambda: self.add_row())
         add_row = QHBoxLayout()
@@ -243,7 +252,9 @@ class ReceiptForm(QDialog):
             supplier_name=self.supplier.currentText().strip(),
             customer_name=self.customer.currentText().split(" · ")[0].strip(), customer_id=self.customer_id(),
             ref_code=self.order.currentText().strip(), note=self.note.text().strip(),
-            lines=[ReceiptLineInput(r.qty.value(), r.product_id, r.new, r.note.text()) for r in self.rows],
+            lines=[ReceiptLineInput(r.qty.value(), r.product_id, r.new, r.note.text(),
+                                    unit_price=(r.price.value() or None) if self.source() == RETURN else None)
+                   for r in self.rows],
             location_id=self.location.currentData())
 
     def dirty(self) -> bool:
@@ -270,6 +281,8 @@ class ReceiptForm(QDialog):
             row = self.add_row()
             self._set_product(row, ln.product_id, ln.new)
             row.qty.setValue(ln.qty)
+            row.price.setValue(ln.unit_price or 0)
+            row.price_typed = True  # a saved receipt or a kept draft: its prices are the user's
             row.note.setText(ln.note)
 
     # ---- rows ------------------------------------------------------------------------------------------------
@@ -281,6 +294,8 @@ class ReceiptForm(QDialog):
         self.table.insertRow(r)
         self.table.setCellWidget(r, PRODUCT, row.button)
         self.table.setCellWidget(r, QTY, row.qty)
+        self.table.setCellWidget(r, PRICE, row.price)
+        row.price.lineEdit().textEdited.connect(lambda _: setattr(row, "price_typed", True))
         self.table.setCellWidget(r, NOTE, row.note)
         self.table.setCellWidget(r, REMOVE, row.remove)
         for col in (SPEC, UNIT):
@@ -324,8 +339,21 @@ class ReceiptForm(QDialog):
         self.table.cellWidget(i, SPEC).setText(spec)
         self.table.cellWidget(i, UNIT).setText(unit)
 
+    def _fill_price(self, row: _Row):
+        """The price this customer paid (the order named, else their latest purchase), unless the user typed one."""
+        if row.price_typed or self._loading:
+            return
+        price = None
+        if self.source() == RETURN and row.product_id:
+            price = receipts.return_price(self.ctx.conn, self.customer_id(), row.product_id,
+                                          self.order.currentText().strip(), from_qdate(self.date.date()))
+        row.price.setValue(price or 0)
+
     def _set_product(self, row: _Row, product_id: int | None, new: NewProduct | None = None):
+        if (product_id, new) != (row.product_id, row.new):
+            row.price_typed = False  # another product: its own price
         row.product_id, row.new = product_id, new
+        self._fill_price(row)
         self._show_row(row)
         self._update_summary()
 
@@ -380,8 +408,9 @@ class ReceiptForm(QDialog):
         ret = self.source() == RETURN
         for w in (self.supplier, self.supplier_label):
             w.setVisible(not ret)
-        for w in (self.customer, self.customer_label, self.order, self.order_label):
+        for w in (self.customer, self.customer_label, self.order, self.order_label, self.price_hint):
             w.setVisible(ret)
+        self.table.setColumnHidden(PRICE, not ret)
 
     def _fill_orders(self):
         text = self.order.currentText()
@@ -402,6 +431,8 @@ class ReceiptForm(QDialog):
         if self._loading:
             return
         self._show_source()
+        for row in self.rows:  # another customer or order: other prices
+            self._fill_price(row)
         if not self.doc_id:
             self._suggest()
 
@@ -479,7 +510,9 @@ class ReceiptForm(QDialog):
         for ln in data.filled():
             name = ("★ " + ln.new.label()) if ln.new else catalog.long_label(self.products[ln.product_id])
             unit = ln.new.unit if ln.new else self.products[ln.product_id]["unit"]
-            lines.append(f"• {name}: {fmt_qty(ln.qty)} {unit}".rstrip())
+            money = (f" × {fmt_money(ln.unit_price)} = {fmt_money(receipts.line_amount(ln.qty, ln.unit_price))}"
+                     if data.source == RETURN and ln.unit_price else "")
+            lines.append(f"• {name}: {fmt_qty(ln.qty)} {unit}".rstrip() + money)
         skipped = sum(1 for r in self.rows if (r.product_id or r.new) and r.qty.value() <= 0)
         text = t("receipt_form.confirm", date=data.doc_date.strftime("%d/%m/%Y"), who=who,
                  lines="\n".join(lines), total=fmt_qty(sum(ln.qty for ln in data.filled())))

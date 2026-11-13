@@ -5,11 +5,14 @@ Transfers between Kho tổng and Văn phòng are neither in nor out (net zero pe
 (dùng thử) is counted as an adjustment, not an "out": it is not a sale.
 Revenue = selling prices read from the delivery notes: goods (line amounts) only. Shipping and other fees per
 order are shown apart and never added (the user's rule). Active orders only; a line without a price counts nothing.
+Goods a customer sent back (a receipt with source 'return') come off the revenue, by the day of the return.
 """
 
 import calendar
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+
+from dibekho.core.queries import SALE_OR_RETURN, SIGNED, returned_amount
 
 IN_KINDS = ("receipt_in", "receipt_reverse")
 OUT_KINDS = ("delivery_out", "delivery_reverse")
@@ -154,9 +157,9 @@ def _revenue(conn, start: date, end: date, f: Filters) -> dict[int, float]:
     csql, cargs = f.customer_sql()
     return dict(conn.execute(
         f"""
-        SELECT l.product_id, SUM(l.amount) FROM document_lines l
+        SELECT l.product_id, SUM({SIGNED}) FROM document_lines l
         JOIN documents d ON d.id = l.document_id JOIN products p ON p.id = l.product_id
-        WHERE d.kind = 'delivery' AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND l.amount IS NOT NULL
+        WHERE {SALE_OR_RETURN} AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND l.amount IS NOT NULL
           AND {psql} AND {csql}
         GROUP BY l.product_id
         """,
@@ -170,11 +173,12 @@ class Money:
     goods: float       # sum of line amounts
     fees: float | None  # other fees of those orders; None when products or groups are filtered (fees have none)
     unpriced: int      # orders with a line whose price is unknown
+    returned: float = 0.0  # goods customers sent back in the period (already taken off total)
 
     @property
     def total(self) -> float:
-        """Revenue: the goods only, fees are apart."""
-        return self.goods
+        """Revenue: the goods less what came back; fees are apart."""
+        return self.goods - self.returned
 
 
 def money(conn, start: date, end: date, filters: Filters | None = None) -> Money:
@@ -199,7 +203,9 @@ def money(conn, start: date, end: date, filters: Filters | None = None) -> Money
             f"""SELECT COALESCE(SUM(d.fee_amount), 0) FROM documents d WHERE d.kind = 'delivery'
                 AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND {csql}""",
             [start.isoformat(), end.isoformat(), *cargs]).fetchone()[0]
-    return Money(r["orders"], r["goods"], fees, r["unpriced"])
+    back = returned_amount(conn, f"d.doc_date BETWEEN ? AND ? AND {psql} AND {csql}",
+                           [start.isoformat(), end.isoformat(), *pargs, *cargs])
+    return Money(r["orders"], r["goods"], fees, r["unpriced"], back)
 
 
 def _fill_buckets(conn, rows: list[SummaryRow], bks: list[Bucket], f: Filters) -> None:
@@ -257,14 +263,16 @@ def customer_product(conn, start: date, end: date, filters: Filters | None = Non
     return conn.execute(
         f"""
         SELECT c.name AS customer_name, p.code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
-               SUM(l.qty) AS total_qty, COUNT(DISTINCT d.id) AS times, MAX(d.doc_date) AS last_date,
-               SUM(l.amount) AS revenue
+               SUM(CASE WHEN d.kind = 'delivery' THEN l.qty END) AS total_qty,
+               COUNT(DISTINCT CASE WHEN d.kind = 'delivery' THEN d.id END) AS times,
+               MAX(CASE WHEN d.kind = 'delivery' THEN d.doc_date END) AS last_date, SUM({SIGNED}) AS revenue
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN products p ON p.id = l.product_id
         LEFT JOIN customers c ON c.id = d.customer_id
-        WHERE d.kind = 'delivery' AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND {psql} AND {csql}
+        WHERE {SALE_OR_RETURN} AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND {psql} AND {csql}
         GROUP BY d.customer_id, p.id
+        HAVING times > 0
         ORDER BY c.name, total_qty DESC
         """,
         [start.isoformat(), end.isoformat(), *pargs, *cargs],
@@ -290,9 +298,9 @@ def detail_lines(conn, start: date, end: date, filters: Filters | None = None):
                c.name AS customer_name, p.code AS product_code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
                COALESCE(x.note, (SELECT note FROM document_lines l WHERE l.document_id = d.id
                                  AND l.product_id = p.id LIMIT 1)) AS note,
-               x.unit_price, x.amount
+               x.unit_price, CASE WHEN m.kind = 'receipt_in' THEN -x.amount ELSE x.amount END AS amount
         FROM mv m
-        LEFT JOIN ln x ON m.kind = 'delivery_out' AND x.document_id = m.document_id AND x.product_id = m.product_id
+        LEFT JOIN ln x ON m.kind IN ('delivery_out', 'receipt_in') AND x.document_id = m.document_id AND x.product_id = m.product_id
                        AND x.n = m.n
         JOIN documents d ON d.id = m.document_id
         JOIN products p ON p.id = m.product_id

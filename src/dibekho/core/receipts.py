@@ -46,6 +46,8 @@ class ReceiptLineInput:
     product_id: int | None = None
     new: NewProduct | None = None  # a product that is not in the catalog yet, created on save
     note: str = ""
+    unit_price: float | None = None  # source 'return' only: what the customer gets back per unit; None = not known,
+    #                                  the line then takes nothing off the revenue
 
 
 @dataclass
@@ -139,6 +141,58 @@ def _first(rows, n: int) -> list[int]:
         if len(out) == n:
             break
     return out
+
+
+# ---- goods a customer sent back: their money comes off the revenue --------------------------------------------
+
+def return_price(conn, customer_id: int | None, product_id: int | None, ref_code: str = "",
+                 on: date | None = None) -> float | None:
+    """What this customer paid for this product: on the order the goods came back from (ref_code) when it has the
+    product with a price, else on their latest order up to the day of the return. None = never bought with a price."""
+    if not customer_id or not product_id:
+        return None
+    base = ("SELECT l.unit_price FROM document_lines l JOIN documents d ON d.id = l.document_id "
+            "WHERE d.kind = 'delivery' AND d.status = 'active' AND d.customer_id = ? AND l.product_id = ? "
+            "AND l.unit_price IS NOT NULL")
+    order = " ORDER BY d.doc_date DESC, d.id DESC, l.line_no LIMIT 1"
+    if clean(ref_code):
+        row = conn.execute(base + " AND d.code = ?" + order, (customer_id, product_id, clean(ref_code))).fetchone()
+        if row:
+            return row[0]
+    args: list = [customer_id, product_id]
+    if on:
+        base += " AND d.doc_date <= ?"
+        args.append(on.isoformat())
+    row = conn.execute(base + order, args).fetchone()
+    return row[0] if row else None
+
+
+def line_amount(qty: float, unit_price: float | None) -> float | None:
+    return None if unit_price is None else round(qty * unit_price, 2)
+
+
+def backfill_return_prices(conn) -> int:
+    """Returns saved before they carried a price (0.5.0 and earlier, or entered on an older web page): give each
+    line the price return_price finds, once (documents.prices_read marks a return that has been looked at, so a
+    price the user later clears is not put back). Returns the number of lines priced."""
+    done = 0
+    docs = conn.execute("SELECT id, customer_id, ref_code, doc_date FROM documents WHERE kind = 'receipt' "
+                        "AND receipt_source = 'return' AND prices_read = 0").fetchall()
+    if not docs:
+        return 0
+    with db.transaction(conn):
+        for d in docs:
+            for ln in conn.execute("SELECT id, product_id, qty FROM document_lines WHERE document_id = ? "
+                                   "AND unit_price IS NULL", (d["id"],)).fetchall():
+                price = return_price(conn, d["customer_id"], ln["product_id"], d["ref_code"] or "",
+                                     date.fromisoformat(d["doc_date"]))
+                if price is not None:
+                    conn.execute("UPDATE document_lines SET unit_price = ?, amount = ? WHERE id = ?",
+                                 (price, line_amount(ln["qty"], price), ln["id"]))
+                    done += 1
+            conn.execute("UPDATE documents SET prices_read = 1 WHERE id = ?", (d["id"],))
+        db.touch(conn)
+    return done
 
 
 # ---- checks before saving -----------------------------------------------------------------------------------
@@ -246,11 +300,16 @@ def save(conn, data: ReceiptInput, replaces: int | None = None, ws: Workspace | 
                 n = ln.new
                 product_id = catalog.create_product(conn, n.name_vi, n.name_zh, n.spec, unit=n.unit,
                                                     category=n.category, variant=n.variant)
-            lines.append(Line(product_id, ln.qty, note=clean(ln.note)))
+            price = ln.unit_price if data.source == RETURN and ln.unit_price is not None and ln.unit_price >= 0 else None
+            lines.append(Line(product_id, ln.qty, note=clean(ln.note), unit_price=price,
+                              amount=line_amount(ln.qty, price)))
         doc_id = insert_document(conn, "receipt", data.doc_date, lines, code=code, code_norm=code,
                                  customer_id=customer_id, note=clean(data.note), location_id=data.location_id)
-        conn.execute("UPDATE documents SET receipt_source = ?, supplier_id = ?, ref_code = ? WHERE id = ?",
-                     (data.source, supplier_id, clean(data.ref_code) if data.source == RETURN else "", doc_id))
+        # prices_read = 1: the prices of this return are the user's (backfill_return_prices leaves it alone)
+        conn.execute("UPDATE documents SET receipt_source = ?, supplier_id = ?, ref_code = ?, prices_read = ? "
+                     "WHERE id = ?", (data.source, supplier_id,
+                                      clean(data.ref_code) if data.source == RETURN else "",
+                                      1 if data.source == RETURN else 0, doc_id))
         db.log(conn, "receipt_edited" if replaces else "receipt_entered", f"{code} #{doc_id}")
     return doc_id
 
@@ -261,7 +320,7 @@ def load(conn, doc_id: int) -> ReceiptInput:
         "SELECT d.*, s.name AS supplier_name, c.name AS customer_name FROM documents d "
         "LEFT JOIN suppliers s ON s.id = d.supplier_id LEFT JOIN customers c ON c.id = d.customer_id WHERE d.id = ?",
         (doc_id,)).fetchone()
-    lines = [ReceiptLineInput(r["qty"], r["product_id"], note=r["note"]) for r in conn.execute(
+    lines = [ReceiptLineInput(r["qty"], r["product_id"], note=r["note"], unit_price=r["unit_price"]) for r in conn.execute(
         "SELECT * FROM document_lines WHERE document_id = ? ORDER BY line_no", (doc_id,))]
     return ReceiptInput(date.fromisoformat(d["doc_date"]), d["receipt_source"] or SUPPLIER,
                         supplier_name=d["supplier_name"] or "", customer_name=d["customer_name"] or "",

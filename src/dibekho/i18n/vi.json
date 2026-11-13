@@ -742,5 +742,8 @@
   "admin.local_failed": "Cloud đã nhận dữ liệu mới nhưng chưa thay được file trên máy này: {error}\nApp sẽ tự lấy dữ liệu mới ở lần đồng bộ sau.",
   "admin.what_restore": "Khôi phục bản sao lưu",
   "admin.what_package": "Nhập gói dữ liệu",
-  "admin.what_delete_all": "Xoá toàn bộ dữ liệu"
+  "admin.what_delete_all": "Xoá toàn bộ dữ liệu",
+  "money.returned": " · đã trừ hàng khách trả lại: {returned}",
+  "receipt_form.return_price": "Đơn giá trả lại",
+  "receipt_form.return_price_hint": "Hàng khách trả lại được trừ khỏi doanh thu theo Đơn giá trả lại (app điền sẵn giá khách đã mua; sửa được, để trống thì không trừ)."
 }

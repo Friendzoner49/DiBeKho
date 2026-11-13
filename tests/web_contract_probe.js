@@ -11,7 +11,7 @@
     loadAll = reload;           // after a write the page reloads: give it the same rows back
     loadInbox = async () => {};
     sb.rpc = async (fn, args) => {
-      if (fn === "web_api_version") return { data: 10, error: null };  // a read: the SQL the page needs is there
+      if (fn === "web_api_version") return { data: 13, error: null };  // a read: the SQL the page needs is there
       if (fn.startsWith("web_account")) {  // the account tab's own calls are kept apart from the documents' calls
         out.accountCalls.push({ rpc: fn, args });
         return { data: fn === "web_accounts_list" ? [
@@ -112,6 +112,9 @@
     $("rf-ref").value = "7";
     typeIn($("rf-lines").querySelector(".rf-product"), productLabel(prod("SP001")));
     typeIn($("rf-lines").querySelector(".rf-qty"), "1");
+    out.checks.returnPriceShown = getComputedStyle($("rf-lines").querySelector(".rf-price").closest("td")).display !== "none";
+    out.checks.returnPriceAuto = $("rf-lines").querySelector(".rf-price").value;  // order 7 has no price: empty
+    typeIn($("rf-lines").querySelector(".rf-price"), "95,5");
     await press("Lưu phiếu hàng về");
     // 11. a stock count of Kho tổng, typed into the yellow column of the Kiểm kê page
     $("count-date").value = "2026-11-07";

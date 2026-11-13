@@ -742,5 +742,8 @@
   "admin.local_failed": "云端已收到新数据，但本机文件暂时无法替换：{error}\n应用会在下次同步时取回新数据。",
   "admin.what_restore": "恢复备份",
   "admin.what_package": "导入数据包",
-  "admin.what_delete_all": "删除全部数据"
+  "admin.what_delete_all": "删除全部数据",
+  "money.returned": " · 已扣除客户退货：{returned}",
+  "receipt_form.return_price": "退货单价",
+  "receipt_form.return_price_hint": "客户退回的货物按“退货单价”从销售额中扣除（已自动填入客户的购买价；可修改，留空则不扣除）。"
 }
