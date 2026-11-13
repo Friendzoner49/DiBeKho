@@ -147,6 +147,9 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert "HV001" in out["checks"]["editTitle"]
     assert out["checks"]["returnFields"] is True
     assert out["checks"]["returnPriceShown"] is True and out["checks"]["returnPriceAuto"] == ""
+    # named order; latest purchase; latest up to the day; another customer's order ignored; never bought
+    assert out["checks"]["priceRules"] == [100, 120, 100, 120, None]
+    assert out["checks"]["priceFilled"] == "100"  # the box fills itself when the order is typed
     back = [c for c in out["calls"] if c["fn"] == "web_receipt" and c["args"]["p"]["source"] == "return"]
     assert [ln.get("unit_price") for ln in back[0]["args"]["p"]["lines"]] == [95.5]
     assert out["checks"]["countMsg"] == "Đã lưu kiểm kê."

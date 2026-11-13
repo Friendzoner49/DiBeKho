@@ -26,7 +26,7 @@ from dibekho import db
 from dibekho.core import activity, receipts, stock
 from dibekho.core.cloud.client import CloudClient, CloudError
 from dibekho.core.stock import LOCATIONS, MAIN
-from dibekho.core.text import clean
+from dibekho.core.text import clean, fmt_money
 from dibekho.core.workspace import Workspace
 
 RECEIPT, DELIVERY_FILE, STOCK_COUNT = "receipt", "delivery_file", "stock_count"
@@ -186,7 +186,10 @@ def describe(conn, item: dict) -> str:
     for ln in data.lines:
         row = conn.execute("SELECT code, name_vi, spec FROM products WHERE id = ?", (ln.product_id,)).fetchone()
         label = f"{row['code']} {row['name_vi']} {row['spec']}".strip() if row else f"#{ln.product_id}"
-        out.append(f"• {label}: {ln.qty:g}")
+        # a return's refund price is money off the revenue: the owner sees it before approving
+        money = (f" × {fmt_money(ln.unit_price)} = {fmt_money(receipts.line_amount(ln.qty, ln.unit_price))}"
+                 if data.source == receipts.RETURN and ln.unit_price is not None else "")
+        out.append(f"• {label}: {ln.qty:g}{money}")
     return "\n".join(out)
 
 

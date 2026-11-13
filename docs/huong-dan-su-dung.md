@@ -188,7 +188,7 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
 1. Vào **Hàng về**, bấm **＋ Nhập hàng về…**.
 2. Chọn hàng từ đâu về:
    - **Cửa khẩu / công ty mẹ**: gõ tên nhà cung cấp, hoặc chọn tên đã dùng.
-   - **Khách hàng trả lại**: chọn khách, và mã đơn khách trả nếu biết.
+   - **Khách hàng trả lại**: chọn khách, và mã đơn khách trả nếu biết. Cột **Đơn giá trả lại** tự điền giá khách đã mua (theo đơn đã chọn, không chọn đơn thì lấy lần mua gần nhất); sửa được nếu hoàn tiền khác giá, để trống thì không trừ doanh thu.
 3. Chọn **Ngày về** và **Nhập vào**: **Kho tổng** hoặc **Văn phòng**.
 4. App gợi ý sẵn 3 mặt hàng (hàng hay về từ nhà cung cấp này, hoặc hàng sắp hết). Gõ **số lượng** cho từng dòng. Dòng để trống số lượng sẽ bị bỏ qua.
    - Đổi mặt hàng: bấm vào tên → **🔍 Chọn mặt hàng trong kho…**. Ô tìm nhận **vài từ bất kỳ, không cần dấu, không cần gạch nối**, ví dụ `fs101 xam 10kg`; bảng có cột riêng cho Quy cách, Loại/màu, Tên Trung và Tồn để phân biệt các mặt hàng cùng tên. Chỉ còn một mặt hàng khớp thì bấm Enter là chọn.
@@ -268,6 +268,7 @@ Xem lại phiếu dùng thử: **Kiểm kê → Phiếu dùng thử…** (hoặc
 App lấy giá từ cột **đơn giá / thành tiền** trên phiếu giao hàng.
 
 - **Doanh thu chỉ tính tiền hàng.** Phí vận chuyển và phí khác được ghi **riêng**, không cộng vào doanh thu.
+- **Hàng khách trả lại được trừ khỏi doanh thu** (theo Đơn giá trả lại, vào ngày trả). App ghi rõ "đã trừ hàng khách trả lại: …". Huỷ phiếu trả hàng thì doanh thu được cộng lại.
 - Phiếu không ghi giá: ô giá để trống (—) và không tính vào doanh thu; app báo số đơn thiếu giá.
 - App không có giá nhập nên **không tính lãi**.
 

@@ -231,3 +231,27 @@ def test_only_the_desktop_account_may_push(tmp_path, cloud):
     batch, seq, hold = twoway.prepare(a)
     with pytest.raises(Exception, match="not allowed"):
         twoway.send(cloud, VIEWER, "A", 0, batch)
+
+
+def test_both_machines_pricing_an_old_return_is_no_conflict(tmp_path, cloud):
+    """0.5.1 fills in the price of returns saved without one: two main machines doing it before they see each
+    other's push write the same values, which is not a conflict (no question for the user)."""
+    a, b = _two(tmp_path, cloud)
+    with db.transaction(a):
+        cust = a.execute("SELECT id FROM customers").fetchone()[0]
+        stock.insert_document(a, "delivery", date(2026, 11, 2), [stock.Line(_pid(a, "SP001"), 5, unit_price=100,
+                                                                            amount=500)],
+                              code="7", code_norm="7", customer_id=cust)
+        old = stock.insert_document(a, "receipt", date(2026, 11, 3), [stock.Line(_pid(a, "SP001"), 2)], code="HV002",
+                                    code_norm="HV002", customer_id=cust)
+        a.execute("UPDATE documents SET receipt_source = 'return', ref_code = '7', prices_read = 0 WHERE id = ?",
+                  (old,))
+    _settle(a, b, cloud)
+    assert receipts.backfill_return_prices(a) == 1 and receipts.backfill_return_prices(b) == 1
+    for conn, dev in ((a, "A"), (b, "B"), (a, "A"), (b, "B")):
+        assert all(not m.conflicts for m in _sync(conn, cloud, dev).merged)
+    assert twoway.conflicts(a) == twoway.conflicts(b) == []
+    for conn in (a, b):
+        got = conn.execute("SELECT l.unit_price, l.amount FROM document_lines l JOIN documents d ON d.id = l.document_id "
+                           "WHERE d.receipt_source = 'return'").fetchone()
+        assert tuple(got) == (100, 200)

@@ -127,3 +127,27 @@ def test_reconcile_keeps_slips_whose_receipt_was_only_cancelled(conn, ws):
         stock.close_document(conn, doc_id, "cancelled")  # the row stays, only its status changes
     client = ReconcileClient([{"id": "cancelled-later", "result": {"code": code}}])
     assert inbox.reconcile_applied(conn, client, "tok") == 0 and not client.patches
+
+
+def test_a_staff_return_shows_its_refund_price_and_an_old_page_gets_the_purchase_price(conn, ws):
+    from dibekho.core.stock import Line, insert_document
+
+    pid = _product(conn)
+    with db.transaction(conn):
+        cust = catalog.upsert_customer(conn, "Khách Mẫu", "0900 000 020")
+        insert_document(conn, "delivery", date(2026, 11, 1), [Line(pid, 4, unit_price=250, amount=1000)], code="9",
+                        code_norm="9", customer_id=cust)
+    typed = _item(pid, qty=2, source="return", customer_id=cust, ref_code="9")
+    typed["payload"]["lines"][0]["unit_price"] = 200  # what the staff member typed
+    data, errors = inbox.check(conn, typed)
+    assert errors == [] and data.lines[0].unit_price == 200
+    assert "× 200 = 400" in inbox.describe(conn, typed)  # the owner sees the money before approving
+    empty = _item(pid, qty=2, source="return", customer_id=cust, item_id="aaa-2")
+    empty["payload"]["lines"][0]["unit_price"] = None  # left empty on purpose: nothing off the revenue
+    assert inbox.check(conn, empty)[0].lines[0].unit_price is None
+    old_page = _item(pid, qty=2, source="return", customer_id=cust, item_id="aaa-3")  # no unit_price key at all
+    assert inbox.check(conn, old_page)[0].lines[0].unit_price == 250
+    supplier = _item(pid, item_id="aaa-4")
+    supplier["payload"]["lines"][0]["unit_price"] = 999
+    doc = inbox.apply_item(conn, ws, supplier)
+    assert conn.execute("SELECT unit_price FROM document_lines WHERE document_id = ?", (doc,)).fetchone()[0] is None

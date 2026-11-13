@@ -22,6 +22,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 9. `cloud/supabase/010_web_receipt_new_products.sql` — **"★ Mặt hàng mới" khi nhập hàng về trên web**: mặt hàng mới được tạo cùng lúc với phiếu (phiếu lỗi thì không để lại mặt hàng thừa). Chạy sau 009 (và chạy lại sau mỗi lần chạy lại 009); chạy lại nhiều lần không sao. Chưa chạy thì web báo "người cài đặt cần chạy SQL 010" khi bấm lưu phiếu có ★.
 10. `cloud/supabase/011_accounts.sql` — **quản lý tài khoản ngay trên web** (liệt kê, đổi vai trò, thu hồi quyền; có chốt chặn không tự khoá mình). Chạy sau 009 (dùng một hàm của 009). Chạy lại nhiều lần không sao. Muốn tạo tài khoản và đặt lại mật khẩu trên web thì cần thêm Edge Function ở **mục 5b**.
 11. `cloud/supabase/012_web_settings.sql` — cỡ giao diện web dùng chung cho mọi máy (chỉ tài khoản `maychinh` đổi được, ở Cài đặt → Chung). Chạy sau 011.
+12. `cloud/supabase/013_return_prices.sql` — hàng khách trả lại có **Đơn giá trả lại** và được trừ khỏi doanh thu (phiếu trả hàng nhập trên web). Chạy sau 010; **chạy lại 009 hoặc 010 thì chạy lại 013**.
 
 ## 3. Tạo tài khoản
 

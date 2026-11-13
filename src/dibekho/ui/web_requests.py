@@ -140,7 +140,13 @@ class WebRequestsPanel(QGroupBox):
         if problems:
             error(self, " ".join(problems))
             return
-        text = t("pending.web_confirm", date=fmt_date(data.doc_date.isoformat()), source=data.supplier_name,
+        source = data.supplier_name
+        if data.source == "return":  # goods a customer sent back: say who (the lines show the refund prices)
+            name = data.customer_name or (conn.execute("SELECT name FROM customers WHERE id = ?",
+                                                       (data.customer_id,)).fetchone() or [""])[0]
+            source = t("receipt_form.source_return") + ": " + name + (
+                f" · {t('receipt_form.order')} {data.ref_code}" if data.ref_code else "")
+        text = t("pending.web_confirm", date=fmt_date(data.doc_date.isoformat()), source=source,
                  lines=cloud_inbox.describe(conn, item))
         if not ask(self, text):
             return

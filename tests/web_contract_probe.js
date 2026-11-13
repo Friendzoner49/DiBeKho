@@ -114,6 +114,21 @@
     typeIn($("rf-lines").querySelector(".rf-qty"), "1");
     out.checks.returnPriceShown = getComputedStyle($("rf-lines").querySelector(".rf-price").closest("td")).display !== "none";
     out.checks.returnPriceAuto = $("rf-lines").querySelector(".rf-price").value;  // order 7 has no price: empty
+    {  // receipts.return_price on the page: the order named, else the latest purchase up to the day; then the box fills
+      const cust = $("rf-customer").value, pid = prod("SP001").id;
+      const fake = [{ id: "f1", kind: "delivery", status: "active", customer_id: cust, code: "90", doc_date: "2026-10-01", created_at: "1" },
+                    { id: "f2", kind: "delivery", status: "active", customer_id: cust, code: "91", doc_date: "2026-11-01", created_at: "2" },
+                    { id: "f3", kind: "delivery", status: "active", customer_id: "someone-else", code: "92", doc_date: "2026-11-02", created_at: "3" }];
+      const price = { f1: 100, f2: 120, f3: 999 };
+      for (const d of fake) { data.documents.push(d); linesByDoc[d.id] = [{ product_id: pid, line_no: 1, unit_price: price[d.id], qty: 1 }]; }
+      out.checks.priceRules = [returnPrice(cust, pid, "90", "2026-11-05"), returnPrice(cust, pid, "", "2026-11-05"),
+                               returnPrice(cust, pid, "", "2026-10-15"), returnPrice(cust, pid, "92", "2026-11-05"),
+                               returnPrice(cust, prod("SP002").id, "", "2026-11-05")];
+      $("rf-ref").value = "90"; $("rf-ref").dispatchEvent(new Event("input", { bubbles: true }));
+      out.checks.priceFilled = $("rf-lines").querySelector(".rf-price").value;
+      for (const d of fake) { data.documents.splice(data.documents.indexOf(d), 1); delete linesByDoc[d.id]; }
+      $("rf-ref").value = "7"; $("rf-ref").dispatchEvent(new Event("input", { bubbles: true }));
+    }
     typeIn($("rf-lines").querySelector(".rf-price"), "95,5");
     await press("Lưu phiếu hàng về");
     // 11. a stock count of Kho tổng, typed into the yellow column of the Kiểm kê page
