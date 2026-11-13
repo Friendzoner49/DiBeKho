@@ -2,7 +2,22 @@
 
 Dành cho **người cài đặt hoặc chủ cửa hàng** đang dùng dữ liệu chung qua Cloud. Hướng dẫn chung cho khách nằm ở mục 15 của hướng dẫn sử dụng; cách dựng Supabase nằm ở [05-cai-dat.md](05-cai-dat.md).
 
-Mỗi người dùng trang web (và app khi bật dữ liệu chung) có **một tài khoản riêng**: tên đăng nhập + mật khẩu. Tên và vai trò của tài khoản do bạn tạo trong trang quản trị Supabase, không có chỗ tự đăng ký.
+Mỗi người dùng trang web (và app khi bật dữ liệu chung) có **một tài khoản riêng**: tên đăng nhập + mật khẩu. Không có chỗ tự đăng ký: tài khoản do **chủ** tạo.
+
+## 0. Cách nhanh: ngay trên trang web (khuyên dùng)
+
+Chủ đăng nhập web → **Cài đặt** → tab **Tài khoản** (chỉ chủ thấy, điện thoại không có). Cần làm một lần trước: chạy SQL 011 và cài Edge Function `accounts` ([05-cai-dat.md](05-cai-dat.md), mục 2 bước 10 và mục 5b).
+
+Chọn một dòng trong danh sách rồi bấm nút:
+- **Tạo tài khoản…**: gõ tên đăng nhập, tên hiển thị, chọn vai trò, gõ mật khẩu **hai lần**. Mật khẩu do bạn gõ; trang web không lưu và không hiện lại. Tạo vai trò **chủ** thì hỏi xác nhận thêm một lần.
+- **Đổi vai trò…** (cả đổi tên hiển thị), **Đặt lại mật khẩu…**, **Thu hồi quyền…** (nhân viên nghỉ việc: tài khoản vẫn còn nhưng không xem và không ghi được gì; cấp lại bằng Đổi vai trò).
+- Dòng **gạch ngang** là tài khoản chưa có quyền (mới tạo bằng Supabase mà chưa cấp vai trò, hoặc đã thu hồi).
+
+Chốt chặn để không tự khoá mình: **không tự hạ quyền hoặc tự thu hồi quyền của chính mình**, luôn còn ít nhất một chủ. Hạ quyền hay thu hồi một tài khoản chủ khác thì web nhắc: nếu app trên máy chính đang đăng nhập bằng tài khoản đó thì đồng bộ sẽ dừng.
+
+Mật khẩu tối thiểu **8 ký tự** (nên từ 10, có cả chữ và số). Supabase có thể đòi dài hơn: khi đó web hiện đúng lời Supabase báo.
+
+Các mục 1 và 8–10 dưới đây vẫn dùng. Các mục **2–7 là cách làm trong trang quản trị Supabase**, dùng khi chưa cài Edge Function hoặc khi web gặp sự cố.
 
 ## 1. Ba vai trò
 
@@ -65,7 +80,7 @@ Sau khi đổi:
 - Trên trang web: đăng nhập lại bằng mật khẩu mới.
 - Trên app: máy đang đăng nhập có thể vẫn chạy thêm một lúc. Khi app báo "cần gõ lại mật khẩu", vào **Cài đặt → Cloud**, gõ mật khẩu mới rồi bấm **Đồng bộ ngay**.
 
-> Hướng dẫn này chưa được chạy thử trên project Supabase thật của bạn ở riêng cách 1 (các câu SQL ở mục 2, 5, 6, 7 đã kiểm trên Postgres thử nghiệm). Lần đầu hãy thử đổi mật khẩu của một **tài khoản thử** trước.
+> Các câu SQL ở mục 2, 5, 6, 7 và các nút trên web (đổi vai trò, thu hồi) đã kiểm trên Postgres thử nghiệm; Edge Function được kiểm với một Supabase giả. **Chưa chạy thử trên project Supabase thật của bạn**: tạo tài khoản và đặt lại mật khẩu (cả trên web lẫn bằng SQL `crypt` ở cách 1) hãy thử lần đầu với một **tài khoản thử**.
 
 ## 5. Đổi vai trò
 
@@ -126,5 +141,7 @@ App trên mỗi máy chính tự đăng nhập bằng tài khoản `desktop`. Tr
 | Chủ báo "Chỉ tài khoản của chủ mới làm được việc này" | Đang dùng tài khoản `editor`/`viewer` | Đăng nhập bằng tài khoản `desktop` |
 | Chủ báo "Dữ liệu chung chưa được bật" | Máy chính chưa bật dữ liệu chung | Trên app: Cài đặt → Cloud → Bật dùng dữ liệu chung |
 | App báo "cần gõ lại mật khẩu" | Phiên đăng nhập hết hạn hoặc mật khẩu vừa đổi | Cài đặt → Cloud, gõ mật khẩu, **Đồng bộ ngay** |
+| Web báo «Chưa cài Edge Function accounts» / «cần chạy SQL 011» | Chưa làm [05-cai-dat.md](05-cai-dat.md) mục 5b / chưa chạy 011 | Làm theo 05; trong lúc chờ dùng cách trong trang quản trị Supabase (mục 2–7) |
+| Web báo Supabase từ chối phiên đăng nhập khi Tạo tài khoản | Công tắc Verify JWT của hàm | Tắt công tắc đó (05 mục 5b bước 3) |
 | Tạo xong tài khoản nhưng đăng nhập không được | Quên tick **Auto Confirm User** | Authentication → Users, mở tài khoản và xác nhận (hoặc xoá tài khoản mới tạo rồi tạo lại có tick) |
 | Chạy câu cấp vai trò báo trùng | Tài khoản đó đã có vai trò | Dùng mục 5 để đổi |

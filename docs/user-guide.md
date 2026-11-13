@@ -470,6 +470,8 @@ This part is **optional**. Use it only when several computers (and the web page)
 
 **Web page:** open the address you were given and sign in with your name and password. It is laid out **like the app** (same buttons in the same places). The owner writes directly; staff send requests that the owner approves in the app under **To do → Staff requests (web)**. On a phone it only shows Stock.
 
+**Accounts for staff and managers:** the manager (owner) creates them on the web page: **Settings → Accounts → Create account…**, type the user name, pick the role, type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves. If there is no Accounts tab, ask whoever installed it (a one-time extra setup).
+
 **Turning it off:** **Settings → Cloud → Turn off shared data**. This computer then works on its own; turning it on again takes the cloud data.
 
 <sub>Screenshots use made-up data, not real customer data.</sub>

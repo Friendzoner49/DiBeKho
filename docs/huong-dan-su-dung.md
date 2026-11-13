@@ -471,6 +471,8 @@ Phần này **không bắt buộc**. Chỉ dùng khi muốn nhiều máy (và tr
 
 **Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Chủ ghi thẳng được; nhân viên gửi yêu cầu, chủ duyệt trong app ở **Cần xử lý → Yêu cầu từ nhân viên (web)**. Trên điện thoại chỉ xem Tồn kho.
 
+**Tài khoản cho nhân viên, người quản lý:** người quản lý (chủ) tự tạo ngay trên trang web: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò, gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc. Không thấy mục Tài khoản: nhờ người cài đặt (cần cài thêm một lần).
+
 **Tắt:** **Cài đặt → Cloud → Tắt dữ liệu chung**. Máy này làm việc riêng; bật lại thì lấy dữ liệu trên Cloud.
 
 <sub>Ảnh trong hướng dẫn dùng dữ liệu giả lập, không phải dữ liệu khách hàng thật.</sub>

@@ -201,6 +201,24 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert [tuple(r) for r in got] == [("Son lot", "底漆", "18L/Thung", "Son", 10), ("Mang B", "", "3mm", "Mang", 2)]
     assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Mang B'") == 1
 
+    # 13: Cài đặt → Tài khoản: the owner has the tab, staff do not; bad input never leaves the page; the buttons send
+    # what the Edge Function (create, reset) and SQL 011 (role, revoke) take, and not one call touches oneself
+    checks = out["checks"]
+    assert checks["accountsTabStaff"] is False and checks["accountsTabOwner"] is True and checks["accountRows"] == 3
+    assert "chưa giống nhau" in checks["pwMismatch"] and "ít nhất 8" in checks["pwShort"] and "@dibekho.local" in checks["userAt"]
+    assert checks["pwAfterCreate"] == "" and checks["ownerCreateAsked"] == 1
+    lan = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    acc = out["accountCalls"]
+    assert [c["body"] for c in acc if "fn" in c] == [
+        {"action": "create", "username": "quan.ly2", "password": "MatKhau-12345", "role": "viewer", "display_name": "Chi Hoa"},
+        {"action": "create", "username": "chu2", "password": "MatKhau-12345", "role": "desktop", "display_name": ""},
+        {"action": "reset_password", "user_id": lan, "password": "Moi-MatKhau-9"}]
+    assert all(c["fn"] == "accounts" for c in acc if "fn" in c)
+    assert [(c["rpc"], c["args"]) for c in acc if c.get("rpc") not in (None, "web_accounts_list")] == [
+        ("web_account_set_role", {"p_user": lan, "p_role": "viewer", "p_name": "Lan"}),
+        ("web_account_revoke", {"p_user": lan})]
+    assert sum(1 for c in acc if c.get("rpc") == "web_accounts_list") >= 4  # the list reloads after every change
+
 
 def test_staff_requests_from_the_web_are_read_by_the_apps_approval(cloud_shop, tmp_path):
     pg, conn, cloud, ids = cloud_shop

@@ -4,7 +4,7 @@
    a real Postgres and lets the app pull the result. No network here: sb is stubbed. */
 
 (async () => {
-  const out = { calls: [], requests: [], checks: {}, error: null };
+  const out = { calls: [], requests: [], accountCalls: [], checks: {}, error: null };
   try {
     const F = window.__FIXTURE__;
     const reload = async () => { setData(JSON.parse(JSON.stringify(F))); renderAll(); };
@@ -12,9 +12,17 @@
     loadInbox = async () => {};
     sb.rpc = async (fn, args) => {
       if (fn === "web_api_version") return { data: 10, error: null };  // a read: the SQL the page needs is there
+      if (fn.startsWith("web_account")) {  // the account tab's own calls are kept apart from the documents' calls
+        out.accountCalls.push({ rpc: fn, args });
+        return { data: fn === "web_accounts_list" ? [
+          { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", email: "maychinh@dibekho.local", display_name: "May chinh", role: "desktop" },
+          { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", email: "nhanvien1@dibekho.local", display_name: "Lan", role: "editor" },
+          { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", email: "moi@dibekho.local", display_name: "", role: "" }] : {}, error: null };
+      }
       out.calls.push({ fn, args });
       return { data: { code: "X", dropped: "Y" }, error: null };
     };
+    sb.functions = { invoke: async (name, opts) => { out.accountCalls.push({ fn: name, body: opts.body }); return { data: { ok: true }, error: null }; } };
     sb.from = () => ({ insert: async (row) => { out.requests.push(row); return { error: null }; } });
     window.confirm = () => true;
     window.alert = () => {};
@@ -127,6 +135,43 @@
     typeIn(rows[1].querySelector(".rf-n-spec"), "3MM");
     typeIn(rows[1].querySelector(".rf-qty"), "2");
     await press("Lưu phiếu hàng về");
+
+    // 13. Cài đặt → Tài khoản: only the owner has the tab; the buttons send what the Edge Function / SQL 011 expect
+    const OWN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", LAN = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const accTab = () => getComputedStyle(document.querySelector('[data-stab="accounts"]')).display !== "none";
+    setRole("editor", "NV");
+    out.checks.accountsTabStaff = accTab();
+    setRole("desktop", "Chủ");
+    out.checks.accountsTabOwner = accTab();
+    currentUserId = OWN;
+    await loadAccounts();
+    out.checks.accountRows = accounts.length;
+    const tryPress = async (label) => { try { await press(label); return ""; } catch (e) { return String(e.message || e); } };
+    $("acc-btn-add").click(); await wait();
+    typeIn($("acc-user"), " Quan.Ly2 ");
+    $("acc-name").value = "Chi Hoa"; $("acc-role").value = "viewer";
+    $("acc-pw").value = "MatKhau-12345"; $("acc-pw2").value = "khac-hoan-toan";
+    out.checks.pwMismatch = await tryPress("Tạo tài khoản");        // refused on the page, nothing sent
+    $("acc-pw").value = "ngan"; $("acc-pw2").value = "ngan";
+    out.checks.pwShort = await tryPress("Tạo tài khoản");
+    $("acc-pw").value = "MatKhau-12345"; $("acc-pw2").value = "MatKhau-12345";
+    $("acc-user").value = "co@dau"; out.checks.userAt = await tryPress("Tạo tài khoản");
+    $("acc-user").value = "Quan.Ly2";
+    await press("Tạo tài khoản");
+    out.checks.pwAfterCreate = ($("acc-pw") || { value: "" }).value;  // dialog closed, nothing left in the fields
+    // an owner account asks for a second confirmation (the stub's confirm answers yes; count the questions)
+    let asked = 0; const realConfirm = window.confirm; window.confirm = (t) => { asked += 1; return realConfirm(t); };
+    $("acc-btn-add").click(); await wait();
+    $("acc-user").value = "chu2"; $("acc-role").value = "desktop"; $("acc-pw").value = "MatKhau-12345"; $("acc-pw2").value = "MatKhau-12345";
+    await press("Tạo tài khoản");
+    out.checks.ownerCreateAsked = asked; window.confirm = realConfirm;
+    const pick = (id) => $("acc-table").querySelector(`tr[data-k="${id}"]`).click();
+    pick(LAN); $("acc-btn-role").click(); await wait();
+    $("acc-role").value = "viewer"; await press("Lưu");
+    pick(LAN); $("acc-btn-pass").click(); await wait();
+    $("acc-pw").value = "Moi-MatKhau-9"; $("acc-pw2").value = "Moi-MatKhau-9"; await press("Đổi mật khẩu");
+    pick(OWN); $("acc-btn-revoke").click(); await wait(); await wait();   // refused on the page: not a single call
+    pick(LAN); $("acc-btn-revoke").click(); await wait(); await wait();
   } catch (e) {
     out.error = String(e && e.stack || e);
   }

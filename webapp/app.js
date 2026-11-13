@@ -30,7 +30,7 @@ const PLACE = { 1: "Kho tổng", 2: "Văn phòng" };
 const $ = (id) => document.getElementById(id);
 const data = { products: [], customers: [], suppliers: [], documents: [], lines: [], movements: [], meta: {} };
 let productById = {}, customerById = {}, supplierById = {}, docById = {}, linesByDoc = {}, stockByProduct = {};
-let userRole = "", userName = "";
+let userRole = "", userName = "", currentUserId = "";
 let lowDefault = 30;  // the app's alarm level (meta low_stock_default; 0 = off)
 const isOwner = () => userRole === "desktop";
 const isStaff = () => userRole === "editor";
@@ -188,6 +188,7 @@ async function showApp() {
   $("app").classList.remove("hidden");
   // filter by our own id: the owner's account may read every profile row
   const { data: { user } } = await sb.auth.getUser();
+  currentUserId = user.id;
   const { data: prof } = await sb.from("profiles").select("role,display_name").eq("user_id", user.id).maybeSingle();
   setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0]);
   await loadAll();
