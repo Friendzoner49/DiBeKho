@@ -39,7 +39,7 @@ insert into public.profiles (user_id, display_name, role)
 select id, 'Nguoi xem', 'editor' from auth.users where email = 'khach1@dibekho.local';
 ```
 
-Quên mật khẩu: không có email khôi phục — vào Authentication → Users, mở tài khoản và đặt lại mật khẩu.
+Quên mật khẩu: không có email khôi phục. Cách tạo tài khoản từng bước, đổi mật khẩu, đổi vai trò và thu hồi quyền khi nhân viên nghỉ: [07-tai-khoan-va-mat-khau.md](07-tai-khoan-va-mat-khau.md).
 
 ### Trang web giờ làm việc thẳng trên dữ liệu chung (từ 12/11/2026, SQL 009)
 
