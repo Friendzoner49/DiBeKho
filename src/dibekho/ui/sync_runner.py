@@ -14,6 +14,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 from dibekho.core import activity, backup
 from dibekho.core.cloud import inbox as cloud_inbox
+from dibekho.core.cloud import logs as cloud_logs
 from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud.client import CloudError, SessionExpired
@@ -37,6 +38,7 @@ class SyncRunner(QObject):
         self.last_ok: datetime | None = None
         self.last_error = ""
         self.signed_out = False
+        self.logs = cloud_logs.LogUploader()
         self._done.connect(lambda then, result, err: then(result, err))
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.start)
@@ -94,14 +96,16 @@ class SyncRunner(QObject):
         if self.busy or self.ctx.conn is None or not self.active():  # conn is None while the file is being replaced
             return
         self.busy = True
-        cfg, after = self.ctx.cfg, twoway.cursor(self.ctx.conn)
+        cfg, ws, after = self.ctx.cfg, self.ctx.ws, twoway.cursor(self.ctx.conn)
 
         def pull():
             pair = cloud_sync.session(cfg, timeout=15)
             if pair is None:
                 return None
             client, token = pair
-            return client, token, twoway.fetch(client, token, after)
+            pulled = twoway.fetch(client, token, after)
+            self.logs.maybe_upload(ws, cfg, client, token)  # this machine's app.log, every 10 minutes at most
+            return client, token, pulled
 
         self._background(pull, lambda result, err: self._pulled(result, err, tries, after))
 
