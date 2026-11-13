@@ -702,3 +702,26 @@ def test_tc31e_order_from_a_place_that_was_not_counted_is_not_listed(conn, ws):
     _note_after_count(conn, ws)  # only Kho tổng was counted
     _place(conn, "2", OFFICE)
     assert deliveries.count_conflicts(conn) == []
+
+
+def test_a_package_from_before_the_check_keeps_its_orders_as_they_are(conn, ws):
+    """0.4.3 had no 'order read after a count' check: its data, imported, is taken as the user left it (user's final
+    data 13/11/2026), the order stays subtracted and nothing waits in Cần xử lý; a newer package is left alone."""
+    from types import SimpleNamespace
+
+    from dibekho.core import transfer
+    from dibekho.core.stock import set_location
+
+    pid = _note_after_count(conn, ws)
+    doc = conn.execute("SELECT id FROM documents WHERE code = '2'").fetchone()[0]
+    with db.transaction(conn):
+        set_location(conn, doc, MAIN)
+    assert len(deliveries.count_conflicts(conn)) == 1
+    with db.transaction(conn):
+        assert transfer.accept_counts_as_is(conn, SimpleNamespace(app_version="0.4.5")) == 0
+    assert len(deliveries.count_conflicts(conn)) == 1
+    before = stock_levels(conn, by_location=True)
+    with db.transaction(conn):
+        assert transfer.accept_counts_as_is(conn, SimpleNamespace(app_version="0.4.3")) == 1
+    assert deliveries.count_conflicts(conn) == [] and stock_levels(conn, by_location=True) == before
+    assert before[(pid, MAIN)] == 7

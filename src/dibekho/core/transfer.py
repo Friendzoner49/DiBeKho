@@ -209,7 +209,33 @@ def after_import(conn, manifest: Manifest) -> None:
     db.set_meta(conn, "last_transfer_at", now)
     db.set_meta(conn, "last_change_at", now)
     db.set_meta(conn, "last_import_from", f"{manifest.device_name} ({manifest.exported_at})")
+    accept_counts_as_is(conn, manifest)
     db.log(conn, "import", manifest.device_name)
+
+
+# The check 'order read after a stock count' (deliveries.count_conflicts) came with 0.4.4. A package from an older app
+# holds data its user already worked with as it is: its orders are taken as decided 'the order stays subtracted'
+# (nothing changes in the stock), so they do not all come back in Cần xử lý (user, 13/11/2026: "dữ liệu là bản final").
+COUNT_CHECK_SINCE = (0, 4, 4)
+
+
+def _version(text: str) -> tuple:
+    try:
+        return tuple(int(x) for x in (text or "0").split(".")[:3])
+    except ValueError:
+        return (0,)
+
+
+def accept_counts_as_is(conn, manifest: Manifest) -> int:
+    """Packages from before the check: mark every such order decided, stock unchanged. Returns how many."""
+    if _version(manifest.app_version) >= COUNT_CHECK_SINCE:
+        return 0
+    from dibekho.core import deliveries
+
+    found = deliveries.count_conflicts(conn)
+    for c in found:
+        deliveries._mark_checked(conn, c["id"])
+    return len(found)
 
 
 def move_to_processed(ws: Workspace, path: Path) -> Path:
