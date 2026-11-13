@@ -35,6 +35,10 @@ let lowDefault = 30;  // the app's alarm level (meta low_stock_default; 0 = off)
 const ACCOUNT_ADMIN = "maychinh@dibekho.local";  // the one login that manages accounts (the server checks it too)
 const isReturn = (d) => d.kind === "receipt" && d.receipt_source === "return";  // goods a customer sent back
 const isOwner = () => userRole === "desktop";
+/* The web only looks (user, 13/11/2026: the owner works in the app; the web is for emergencies): no button that
+   writes is shown, double-click still opens every detail. The write windows stay in the code behind this one switch
+   (body class "web-edits"; the contract test turns it on to keep the SQL they call checked). */
+const canEdit = () => isOwner() && document.body.classList.contains("web-edits");
 const isStaff = () => userRole === "editor";
 
 /* ---------------------------------------------------------------- helpers */
@@ -357,7 +361,7 @@ function renderPendingUnplaced() {
     { label: "Mã đơn", get: (d) => d.code },
     { label: "Khách hàng", get: (d) => (customerById[d.customer_id] || {}).name || "" },
     { label: "Mặt hàng", get: (d) => (linesByDoc[d.id] || []).map((l) => `${(productById[l.product_id] || {}).code || "?"}×${fmtQty(l.qty)}`).join(", ") },
-    { label: "Lấy hàng từ", get: () => "", html: (d) => isOwner()
+    { label: "Lấy hàng từ", get: () => "", html: (d) => canEdit()
         ? `<select data-place="${esc(d.id)}"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select> ` +
           `<button data-place-save="${esc(d.id)}">Lưu</button>` : "chưa chọn" },
   ], items, { open: (d) => showOrder(d.id), empty: "Không có đơn nào chờ chọn nơi lấy hàng." });
@@ -489,7 +493,7 @@ function renderCustomers() {
     { label: "Khách hàng", get: (c) => c.name }, { label: "Người liên hệ", get: (c) => c.contact },
     { label: "Điện thoại", get: (c) => c.phone }, { label: "Địa chỉ", get: (c) => c.address },
     { label: "Doanh thu", get: (c) => revenue[c.id] ?? null, num: true, cls: "num", html: (c) => fmtMoney(revenue[c.id]) },
-  ], items, { select: isOwner() ? "many" : null, open: (c) => showCustomer(c.id) });
+  ], items, { select: canEdit() ? "many" : null, open: (c) => showCustomer(c.id) });
 }
 
 /* ---------------------------------------------------------------- Hàng về */
@@ -523,7 +527,7 @@ function renderCatalog() {
     { label: "Mã", get: (p) => p.code }, { label: "Mặt hàng", get: (p) => p.name_vi }, { label: "Tên Trung", get: (p) => p.name_zh },
     { label: "Quy cách", get: (p) => p.spec }, { label: "Loại / màu", get: (p) => p.variant }, { label: "Đơn vị", get: (p) => p.unit },
     { label: "Nhóm hàng", get: (p) => p.category }, { label: "Đang dùng", get: (p) => (p.active ? "✔" : "") },
-  ], items, { select: "one", open: (p) => (isOwner() ? productForm(p) : showProduct(p.id)), rowClass: (p) => (p.active ? "" : "closed") });
+  ], items, { select: "one", open: (p) => (canEdit() ? productForm(p) : showProduct(p.id)), rowClass: (p) => (p.active ? "" : "closed") });
 }
 
 function renderSettingsInfo() {

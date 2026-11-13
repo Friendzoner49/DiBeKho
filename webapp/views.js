@@ -130,7 +130,7 @@ function showProduct(id) {
     `<div class="stat"><span>Văn phòng</span><b>${fmtQty(st[2])}</b></div></div>` +
     `<h3>Lịch sử vào ra (mới nhất trước)</h3><div id="ph-table"></div>` +
     `<h3>Khách lấy nhiều nhất</h3><div id="ph-top"></div>`);
-  if (isOwner()) {
+  if (canEdit()) {
     const bar = document.createElement("div");
     bar.className = "row";
     bar.innerHTML = `<button>Sửa mặt hàng…</button>`;

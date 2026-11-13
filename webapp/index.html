@@ -62,7 +62,7 @@
     <div id="page-pending" class="page hidden">
       <h1>Cần xử lý</h1>
       <h2>Đơn chưa chọn nơi lấy hàng</h2>
-      <p class="hint">Phiếu giao hàng mới tạm trừ ở Kho tổng. Chọn nơi đã lấy hàng cho từng đơn.</p>
+      <p class="hint">Phiếu giao hàng mới tạm trừ ở Kho tổng cho tới khi chọn nơi lấy hàng trên app.</p>
       <div id="pending-unplaced"></div>
       <h2>Yêu cầu gửi từ web</h2>
       <p class="hint" id="pending-inbox-hint">Yêu cầu của nhân viên nằm chờ ở đây cho tới khi chủ duyệt trên app (mục Cần xử lý của app).</p>
@@ -138,7 +138,7 @@
     <!-- Hàng về -->
     <div id="page-receipts" class="page hidden">
       <h1>Hàng về</h1>
-      <p class="hint">Cách nhập hàng về: 1. Bấm ‘＋ Nhập hàng về…’. 2. Chọn hàng từ đâu về (cửa khẩu / công ty mẹ, hoặc khách trả lại). 3. Chọn mặt hàng, gõ số lượng. 4. Bấm ‘Lưu phiếu hàng về’.<span class="only-staff"> Phiếu của nhân viên sẽ chờ chủ duyệt rồi mới vào sổ.</span></p>
+      <p class="hint">Các lần hàng về. Nháy đúp (điện thoại: chạm 2 lần) một phiếu để xem chi tiết. Nhập hàng về làm trên app.</p>
       <div class="row">
         <button id="receipt-new" class="only-writer">＋ Nhập hàng về…</button>
         <button id="receipt-edit" class="only-owner">Sửa phiếu đã chọn…</button>
@@ -150,10 +150,10 @@
     <!-- Kiểm kê -->
     <div id="page-count" class="page hidden">
       <h1>Kiểm kê</h1>
-      <p class="hint">Đếm hàng thực tế ở từng nơi rồi nhập vào 2 cột vàng (Kho tổng, Văn phòng). Nơi nào để trống thì không đổi. Chỉ những mặt hàng có số đếm mới được ghi.<span class="only-staff"> Kiểm kê của nhân viên sẽ chờ chủ duyệt; chênh lệch tính theo lúc bấm gửi.</span></p>
+      <p class="hint">Tồn theo app ở từng nơi. Kiểm kê, chuyển hàng và xuất dùng thử làm trên app.</p>
       <div class="row wrap">
-        <label>Ngày kiểm kê: <input id="count-date" type="date"></label>
-        <label class="grow">Ghi chú <input id="count-note"></label>
+        <label class="only-writer">Ngày kiểm kê: <input id="count-date" type="date"></label>
+        <label class="grow only-writer">Ghi chú <input id="count-note"></label>
         <button id="count-transfer" class="only-owner">Chuyển hàng…</button>
         <button id="count-trial" class="only-owner">Xuất dùng thử…</button>
       </div>
@@ -190,7 +190,7 @@
         <button id="logout">Đăng xuất</button>
       </div>
       <div id="stab-products" class="spane hidden">
-        <p class="hint">Chọn một dòng rồi bấm Sửa mặt hàng… (hoặc nháy đúp) để đổi tên, loại/màu, nhóm hàng, ghi chú tồn kho hoặc ngừng dùng.</p>
+        <p class="hint">Nháy đúp một mặt hàng để xem chi tiết. Thêm, sửa hoặc gộp mặt hàng làm trên app.</p>
         <div class="row wrap">
           <input id="catalog-filter" class="grow" placeholder="Lọc theo tên, mã, quy cách…">
           <button id="catalog-add" class="only-owner">Thêm mặt hàng</button>

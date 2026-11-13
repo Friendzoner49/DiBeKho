@@ -49,6 +49,14 @@
 
     setRole("desktop", "Chủ");
     await reload();
+    // the owner only looks too (user, 13/11/2026): no button that writes, the count table has no boxes
+    out.checks.ownerView = { transfer: shown("count-transfer"), merge: shown("catalog-merge"), receipt: shown("receipt-new"),
+                             save: shown("count-save"), sendFile: shown("send-delivery"), customersMerge: shown("customers-merge"),
+                             packageTab: getComputedStyle(document.querySelector('[data-stab="transfer"]')).display !== "none",
+                             countBoxes: !!$("count-table").querySelector("input[data-count]") };
+    // the write windows are still in the code behind one switch: turned on here to keep their SQL contract checked
+    document.body.classList.add("web-edits");
+    await reload();
     out.checks.owner = { transfer: shown("count-transfer"), merge: shown("catalog-merge") };
 
     // 1. transfer

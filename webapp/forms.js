@@ -89,7 +89,7 @@ function showOrder(id) {
   const title = `${KIND_VI[d.kind] || d.kind} ${d.code || ""}`.trim();
   const buttons = [];
   let html = orderDetailHtml(d);
-  if (isOwner()) {
+  if (canEdit()) {
     if ((d.kind === "delivery" || d.kind === "receipt") && d.status === "active") {
       html += `<div class="row"><label>${d.kind === "delivery" ? "Lấy hàng từ" : "Nhập vào"} ` +
               `<select id="od-place">${placeOptions(d.location_id)}</select></label>` +
@@ -455,7 +455,7 @@ function docListWindow(kind) {
   const title = { transfer: "Phiếu chuyển hàng", trial: "Phiếu dùng thử", stock_count: "Phiếu kiểm kê" }[kind];
   const items = data.documents.filter((d) => d.kind === kind)
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.created_at).localeCompare(String(a.created_at)));
-  openDialog(title, `<p class="hint">Nháy đúp một phiếu để xem chi tiết${isOwner() ? " (huỷ hoặc sửa phiếu ở đó)" : ""}.</p><div id="dl-table"></div>`, []);
+  openDialog(title, `<p class="hint">Nháy đúp một phiếu để xem chi tiết${canEdit() ? " (huỷ hoặc sửa phiếu ở đó)" : ""}.</p><div id="dl-table"></div>`, []);
   buildTable("dl-table", [
     { label: "Ngày", get: (d) => d.doc_date }, { label: "Mã", get: (d) => d.code },
     { label: "Nơi", get: placeOf },
@@ -470,7 +470,7 @@ const countTyped = {};  // product id -> {1: text, 2: text}, kept while the page
 
 function renderCount() {
   if (!$("count-date").value) $("count-date").value = todayLocal();
-  const writer = isOwner();  // staff no longer send counts from the web (user, 13/11/2026)
+  const writer = canEdit();  // nobody types counts on the web any more (user, 13/11/2026)
   const items = activeProducts();
   const cell = (p, place) => writer
     ? `<input class="qty" inputmode="decimal" data-count="${esc(p.id)}" data-place="${place}" value="${esc((countTyped[p.id] || {})[place] || "")}">`

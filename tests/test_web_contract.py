@@ -145,6 +145,7 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert out["checks"]["staff"] == {"transfer": False, "receipt": False, "save": False, "editReceipt": False,
                                       "sendFile": False, "countBoxes": False}  # staff only look (13/11/2026)
     assert out["requests"] == []
+    assert not any(out["checks"]["ownerView"].values()), out["checks"]["ownerView"]  # the owner only looks too
     assert out["checks"]["owner"] == {"transfer": True, "merge": True}
     assert "HV001" in out["checks"]["editTitle"]
     assert out["checks"]["returnFields"] is True

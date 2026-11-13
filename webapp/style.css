@@ -67,9 +67,9 @@ h2 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
 h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; }
 
 /* ai thấy gì: body.role-desktop (chủ), role-editor (nhân viên), role-viewer */
-body:not(.role-desktop) .only-owner { display: none !important; }
+body:not(.role-desktop) .only-owner, body:not(.web-edits) .only-owner { display: none !important; }  /* the web only looks */
 body:not(.account-admin) .only-admin { display: none !important; }  /* only the main machine's login manages accounts */
-body:not(.role-desktop) .only-writer { display: none !important; }  /* staff only look (user, 13/11/2026: the web is for emergencies) */
+body:not(.role-desktop) .only-writer, body:not(.web-edits) .only-writer { display: none !important; }  /* staff only look (user, 13/11/2026: the web is for emergencies) */
 .only-staff { display: none !important; }
 
 /* ===== ô nhập, chọn ===== */
