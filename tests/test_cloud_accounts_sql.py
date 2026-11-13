@@ -50,6 +50,14 @@ def test_the_owner_lists_everyone_with_roles_and_accounts_without_a_role(pg):
         "xem@dibekho.local": "viewer", "moi@dibekho.local": ""}
 
 
+def test_deleting_an_account_keeps_the_requests_it_sent(pg):
+    pg.query("insert into public.web_inbox(kind, payload, created_by) values ('receipt', '{}'::jsonb, $1)", [STAFF])
+    pg.query("delete from auth.users where id = $1", [STAFF])  # what the Edge Function's deleteUser does
+    rows = pg.query("select created_by from public.web_inbox")
+    assert len(rows) == 1 and rows[0]["created_by"] is None
+    assert pg.query("select count(*) as n from public.profiles where user_id = $1", [STAFF])[0]["n"] == 0
+
+
 def test_only_the_owner_manages_accounts(pg):
     for who in (STAFF, VIEWER, NEW, None, OWNER2):  # OWNER2 is an owner too, but not the main machine's login
         with pytest.raises(PgError, match="Chỉ tài khoản của chủ"):

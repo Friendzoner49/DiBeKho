@@ -212,7 +212,8 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert [c["body"] for c in acc if "fn" in c] == [
         {"action": "create", "username": "quan.ly2", "password": "MatKhau-12345", "role": "viewer", "display_name": "Chi Hoa"},
         {"action": "create", "username": "chu2", "password": "MatKhau-12345", "role": "desktop", "display_name": ""},
-        {"action": "reset_password", "user_id": lan, "password": "Moi-MatKhau-9"}]
+        {"action": "reset_password", "user_id": lan, "password": "Moi-MatKhau-9"},
+        {"action": "delete", "user_id": lan}]
     assert all(c["fn"] == "accounts" for c in acc if "fn" in c)
     assert [(c["rpc"], c["args"]) for c in acc if c.get("rpc") not in (None, "web_accounts_list")] == [
         ("web_account_set_role", {"p_user": lan, "p_role": "viewer", "p_name": "Lan"}),

@@ -114,6 +114,7 @@ function makeHandler(deps) {
 
     if (body?.action === "create") return create(body);
     if (body?.action === "reset_password") return resetPassword(body);
+    if (body?.action === "delete") return deleteAccount(body, caller);
     return reply(400, { ok: false, error: "Yêu cầu không hợp lệ." });
   };
 
@@ -149,6 +150,25 @@ function makeHandler(deps) {
       return fail(`Không cấp được vai trò cho tài khoản mới${removed ? ", nên chưa tạo gì cả" : ", và tài khoản vừa tạo chưa xoá được (vào Authentication → Users để xoá)"}.`);
     }
     return reply(200, { ok: true, id, username, role: body.role });
+  }
+
+  async function deleteAccount(body, caller) {
+    const id = String(body.user_id || "").toLowerCase();
+    if (!UUID.test(id)) return fail("Không rõ tài khoản cần xoá.");
+    if (id === caller) return fail("Không tự xoá tài khoản của chính mình được.");
+    let exists = false;
+    try {
+      exists = await deps.userExists(id);
+    } catch (e) {
+      exists = false;
+    }
+    if (!exists) return fail("Không tìm thấy tài khoản này (có thể đã xoá rồi).");
+    try {
+      await deps.deleteUser(id);
+    } catch (e) {
+      return fail(authMessage(e, "Không xoá được tài khoản."));
+    }
+    return reply(200, { ok: true, id });
   }
 
   async function resetPassword(body) {

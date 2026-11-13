@@ -102,6 +102,13 @@ Tạo tài khoản và đặt mật khẩu cần khoá quản trị của Supaba
 
 Dùng thường ngày: xem [07-tai-khoan-va-mat-khau.md](07-tai-khoan-va-mat-khau.md). Mỗi lần sửa mã hàm trong repo thì dán lại và Deploy lại.
 
+## 5c. Triển khai một lệnh (khi sửa SQL, hàm hoặc trang web nhiều lần)
+
+Thay cho 3 bước tay (chạy SQL, dán lại hàm, tải lại thư mục web): `python -X utf8 scripts/deploy_cloud.py` (hoặc `--only sql`, `--only function`, `--only web`). Cần Node.js và hai khoá truy cập **để ngoài repo**, trong file `.dibekho-deploy.env` trong thư mục người dùng của bạn (ví dụ C:/Users/PC/) (mỗi dòng `TÊN=giá trị`):
+- `SUPABASE_ACCESS_TOKEN`: supabase.com → Account → Access Tokens → Generate new token (không phải khoá của dự án).
+- `CLOUDFLARE_API_TOKEN`: Cloudflare → My Profile → API Tokens → Create Token (mẫu «Edit Cloudflare Workers» hoặc quyền Account › Cloudflare Pages › Edit); `CLOUDFLARE_ACCOUNT_ID`: ở cột phải trang Workers & Pages.
+Chạy lại nhiều lần không sao. ⚠ Script chưa chạy thử với khoá thật (nhãn trang Cloudflare/Supabase có thể lệch): lần đầu hãy chạy từng bước `--only sql`, rồi `function`, rồi `web`.
+
 ## 6. Sao lưu và khôi phục
 
 Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ lần trước), app tải lên một bản sao đầy đủ `kho.sqlite` (khoảng 300 KB), Cloud giữ 30 bản gần nhất.

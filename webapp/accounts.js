@@ -174,9 +174,19 @@ async function accRevoke() {
   await loadAccounts();
 }
 
+async function accDelete() {
+  const a = accPicked();
+  if (a.id === currentUserId) fail("Không tự xoá tài khoản của chính mình được.");
+  const extra = a.role === "desktop" ? "\n\nĐây là tài khoản CHỦ: nếu app trên máy chính đang đăng nhập bằng tài khoản này thì đồng bộ sẽ dừng." : "";
+  if (!confirm(`XOÁ HẲN tài khoản «${accShort(a.email)}»?\n\nNgười này không đăng nhập được nữa và KHÔNG khôi phục được (muốn dùng lại phải tạo tài khoản mới). Các yêu cầu họ đã gửi vẫn còn, chỉ không ghi rõ người gửi.\n\nNếu chỉ muốn tạm khoá, hãy dùng «Thu hồi quyền…».${extra}`)) return;
+  await accFunction({ action: "delete", user_id: a.id });
+  await loadAccounts();
+}
+
 document.querySelector('[data-stab="accounts"]').addEventListener("click", loadAccounts);
 $("acc-btn-add").addEventListener("click", () => ownerAction(async () => accCreateDialog()));
 $("acc-btn-role").addEventListener("click", () => ownerAction(async () => accRoleDialog()));
 $("acc-btn-pass").addEventListener("click", () => ownerAction(async () => accPasswordDialog()));
 $("acc-btn-revoke").addEventListener("click", () => ownerAction(accRevoke));
+$("acc-btn-delete").addEventListener("click", () => ownerAction(accDelete));
 $("acc-btn-reload").addEventListener("click", loadAccounts);

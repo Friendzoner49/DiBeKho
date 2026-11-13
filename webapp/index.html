@@ -38,7 +38,7 @@
       <button id="send-delivery" class="only-writer">Gửi phiếu giao hàng (file Excel)…</button>
       <span id="freshness" class="hint"></span>
       <span class="spacer"></span>
-      <span id="who" class="hint"></span>
+      <button id="who" class="who" title="Mở Cài đặt → Chung (có nút Đăng xuất)"></button>
       <button id="logout-phone" class="only-phone">Đăng xuất</button>
     </div>
     <p id="load-error" class="error"></p>
@@ -204,12 +204,13 @@
         <p id="pkg-msg" class="hint"></p>
       </div>
       <div id="stab-accounts" class="spane hidden only-admin">
-        <p class="hint">Tạo tài khoản cho nhân viên hoặc người quản lý, đổi vai trò, đặt lại mật khẩu, thu hồi quyền khi ai đó nghỉ. Mật khẩu do bạn gõ; trang web không lưu và không hiện lại mật khẩu. Chọn một dòng rồi bấm nút.</p>
+        <p class="hint">Tạo tài khoản cho nhân viên hoặc người quản lý, đổi vai trò, đặt lại mật khẩu, thu hồi quyền hoặc xoá hẳn tài khoản khi ai đó nghỉ. Mật khẩu do bạn gõ; trang web không lưu và không hiện lại mật khẩu. Chọn một dòng rồi bấm nút.</p>
         <div class="row wrap">
           <button id="acc-btn-add">Tạo tài khoản…</button>
           <button id="acc-btn-role">Đổi vai trò…</button>
           <button id="acc-btn-pass">Đặt lại mật khẩu…</button>
           <button id="acc-btn-revoke">Thu hồi quyền…</button>
+          <button id="acc-btn-delete">Xoá tài khoản…</button>
           <button id="acc-btn-reload" class="flat">Tải lại</button>
         </div>
         <p id="acc-msg" class="hint"></p>

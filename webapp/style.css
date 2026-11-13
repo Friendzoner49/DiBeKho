@@ -58,6 +58,8 @@
 body { margin: 0; background: var(--background); color: var(--foreground);
        font: 16px/1.5 var(--app-font); -webkit-font-smoothing: antialiased; }
 .hidden { display: none !important; }
+.who { height: auto; padding: 6px 12px; border-color: transparent; background: transparent; color: var(--muted); font-size: 14px; }
+.who:hover { border-color: var(--border-strong); background: var(--button-hover); }
 .hint { color: var(--muted); font-size: 14px; text-wrap: pretty; }
 .error { color: var(--error-text); min-height: 1.2em; margin: 4px 0; white-space: pre-line; font-size: 15px; }
 h1 { font-size: 24px; font-weight: 600; margin: 4px 0 6px; letter-spacing: -0.01em; }
@@ -245,7 +247,7 @@ body.phone .topbar { flex-wrap: wrap; gap: 4px 8px; padding-top: env(safe-area-i
 body.phone #reload, body.phone #logout-phone { height: 40px; min-height: 40px; padding: 0 12px; white-space: nowrap;
                                                display: inline-flex; align-items: center; }
 body.phone .topbar .spacer { flex: 1; }
-body.phone #who { order: 3; flex: 0 0 100%; font-size: 13px; }
+body.phone #who { pointer-events: none; order: 3; flex: 0 0 100%; font-size: 13px; }
 body.phone .main { padding: 8px 12px 32px; }
 body.phone h1 { margin: 12px 0 8px; }
 /* one card per product (app.js renderStock): the name wraps in full, the total stands out on the right */

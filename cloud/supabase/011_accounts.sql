@@ -71,6 +71,13 @@ begin
     return jsonb_build_object('id', p_user, 'role', '');
 end $$;
 
+-- deleting an account (Edge Function): requests the person sent stay, only the sender becomes unknown.
+-- Before this, web_inbox.created_by blocked deleting anyone who had ever sent a request.
+alter table public.web_inbox alter column created_by drop not null;
+alter table public.web_inbox drop constraint if exists web_inbox_created_by_fkey;
+alter table public.web_inbox add constraint web_inbox_created_by_fkey
+    foreign key (created_by) references auth.users(id) on delete set null;
+
 revoke all on function public.dbk_account_owner() from public, anon, authenticated;
 do $$
 declare f text;

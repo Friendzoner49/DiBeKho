@@ -10,7 +10,7 @@ Mỗi người dùng trang web (và app khi bật dữ liệu chung) có **một
 
 Chọn một dòng trong danh sách rồi bấm nút:
 - **Tạo tài khoản…**: gõ tên đăng nhập, tên hiển thị, chọn vai trò, gõ mật khẩu **hai lần**. Mật khẩu do bạn gõ; trang web không lưu và không hiện lại. Tạo vai trò **chủ** thì hỏi xác nhận thêm một lần.
-- **Đổi vai trò…** (cả đổi tên hiển thị), **Đặt lại mật khẩu…**, **Thu hồi quyền…** (nhân viên nghỉ việc: tài khoản vẫn còn nhưng không xem và không ghi được gì; cấp lại bằng Đổi vai trò).
+- **Đổi vai trò…** (cả đổi tên hiển thị), **Đặt lại mật khẩu…**, **Xoá tài khoản…** (xoá hẳn, không khôi phục được; các yêu cầu người đó đã gửi vẫn còn nhưng không ghi rõ người gửi; không tự xoá mình được) và **Thu hồi quyền…** (nhân viên nghỉ việc: tài khoản vẫn còn nhưng không xem và không ghi được gì; cấp lại bằng Đổi vai trò).
 - Dòng **gạch ngang** là tài khoản chưa có quyền (mới tạo bằng Supabase mà chưa cấp vai trò, hoặc đã thu hồi).
 
 Chốt chặn để không tự khoá mình: **không tự hạ quyền hoặc tự thu hồi quyền của chính mình**, luôn còn ít nhất một chủ. Hạ quyền hay thu hồi một tài khoản chủ khác thì web nhắc: nếu app trên máy chính đang đăng nhập bằng tài khoản đó thì đồng bộ sẽ dừng.

@@ -174,6 +174,8 @@
     $("acc-pw").value = "Moi-MatKhau-9"; $("acc-pw2").value = "Moi-MatKhau-9"; await press("Đổi mật khẩu");
     pick(OWN); $("acc-btn-revoke").click(); await wait(); await wait();   // refused on the page: not a single call
     pick(LAN); $("acc-btn-revoke").click(); await wait(); await wait();
+    pick(OWN); $("acc-btn-delete").click(); await wait(); await wait();   // refused on the page too
+    pick(LAN); $("acc-btn-delete").click(); await wait(); await wait();
   } catch (e) {
     out.error = String(e && e.stack || e);
   }

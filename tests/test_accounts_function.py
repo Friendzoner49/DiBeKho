@@ -38,10 +38,20 @@ def test_nothing_happens_without_a_valid_owner(r):
         assert r[key]["status"] == 401, key
         assert not _touched(r[key], "createUser") and not _touched(r[key], "roleOf"), key
     assert r["roleCheckThrows"]["json"]["ok"] is False and not _touched(r["roleCheckThrows"], "createUser")
-    for key in ("staffCreates", "staffResets", "otherOwnerCreates", "otherOwnerResets"):  # another owner is refused too
+    for key in ("staffCreates", "staffResets", "otherOwnerCreates", "otherOwnerResets", "deleteByOther", "deleteByStaff"):  # another owner is refused too
         assert r[key]["json"]["ok"] is False and "Chỉ tài khoản của chủ" in r[key]["json"]["error"], key
         assert not _touched(r[key], "createUser") and not _touched(r[key], "setPassword"), key
     assert r["badJson"]["status"] == 400 and r["unknownAction"]["status"] == 400
+
+
+def test_delete_removes_one_other_account_and_nothing_else(r):
+    target = "99999999-9999-4999-8999-999999999999"
+    assert r["deleted"]["json"]["ok"] is True and len(_touched(r["deleted"], "deleteUser")) == 1
+    for key in ("deleteSelf", "deleteBadId", "deleteUnknown", "deleteFails"):
+        assert r[key]["json"]["ok"] is False and not r[key]["json"].get("id"), key
+    for key in ("deleteSelf", "deleteBadId", "deleteUnknown"):
+        assert not _touched(r[key], "deleteUser"), key  # never reaches the delete
+    assert target not in json.dumps(r["deleteFails"]["calls"])
 
 
 def test_the_role_is_read_from_the_profile_of_the_checked_token_not_from_the_request(r):

@@ -541,6 +541,12 @@ for (const btn of document.querySelectorAll(".stab")) {
     document.querySelectorAll(".spane").forEach((p) => p.classList.toggle("hidden", p.id !== `stab-${btn.dataset.stab}`));
   });
 }
+// the name at the top right opens Cài đặt → Chung, where the Đăng xuất button is
+$("who").addEventListener("click", () => {
+  if (PHONE) return;  // a phone has its own Đăng xuất button
+  showPage("settings");
+  document.querySelector('.stab[data-stab="general"]').click();
+});
 $("stock-filter").addEventListener("input", renderStock);
 $("stock-low").addEventListener("change", renderStock);
 $("search-input").addEventListener("input", renderSearch);
