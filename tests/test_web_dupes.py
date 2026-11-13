@@ -81,7 +81,7 @@ def _js(payload, folder: Path) -> dict:
 
 def _random_pairs(n=400):
     rnd = random.Random(7)
-    alphabet = "aaabcdeeghikmnnoostu  -0123456789xđ防水涂料胶"
+    alphabet = "aaabcdeeghikmnnoostu  -1357902468xđ防水涂料胶"
     word = lambda: "".join(rnd.choice(alphabet) for _ in range(rnd.randint(0, 40)))  # noqa: E731
     pairs = [[word(), word()] for _ in range(n)]
     pairs.append(["a" * 120 + "b" * 30, "ab" * 130])  # long enough for difflib's autojunk
