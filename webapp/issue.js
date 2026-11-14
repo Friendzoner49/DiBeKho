@@ -172,7 +172,7 @@ async function saveIssue() {
     r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${fmtVnd(r.amount)}` : "")).join("\n");
   if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: fmtVnd(total) })}`)) return false;
-  const code = DBK_XLSX.newCode(new Date());
+  const code = DBK_XLSX.nextCode(data.documents.filter((d) => d.kind === "delivery").map((d) => d.code));
   const head = { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
                  letterhead: letterhead() };
   const bytes = DBK_XLSX.issueNote(fflate, head, rows);

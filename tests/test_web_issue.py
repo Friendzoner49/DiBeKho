@@ -65,7 +65,9 @@ def _web_file(head: dict, rows: list, path: Path) -> Path:
 
 
 def test_the_code_is_the_apps():
-    assert _node("code") == "PX261114-093015" == issues.new_code(__import__("datetime").datetime(2026, 11, 14, 9, 30, 15))
+    codes = ["159", "076", "A12", "PX261114-093015", "76#2", ""]
+    assert _node("code") == "W160" == issues.next_code(codes, "W")
+    assert issues.next_code(codes) == "A160" and issues.next_code([]) == "A1"
 
 
 def _plain(row: dict) -> dict:

@@ -275,10 +275,15 @@ const DBK_XLSX = (() => {
     });
   }
 
-  /** PX + date and time (PX261114-093215), like core/issues.new_code: machines and the web never share a counter. */
-  function newCode(now) {
-    const d = now || new Date(), p = (n) => String(n).padStart(2, "0");
-    return `PX${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  /** prefix + 1 + the highest order number among codes ('159', '076', 'A160', 'W161'; other codes not counted), as
+      core/issues.next_code. The web writes W160, the app A160 (user's choice 14/11/2026). */
+  function nextCode(codes, prefix = "W") {
+    let max = 0;
+    for (const c of codes) {
+      const m = /^\s*[AaWw]?\s*0*(\d{1,9})\s*$/.exec(String(c ?? ""));
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return `${prefix}${max + 1}`;
   }
 
   /** The bytes of a Phiếu xuất kho: head {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address, letterhead},
@@ -287,6 +292,6 @@ const DBK_XLSX = (() => {
     return workbook(fflate, issueSheet(head, rows), SHEET, now);
   }
 
-  return { TITLE, LABELS, HEADERS, PLACES, HEADER_ROW, productName, placesText, vndWords, issueSheet, noteRows, newCode, issueNote };
+  return { TITLE, LABELS, HEADERS, PLACES, HEADER_ROW, productName, placesText, vndWords, issueSheet, noteRows, nextCode, issueNote };
 })();
 if (typeof module !== "undefined") module.exports = DBK_XLSX;

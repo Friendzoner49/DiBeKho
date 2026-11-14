@@ -11,13 +11,15 @@ Files:
 Hoàn tác (local data) puts the database back, then after_undo() moves that second copy out of the folder,
 otherwise the next scan would record the note again.
 
-Codes are PX + date and time (PX261114-093215): two main machines and the web page write notes without asking
-each other, a running number would clash.
+Codes (user's choice 14/11/2026): A + the number after the highest order number so far (orders up to 159 -> A160);
+the web page writes W160 (webapp/xlsx.js nextCode), so the app and the web never take the same code. The shop's own
+notes (160) stay apart too: '160' and 'A160' are different codes (text.normalize_code keeps the letter).
 """
 
+import re
 import shutil
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 from dibekho import db
@@ -26,7 +28,8 @@ from dibekho.core.text import clean
 from dibekho.core.workspace import Workspace
 from dibekho.excel.issue_note import IssueHead, IssueRow, write_issue_note
 
-PREFIX = "PX"
+PREFIX = "A"  # made in the app; "W" on the web page
+_NUMBERED = re.compile(r"^\s*[AaWw]?\s*0*(\d{1,9})\s*$")  # an order number, maybe with the app's or the web's letter
 FILE_PREFIX = "PhieuXuat_"
 FOLDER = "phieu-xuat"
 UNDONE = "da-hoan-tac"
@@ -58,8 +61,16 @@ class IssueInput:
         return [ln for ln in self.lines if ln.product_id and ln.qty > 0]
 
 
-def new_code(now: datetime | None = None) -> str:
-    return PREFIX + (now or datetime.now()).strftime("%y%m%d-%H%M%S")
+def next_code(codes, prefix: str = PREFIX) -> str:
+    """prefix + 1 + the highest order number among codes ('159', '076', 'A160', 'W161'); other codes are not counted.
+    The same rule as webapp/xlsx.js nextCode."""
+    numbers = [int(m.group(1)) for m in (_NUMBERED.match(str(c or "")) for c in codes) if m]
+    return f"{prefix}{max(numbers, default=0) + 1}"
+
+
+def new_code(conn) -> str:
+    """The code of a new issue note: every delivery ever recorded counts, cancelled ones too (a number is never reused)."""
+    return next_code([r[0] for r in conn.execute("SELECT code FROM documents WHERE kind = 'delivery'")])
 
 
 def problems(conn, data: IssueInput) -> list[tuple[str, dict]]:
@@ -131,13 +142,13 @@ def _free(path: Path) -> Path:
     return candidate
 
 
-def save(conn, ws: Workspace, data: IssueInput, now: datetime | None = None) -> tuple[int, Path]:
+def save(conn, ws: Workspace, data: IssueInput) -> tuple[int, Path]:
     """Write the note and record it. Returns (document id, the user's copy). Raises ValueError on a problem."""
     from dibekho.core import deliveries  # imported here: deliveries -> receipts -> ... must not loop back
 
     if problems(conn, data):
         raise ValueError("Phiếu xuất kho chưa đủ thông tin.")
-    code = new_code(now)
+    code = new_code(conn)
     head = IssueHead(code, data.doc_date, clean(data.customer_name), clean(data.phone), clean(data.contact),
                      clean(data.address), deliveries.letterhead(conn))
     user_copy = _free(ws.output / FOLDER / f"{FILE_PREFIX}{code}.xlsx")

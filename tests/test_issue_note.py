@@ -40,11 +40,11 @@ def note_for(paint, sand, **kw):
 
 def test_saving_takes_each_place_at_once_and_counts_the_revenue(conn, ws, goods):
     paint, sand = goods
-    doc_id, path = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    doc_id, path = issues.save(conn, ws, note_for(paint, sand))
     assert places(conn, paint) == (40, 5)
     assert places(conn, sand) == (18, 0)
     doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
-    assert (doc["kind"], doc["code"], doc["status"], doc["location_set"]) == ("delivery", "PX261114-093015",
+    assert (doc["kind"], doc["code"], doc["status"], doc["location_set"]) == ("delivery", "A1",
                                                                               "active", 1)
     assert is_mixed(conn, doc_id)
     amounts = sorted(r[0] for r in conn.execute("SELECT amount FROM document_lines WHERE document_id = ?",
@@ -59,9 +59,9 @@ def test_saving_takes_each_place_at_once_and_counts_the_revenue(conn, ws, goods)
 
 def test_the_file_reads_back_with_codes_places_and_prices(conn, ws, goods):
     paint, sand = goods
-    _, path = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    _, path = issues.save(conn, ws, note_for(paint, sand))
     note = read_delivery_note(path)
-    assert note.code == "PX261114-093015" and note.doc_date == date(2026, 11, 14)
+    assert note.code == "A1" and note.doc_date == date(2026, 11, 14)
     assert (note.customer_name, note.phone, note.contact, note.address) == ("Công ty A", "0900 000 001", "Anh B",
                                                                               "1 Đường X")
     got = [(ln.product_code, ln.places, ln.qty, ln.unit_price, ln.amount, ln.note) for ln in note.lines]
@@ -74,7 +74,7 @@ def test_the_file_reads_back_with_codes_places_and_prices(conn, ws, goods):
 
 def test_scanning_again_or_dropping_the_copy_into_the_folder_never_counts_twice(conn, ws, goods):
     paint, sand = goods
-    _, path = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    _, path = issues.save(conn, ws, note_for(paint, sand))
     deliveries.scan(conn, ws)
     (ws.deliveries / "ban-sao.xlsx").write_bytes(path.read_bytes())
     result = deliveries.scan(conn, ws)
@@ -100,7 +100,7 @@ def test_a_file_from_elsewhere_is_recorded_by_product_code_even_if_renamed(conn,
 
 def test_cancel_gives_back_each_place(conn, ws, goods):
     paint, sand = goods
-    doc_id, _ = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    doc_id, _ = issues.save(conn, ws, note_for(paint, sand))
     with db.transaction(conn):
         close_document(conn, doc_id)
     assert places(conn, paint) == (50, 8) and places(conn, sand) == (20, 0)
@@ -108,12 +108,12 @@ def test_cancel_gives_back_each_place(conn, ws, goods):
 
 def test_a_mixed_note_cannot_be_moved_to_one_place_but_a_single_place_one_can(conn, ws, goods):
     paint, sand = goods
-    doc_id, _ = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    doc_id, _ = issues.save(conn, ws, note_for(paint, sand))
     with pytest.raises(ValueError):
         with db.transaction(conn):
             set_location(conn, doc_id, OFFICE)
     single = IssueInput(date(2026, 11, 14), "Công ty A", lines=[IssueLineInput(sand, qty_main=1)])
-    doc2, _ = issues.save(conn, ws, single, now=datetime(2026, 11, 14, 10, 0, 0))
+    doc2, _ = issues.save(conn, ws, single)
     with db.transaction(conn):
         set_location(conn, doc2, OFFICE)
     assert places(conn, sand) == (18, -1)
@@ -123,7 +123,7 @@ def test_a_mixed_note_cannot_be_moved_to_one_place_but_a_single_place_one_can(co
 
 def test_read_again_keeps_the_places_of_the_file(conn, ws, goods):
     paint, sand = goods
-    doc_id, _ = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    doc_id, _ = issues.save(conn, ws, note_for(paint, sand))
     deliveries.reread_document(conn, ws, doc_id)
     deliveries.scan(conn, ws)
     assert places(conn, paint) == (40, 5) and places(conn, sand) == (18, 0)
@@ -138,7 +138,7 @@ def test_undo_takes_the_note_back_and_the_scan_does_not_record_it_again(conn, ws
     conn = db.connect(path_db)
     try:
         undo.mark(conn, ws, "issue_note")
-        issues.save(conn, ws, note_for(paint, sand), now=NOW)
+        issues.save(conn, ws, note_for(paint, sand))
         before = issues.known_issue_files(conn, ws)
         assert len(before) == 1
         conn.close()
@@ -155,7 +155,7 @@ def test_undo_takes_the_note_back_and_the_scan_does_not_record_it_again(conn, ws
 
 def test_reset_stock_reads_the_issue_notes_again(conn, ws, goods):
     paint, sand = goods
-    issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    issues.save(conn, ws, note_for(paint, sand))
     reset.reset_stock(conn, ws)
     deliveries.scan(conn, ws)
     assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery' AND status = 'active'"
@@ -174,7 +174,7 @@ def test_problems_and_prices(conn, ws, goods):
     short = issues.short_of(conn, IssueInput(date(2026, 11, 14), "A", lines=[IssueLineInput(paint, 60, 9)]))
     assert short == [(paint, MAIN, 60, 50), (paint, OFFICE, 9, 8)]
     assert issues.last_price(conn, "Công ty A", paint) is None
-    issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    issues.save(conn, ws, note_for(paint, sand))
     assert issues.last_price(conn, "Công ty A", paint) == 500000
     assert issues.last_price(conn, "Khách khác", paint) == 500000
 
@@ -193,7 +193,7 @@ def test_the_note_has_the_grid_of_a_delivery_note(conn, ws, goods):
     paint, sand = goods
     with db.transaction(conn):
         db.set_meta(conn, deliveries.LETTERHEAD_KEY, '["CÔNG TY MẪU", "Số 1 Đường Mẫu"]')
-    _, path = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    _, path = issues.save(conn, ws, note_for(paint, sand))
     sheet = openpyxl.load_workbook(path).active
     assert (sheet["A1"].value, sheet["A2"].value, sheet["A4"].value) == ("CÔNG TY MẪU", "Số 1 Đường Mẫu",
                                                                          "出库单 PHIẾU XUẤT KHO")
@@ -222,7 +222,7 @@ def test_an_edited_quantity_drops_the_split_and_the_app_asks_where(conn, ws, goo
     import openpyxl
 
     paint, sand = goods
-    doc_id, _ = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    doc_id, _ = issues.save(conn, ws, note_for(paint, sand))
     scanned = next(ws.deliveries_done.glob("PhieuXuat_*.xlsx"))
     wb = openpyxl.load_workbook(scanned)
     wb.active["D9"] = 12
@@ -254,7 +254,7 @@ def test_the_letterhead_comes_from_the_shops_notes_never_from_an_issue_note(conn
     assert deliveries.letterhead(conn) == ["CÔNG TY TNHH VẬT LIỆU CHỐNG THẤM MẪU", "Hà Nội"]
     with db.transaction(conn):
         db.set_meta(conn, deliveries.LETTERHEAD_KEY, '["CÔNG TY MẪU"]')
-    issues.save(conn, ws, note_for(paint, sand), now=NOW)  # read back, but an issue note never sets it
+    issues.save(conn, ws, note_for(paint, sand))  # read back, but an issue note never sets it
     assert deliveries.letterhead(conn) == ["CÔNG TY MẪU"]
 
 
@@ -263,7 +263,7 @@ def test_a_row_retyped_to_another_product_is_read_by_its_new_name(conn, ws, good
     import openpyxl
 
     paint, sand = goods
-    issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    issues.save(conn, ws, note_for(paint, sand))
     sand_key = read_delivery_note(next(ws.deliveries_done.glob("PhieuXuat_*.xlsx"))).lines[1].key
     with db.transaction(conn):
         deliveries.map_line(conn, sand_key, sand)
@@ -285,7 +285,7 @@ def test_a_row_retyped_to_another_product_is_read_by_its_new_name(conn, ws, good
 
 def test_a_copy_dropped_in_the_folder_goes_to_da_xu_ly_too(conn, ws, goods):
     paint, sand = goods
-    _, path = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    _, path = issues.save(conn, ws, note_for(paint, sand))
     (ws.deliveries / "ban-sao.xlsx").write_bytes(path.read_bytes())
     result = deliveries.scan(conn, ws)
     assert len(result.copies) == 1
@@ -311,7 +311,7 @@ def test_the_order_window_shows_both_places_of_a_split_line(ws):
         with db.transaction(ctx.conn):
             paint = catalog.create_product(ctx.conn, "Sơn chống thấm", "防水涂料", "20KG/thùng", "thùng", "Sơn")
             sand = catalog.create_product(ctx.conn, "Keo cố định cát", "固沙剂", "5KG", "can", "Keo")
-        doc_id, _ = issues.save(ctx.conn, ws, note_for(paint, sand), now=NOW)
+        doc_id, _ = issues.save(ctx.conn, ws, note_for(paint, sand))
         d = DocumentDialog(ctx, doc_id)
         headers = [d.table.horizontalHeaderItem(c).text() for c in range(d.table.columnCount())]
         place = headers.index(i18n.t("col.place"))

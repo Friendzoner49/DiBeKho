@@ -176,7 +176,7 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     assert checks["issueTotal"] == "Tiền hàng: 400" and checks["issueClosed"]
     assert "2 dòng" in checks["twice"]
     (made,) = out["files"]
-    assert re.fullmatch(r"PhieuXuat_PX\d{6}-\d{6}\.xlsx", made["name"]), made["name"]
+    assert re.fullmatch(r"PhieuXuat_W\d+\.xlsx", made["name"]), made["name"]
 
     # the file reads like the app's own, and dropped into the notes folder takes each place once
     ws = Workspace(tmp_path / "ws")

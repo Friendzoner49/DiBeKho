@@ -1,7 +1,7 @@
 /* Runs webapp/xlsx.js -- the very code the web page uses for a Phiếu xuất kho -- in Node, for tests/test_web_issue.py.
    node web_issue_cli.js file <in.json> <out.xlsx>     in.json = {head, rows}: the file of those rows
    node web_issue_cli.js rows <in.json> <out.json>     in.json = {products: {id: product}, lines}: noteRows()
-   node web_issue_cli.js code                          the code of 14/11/2026 09:30:15 */
+   node web_issue_cli.js code                          nextCode of a few order codes */
 const fs = require("fs");
 const path = require("path");
 
@@ -18,7 +18,7 @@ try {
     const { products, lines } = JSON.parse(fs.readFileSync(a, "utf8"));
     fs.writeFileSync(b, JSON.stringify(X.noteRows(products, lines)));
   } else if (cmd === "code") {
-    process.stdout.write(X.newCode(new Date(2026, 10, 14, 9, 30, 15)));
+    process.stdout.write(X.nextCode(["159", "076", "A12", "PX261114-093015", "76#2", ""]));
   } else {
     throw new Error(`unknown command ${cmd}`);
   }
