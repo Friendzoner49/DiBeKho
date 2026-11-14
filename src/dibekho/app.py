@@ -128,12 +128,17 @@ def sign_in_and_link(ctx) -> bool:
     from dibekho.core.cloud.client import CloudError, SessionExpired
     from dibekho.ui.login_dialog import LoginDialog
 
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication
+
     cfg = ctx.cfg
     account.apply_builtin(cfg)
     session, message = None, ""
+    previous_user = cfg.cloud_user
     if account.has_saved_session(cfg):
+        QGuiApplication.setOverrideCursor(Qt.WaitCursor)  # a slow line: show that the app is opening
         try:
-            session = account.resume(cfg)
+            session = account.resume(cfg, timeout=6)
         except account.NotForApp as exc:
             account.sign_out(cfg)
             message = str(exc)
@@ -144,12 +149,31 @@ def sign_in_and_link(ctx) -> bool:
                 activity.log("cloud", "offline at start: working on the local copy")
                 return True
             message = t("login.offline")
+        finally:
+            QGuiApplication.restoreOverrideCursor()
     while session is None:
         dlg = LoginDialog(cfg, message)
         if dlg.exec() != QDialog.Accepted:
             return False
         session = dlg.session
     activity.log("start", f"signed in as {cfg.cloud_user} ({session.role})")
+    first_round = False
+    from dibekho.core.cloud import approval, twoway
+
+    queued = twoway.queued_count(ctx.conn) if replica.enabled(ctx.conn) else 0
+    if queued and previous_user and previous_user != cfg.cloud_user:
+        # another account worked here and left changes not on the cloud: never send them under this account
+        box = QMessageBox(QMessageBox.Warning, APP_NAME, t("login.other_queue", n=queued, user=previous_user))
+        drop = box.addButton(t("login.other_queue_drop"), QMessageBox.DestructiveRole)
+        quit_button = box.addButton(t("app.quit"), QMessageBox.RejectRole)
+        box.setDefaultButton(quit_button)
+        box.exec()
+        if box.clickedButton() is not drop:
+            account.sign_out(cfg)
+            return False
+        backup.named_backup(ctx.conn, ctx.ws, "truoc-bo-thay-doi-tai-khoan-khac")
+        approval.discard(ctx.conn)
+        first_round = True
 
     def confirm_adopt():
         box = QMessageBox(QMessageBox.Question, APP_NAME, t("login.confirm_adopt"))
@@ -170,10 +194,8 @@ def sign_in_and_link(ctx) -> bool:
         QMessageBox.information(None, APP_NAME, t("login.refused"))
         return False
     activity.log("cloud", f"shared data: {linked}")
-    if linked in (account.UPLOADED, account.ADOPTED):
+    if first_round or linked in (account.UPLOADED, account.ADOPTED):
         # the first round now, before the window scans the notes folder: the notes must find their documents
-        from dibekho.core.cloud import approval, twoway
-
         try:
             if session.role == approval.STAFF:
                 approval.staff_round(ctx.conn, session.client, session.token, cfg.device_id)

@@ -745,7 +745,7 @@
   "login.hint": "Type the account and password the owner gave you. The app then connects to the shared data on the Cloud (the reference copy, the same as the web page).",
   "login.sign_in": "Sign in",
   "login.again": "The sign-in on this computer has ended (password changed, or signed out on the web). Type the password again.",
-  "login.offline": "Cannot reach the Cloud. The app opens with the data on this computer and syncs when the network is back.",
+  "login.offline": "Cannot reach the Cloud. The first sign-in on this computer needs the network: check it (VPN), then press Sign in again.",
   "login.confirm_adopt": "The Cloud already holds the shared data (the reference copy). This computer will use it instead of its own data; the current data is backed up first into the sao-luu folder.\n\nContinue?",
   "login.refused": "Not connected to the shared data, so the app does not open yet. Open it again when ready.",
   "login.empty_cloud": "The Cloud has no shared data yet. Let the owner's computer sign in first (its data becomes the shared copy), then open the app again.",
@@ -779,5 +779,7 @@
   "staff.discard": "Give up unapproved changes…",
   "staff.confirm_discard": "Give up {n} changes the owner has not approved and take the shared data from the Cloud again?\n\nThe current data is backed up first into the sao-luu folder.",
   "staff.not_for_staff": "Only the owner's account can do this.",
-  "cloud.sync_started": "Syncing in the background. The state shows in the Cloud line at the top."
+  "cloud.sync_started": "Syncing in the background. The state shows in the Cloud line at the top.",
+  "login.other_queue": "This computer still has {n} changes of the account “{user}” that are not on the Cloud.\n\nTo send them: quit, open the app again and sign in as “{user}”. Or give them up (the current data is backed up first into the sao-luu folder).",
+  "login.other_queue_drop": "Give them up"
 }

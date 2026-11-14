@@ -745,7 +745,7 @@
   "login.hint": "Gõ tài khoản và mật khẩu do chủ cấp. Đăng nhập xong app tự nối với dữ liệu chung trên Cloud (bản chuẩn, giống trang web).",
   "login.sign_in": "Đăng nhập",
   "login.again": "Phiên đăng nhập trên máy này đã hết (có thể do đổi mật khẩu hoặc Đăng xuất trên web). Hãy gõ lại mật khẩu.",
-  "login.offline": "Chưa kết nối được Cloud. App vẫn mở bằng dữ liệu trên máy và tự đồng bộ khi có mạng.",
+  "login.offline": "Chưa kết nối được Cloud. Lần đầu dùng app trên máy này cần có mạng để đăng nhập: kiểm tra mạng (VPN) rồi bấm Đăng nhập lại.",
   "login.confirm_adopt": "Trên Cloud đã có dữ liệu chung (bản chuẩn). Máy này sẽ dùng dữ liệu trên Cloud thay cho dữ liệu riêng của nó; dữ liệu hiện tại được sao lưu trước vào thư mục sao-luu.\n\nTiếp tục?",
   "login.refused": "Chưa nối với dữ liệu chung nên app chưa mở được. Mở lại app khi sẵn sàng.",
   "login.empty_cloud": "Cloud chưa có dữ liệu chung. Hãy để máy của chủ đăng nhập trước (dữ liệu của máy chủ sẽ thành bản chung), rồi mở lại app.",
@@ -779,5 +779,7 @@
   "staff.discard": "Bỏ thay đổi chưa duyệt…",
   "staff.confirm_discard": "Bỏ {n} thay đổi chưa được chủ duyệt và lấy lại dữ liệu chung trên Cloud?\n\nDữ liệu hiện tại được sao lưu trước vào thư mục sao-luu.",
   "staff.not_for_staff": "Việc này chỉ tài khoản của chủ làm được.",
-  "cloud.sync_started": "Đang đồng bộ trong nền. Trạng thái hiện ở dòng Cloud phía trên."
+  "cloud.sync_started": "Đang đồng bộ trong nền. Trạng thái hiện ở dòng Cloud phía trên.",
+  "login.other_queue": "Máy này còn {n} thay đổi của tài khoản «{user}» chưa lên Cloud.\n\nĐể gửi chúng: thoát, mở lại app và đăng nhập bằng «{user}». Hoặc bỏ các thay đổi đó (dữ liệu hiện tại được sao lưu trước vào thư mục sao-luu).",
+  "login.other_queue_drop": "Bỏ các thay đổi đó"
 }
