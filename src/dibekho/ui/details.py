@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 from dibekho import db
 from dibekho.core import activity, deliveries, queries, receipts
 from dibekho.excel import report
-from dibekho.core.stock import MAIN, close_document, set_location
+from dibekho.core.stock import MAIN, close_document, is_mixed, set_location
 from dibekho.core.text import fmt_money, fmt_qty
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -111,7 +111,10 @@ class DocumentDialog(_Base):
             form.addRow(t("col.contact") + ":", _selectable(head["contact"]))
             form.addRow(t("col.phone") + ":", _selectable(head["phone"]))
             form.addRow(t("col.address") + ":", _selectable(head["address"]))
-        if kind == "delivery":
+        self.mixed = kind == "delivery" and is_mixed(ctx.conn, doc_id)
+        if self.mixed:  # a stock issue note taking from both places: the place is on each line
+            form.addRow(t("loc.taken_from") + ":", QLabel(t("loc.both")))
+        elif kind == "delivery":
             self.location = location_combo(head["location_id"])
             self.location.setEnabled(head["status"] == "active")
             self.location.currentIndexChanged.connect(self.change_location)
@@ -160,6 +163,10 @@ class DocumentDialog(_Base):
                        t("col.unit"), t("col.unit_price"), t("col.amount"), t("col.note")]
             rows = [[ln["code"], ln["name_vi"], ln["name_zh"], ln["spec"], ln["variant"], num_item(ln["qty"]), ln["unit"],
                      money_item(ln["unit_price"]), money_item(ln["amount"]), ln["note"]] for ln in lines]
+            if self.mixed:
+                headers.insert(5, t("col.place"))
+                for row, ln in zip(rows, lines):
+                    row.insert(5, location_name(ln["location_id"]))
         else:
             headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.qty"),
                        t("col.unit"),

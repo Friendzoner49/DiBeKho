@@ -13,7 +13,7 @@ import hashlib
 import shutil
 import stat
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -253,7 +253,7 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partia
         return False
 
     goods = goods_lines(conn, note)
-    unknown = [ln for ln in goods if catalog.alias_product(conn, ln.key) is None]
+    unknown = [ln for ln in goods if line_product(conn, ln) is None]
     waiting = f"{len(unknown)} dòng hàng chưa nhận ra"
 
     existing = _active_delivery(conn, note.code_norm, h, note)
@@ -288,16 +288,18 @@ def _note_lines(conn, note: DeliveryNote, rows=()) -> list[Line]:
     """Known goods lines of a note as ledger lines, except the Excel rows already in the document."""
     lines = []
     for ln in goods_lines(conn, note):
-        pid = catalog.alias_product(conn, ln.key)
+        pid = line_product(conn, ln)
         if pid is not None and ln.row not in rows:
             lines.append(Line(pid, ln.qty, ln.raw_name, ln.spec, ln.note, line_no=ln.row,
-                              unit_price=ln.unit_price, amount=ln.amount))
+                              unit_price=ln.unit_price, amount=ln.amount, location_id=ln.location_id))
     return lines
 
 
 def _add_known_lines(conn, doc_id: int, note: DeliveryNote) -> None:
     rows = {r[0] for r in conn.execute("SELECT line_no FROM document_lines WHERE document_id = ?", (doc_id,))}
     new = _note_lines(conn, note, rows)
+    if not note_places(note):
+        new = [replace(ln, location_id=None) for ln in new]
     if new:
         add_lines(conn, doc_id, new)
         db.log(conn, "delivery_lines_added", f"{note.code}: {len(new)}")
@@ -343,10 +345,16 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
             "AND status = 'replaced' ORDER BY id DESC LIMIT 1", (h,)).fetchone()
     # another order that reused a code keeps its own matching key ('76#2'); the code shown stays '76'
     code_norm = separate or (prev["code_norm"] if replaces is not None else _separate_code(conn, h)) or note.code_norm
+    location_id, location_set = (prev["location_id"] if prev else MAIN), bool(prev and prev["location_set"])
+    if note_places(note):  # a stock issue note says the place of each line itself: nothing to choose
+        places = {ln.location_id for ln in note.lines}
+        location_id, location_set = (places.pop() if len(places) == 1 else MAIN), True
+    else:
+        lines = [replace(ln, location_id=None) for ln in lines]  # a place on some lines only: the note's place
     doc_id = insert_document(
         conn, "delivery", note.doc_date, lines, code=note.code, code_norm=code_norm,
         customer_id=customer_id, source_file=rel, source_hash=h,
-        location_id=prev["location_id"] if prev else MAIN, location_set=bool(prev and prev["location_set"]),
+        location_id=location_id, location_set=location_set,
     )
     for ln in note.lines:
         if catalog.is_ignored(conn, ln.key):
@@ -400,6 +408,21 @@ def backfill_prices(conn, ws: Workspace) -> int:
                 set_money(conn, d["id"], note)
                 done += 1
     return done
+
+
+def line_product(conn, ln) -> int | None:
+    """The product of a note line: by its 'Mã hàng' (stock issue notes written by the app), else by the name +
+    spec learned before. A code that is not in the catalog (merged away) falls back to the name."""
+    if ln.product_code:
+        row = conn.execute("SELECT id FROM products WHERE code = ?", (ln.product_code,)).fetchone()
+        if row is not None:
+            return row[0]
+    return catalog.alias_product(conn, ln.key)
+
+
+def note_places(note: DeliveryNote) -> bool:
+    """Every goods line says where it is taken from ('Lấy từ kho'): the note places itself."""
+    return bool(note.lines) and all(ln.location_id for ln in note.lines)
 
 
 def goods_lines(conn, note: DeliveryNote):
@@ -520,7 +543,7 @@ def unknown_lines(conn, ws: Workspace) -> list[UnknownLine]:
         except (OSError, NotDeliveryNote, DeliveryNoteError):
             continue
         for ln in goods_lines(conn, note):
-            if catalog.alias_product(conn, ln.key) is not None:
+            if line_product(conn, ln) is not None:
                 continue
             item = found.get(ln.key)
             if item is None:
@@ -574,7 +597,7 @@ def waiting_notes(conn, ws: Workspace) -> list[WaitingNote]:
         except (OSError, NotDeliveryNote, DeliveryNoteError):
             continue
         lines = [NoteLine(ln.row, ln.raw_name, ln.name_vi, ln.name_zh, ln.spec, ln.qty, ln.key,
-                          catalog.alias_product(conn, ln.key), catalog.is_ignored(conn, ln.key))
+                          line_product(conn, ln), catalog.is_ignored(conn, ln.key))
                  for ln in note.lines]
         waiting = WaitingNote(row["rel_path"], note.code, note.doc_date, note.customer_name, lines)
         if waiting.unknown:
@@ -846,7 +869,7 @@ def replace_changed(conn, ws: Workspace, h: str) -> None:
     path = note_path(ws, row["rel_path"])
     note = read_delivery_note(path)
     goods = goods_lines(conn, note)
-    unknown = [ln for ln in goods if catalog.alias_product(conn, ln.key) is None]
+    unknown = [ln for ln in goods if line_product(conn, ln) is None]
     if goods and len(unknown) == len(goods):
         raise ValueError("Phiếu mới có dòng hàng chưa nhận ra.")
     with db.transaction(conn):
@@ -865,7 +888,7 @@ def import_separately(conn, ws: Workspace, h: str) -> None:
     path = note_path(ws, row["rel_path"])
     note = read_delivery_note(path)
     # unknown lines wait in Cần xử lý and are added to this order once decided (it is found by its file then)
-    unknown = [ln for ln in goods_lines(conn, note) if catalog.alias_product(conn, ln.key) is None]
+    unknown = [ln for ln in goods_lines(conn, note) if line_product(conn, ln) is None]
     with db.transaction(conn):
         doc_id = _import(conn, ws, path, row["rel_path"], h, note, separate=_free_separate_code(conn, note.code_norm))
         if unknown:

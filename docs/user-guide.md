@@ -9,7 +9,7 @@ This guide goes step by step, using the exact button names on screen. Not instal
 **Contents**
 1. [Getting to know the screen](#1-getting-to-know-the-screen)
 2. [The first day](#2-the-first-day)
-3. [Every day: reading delivery notes](#3-every-day-reading-delivery-notes)
+3. [Every day: reading delivery notes](#3-every-day-reading-delivery-notes) · [Stock issue note](#35-stock-issue-note) · [Currency converter](#36-yuan--dong-converter)
 4. [Stock, low stock and notes](#4-stock-low-stock-and-notes)
 5. [Goods in](#5-goods-in)
 6. [Counting stock at each place](#6-counting-stock-at-each-place)
@@ -135,6 +135,23 @@ Then click **Apply and read notes again**, read the summary and agree.
 | **File deleted/moved** | The note file is gone. Stock is **unchanged** | **Restore file** (the app keeps a copy), **Cancel document**, or **Ignore** |
 | **Cannot read** | Not a delivery note, or information is missing | Read the reason; fix the file and rescan, or **Hide** |
 | **Input folder** | A data package, an old goods-in file or a catalog file is waiting | **Import data** / **Review & import** |
+
+
+### 3.5. Stock issue note
+
+Use it when goods leave for a customer and there is no delivery note file yet: the app writes the note for you.
+
+1. Click **📤 Stock issue note…** in the top bar.
+2. Pick the customer from the list (phone and address fill in), or type a new name.
+3. On each row: click to pick a product, then type how many to **Take from Main warehouse** and/or **Take from Office** (both may be filled). The **In …** columns show what each place has; asking for more turns the number red.
+4. The **Unit price** comes from the customer's latest order (a new customer: the product's latest order). Change it if the price is different.
+5. Click **Save** → check → **Yes**. The stock goes down **at once**; the order appears in **Orders** and in the customer's revenue.
+
+The app writes an Excel file `output/phieu-xuat/PhieuXuat_PX….xlsx`, shaped like a delivery note, to print or send. Putting that file back in the notes folder **never counts it twice**. An issue note written on the web page (with Cloud) only takes stock out once you put the file in the delivery notes folder and click **⟳ Rescan notes**. A mistake: **↶ Undo**, or **Cancel document** in the order's details.
+
+### 3.6. Yuan / dong converter
+
+Click the small **¥ ⇄ ₫** button at the bottom left. Type an amount in yuan or in dong, the other box follows. It is the market rate, updated once a day, **for reference only** (not a bank's buy/sell price). Without internet the app uses the last rate and shows its date.
 
 ---
 

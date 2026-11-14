@@ -45,6 +45,14 @@ COLUMN_LABELS = {
 }
 # price columns: the Vietnamese header often reads only 'VND' (单 价|VND, 金 额|VND), so the Chinese label
 # (spaces removed) is the reliable one
+# optional columns of the stock issue notes DiBeKho writes itself (Phiếu xuất kho): the product code, read before
+# the name, and the place each line is taken from. Customer notes without them read as before.
+EXTRA_LABELS = {
+    "code": ("ma hang", "货号"),
+    "place": ("lay tu kho", "取货地点"),
+}
+# what a 'Lấy từ kho' cell may say -> location id (1 Kho tổng, 2 Văn phòng)
+PLACE_VALUES = {"kho tong": 1, "总仓": 1, "van phong": 2, "办公室": 2}
 PRICE_LABELS = {
     "price": ("don gia", "单价"),
     "amount": ("thanh tien", "金额"),
@@ -75,6 +83,8 @@ class DeliveryLine:
     note: str
     unit_price: float | None = None
     amount: float | None = None
+    product_code: str = ""  # 'Mã hàng' column (issue notes written by the app); '' when there is none
+    location_id: int | None = None  # 'Lấy từ kho' column: 1 Kho tổng, 2 Văn phòng; None = not said
 
     @property
     def key(self) -> str:
@@ -148,6 +158,7 @@ def _parse(grid) -> DeliveryNote:
     skipped: list[str] = []
     fees: list[tuple[str, float]] = []
     bad_qty: list[str] = []
+    bad_place: list[str] = []
     total = None
     for r in range(header_row + 1, len(grid)):
         row = grid[r]
@@ -185,6 +196,10 @@ def _parse(grid) -> DeliveryNote:
             warnings.append(f"Dòng {excel_row}: có số lượng nhưng thiếu tên hàng, bỏ qua.")
             continue
         price, amount = _line_money(row, columns, qty, excel_row, warnings)
+        place_text = clean(_text(_cell(row, columns.get("place"))))
+        location_id = _place(place_text)
+        if place_text and location_id is None:
+            bad_place.append(f"{excel_row} ('{place_text}')")
         name_vi, name_zh = split_bilingual_name(raw_name)
         lines.append(
             DeliveryLine(
@@ -197,12 +212,17 @@ def _parse(grid) -> DeliveryNote:
                 note=clean(_text(_cell(row, columns.get("note")))),
                 unit_price=price,
                 amount=amount,
+                product_code=clean(_text(_cell(row, columns.get("code")))).upper(),
+                location_id=location_id,
             )
         )
 
     if bad_qty:
         raise DeliveryNoteError(f"Dòng {', '.join(bad_qty)}: không đọc được số lượng. Hãy sửa file phiếu "
                                 f"(ô Số lượng chỉ ghi số, ví dụ 1500 hoặc 2,5) rồi bấm Quét lại.")
+    if bad_place:
+        raise DeliveryNoteError(f"Dòng {', '.join(bad_place)}: ô 'Lấy từ kho' chỉ ghi Kho tổng hoặc Văn phòng. "
+                                f"Hãy sửa file phiếu rồi bấm Quét lại.")
     if not lines:
         raise DeliveryNoteError("Phiếu không có dòng hàng nào có số lượng.")
 
@@ -272,12 +292,22 @@ def _map_columns(header) -> dict:
             if key not in columns and label in plain:
                 columns[key] = c
         compact = re.sub(r"\s+", "", _text(value))
+        for key, labels in EXTRA_LABELS.items():
+            if key not in columns and (labels[0] in plain or labels[1] in compact):
+                columns[key] = c
         for key, labels in PRICE_LABELS.items():
             if key not in columns and (labels[0] in plain or labels[1] in compact):
                 columns[key] = c
     if "qty" not in columns:
         raise DeliveryNoteError("Không tìm thấy cột 'Số lượng'.")
     return columns
+
+
+def _place(text: str) -> int | None:
+    """'Kho tổng' / 'Văn phòng' / '总仓' / '办公室' (also 'Kho tổng 总仓') -> location id; '' or anything else -> None."""
+    plain = unaccent(text)
+    found = {loc for word, loc in PLACE_VALUES.items() if word in plain or word in text}
+    return found.pop() if len(found) == 1 else None
 
 
 def _cell(row, index):

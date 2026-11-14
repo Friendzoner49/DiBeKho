@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import APP_NAME, __version__
-from dibekho.core import activity, deliveries, inbox, undo
+from dibekho.core import activity, deliveries, inbox, issues, undo
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud import replica, twoway
@@ -100,11 +100,14 @@ class MainWindow(QMainWindow):
         scan.clicked.connect(lambda: self.rescan())
         open_notes = QPushButton(t("main.open_deliveries"))
         open_notes.clicked.connect(lambda: open_path(ctx.ws.deliveries))
+        issue = QPushButton(t("issue.button"))
+        issue.clicked.connect(self.new_issue_note)
         self.undo_btn = QPushButton()
         self.undo_btn.clicked.connect(self.undo_last)
         self.status = QLabel()
         top.addWidget(scan)
         top.addWidget(open_notes)
+        top.addWidget(issue)
         top.addWidget(self.status, 1)
         self.sync_btn = QPushButton()  # cloud mode only: sync state; click = conflicts to decide, or sync now
         self.sync_btn.setFlat(True)
@@ -116,9 +119,22 @@ class MainWindow(QMainWindow):
         right_lay = QVBoxLayout(right)
         right_lay.addLayout(top)
         right_lay.addWidget(self.stack)
+        # bottom left, under the pages: the small yuan / dong converter (user's request 14/11/2026)
+        left = QWidget()
+        left.setFixedWidth(self.nav.width())
+        left_lay = QVBoxLayout(left)
+        left_lay.setContentsMargins(0, 0, 0, 0)
+        left_lay.addWidget(self.nav, 1)
+        self.fx_btn = QPushButton(t("fx.button"))
+        self.fx_btn.setToolTip(t("fx.tip"))
+        self.fx_btn.clicked.connect(self.open_converter)
+        fx_row = QHBoxLayout()
+        fx_row.addWidget(self.fx_btn)
+        fx_row.addStretch()
+        left_lay.addLayout(fx_row)
         body = QWidget()
         lay = QHBoxLayout(body)
-        lay.addWidget(self.nav)
+        lay.addWidget(left)
         lay.addWidget(right, 1)
         self.setCentralWidget(body)
 
@@ -282,6 +298,7 @@ class MainWindow(QMainWindow):
         if not ask(self, t("undo.confirm", action=action, at=point.at.strftime("%d/%m/%Y %H:%M"))):
             return
         activity.log("undo", f"{point.action} ({point.at:%d/%m/%Y %H:%M})")
+        issue_files = issues.known_issue_files(self.ctx.conn, self.ctx.ws)
         try:
             self.ctx.close()
             undo.undo(self.ctx.ws, point)
@@ -289,9 +306,21 @@ class MainWindow(QMainWindow):
             error(self, str(exc))
         finally:
             self.ctx.reopen()
+        issues.after_undo(self.ctx.conn, self.ctx.ws, issue_files)  # else the scan below records them again
         self.rescan(quiet=True)  # notes go back in or out of da-xu-ly/ as the restored data says
         self.ctx.notify()
         info(self, t("undo.done", action=action))
+
+    def open_converter(self):
+        from dibekho.ui.fx_dialog import FxDialog
+
+        FxDialog(self).exec()
+
+    def new_issue_note(self):
+        from dibekho.ui.issue_form import open_issue_form
+
+        if open_issue_form(self.ctx, self) is not None:
+            self.ctx.notify()
 
     def show_pending(self):
         self.rescan(quiet=True)

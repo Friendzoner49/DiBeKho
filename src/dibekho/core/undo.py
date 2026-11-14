@@ -73,7 +73,7 @@ def undo(ws: Workspace, point: UndoPoint) -> None:
 # can be taken back this way; the key is per machine (not in SHARED_META) and every new undo point clears it, so
 # "the last action" is exact.
 CLOUD_KEY = "cloud_undo_doc"
-CLOUD_ACTIONS = ("receipt", "transfer", "trial_use", "stock_count")
+CLOUD_ACTIONS = ("receipt", "transfer", "trial_use", "stock_count", "issue_note")
 
 
 @dataclass

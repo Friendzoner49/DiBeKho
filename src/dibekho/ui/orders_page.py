@@ -50,6 +50,8 @@ def _place(d) -> str:
     """Delivery: taken from; receipt: put in; transfer: from → to ('?' while a note waits for its place)."""
     if d["kind"] == "transfer":
         return f"{location_name(d['location_id'])} → {location_name(d['to_location_id'])}"
+    if d["kind"] == "delivery" and d["places"] > 1:  # a stock issue note taking from both places
+        return t("loc.both")
     if d["kind"] in ("delivery", "receipt"):
         return location_name(d["location_id"]) + ("" if d["location_set"] else " (?)")
     if d["kind"] == "trial":

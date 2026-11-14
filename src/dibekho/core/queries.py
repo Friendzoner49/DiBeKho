@@ -66,7 +66,8 @@ def documents(conn, kind="delivery", date_from: date | None = None, date_to: dat
         f"""
         SELECT d.*, c.name AS customer_name, s.name AS supplier_name,
                COUNT(l.id) AS line_count, COALESCE(SUM(l.qty), 0) AS total_qty,
-               {_GOODS} AS goods_amount, {_TOTAL} AS order_total, {_UNPRICED} AS unpriced_lines
+               {_GOODS} AS goods_amount, {_TOTAL} AS order_total, {_UNPRICED} AS unpriced_lines,
+               (SELECT COUNT(DISTINCT m.location_id) FROM stock_movements m WHERE m.document_id = d.id) AS places
         FROM documents d
         LEFT JOIN customers c ON c.id = d.customer_id
         LEFT JOIN suppliers s ON s.id = d.supplier_id

@@ -9,7 +9,7 @@ Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. 
 **Mục lục**
 1. [Làm quen với màn hình](#1-làm-quen-với-màn-hình)
 2. [Ngày đầu tiên](#2-ngày-đầu-tiên)
-3. [Hằng ngày: đọc phiếu giao hàng](#3-hằng-ngày-đọc-phiếu-giao-hàng)
+3. [Hằng ngày: đọc phiếu giao hàng](#3-hằng-ngày-đọc-phiếu-giao-hàng) · [Phiếu xuất kho](#35-phiếu-xuất-kho) · [Quy đổi tỷ giá](#36-quy-đổi-tỷ-giá-nhân-dân-tệ--vnd)
 4. [Xem tồn kho, hàng sắp hết, ghi chú](#4-xem-tồn-kho-hàng-sắp-hết-ghi-chú)
 5. [Hàng về](#5-hàng-về)
 6. [Kiểm kê từng nơi](#6-kiểm-kê-từng-nơi)
@@ -135,6 +135,23 @@ Rồi bấm **Áp dụng và đọc lại phiếu**, đọc bảng tóm tắt v�
 | **File đã bị xoá/di chuyển** | File phiếu biến mất khỏi thư mục. Tồn **không đổi** | **Khôi phục file** (app còn bản sao), **Huỷ phiếu**, hoặc **Bỏ qua** |
 | **Không đọc được** | File không phải phiếu giao hàng, hoặc thiếu thông tin | Xem lý do; sửa file rồi quét lại, hoặc **Ẩn** |
 | **Thư mục input** | Có gói dữ liệu, file hàng về cũ hoặc file danh mục chờ nhập | **Nhập dữ liệu** / **Xem và nhập** |
+
+
+### 3.5. Phiếu xuất kho
+
+Dùng khi giao hàng cho khách mà chưa có file phiếu giao hàng: app tạo phiếu thay bạn.
+
+1. Bấm **📤 Phiếu xuất kho…** ở thanh trên cùng.
+2. Chọn khách trong danh sách (điện thoại, địa chỉ tự điền), hoặc gõ tên khách mới.
+3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng** và/hoặc **Lấy ở Văn phòng** (lấy ở cả hai nơi thì ghi cả hai ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ.
+4. **Đơn giá** tự điền theo đơn gần nhất của khách (khách mới: đơn gần nhất của mặt hàng đó). Sửa lại nếu giá khác.
+5. Bấm **Lưu phiếu** → xem lại → **Có**. Tồn kho bị trừ **ngay**, đơn có trong **Đơn hàng** và doanh thu của khách.
+
+App tạo file Excel `output/phieu-xuat/PhieuXuat_PX….xlsx` giống phiếu giao hàng để in hoặc gửi. Bỏ lại file này vào thư mục phiếu cũng **không bị trừ hai lần**. Phiếu xuất kho tạo trên trang web (nếu dùng Cloud) chỉ được trừ tồn khi bạn bỏ file đó vào thư mục phiếu giao hàng rồi **⟳ Quét lại phiếu**. Làm nhầm: bấm **↶ Hoàn tác** hoặc **Huỷ phiếu** trong Chi tiết đơn.
+
+### 3.6. Quy đổi tỷ giá nhân dân tệ / VND
+
+Bấm nút nhỏ **¥ ⇄ ₫** ở góc trái dưới. Gõ số tiền vào ô nhân dân tệ hoặc ô VND, ô kia tự đổi. Tỷ giá là tỷ giá thị trường, cập nhật mỗi ngày, **chỉ để tham khảo** (không phải giá mua/bán của ngân hàng). Máy không có mạng: app dùng tỷ giá lấy lần trước và ghi rõ ngày giờ.
 
 ---
 
