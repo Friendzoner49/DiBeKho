@@ -109,7 +109,7 @@ def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path):
 
     def cells(ws):
         return {(c.row, c.column): (c.value, c.font.name, c.font.sz, bool(c.font.b), c.border.left.style,
-                                    c.alignment.horizontal, bool(c.alignment.wrap_text), c.number_format)
+                                    c.alignment.horizontal, bool(c.alignment.wrap_text), bool(c.alignment.shrink_to_fit), c.number_format)
                 for row in ws.iter_rows() for c in row if c.has_style or c.value is not None}
 
     assert cells(w) == cells(a)

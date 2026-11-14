@@ -77,7 +77,7 @@ const DBK_XLSX = (() => {
 
   /** About how many lines a wrapped cell takes (Excel does not grow a row a program wrote). */
   function wrappedLines(text, width, size) {
-    const perLine = Math.max(1, width * 11 / size);
+    const perLine = Math.max(1, width * 11 / size * 0.72);  // bold Times New Roman runs wider than the width unit
     let total = 0;
     for (const part of String(text || "").split("\n")) {
       let units = 0;
@@ -116,14 +116,14 @@ const DBK_XLSX = (() => {
       put(r, 2, name, { border: true });
       put(r, 3, ln.spec || null, { size: 18, border: true });
       put(r, 4, ln.qty, { size: 18, border: true });
-      put(r, 5, ln.unit_price ?? null, { size: 18, border: true, money: true });
-      put(r, 6, ln.amount ?? null, { size: 18, border: true, money: true });
+      put(r, 5, ln.unit_price ?? null, { size: 18, border: true, money: true, wrap: false });
+      put(r, 6, ln.amount ?? null, { size: 18, border: true, money: true, wrap: false });
       put(r, 7, ln.note || null, { border: true });
       put(r, 8, `${ln.code}|${ln.spec || ""}|${name}`, { size: 11, wrap: false });  // trusted while the row is unchanged
       put(r, 9, placesText(ln.places || []) || null, { size: 11, wrap: false });
       const lines = Math.max(wrappedLines(name, WIDTHS[1], 15), wrappedLines(ln.note, WIDTHS[6], 15),
                              wrappedLines(ln.spec, WIDTHS[2], 18));
-      heights[r] = Math.max(LINE_HEIGHT, 20 * lines);
+      heights[r] = Math.max(LINE_HEIGHT, 20 * lines + 8);
       qtyTotal += ln.qty;
       if (ln.amount !== null && ln.amount !== undefined) { moneyTotal += ln.amount; priced = true; }
     });
@@ -133,7 +133,7 @@ const DBK_XLSX = (() => {
     put(r, 3, null, { border: true });
     put(r, 4, QTY_LABEL + numberText(qtyTotal), { border: true });
     put(r, 5, null, { border: true });
-    put(r, 6, priced ? moneyTotal : null, { size: 18, border: true, money: true });
+    put(r, 6, priced ? moneyTotal : null, { size: 18, border: true, money: true, wrap: false });
     put(r, 7, null, { border: true });
     merges.push(`B${r}:C${r}`);
     heights[r] = TOTAL_HEIGHT;
@@ -171,7 +171,7 @@ const DBK_XLSX = (() => {
         xfIndex.set(key, xfs.length + 1);
         xfs.push(`<xf numFmtId="${cell.money ? 164 : 0}" fontId="${f}" fillId="0" borderId="${cell.border ? 1 : 0}" xfId="0"` +
           `${cell.money ? ' applyNumberFormat="1"' : ""} applyFont="1"${cell.border ? ' applyBorder="1"' : ""} applyAlignment="1">` +
-          `<alignment horizontal="${cell.align}" vertical="center"${cell.wrap ? ' wrapText="1"' : ""}/></xf>`);
+          `<alignment horizontal="${cell.align}" vertical="center"${cell.wrap ? ' wrapText="1"' : ""}${cell.money ? ' shrinkToFit="1"' : ""}/></xf>`);
       }
       cell.s = xfIndex.get(key);
     }

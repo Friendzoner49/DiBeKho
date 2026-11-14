@@ -155,7 +155,7 @@ def vnd_words(amount: float) -> str:
 
 def _wrapped_lines(text: str, width: float, size: float) -> int:
     """About how many lines a wrapped cell takes (Excel does not grow a row a program wrote)."""
-    per_line = max(1.0, width * 11 / size)
+    per_line = max(1.0, width * 11 / size * 0.72)  # bold Times New Roman runs wider than Excel's width unit
     total = 0
     for part in str(text).split("\n"):
         units = sum(2 if ord(ch) > 0x2E7F else 1 for ch in part)
@@ -192,14 +192,14 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
         put(r, 2, name, border=True)
         put(r, 3, ln.spec or None, size=18, border=True)
         put(r, 4, ln.qty, size=18, border=True)
-        put(r, 5, ln.unit_price, size=18, border=True, money=True)
-        put(r, 6, ln.amount, size=18, border=True, money=True)
+        put(r, 5, ln.unit_price, size=18, border=True, money=True, wrap=False)
+        put(r, 6, ln.amount, size=18, border=True, money=True, wrap=False)
         put(r, 7, ln.note or None, border=True)
         put(r, 8, f"{ln.code}|{ln.spec}|{name}", size=11, wrap=False)  # the code, trusted while the row is unchanged
         put(r, 9, places_text(ln.places) or None, size=11, wrap=False)
         lines = max(_wrapped_lines(name, WIDTHS[1], 15), _wrapped_lines(ln.note, WIDTHS[6], 15),
                     _wrapped_lines(ln.spec, WIDTHS[2], 18))
-        sh.heights[r] = max(LINE_HEIGHT, 20.0 * lines)
+        sh.heights[r] = max(LINE_HEIGHT, 20.0 * lines + 8)
         qty_total += ln.qty
         if ln.amount is not None:
             money_total += ln.amount
@@ -210,7 +210,7 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
     put(r, 3, None, border=True)
     put(r, 4, QTY_LABEL + number_text(qty_total), border=True)
     put(r, 5, None, border=True)
-    put(r, 6, money_total if priced else None, size=18, border=True, money=True)
+    put(r, 6, money_total if priced else None, size=18, border=True, money=True, wrap=False)
     put(r, 7, None, border=True)
     sh.merges.append(f"B{r}:C{r}")
     sh.heights[r] = TOTAL_HEIGHT
@@ -235,7 +235,8 @@ def write_issue_note(path: Path, head: IssueHead, rows: list[IssueRow]) -> Path:
     for (r, c), cell in sorted(sh.cells.items()):
         x = ws.cell(row=r, column=c, value=cell.value)
         x.font = Font(name=cell.font, size=cell.size, bold=True)
-        x.alignment = Alignment(horizontal=cell.align, vertical="center", wrap_text=cell.wrap or None)
+        x.alignment = Alignment(horizontal=cell.align, vertical="center", wrap_text=cell.wrap or None,
+                                shrink_to_fit=cell.money or None)  # a big amount shrinks, never shows ####
         if cell.border:
             x.border = box
         if cell.money:
