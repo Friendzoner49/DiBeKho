@@ -10,7 +10,8 @@ The company name and address are not in the code (the repository is public): the
 above the title of the shop's latest delivery note (core/deliveries.keep_letterhead, meta 'note_letterhead').
 
 Two hidden columns (not seen, not printed) keep what the app needs to read the file back exactly: H 'Mã hàng' (the
-product, so a renamed one still matches) and I 'Lấy từ kho' ('Kho tổng 总仓: 3; Văn phòng 办公室: 2'). A customer
+product, so a renamed one still matches: 'SP008|10KG|<name>', trusted only while the row still shows that name and
+packing, so a row retyped in Excel to another product is read by its new name) and I 'Lấy từ kho' ('Kho tổng 总仓: 3; Văn phòng 办公室: 2'). A customer
 note has neither and reads as before. Only plain values, never formulas: the reader opens files with
 data_only=True, and a formula saved by a program has no value until Excel opens it.
 
@@ -194,7 +195,7 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
         put(r, 5, ln.unit_price, size=18, border=True, money=True)
         put(r, 6, ln.amount, size=18, border=True, money=True)
         put(r, 7, ln.note or None, border=True)
-        put(r, 8, ln.code, size=11, wrap=False)
+        put(r, 8, f"{ln.code}|{ln.spec}|{name}", size=11, wrap=False)  # the code, trusted while the row is unchanged
         put(r, 9, places_text(ln.places) or None, size=11, wrap=False)
         lines = max(_wrapped_lines(name, WIDTHS[1], 15), _wrapped_lines(ln.note, WIDTHS[6], 15),
                     _wrapped_lines(ln.spec, WIDTHS[2], 18))

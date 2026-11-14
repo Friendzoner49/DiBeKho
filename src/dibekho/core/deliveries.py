@@ -34,6 +34,7 @@ from dibekho.excel.delivery_note import (
 PENDING_STATUSES = ("error", "needs_mapping", "changed", "missing")
 OTHER_ORDER_DAYS = 31  # an edit may fix a wrong date by a few days; further apart it is likely another order
 LETTERHEAD_KEY = "note_letterhead"  # meta: JSON list, the lines above the title of the shop's delivery notes
+LETTERHEAD_TRIED_KEY = "letterhead_backfilled"  # meta, this machine only: the stored notes were searched once
 COUNT_CHECKED_KEY = "count_checked"  # meta: notes (by file hash) the user decided about after a stock count
 
 
@@ -125,6 +126,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
             continue
         if h in seen:  # a copy of a file met in this scan (copied back into the folder): the same note, once
             result.copies.append(rel)
+            found.append((path, rel, h))  # still sorted into da-xu-ly/ like the note it copies
             continue
         seen.add(h)
         found.append((path, rel, h))
@@ -458,8 +460,9 @@ def letterhead(conn) -> list[str]:
 
 def backfill_letterhead(conn, ws: Workspace) -> None:
     """Data recorded before the letterhead was kept: read it once from the latest delivery note's stored copy."""
-    if db.get_meta(conn, LETTERHEAD_KEY, ""):
+    if db.get_meta(conn, LETTERHEAD_KEY, "") or db.get_meta(conn, LETTERHEAD_TRIED_KEY, ""):
         return
+    db.set_meta(conn, LETTERHEAD_TRIED_KEY, "1")  # once per machine: a scan never re-reads old files for nothing
     for d in conn.execute("SELECT source_hash FROM documents WHERE kind = 'delivery' AND source_hash <> '' "
                           "ORDER BY doc_date DESC, id DESC LIMIT 20").fetchall():
         path = original_copy(ws, d["source_hash"])

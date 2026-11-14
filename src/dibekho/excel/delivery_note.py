@@ -60,6 +60,7 @@ PRICE_LABELS = {
 }
 END_MARKERS = ("tong cong", "nguoi giao hang")
 # the title row of a note; the lines above it are the shop's letterhead (company name, address)
+OPTIONAL_FIELDS = ("phone", "contact", "address")
 TITLE_MARKERS = ("phieu giao hang", "phieu xuat kho", "销售单", "出库单")
 TOTAL_MARKER = "tong cong"
 _COLON = re.compile(r"[:：]")
@@ -203,19 +204,23 @@ def _parse(grid) -> DeliveryNote:
             continue
         price, amount = _line_money(row, columns, qty, excel_row, warnings)
         name_vi, name_zh = split_bilingual_name(raw_name)
+        spec = clean(_text(_cell(row, columns.get("spec"))))
+        code, written = _code(_text(_cell(row, columns.get("code"))))
+        trusted = written is None or written == match_key(raw_name, spec)
         lines.append(
             DeliveryLine(
                 row=excel_row,
                 raw_name=clean(raw_name),
                 name_vi=name_vi or clean(raw_name),
                 name_zh=name_zh,
-                spec=clean(_text(_cell(row, columns.get("spec")))),
+                spec=spec,
                 qty=qty,
                 note=clean(_text(_cell(row, columns.get("note")))),
                 unit_price=price,
                 amount=amount,
-                product_code=clean(_text(_cell(row, columns.get("code")))).upper(),
-                places=_places(_text(_cell(row, columns.get("place"))), qty),
+                # the row retyped in Excel to another product: its hidden code and place are the old product's
+                product_code=code if trusted else "",
+                places=_places(_text(_cell(row, columns.get("place"))), qty) if trusted else (),
             )
         )
 
@@ -267,7 +272,7 @@ def _read_header_fields(rows) -> dict:
             for key, label in HEADER_LABELS.items():
                 if key in found or label not in plain:
                     continue
-                found[key] = _value_after_label(text, label) or _neighbour_value(rows, r, c)
+                found[key] = _value_after_label(text, label) or _neighbour_value(rows, r, c, key)
     # Some notes keep only the Chinese label: '客户名称 Khách Mẫu' (no 'Tên khách hàng', no colon)
     for r, row in enumerate(rows):
         for c, value in enumerate(row):
@@ -276,7 +281,7 @@ def _read_header_fields(rows) -> dict:
                 if key in found or not text.lstrip().startswith(label):
                     continue
                 rest = _LEADING_LABEL_REST.sub("", text.lstrip()[len(label):])
-                found[key] = clean(rest) or _neighbour_value(rows, r, c)
+                found[key] = clean(rest) or _neighbour_value(rows, r, c, key)
     return found
 
 
@@ -288,22 +293,27 @@ def _value_after_label(text: str, label: str):
     return None
 
 
-def _neighbour_value(rows, r: int, c: int):
-    """Value placed in the next non-empty cell to the right, or the cell below."""
+def _neighbour_value(rows, r: int, c: int, key: str = ""):
+    """Value placed in the next non-empty cell to the right, or the cell below. For an optional field (phone,
+    contact, address) another field's label there means the field is empty (a stock issue note writes every label).
+    Not for the code, the customer or the date: real notes with an empty code have been read with the next cell as
+    their code, and reading them otherwise now would turn them into edited notes."""
+    optional = key in OPTIONAL_FIELDS
     row = rows[r]
     for value in row[c + 1:]:
         if value not in (None, ""):
-            return None if _is_label(value) else value  # an empty field: the next cell is another field's label
+            return None if optional and _is_label(value) else value
     if r + 1 < len(rows) and c < len(rows[r + 1]):
         below = rows[r + 1][c]
-        if below not in (None, "") and not _is_label(below):
+        if below not in (None, "") and not (optional and _is_label(below)):
             return below
     return None
 
 
 def _is_label(value) -> bool:
     text = _text(value)
-    return any(label in unaccent(text) for label in HEADER_LABELS.values()) or         any(label in text for label in HEADER_LABELS_ZH.values())
+    return (any(label in unaccent(text) for label in HEADER_LABELS.values())
+            or any(label in text for label in HEADER_LABELS_ZH.values()))
 
 
 def _map_columns(header) -> dict:
@@ -330,6 +340,16 @@ def _place(text: str) -> int | None:
     plain = unaccent(text)
     found = {loc for word, loc in PLACE_VALUES.items() if word in plain or word in text}
     return found.pop() if len(found) == 1 else None
+
+
+def _code(text: str) -> tuple[str, str | None]:
+    """The hidden 'Mã hàng' cell: 'SP008|10KG|中文名\nTên Việt' (the code, then the packing and name the row had when
+    the note was written) -> ('SP008', its match key); a bare 'SP008' -> ('SP008', None)."""
+    code, sep, rest = text.partition("|")
+    if not sep:
+        return clean(code).upper(), None
+    spec, _, name = rest.partition("|")
+    return clean(code).upper(), match_key(name, spec)
 
 
 def _places(text: str, qty: float) -> tuple:

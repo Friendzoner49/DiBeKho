@@ -256,3 +256,67 @@ def test_the_letterhead_comes_from_the_shops_notes_never_from_an_issue_note(conn
         db.set_meta(conn, deliveries.LETTERHEAD_KEY, '["CÔNG TY MẪU"]')
     issues.save(conn, ws, note_for(paint, sand), now=NOW)  # read back, but an issue note never sets it
     assert deliveries.letterhead(conn) == ["CÔNG TY MẪU"]
+
+
+def test_a_row_retyped_to_another_product_is_read_by_its_new_name(conn, ws, goods):
+    """The hidden code belongs to the row as written: retyped in Excel, the row is the product its name says."""
+    import openpyxl
+
+    paint, sand = goods
+    issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    sand_key = read_delivery_note(next(ws.deliveries_done.glob("PhieuXuat_*.xlsx"))).lines[1].key
+    with db.transaction(conn):
+        deliveries.map_line(conn, sand_key, sand)
+    scanned = next(ws.deliveries_done.glob("PhieuXuat_*.xlsx"))
+    wb = openpyxl.load_workbook(scanned)
+    wb.active["B9"], wb.active["C9"] = wb.active["B10"].value, wb.active["C10"].value  # row 1 now says: the sand
+    wb.save(scanned)
+    note = read_delivery_note(scanned)
+    assert note.lines[0].product_code == "" and note.lines[0].places == ()
+    assert note.lines[1].product_code == "SP002"  # untouched rows keep theirs
+    deliveries.scan(conn, ws)
+    row = conn.execute("SELECT hash FROM scanned_files WHERE status = 'changed'").fetchone()
+    deliveries.replace_changed(conn, ws, row["hash"])
+    new = conn.execute("SELECT id FROM documents WHERE kind = 'delivery' AND status = 'active'").fetchone()["id"]
+    products = [r[0] for r in conn.execute("SELECT product_id FROM document_lines WHERE document_id = ? ORDER BY line_no",
+                                           (new,))]
+    assert products == [sand, sand]
+
+
+def test_a_copy_dropped_in_the_folder_goes_to_da_xu_ly_too(conn, ws, goods):
+    paint, sand = goods
+    _, path = issues.save(conn, ws, note_for(paint, sand), now=NOW)
+    (ws.deliveries / "ban-sao.xlsx").write_bytes(path.read_bytes())
+    result = deliveries.scan(conn, ws)
+    assert len(result.copies) == 1
+    assert not (ws.deliveries / "ban-sao.xlsx").exists() and (ws.deliveries_done / "ban-sao.xlsx").exists()
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 1
+
+
+def test_the_order_window_shows_both_places_of_a_split_line(ws):
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from dibekho import i18n
+    from dibekho.core.workspace import Config
+    from dibekho.ui.common import AppContext
+    from dibekho.ui.details import DocumentDialog
+
+    QApplication.instance() or QApplication([])
+    i18n.set_language("vi")
+    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
+    try:
+        with db.transaction(ctx.conn):
+            paint = catalog.create_product(ctx.conn, "Sơn chống thấm", "防水涂料", "20KG/thùng", "thùng", "Sơn")
+            sand = catalog.create_product(ctx.conn, "Keo cố định cát", "固沙剂", "5KG", "can", "Keo")
+        doc_id, _ = issues.save(ctx.conn, ws, note_for(paint, sand), now=NOW)
+        d = DocumentDialog(ctx, doc_id)
+        headers = [d.table.horizontalHeaderItem(c).text() for c in range(d.table.columnCount())]
+        place = headers.index(i18n.t("col.place"))
+        assert d.table.item(0, place).text() == "Kho tổng 10 · Văn phòng 3"
+        assert d.table.item(1, place).text() == "Kho tổng"
+        d.close()
+    finally:
+        ctx.close()

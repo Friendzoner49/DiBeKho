@@ -119,7 +119,7 @@ const DBK_XLSX = (() => {
       put(r, 5, ln.unit_price ?? null, { size: 18, border: true, money: true });
       put(r, 6, ln.amount ?? null, { size: 18, border: true, money: true });
       put(r, 7, ln.note || null, { border: true });
-      put(r, 8, ln.code, { size: 11, wrap: false });
+      put(r, 8, `${ln.code}|${ln.spec || ""}|${name}`, { size: 11, wrap: false });  // trusted while the row is unchanged
       put(r, 9, placesText(ln.places || []) || null, { size: 11, wrap: false });
       const lines = Math.max(wrappedLines(name, WIDTHS[1], 15), wrappedLines(ln.note, WIDTHS[6], 15),
                              wrappedLines(ln.spec, WIDTHS[2], 18));
