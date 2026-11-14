@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import activity, deliveries, queries, receipts
+from dibekho.core import activity, deliveries, issues, queries, receipts
 from dibekho.excel import report
 from dibekho.core.stock import MAIN, close_document, is_mixed, set_location
 from dibekho.core.text import fmt_qty
@@ -254,6 +254,18 @@ class DocumentDialog(_Base):
 
     def cancel_doc(self):
         if not ask(self, t("doc.confirm_cancel")):
+            return
+        if self.head["kind"] == "delivery" and issues.is_issue_code(self.head["code"]) and \
+                ask(self, t("doc.ask_delete_issue", code=self.head["code"])):
+            self.ctx.undo_point("delete_issue")  # the user asked: a wrong issue note leaves no hole in the numbers
+            try:
+                with db.transaction(self.ctx.conn):
+                    issues.delete(self.ctx.conn, self.ctx.ws, self.doc_id)
+            except ValueError as exc:
+                error(self, str(exc))
+                return
+            self.ctx.notify()
+            self.accept()
             return
         self.ctx.undo_point("cancel_doc")
         try:

@@ -11,6 +11,7 @@ The database is the source of truth; files are only input:
 
 import hashlib
 import json
+import re
 import shutil
 import stat
 import tempfile
@@ -33,6 +34,7 @@ from dibekho.excel.delivery_note import (
 
 PENDING_STATUSES = ("error", "needs_mapping", "changed", "missing")
 OTHER_ORDER_DAYS = 31  # an edit may fix a wrong date by a few days; further apart it is likely another order
+_ISSUE_CODE = re.compile(r"^\s*[AaWw]\d+\s*$")  # a stock issue note (core/issues.is_issue_code)
 LETTERHEAD_KEY = "note_letterhead"  # meta: JSON list, the lines above the title of the shop's delivery notes
 LETTERHEAD_TRIED_KEY = "letterhead_backfilled"  # meta, this machine only: the stored notes were searched once
 COUNT_CHECKED_KEY = "count_checked"  # meta: notes (by file hash) the user decided about after a stock count
@@ -269,6 +271,11 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partia
     existing = _active_delivery(conn, note.code_norm, h, note)
     if existing is not None and existing["source_hash"] != h and _separate_code(conn, h):
         existing = None  # recorded before as another order with this code, now read again: it stays apart
+    if existing is not None and not existing["source_hash"] and _ISSUE_CODE.match(note.code or ""):
+        # a stock issue note the owner saved on the web (cloud 015): already recorded, stock already taken; its file
+        # dropped here only links to it
+        _record(conn, h, rel, "imported", "", existing["id"])
+        return False
     if existing is not None and existing["source_hash"] != h:
         message = f"Mã đơn {note.code} đã có từ file '{existing['source_file']}'"
         reason = other_order_reason(existing, note)

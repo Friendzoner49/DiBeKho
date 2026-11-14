@@ -75,7 +75,8 @@ def test_the_page_has_no_code_that_writes():
     rpcs = set()
     for path in (ROOT / "webapp").glob("*.js"):
         rpcs |= set(re.findall(r"""sb\.rpc\(\s*["'](\w+)["']""", path.read_text(encoding="utf-8")))
-    assert rpcs <= {"sync_pull", "web_setting_set", "web_accounts_list", "web_account_set_role", "web_account_revoke"} | {""}, rpcs
+    assert rpcs <= {"sync_pull", "web_setting_set", "web_accounts_list", "web_account_set_role", "web_account_revoke",
+                    "web_issue"} | {""}, rpcs  # web_issue: the owner's Phiếu xuất kho takes the stock (cloud 015)
 
 
 def _shop(conn):
@@ -176,7 +177,11 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     assert checks["issueTotal"] == "Tiền hàng: 400" and checks["issueClosed"]
     assert "2 dòng" in checks["twice"]
     (made,) = out["files"]
-    assert re.fullmatch(r"PhieuXuat_W\d+\.xlsx", made["name"]), made["name"]
+    assert made["name"] == "PhieuXuat_W101.xlsx"  # the code the server handed out
+    # the owner's note went to the cloud once (cloud 015 takes the stock), with what the window said
+    (sent,) = out["issueCalls"]
+    assert sent["p"]["customer"] == "Cong ty A" and sent["p"]["phone"] == "0900 000 001"
+    assert [(ln["qty_main"], ln["qty_office"], ln["unit_price"]) for ln in sent["p"]["lines"]] == [(2, 1.5, 100), (1, 0, 50)]
 
     # the file reads like the app's own, and dropped into the notes folder takes each place once
     ws = Workspace(tmp_path / "ws")

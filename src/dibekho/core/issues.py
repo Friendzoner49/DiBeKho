@@ -33,6 +33,8 @@ _NUMBERED = re.compile(r"^\s*[AaWw]?\s*0*(\d{1,9})\s*$")  # an order number, may
 FILE_PREFIX = "PhieuXuat_"
 FOLDER = "phieu-xuat"
 UNDONE = "da-hoan-tac"
+DELETED = "da-xoa"
+_ISSUE_CODE = re.compile(r"^\s*[AaWw]\d+\s*$")
 
 
 @dataclass
@@ -200,6 +202,52 @@ def after_undo(conn, ws: Workspace, before: dict) -> int:
         moved += 1
     return moved
 
+
+def is_issue_code(code) -> bool:
+    """A160 (made in the app) or W160 (made on the web): a stock issue note, which may be deleted."""
+    return bool(_ISSUE_CODE.match(str(code or "")))
+
+
+def delete(conn, ws: Workspace, doc_id: int) -> int:
+    """Delete a stock issue note entirely (user's request 14/11/2026: the shop counts its revenue by these numbers, a
+    wrong note must leave no hole): the document and its earlier versions (same code, edited in Excel), their lines and
+    stock movements, so the stock is as if it never was; its number is free again (new_code). Its files leave the
+    notes folder and output/phieu-xuat/ for output/phieu-xuat/da-xoa/, otherwise the next scan would record it
+    again; the stored copy in data/phieu-goc/ stays, so Hoàn tác can bring the file back. On shared data the deletes
+    go to the cloud like any change. Run inside a transaction. Returns how many files were moved."""
+    from dibekho.core import deliveries
+
+    doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    if doc is None or doc["kind"] != "delivery" or not is_issue_code(doc["code"]):
+        raise ValueError("Chỉ xoá được phiếu xuất kho (mã A… hoặc W…).")
+    ids = [r[0] for r in conn.execute("SELECT id FROM documents WHERE kind = 'delivery' AND code_norm = ?",
+                                      (doc["code_norm"],))]
+    hashes = {r[0] for i in ids for r in conn.execute(
+        "SELECT hash FROM scanned_files WHERE document_id = ?", (i,))} | \
+        {r[0] for i in ids for r in conn.execute("SELECT source_hash FROM documents WHERE id = ? AND source_hash <> ''",
+                                                 (i,))}
+    for i in ids:
+        for table in ("stock_movements", "document_lines", "document_skipped_lines"):
+            conn.execute(f"DELETE FROM {table} WHERE document_id = ?", (i,))
+        conn.execute("DELETE FROM scanned_files WHERE document_id = ?", (i,))
+        conn.execute("DELETE FROM documents WHERE id = ?", (i,))
+    for h in hashes:
+        conn.execute("DELETE FROM scanned_files WHERE hash = ?", (h,))
+    db.touch(conn)
+    db.log(conn, "issue_deleted", f"{doc['code']} #{doc_id}")
+    files = [p for p in deliveries.delivery_files(ws) + sorted((ws.output / FOLDER).glob("*.xlsx"))]
+    moved = 0
+    for path in files:
+        try:
+            if deliveries.file_hash(path) not in hashes:
+                continue
+            target = _free(ws.output / FOLDER / DELETED / path.name)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            path.replace(target)
+        except OSError:
+            continue  # open in Excel: the user is told by the scan (it is read again), Hoàn tác is there
+        moved += 1
+    return moved
 
 
 def customer_choices(conn) -> list:

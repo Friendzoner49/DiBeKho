@@ -4,7 +4,7 @@
    test checks that nothing but the account tab's own calls ever leaves the page. No network: sb and fetch are stubbed. */
 
 (async () => {
-  const out = { calls: [], froms: [], accountCalls: [], fetches: [], files: [], checks: {}, error: null };
+  const out = { calls: [], froms: [], accountCalls: [], issueCalls: [], fetches: [], files: [], checks: {}, error: null };
   try {
     const F = window.__FIXTURE__;
     const reload = async () => { setData(JSON.parse(JSON.stringify(F))); renderAll(); };
@@ -16,6 +16,10 @@
           { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", email: "maychinh@dibekho.local", display_name: "May chinh", role: "desktop" },
           { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", email: "nhanvien1@dibekho.local", display_name: "Lan", role: "editor" },
           { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", email: "moi@dibekho.local", display_name: "", role: "" }] : {}, error: null };
+      }
+      if (fn === "web_issue") {  // the owner's Phiếu xuất kho is recorded on the cloud (cloud 015), kept apart too
+        out.issueCalls.push(args);
+        return { data: { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", code: `W${100 + out.issueCalls.length}` }, error: null };
       }
       out.calls.push({ fn, args });
       return { data: null, error: { message: "not in this test" } };

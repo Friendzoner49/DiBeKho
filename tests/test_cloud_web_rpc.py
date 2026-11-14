@@ -399,3 +399,34 @@ def test_a_receipt_edited_on_the_web_gets_a_new_file_and_the_old_one_stays(shop,
     new = ws.output / receipts.FOLDER / "HangVe_HV001_2026-11-01_2.xlsx"
     assert new.exists() and old.read_bytes() == before
     assert s.execute("SELECT source_file FROM documents WHERE code = 'HV001' AND status = 'active'").fetchone()[0] == new.name
+
+
+def test_the_owner_s_stock_issue_note_on_the_web_takes_the_stock_at_once(shop):
+    """cloud 015 (user, 14/11/2026): W + the next order number, the customer found by phone, one line per product with
+    its price, the stock taken from each place; the staff cannot."""
+    s, _, call, cloud = shop
+    a, b = _pid(s, "SP001"), _pid(s, "SP002")
+    before = stock.stock_levels(s, by_location=True)
+    p = {"doc_date": "2026-11-14", "customer": "Cty khác tên", "phone": "+84 900 000 001", "contact": "Anh B",
+         "address": "", "lines": [
+             {"product_id": _uid(s, "products", a), "qty_main": 3, "qty_office": 2, "unit_price": 100000, "note": "sáng"},
+             {"product_id": _uid(s, "products", b), "qty_main": 0, "qty_office": 1, "unit_price": None, "note": ""}]}
+    with pytest.raises(PgError, match="chủ"):
+        call("web_issue", account=STAFF, p=(p, "jsonb"))
+    made = call("web_issue", p=(p, "jsonb"))
+    assert made["code"] == "W77"  # the seed's last order is 76
+    assert call("web_issue", p=({**p, "lines": p["lines"][1:]}, "jsonb"))["code"] == "W78"
+    _pull(s, cloud)
+    doc = s.execute("SELECT d.*, c.name AS customer FROM documents d JOIN customers c ON c.id = d.customer_id "
+                    "WHERE d.code = 'W77'").fetchone()
+    assert (doc["kind"], doc["status"], doc["location_set"], doc["customer"], doc["note_total"]) == (
+        "delivery", "active", 1, "Công ty A", 500000)
+    lines = s.execute("SELECT line_no, qty, unit_price, amount, location_id, note FROM document_lines "
+                      "WHERE document_id = ? ORDER BY line_no", (doc["id"],)).fetchall()
+    assert [tuple(r) for r in lines] == [(9, 5, 100000, 500000, None, "sáng"), (10, 1, None, None, 2, "")]
+    after = stock.stock_levels(s, by_location=True)
+    assert before[(a, stock.MAIN)] - after[(a, stock.MAIN)] == 3
+    assert before.get((a, stock.OFFICE), 0) - after[(a, stock.OFFICE)] == 2
+    assert before.get((b, stock.OFFICE), 0) - after[(b, stock.OFFICE)] == 2  # W77 and W78 took one each
+    from dibekho.core import issues
+    assert issues.new_code(s) == "A79"  # the app goes on after the web's numbers

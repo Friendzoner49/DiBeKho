@@ -24,6 +24,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 11. `cloud/supabase/012_web_settings.sql` — cỡ giao diện web dùng chung cho mọi máy (chỉ tài khoản `maychinh` đổi được, ở Cài đặt → Chung). Chạy sau 011.
 12. `cloud/supabase/013_return_prices.sql` — hàng khách trả lại có **Đơn giá trả lại** và được trừ khỏi doanh thu (phiếu trả hàng nhập trên web). Chạy sau 010; **chạy lại 009 hoặc 010 thì chạy lại 013**.
 13. `cloud/supabase/014_drop_mirror.sql` — xoá các bảng `mirror_*` và hàm `replace_mirror` của mô hình gương cũ (không app/web nào dùng nữa; riêng `mirror_snapshot` giữ 30 bản dữ liệu dạng jsonb). Chạy lại được.
+14. `cloud/supabase/015_web_issue.sql` — **Phiếu xuất kho** lưu trên web bằng tài khoản chủ (`desktop`) trừ tồn ngay: hàm `web_issue` ghi phiếu `delivery` mã **W** + số đơn lớn nhất + 1, khách (tìm theo SĐT rồi tên), dòng có giá, biến động từng nơi; app đọc file `PhieuXuat_W….xlsx` của phiếu đó thì chỉ nối vào phiếu đã có, không trừ lần hai. Chạy sau 009, chạy lại được.
 
 ## 3. Tạo tài khoản
 
@@ -45,7 +46,7 @@ select id, 'Nguoi xem', 'editor' from auth.users where email = 'khach1@dibekho.l
 
 Quên mật khẩu: không có email khôi phục. Cách tạo tài khoản từng bước, đổi mật khẩu, đổi vai trò và thu hồi quyền khi nhân viên nghỉ: [07-tai-khoan-va-mat-khau.md](07-tai-khoan-va-mat-khau.md).
 
-### Trang web: chỉ xem, tiếng Việt / 中文 (từ 14/11/2026)
+### Trang web: chỉ xem (trừ Phiếu xuất kho của chủ), tiếng Việt / 中文 (từ 14/11/2026)
 
 Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud), trang web đọc **bảng thật** trên Cloud. Bố cục **giống app** (thanh bên trái *Tồn kho · Cần xử lý · Tra cứu · Hàng về · Kiểm kê · Cài đặt*, nút cùng tên, cùng chỗ; bấm một dòng để chọn, nháy đúp để mở). Chọn **Tiếng Việt / 中文** ở trang đăng nhập, góc phải trên hoặc Cài đặt → Chung (nhớ trong trình duyệt; chữ ở `webapp/i18n.js`, kiểm bằng `tests/test_web_i18n.py`). Ở trang tiếng Trung, mặt hàng hiện tên Trung nếu có.
 

@@ -322,6 +322,7 @@ const WEB_TEXT = {
     "issue.short_ask": "Lấy nhiều hơn số đang có (tồn sẽ thành số âm khi app đọc phiếu). Vẫn tạo phiếu?",
     "issue.future_ask": "Ngày xuất là một ngày trong tương lai. Vẫn tạo phiếu?",
     "issue.confirm": "Tạo phiếu xuất kho cho {customer}?",
+    "issue.done_owner": "Đã lưu phiếu {code} và trừ tồn.\n\nFile Excel {name} ở thư mục Tải về của trình duyệt (để in hoặc gửi). Bỏ file này vào thư mục phiếu của app cũng không bị trừ hai lần.",
     "issue.done": "Đã tạo {name} (thư mục Tải về của trình duyệt).\n\nBỏ file này vào thư mục phiếu giao hàng của app trên máy chính: app sẽ trừ tồn khi đọc file.",
 
     "fx.title": "Tiền hiện trên màn hình",
@@ -705,6 +706,7 @@ const WEB_TEXT = {
     "issue.short_ask": "取货数量多于现有库存（应用读取后库存将为负数）。仍然生成？",
     "issue.future_ask": "出库日期是未来的日期。仍然生成？",
     "issue.confirm": "为 {customer} 生成出库单？",
+    "issue.done_owner": "已保存单据 {code} 并扣减库存。\n\nExcel 文件 {name} 在浏览器的“下载”文件夹（用于打印或发送）。把它放进应用的送货单文件夹也不会重复扣减。",
     "issue.done": "已生成 {name}（浏览器的“下载”文件夹）。\n\n请把此文件放进主电脑上应用的送货单文件夹：应用读取文件后会扣减库存。",
 
     "fx.title": "屏幕上显示的货币",

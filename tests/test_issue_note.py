@@ -320,3 +320,45 @@ def test_the_order_window_shows_both_places_of_a_split_line(ws):
         d.close()
     finally:
         ctx.close()
+
+
+def test_deleting_an_issue_note_frees_its_number_and_leaves_no_trace(conn, ws, goods):
+    """User, 14/11/2026: the shop counts its revenue by these numbers; a wrong note deleted gives its number back."""
+    paint, sand = goods
+    issues.save(conn, ws, note_for(paint, sand))
+    doc2, path2 = issues.save(conn, ws, IssueInput(date(2026, 11, 14), "Công ty A",
+                                                   lines=[IssueLineInput(sand, qty_main=1)]))
+    assert issues.new_code(conn) == "A3"
+    with db.transaction(conn):
+        moved = issues.delete(conn, ws, doc2)
+    assert moved == 2 and not path2.exists() and (ws.output / issues.FOLDER / issues.DELETED / path2.name).exists()
+    assert issues.new_code(conn) == "A2"
+    assert places(conn, sand) == (18, 0)  # only A1's 2 remain taken
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (doc2,)).fetchone()[0] == 0
+    deliveries.scan(conn, ws)  # its file is gone from the folder: nothing comes back
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 1
+    assert deliveries.pending_count(conn) == 0
+    doc3, _ = issues.save(conn, ws, IssueInput(date(2026, 11, 14), "Công ty A", lines=[IssueLineInput(sand, 1)]))
+    assert conn.execute("SELECT code FROM documents WHERE id = ?", (doc3,)).fetchone()[0] == "A2"
+    with pytest.raises(ValueError):
+        with db.transaction(conn):
+            issues.delete(conn, ws, conn.execute("SELECT id FROM documents WHERE kind = 'stock_count'").fetchone()[0])
+
+
+def test_a_web_issue_file_dropped_in_the_folder_links_to_the_note_already_recorded(conn, ws, goods):
+    """The owner's note saved on the web (cloud 015) comes down by the sync, without a file: its file put into the
+    folder later links to it and takes nothing more."""
+    from dibekho.core.stock import Line, insert_document
+    from dibekho.excel.issue_note import IssueHead, IssueRow, write_issue_note
+
+    paint, sand = goods
+    with db.transaction(conn):
+        doc = insert_document(conn, "delivery", date(2026, 11, 14), [Line(sand, 4, line_no=9)], code="W5",
+                              code_norm="W5", customer_id=catalog.upsert_customer(conn, "Khách Mẫu"))
+    before = places(conn, sand)
+    write_issue_note(ws.deliveries / "PhieuXuat_W5.xlsx", IssueHead("W5", date(2026, 11, 14), "Khách Mẫu"),
+                     [IssueRow("SP002", "Keo cố định cát", "固沙剂", "5KG", 4, [(MAIN, 4)])])
+    result = deliveries.scan(conn, ws)
+    assert result.imported == [] and places(conn, sand) == before
+    assert tuple(conn.execute("SELECT document_id, status FROM scanned_files").fetchone()) == (doc, "imported")
+    assert deliveries.pending_count(conn) == 0
