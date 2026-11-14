@@ -2,7 +2,8 @@
    customer, then per product how many come from Kho tổng and how many from Văn phòng; the price is suggested from the
    latest order and stays editable. The web writes nothing: the window makes the Excel file (xlsx.js) and the browser
    downloads it. The stock is taken when the file goes into the app's notes folder and the app reads it, like a
-   delivery note; the same file read twice is never counted twice. */
+   delivery note; the same file read twice is never counted twice. Prices are typed and shown in dong (the file keeps
+   VND), whatever the ₫ / ¥ switch says. */
 
 "use strict";
 
@@ -39,7 +40,7 @@ function issueRowHtml() {
 function openIssueForm() {
   const heads = [tr("col.product"), tr("col.spec"), tr("col.unit"), tr("issue.have", { place: tr("place.1") }),
                  tr("issue.take", { place: tr("place.1") }), tr("issue.have", { place: tr("place.2") }),
-                 tr("issue.take", { place: tr("place.2") }), tr("col.unit_price"), tr("col.amount"), tr("col.note"), ""];
+                 tr("issue.take", { place: tr("place.2") }), tr("issue.price"), tr("issue.amount"), tr("col.note"), ""];
   const body = openDialog(tr("issue.title"),
     `<p class="hint">${esc(tr("issue.hint"))}</p>
      <div class="form2">
@@ -85,10 +86,10 @@ function openIssueForm() {
       }
       const price = parseQty(tr_.querySelector(".ix-price").value);
       const amount = p && qty > 0 && price !== null && !Number.isNaN(price) ? Math.round(qty * price * 100) / 100 : null;
-      tr_.querySelector(".ix-amount").textContent = amount === null ? "" : fmtMoney(amount);
+      tr_.querySelector(".ix-amount").textContent = amount === null ? "" : fmtVnd(amount);
       if (amount !== null) { total += amount; priced = true; }
     }
-    $("ix-total").textContent = priced ? tr("issue.total", { money: fmtMoney(total) }) : "";
+    $("ix-total").textContent = priced ? tr("issue.total", { money: fmtVnd(total) }) : "";
   };
 
   body.addEventListener("input", (e) => {
@@ -158,8 +159,8 @@ async function saveIssue() {
   const rows = DBK_XLSX.noteRows(productById, f.lines);
   const total = rows.reduce((a, r) => a + (r.amount || 0), 0);
   const summary = rows.map((r) => `• ${r.code} ${r.name_vi}: ${fmtQty(r.qty)} ${r.unit} · ${tr(`place.${r.location_id}`)}` +
-    (r.amount !== null ? ` · ${fmtMoney(r.amount)}` : "")).join("\n");
-  if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: fmtMoney(total) })}`)) return false;
+    (r.amount !== null ? ` · ${fmtVnd(r.amount)}` : "")).join("\n");
+  if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: fmtVnd(total) })}`)) return false;
   const code = DBK_XLSX.newCode(new Date());
   const bytes = DBK_XLSX.issueNote(fflate, { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address }, rows);
   const name = `PhieuXuat_${code}.xlsx`;

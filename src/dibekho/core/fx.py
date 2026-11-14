@@ -77,6 +77,32 @@ def cached() -> Rate | None:
         return None
 
 
+class Display:
+    """What the screens show money in (the ₫ / ¥ switch at the bottom left, user's request 14/11/2026: every amount
+    of the app in yuan at today's rate). The data and every file stay in VND; only the text on screen changes."""
+
+    currency = "vnd"  # "vnd" | "cny"
+    rate: Rate | None = None
+
+    @classmethod
+    def in_cny(cls) -> bool:
+        return cls.currency == "cny" and cls.rate is not None
+
+
+def show_money(value, lang: str = "vi") -> str:
+    """An amount (VND in the data) as the screens show it: '1.188.000' in dong, '¥308,88' in yuan at the chosen
+    rate (two decimals at most; Vietnamese writes 1.234,5, Chinese and English 1,234.5). Unknown -> '—'."""
+    if value is None:
+        return "—"
+    if not Display.in_cny():
+        return f"{round(float(value)):,}".replace(",", ".")
+    v = round(float(value) / Display.rate.vnd_per_cny, 2)
+    text = f"{v:,.2f}".rstrip("0").rstrip(".")
+    if lang == "vi":
+        text = text.replace(",", " ").replace(".", ",").replace(" ", ".")
+    return "¥" + text
+
+
 def is_fresh(rate: Rate | None, now: datetime | None = None) -> bool:
     """Fetched within the last 6 hours: no need to ask again when the window opens."""
     return rate is not None and ((now or datetime.now()) - rate.fetched).total_seconds() < 6 * 3600

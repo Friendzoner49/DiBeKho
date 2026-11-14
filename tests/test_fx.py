@@ -1,4 +1,4 @@
-"""The yuan / dong converter (14/11/2026): the provider's answer, the cache for offline use, the window both ways.
+"""The ₫ / ¥ switch (14/11/2026): the provider's answer, the cache for offline use, every amount on screen in yuan.
 No test goes to the internet: fetch is replaced."""
 
 import os
@@ -48,49 +48,76 @@ def test_the_last_rate_is_kept_for_offline_use():
     assert not fx.is_fresh(None)
 
 
-def wait_for(app, dialog):
+@pytest.fixture(autouse=True)
+def dong_again():
+    yield
+    fx.Display.currency, fx.Display.rate = "vnd", None
+    i18n.set_language("vi")
+
+
+def test_amounts_on_screen_in_dong_or_yuan():
+    assert fx.show_money(1188000) == "1.188.000" and fx.show_money(None) == "—"
+    fx.Display.rate = fx.parse(ANSWER)
+    assert fx.show_money(1188000) == "1.188.000"  # the switch still says dong
+    fx.Display.currency = "cny"
+    assert fx.show_money(1188000, "vi") == "¥308,88"
+    assert fx.show_money(5000000, "vi") == "¥1.300"
+    assert fx.show_money(5000000, "zh") == "¥1,300" and fx.show_money(1188000, "en") == "¥308.88"
+    fx.Display.rate = None
+    assert fx.show_money(1188000) == "1.188.000"  # no rate: dong, never a wrong number
+
+
+class Ctx:
+    def __init__(self):
+        from dibekho.core.workspace import Config
+        self.cfg = Config(workspace="x")
+
+
+def wait_for(app, switch):
     for _ in range(200):
         app.processEvents()
-        if dialog.refresh_btn.isEnabled():
+        if switch.refresh_btn.isEnabled():
             return
         QApplication.instance().thread().msleep(10)
     raise AssertionError("the rate never arrived")
 
 
-def test_window_converts_both_ways_and_says_when_offline(app):
-    from dibekho.ui.fx_dialog import FxDialog
+def test_the_switch_turns_every_amount_into_yuan_and_back(app):
+    from dibekho.ui.currency_switch import CurrencySwitch
 
     i18n.set_language("vi")
-    dialog = FxDialog(fetch=lambda: fx.parse(ANSWER))
-    wait_for(app, dialog)
-    assert dialog.vnd.value() == 3846  # 1 ¥ to start with
-    dialog.cny.setValue(250)
-    assert dialog.vnd.value() == 961538
-    dialog.vnd.setValue(1000000)
-    assert dialog.cny.value() == 260.0
-    assert "3.846" in dialog.info.text()
+    ctx, seen = Ctx(), []
+    switch = CurrencySwitch(ctx, fetch=lambda: fx.parse(ANSWER))
+    switch.changed.connect(lambda: seen.append(fx.Display.currency))
+    assert switch.vnd.isChecked() and fx.Display.currency == "vnd"
+    switch.cny.click()            # no rate yet: fetched first, then the amounts change
+    wait_for(app, switch)
+    assert switch.cny.isChecked() and fx.Display.in_cny() and ctx.cfg.currency == "cny"
+    assert seen[-1] == "cny" and "3.846" in switch.info.text()
+    switch.vnd.click()
+    assert fx.Display.currency == "vnd" and ctx.cfg.currency == "vnd" and seen[-1] == "vnd"
 
-    def offline():
-        raise OSError("no network")
-
-    fx.save(fx.parse(ANSWER, fetched=datetime(2026, 11, 1, 8, 0)))
-    later = FxDialog(fetch=offline)  # old cache: asks again, fails, keeps the old rate
-    wait_for(app, later)
-    assert later.vnd.value() == 3846
-    assert "01/11/2026 08:00" in later.info.text()
-    for d in (dialog, later):
-        d.done(0)
+    again = CurrencySwitch(ctx, fetch=lambda: fx.parse(ANSWER))  # the choice and the kept rate come back
+    assert again.vnd.isChecked()
+    ctx.cfg.currency = "cny"
+    again = CurrencySwitch(ctx, fetch=lambda: fx.parse(ANSWER))
+    wait_for(app, again)
+    assert again.cny.isChecked() and fx.Display.in_cny()
 
 
-def test_window_with_no_rate_at_all(app):
-    from dibekho.ui.fx_dialog import FxDialog
+def test_no_rate_offline_stays_in_dong(app, monkeypatch):
+    from dibekho.ui import currency_switch
+    from dibekho.ui.currency_switch import CurrencySwitch
 
     i18n.set_language("zh")
+    said = []
+    monkeypatch.setattr(currency_switch, "error", lambda parent, text: said.append(text))
 
     def offline():
         raise OSError("no network")
 
-    dialog = FxDialog(fetch=offline)
-    wait_for(app, dialog)
-    assert dialog.vnd.value() == 0 and dialog.info.text() == i18n.t("fx.no_rate_error")
-    dialog.done(0)
+    switch = CurrencySwitch(Ctx(), fetch=offline)
+    switch.cny.click()
+    wait_for(app, switch)
+    assert switch.vnd.isChecked() and fx.Display.currency == "vnd"
+    assert said == [i18n.t("fx.no_rate_error")]

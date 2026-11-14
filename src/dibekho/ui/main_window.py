@@ -119,19 +119,17 @@ class MainWindow(QMainWindow):
         right_lay = QVBoxLayout(right)
         right_lay.addLayout(top)
         right_lay.addWidget(self.stack)
-        # bottom left, under the pages: the small yuan / dong converter (user's request 14/11/2026)
+        # bottom left, under the pages: the ₫ / ¥ switch, every amount on screen in dong or yuan (user, 14/11/2026)
         left = QWidget()
         left.setFixedWidth(self.nav.width())
         left_lay = QVBoxLayout(left)
         left_lay.setContentsMargins(0, 0, 0, 0)
         left_lay.addWidget(self.nav, 1)
-        self.fx_btn = QPushButton(t("fx.button"))
-        self.fx_btn.setToolTip(t("fx.tip"))
-        self.fx_btn.clicked.connect(self.open_converter)
-        fx_row = QHBoxLayout()
-        fx_row.addWidget(self.fx_btn)
-        fx_row.addStretch()
-        left_lay.addLayout(fx_row)
+        from dibekho.ui.currency_switch import CurrencySwitch
+
+        self.currency = CurrencySwitch(ctx, left)
+        self.currency.changed.connect(ctx.notify)
+        left_lay.addWidget(self.currency)
         body = QWidget()
         lay = QHBoxLayout(body)
         lay.addWidget(left)
@@ -310,11 +308,6 @@ class MainWindow(QMainWindow):
         self.rescan(quiet=True)  # notes go back in or out of da-xu-ly/ as the restored data says
         self.ctx.notify()
         info(self, t("undo.done", action=action))
-
-    def open_converter(self):
-        from dibekho.ui.fx_dialog import FxDialog
-
-        FxDialog(self).exec()
 
     def new_issue_note(self):
         from dibekho.ui.issue_form import open_issue_form

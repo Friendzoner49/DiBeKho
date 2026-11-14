@@ -196,8 +196,11 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     deliveries.scan(conn, ws)
     assert stock.stock_levels(conn, by_location=True) == after
 
-    # ¥ ⇄ ₫ both ways at the market rate
-    assert checks["fxVnd"] == "961538" and checks["fxCny"] == "260" and "3.846" in checks["fxInfo"]
+    # ₫ / ¥: every amount on screen in yuan at the market rate, back to dong; the issue window stays in dong
+    assert checks["fxBefore"] == checks["fxAfter"] == "500"
+    assert checks["fxOn"] and "3.846" in checks["fxInfo"] and checks["fxMoney"] == "¥1.000"
+    assert checks["fxCustomer"] == "¥0,13" and checks["fxKpi"].startswith("¥") and "đ" not in checks["fxKpi"]
+    assert checks["fxIssueAmount"] == "200"
 
     # stock list and interface size, as before
     assert checks["stockSorted"] and checks["zoom"] == "1"

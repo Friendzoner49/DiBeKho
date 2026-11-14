@@ -95,18 +95,29 @@
     try { await press(tr("issue.save")); out.checks.twice = ""; } catch (e) { out.checks.twice = String(e.message); }
     dlg.close();
 
-    // ¥ ⇄ ₫: the rate is fetched once, kept, and both boxes follow each other
-    try { localStorage.removeItem("dibekho_fx"); } catch (e) { /* none */ }
-    $("fx-btn").click(); await wait(); await wait();
-    typeIn($("fx-cny"), "250");
-    out.checks.fxVnd = $("fx-vnd").value;
-    typeIn($("fx-vnd"), "1000000");
-    out.checks.fxCny = $("fx-cny").value;
+    // ₫ / ¥: the rate is fetched once and kept; every amount on screen turns into yuan, the issue window stays in dong
+    try { localStorage.removeItem("dibekho_fx"); localStorage.removeItem("dibekho_currency"); } catch (e) { /* none */ }
+    const priced = data.documents.find((d) => d.code === "7");
+    out.checks.fxBefore = fmtMoney(500);
+    document.querySelector('[data-cur="cny"]').click(); await wait(); await wait();
+    out.checks.fxOn = document.querySelector('[data-cur="cny"]').classList.contains("on");
     out.checks.fxInfo = $("fx-info").textContent;
-    dlg.close();
-    $("fx-btn").click(); await wait(); await wait();   // fresh: not asked again
+    out.checks.fxMoney = fmtMoney(3846153.846);
+    showCustomer(priced.customer_id);
+    out.checks.fxCustomer = [...document.querySelectorAll("#page-detail .stat b")][1].textContent;
+    out.checks.fxKpi = $("dash-kpis").querySelector(".kpi-value").textContent;
+    $("issue-new").click(); await wait();
+    typeIn(rows()[0].querySelector(".ix-product"), productLabel(prod("SP001")));
+    typeIn(rows()[0].querySelector('.ix-qty[data-place="1"]'), "2");
+    typeIn(rows()[0].querySelector(".ix-price"), "100");
+    out.checks.fxIssueAmount = rows()[0].querySelector(".ix-amount").textContent;
+    $("dlg").close();
+    document.querySelector('[data-cur="vnd"]').click(); await wait();
+    document.querySelector('[data-cur="cny"]').click(); await wait();   // fresh: not asked again
     out.checks.fxFetches = out.fetches.length;
-    dlg.close();
+    document.querySelector('[data-cur="vnd"]').click(); await wait();
+    out.checks.fxAfter = fmtMoney(500);
+    showPage("stock");
 
     // stock list: opens sorted by code, Tồn stays in view; names in the page's language
     renderStock();

@@ -197,7 +197,6 @@ dialog { border: none; border-radius: 16px; padding: 20px 24px; width: min(1100p
          max-height: calc((100vh - 24px) / var(--z, 1)); overflow: auto; background: var(--surface); color: var(--foreground);
          box-shadow: var(--elevation-modal), 0 0 0 1px rgb(0 0 0 / 0.04); }
 dialog::backdrop { background: rgb(20 20 30 / 0.4); }
-dialog.narrow { width: min(600px, calc(100vw - 24px)); }
 dialog .scroll { box-shadow: 0 0 0 1px var(--border-strong); }
 .dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .dlg-head h2 { margin: 0; font-size: 20px; }
@@ -229,14 +228,13 @@ dl.info dd { margin: 0; word-break: break-word; }
 select.lang { height: 36px; font-size: 14px; }
 .login-lang { display: flex; justify-content: flex-end; margin: -8px -8px 4px 0; }
 .login .login-lang select { width: auto; margin: 0; }
-.fx-btn { height: 40px; margin: 8px 4px 0; font-size: 15px; font-weight: 600; color: var(--primary);
-          border-color: var(--border-strong); background: var(--surface); }
-.fx-btn:hover { background: var(--primary-light); }
-.form2.fx { max-width: 440px; }
-.fx-box { display: flex; align-items: center; gap: 8px; }
-.fx-box input { flex: 1; min-width: 0; font-size: 18px; height: 44px; }
-.fx-box b { width: 18px; color: var(--muted); }
-#fx-info { white-space: pre-line; font-weight: 500; }
+.cur-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 8px 4px 0; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { height: 36px; min-width: 48px; border: none; border-radius: 0; background: var(--surface); font-size: 16px; font-weight: 600; color: var(--muted); }
+.seg button + button { box-shadow: inset 1px 0 0 var(--border-strong); }
+.seg button.on { background: var(--primary); color: var(--primary-foreground); }
+#fx-refresh { height: 36px; width: 36px; padding: 0; font-size: 16px; color: var(--muted); }
+#fx-info { flex: 0 0 100%; margin: 0 2px; font-size: 13px; white-space: pre-line; }
 
 /* ===== Tổng quan (dashboard.js): hàng số liệu, biểu đồ 12 tháng, bốn danh sách ===== */
 .dash-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

@@ -28,7 +28,7 @@ You drop Excel delivery notes into a folder. The app reads them, takes the goods
 - 📦 **See the stock** of every product, split between the **main warehouse** and the **office**; below 30 the row turns orange ("running low — order more"), negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
 - 📤 **Stock issue note:** pick the customer and the goods, taken from the Main warehouse, the Office or both; the stock goes down at once and an Excel file shaped like a delivery note is written ([details](docs/user-guide.md#35-stock-issue-note)).
-- 💱 **Yuan / dong converter:** the small **¥ ⇄ ₫** button at the bottom left (market rate, for reference).
+- 💱 **Amounts in dong or yuan:** the **₫ | ¥** switch at the bottom left shows every amount in yuan at today's market rate (files stay in VND).
 - 🔢 **Stock count** per place (main warehouse, office): type what you counted, the app records the difference. **Transfer** goods between the two.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
 - 💰 **Revenue per customer:** goods only (shipping apart), the products they buy most, every order with unit prices and amounts, for any period.

@@ -42,18 +42,24 @@ function dashRange(kind, today = todayLocal()) {
 
 /** Money in a small space: 184,5 tr / 1,28 tỷ (Vietnamese), 1845万 / 1.28亿 (Chinese); the full number in the tooltip. */
 function shortMoney(n) {
+  if (moneyInCny()) return "¥" + shortNumber((Number(n) || 0) / FX.rate.vnd_per_cny);  // the ₫ / ¥ switch (fx.js)
+  return shortNumber(n);
+}
+
+function shortNumber(n) {
   const v = Number(n) || 0, a = Math.abs(v);
   const one = (x) => (Math.round(x * 10) / 10).toLocaleString(LANG === "zh" ? "zh-CN" : "vi-VN");
   const two = (x) => (Math.round(x * 100) / 100).toLocaleString(LANG === "zh" ? "zh-CN" : "vi-VN");
   if (LANG === "zh") {
     if (a >= 1e8) return `${two(v / 1e8)}亿`;
-    if (a >= 1e4) return `${Math.round(v / 1e4).toLocaleString("zh-CN")}万`;
-    return v.toLocaleString("zh-CN");
+    if (a >= 1e6) return `${Math.round(v / 1e4).toLocaleString("zh-CN")}万`;
+    if (a >= 1e4) return `${one(v / 1e4)}万`;
+    return v.toLocaleString("zh-CN", { maximumFractionDigits: a < 100 ? 2 : 0 });
   }
   if (a >= 1e9) return `${two(v / 1e9)} ${tr("money.billion")}`;
   if (a >= 1e6) return `${one(v / 1e6)} ${tr("money.million")}`;
-  if (a >= 1e3) return `${Math.round(v / 1e3)} ${tr("money.thousand")}`;
-  return fmtMoney(v);
+  if (a >= 1e5) return `${Math.round(v / 1e3)} ${tr("money.thousand")}`;  // yuan stay readable: ¥4.250, not ¥4 nghìn
+  return v.toLocaleString(numLocale(), { maximumFractionDigits: a < 100 ? 2 : 0 });
 }
 
 const fmtDay = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "");
@@ -153,8 +159,8 @@ function renderDashboard() {
   const low = all.filter((p) => isLow(p) && stockOf(p.id).total >= 0), negative = all.filter((p) => stockOf(p.id).total < 0);
   const unplaced = unplacedOrders().length;
   $("dash-kpis").innerHTML =
-    kpi(tr("money.revenue"), `${esc(shortMoney(money.total))}<span class="unit"> ${esc(tr("money.unit"))}</span>`,
-        deltaLine(money.total || 0, hasBefore ? before.total || 0 : null, true), `${fmtMoney(money.total)} ${tr("money.unit")}`) +
+    kpi(tr("money.revenue"), `${esc(shortMoney(money.total))}${moneyInCny() ? "" : `<span class="unit"> ${esc(tr("money.unit"))}</span>`}`,
+        deltaLine(money.total || 0, hasBefore ? before.total || 0 : null, true), `${fmtMoney(money.total)}${moneyInCny() ? "" : " " + tr("money.unit")}`) +
     kpi(tr("col.orders"), esc(fmtQty(money.orders)), deltaLine(money.orders, hasBefore ? before.orders : null, false)) +
     kpi(tr("dash.k_low"), esc(fmtQty(low.length)), `<p class="kpi-sub">${esc(lowDefault ? tr("dash.k_low_sub", { level: fmtQty(lowDefault) }) : tr("settings.low_off"))}</p>`, "", "low") +
     kpi(tr("dash.k_negative"), esc(fmtQty(negative.length)), `<p class="kpi-sub">${esc(tr("dash.k_negative_sub"))}</p>`, "", "low");

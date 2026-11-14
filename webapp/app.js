@@ -58,8 +58,21 @@ function fmtQty(n) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000).replace(".", ",");
 }
 
-function fmtMoney(n) {
+/* Money: the data is in VND; the ₫ / ¥ switch (fx.js) decides what the screen shows. Files always keep VND. */
+const FX = { currency: "vnd", rate: null };  // rate {vnd_per_cny, updated, fetched}
+const moneyInCny = () => FX.currency === "cny" && !!FX.rate;
+const numLocale = () => (LANG === "zh" ? "zh-CN" : "vi-VN");
+
+/** An amount in dong, as in the files and the Phiếu xuất kho window. */
+function fmtVnd(n) {
   return n === null || n === undefined ? "" : Number(n).toLocaleString("vi-VN");
+}
+
+/** An amount as the screen shows it: dong, or ¥ with up to 2 decimals at today's rate. */
+function fmtMoney(n) {
+  if (n === null || n === undefined) return "";
+  if (!moneyInCny()) return fmtVnd(n);
+  return "¥" + (Number(n) / FX.rate.vnd_per_cny).toLocaleString(numLocale(), { maximumFractionDigits: 2 });
 }
 
 // the cloud keeps UTC in updated_at: show the viewer's own clock, like the app

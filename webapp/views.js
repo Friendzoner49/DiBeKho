@@ -18,7 +18,6 @@ function openDialog(title, html, buttons, closeLabel = null, asks = null) {
   const bar = $("dlg-buttons");
   bar.innerHTML = "";
   dlgAsks = asks;
-  dlg.classList.remove("narrow");  // a small window (the converter) asks for it after opening
   for (const b of [...buttons, { label: closeLabel || tr(buttons.length ? "btn.cancel" : "btn.close"), close: true, run: async () => true }]) {
     const el = document.createElement("button");
     el.textContent = b.label;

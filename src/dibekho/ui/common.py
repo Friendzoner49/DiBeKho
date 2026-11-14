@@ -35,8 +35,9 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import activity, deliveries, undo
-from dibekho.core.text import fmt_money, fmt_qty, parse_number
+from dibekho import i18n
+from dibekho.core import activity, deliveries, fx, undo
+from dibekho.core.text import fmt_qty, parse_number
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
 
@@ -372,9 +373,14 @@ def num_item(value) -> SortItem:
     return item
 
 
+def show_money(value) -> str:
+    """An amount as the screens show it: dong, or yuan when the ₫ / ¥ switch says so (core/fx.Display)."""
+    return fx.show_money(value, i18n.language())
+
+
 def money_item(value) -> SortItem:
-    """Amount in VND; an unknown price shows '—' and sorts first."""
-    item = SortItem(fmt_money(value), value)
+    """An amount (₫ or ¥ as the switch says); an unknown price shows '—' and sorts first (by its VND value)."""
+    item = SortItem(show_money(value), value)
     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
     return item
 
@@ -383,12 +389,12 @@ def money_text(m) -> str:
     """'Doanh thu 12.000.000 = tiền hàng … + phí khác …' for a stats.Money (fees unknown when products are
     filtered: fees belong to no product)."""
     if m.fees is None:
-        text = t("stats.money_goods", goods=fmt_money(m.total), orders=m.orders)
+        text = t("stats.money_goods", goods=show_money(m.total), orders=m.orders)
     else:
-        text = t("stats.money", total=fmt_money(m.total), goods=fmt_money(m.goods), fees=fmt_money(m.fees),
+        text = t("stats.money", total=show_money(m.total), goods=show_money(m.goods), fees=show_money(m.fees),
                  orders=m.orders)
     if m.returned:
-        text += t("money.returned", returned=fmt_money(m.returned))
+        text += t("money.returned", returned=show_money(m.returned))
     if m.unpriced:
         text += " · " + t("stats.unpriced", count=m.unpriced)
     return text

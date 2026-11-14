@@ -37,7 +37,11 @@
     <button data-page="count" class="nav" data-i18n="nav.count"></button>
     <button data-page="settings" class="nav" data-i18n="nav.settings"></button>
     <span class="spacer"></span>
-    <button id="fx-btn" class="fx-btn" data-i18n-title="fx.title">¥ ⇄ ₫</button>
+    <div class="cur-switch" data-i18n-title="fx.title">
+      <div class="seg"><button data-cur="vnd" data-i18n-title="fx.show_vnd">₫</button><button data-cur="cny" data-i18n-title="fx.show_cny">¥</button></div>
+      <button id="fx-refresh" class="flat" data-i18n-title="fx.refresh">⟳</button>
+      <p id="fx-info" class="hint"></p>
+    </div>
   </aside>
 
   <section class="main">

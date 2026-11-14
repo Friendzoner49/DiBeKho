@@ -9,7 +9,7 @@ This guide goes step by step, using the exact button names on screen. Not instal
 **Contents**
 1. [Getting to know the screen](#1-getting-to-know-the-screen)
 2. [The first day](#2-the-first-day)
-3. [Every day: reading delivery notes](#3-every-day-reading-delivery-notes) · [Stock issue note](#35-stock-issue-note) · [Currency converter](#36-yuan--dong-converter)
+3. [Every day: reading delivery notes](#3-every-day-reading-delivery-notes) · [Stock issue note](#35-stock-issue-note) · [Amounts in dong or yuan](#36-amounts-in-dong-or-yuan)
 4. [Stock, low stock and notes](#4-stock-low-stock-and-notes)
 5. [Goods in](#5-goods-in)
 6. [Counting stock at each place](#6-counting-stock-at-each-place)
@@ -149,9 +149,9 @@ Use it when goods leave for a customer and there is no delivery note file yet: t
 
 The app writes an Excel file `output/phieu-xuat/PhieuXuat_PX….xlsx`, shaped like a delivery note, to print or send. Putting that file back in the notes folder **never counts it twice**. An issue note written on the web page (with Cloud) only takes stock out once you put the file in the delivery notes folder and click **⟳ Rescan notes**. A mistake: **↶ Undo**, or **Cancel document** in the order's details.
 
-### 3.6. Yuan / dong converter
+### 3.6. Amounts in dong or yuan
 
-Click the small **¥ ⇄ ₫** button at the bottom left. Type an amount in yuan or in dong, the other box follows. It is the market rate, updated once a day, **for reference only** (not a bank's buy/sell price). Without internet the app uses the last rate and shows its date. The web page (with Cloud) has the same button in the same place.
+The **₫ | ¥** switch is at the bottom left. Click **¥**: every amount in the app (revenue, prices, totals, Statistics, order and customer details…) shows in yuan at **today's market rate**, old orders included. Click **₫** to go back to dong. The data stays in VND and every exported file (Excel, data packages, stock issue notes) stays in VND; prices typed in the stock issue note are always in VND too. The rate in use is shown under the switch; click **⟳** for a new one. The rate is for reference only (not a bank's buy/sell price); without internet the app uses the last rate. The web page (with Cloud) has the same switch in the same place.
 
 ---
 
@@ -490,7 +490,7 @@ This part is **optional**. Use it only when several computers (and the web page)
 **Web page:** open the address you were given and sign in with your name and password. Pick **Tiếng Việt** or **中文** right on the sign-in page (switch later at the top right or in **Settings → General**). It is laid out **like the app** (same buttons in the same places). The web page **only shows** the data: everything that writes (goods in, stock counts, editing products…) is done in the app. The web page also has:
 - **Overview** (main-machine role only; the page it opens on): revenue and orders of the period against the same span before, low and negative stock, revenue of the last 12 months, best sellers, best customers, latest orders. Click a row for its details.
 - **📤 Stock issue note…** (main-machine role and staff): like the app's, but the web page only makes the Excel file; the stock goes down once that file is in the main machine's delivery notes folder (section 3.5).
-- The **¥ ⇄ ₫** button at the bottom left (section 3.6) and **Settings → Backup → Export data** (all the shared data as one `.dibekho` package).
+- The **₫ | ¥** switch at the bottom left (section 3.6) and **Settings → Backup → Export data** (all the shared data as one `.dibekho` package).
 
 On a phone it only shows Stock.
 

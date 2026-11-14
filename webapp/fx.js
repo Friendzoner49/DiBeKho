@@ -1,15 +1,18 @@
-/* DiBeKho web: the small "¥ ⇄ ₫" converter at the bottom left (customer's request 14/11/2026), like the app's
-   (core/fx.py, ui/fx_dialog.py): type yuan or dong, the other box follows. The market rate comes from the free
-   ExchangeRate-API endpoint (no key, updated once a day; its terms ask to name it next to the rate). The last rate
-   is kept in this browser, so the converter still works offline and then says when the rate was fetched. One plain
-   GET: nothing about the user or the shop is sent. */
+/* DiBeKho web: the "₫ | ¥" switch at the bottom left (user's request 14/11/2026), like the app's
+   (core/fx.py, ui/currency_switch.py): ¥ shows every amount of the page (revenue, prices, totals, the overview,
+   statistics) in yuan at today's market rate; ₫ goes back to dong. The data and every file (CSV, packages, the
+   Phiếu xuất kho) stay in VND: fmtMoney (app.js) only changes the text on screen.
+
+   The rate comes from the free ExchangeRate-API endpoint (no key, updated once a day; its terms ask to name it next
+   to the rate), kept in this browser for offline use and fetched again when older than 6 hours. One plain GET:
+   nothing about the user or the shop is sent. */
 
 "use strict";
 
 const FX_URL = "https://open.er-api.com/v6/latest/CNY";
-const FX_SOURCE = "ExchangeRate-API", FX_SOURCE_URL = "https://www.exchangerate-api.com";
-const FX_KEY = "dibekho_fx";
-const FX_FRESH_MS = 6 * 3600 * 1000;  // asked again when the window opens after 6 hours
+const FX_SOURCE = "ExchangeRate-API";
+const FX_KEY = "dibekho_fx", CUR_KEY = "dibekho_currency";
+const FX_FRESH_MS = 6 * 3600 * 1000;
 
 /** The provider's JSON -> {vnd_per_cny, updated (ms), fetched (ms)}; throws when it is not a usable answer. */
 function fxParse(answer, fetched = Date.now()) {
@@ -26,56 +29,58 @@ function fxCached() {
   } catch (e) { return null; }
 }
 
-function fxKeep(rate) { try { store("localStorage").setItem(FX_KEY, JSON.stringify(rate)); } catch (e) { /* only a cache */ } }
+function keep(key, value) { try { store("localStorage").setItem(key, value); } catch (e) { /* only a preference */ } }
 
 async function fxFetch() {
   const resp = await fetch(FX_URL, { headers: { Accept: "application/json" }, cache: "no-store" });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const rate = fxParse(await resp.json());
-  fxKeep(rate);
+  keep(FX_KEY, JSON.stringify(rate));
   return rate;
 }
 
-const fxDay = (ms) => { const d = new Date(ms), p = (n) => String(n).padStart(2, "0"); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`; };
+const fxDay = (ms) => { const d = new Date(ms), p = (n) => String(n).padStart(2, "0"); return `${p(d.getDate())}/${p(d.getMonth() + 1)}`; };
 const fxTime = (ms) => { const d = new Date(ms), p = (n) => String(n).padStart(2, "0"); return `${fxDay(ms)} ${p(d.getHours())}:${p(d.getMinutes())}`; };
-/** A number for the boxes: dong whole, yuan with up to 2 decimals, written with a comma on the Vietnamese page. */
-const fxBox = (n, decimals) => { const s = String(Math.round(n * 10 ** decimals) / 10 ** decimals); return LANG === "vi" ? s.replace(".", ",") : s; };
 
-function openConverter() {
-  let rate = fxCached(), fromCny = true;
-  openDialog(tr("fx.title"),
-    `<div class="form2 fx">
-       <label for="fx-cny">${esc(tr("fx.cny"))}</label><span class="fx-box"><input id="fx-cny" class="qty" inputmode="decimal" value="1"><b>¥</b></span>
-       <label for="fx-vnd">${esc(tr("fx.vnd"))}</label><span class="fx-box"><input id="fx-vnd" class="qty" inputmode="decimal"><b>₫</b></span>
-     </div>
-     <p id="fx-info"></p>
-     <p class="hint">${esc(tr("fx.source_before"))} <a href="${FX_SOURCE_URL}" target="_blank" rel="noopener noreferrer">${FX_SOURCE}</a>${esc(tr("fx.source_after"))}</p>
-     <div class="row"><button id="fx-refresh">${esc(tr("fx.refresh"))}</button></div>`, []);
-  dlg.classList.add("narrow");
-  const show = (problem) => {
-    if (!rate) { $("fx-info").textContent = tr(problem ? "fx.no_rate_error" : "fx.no_rate"); return; }
-    $("fx-info").textContent = tr("fx.rate", { rate: fmtMoney(Math.round(rate.vnd_per_cny)), when: fxDay(rate.updated) }) +
-      (problem ? "\n" + tr("fx.offline", { when: fxTime(rate.fetched) }) : "");
-  };
-  const convert = () => {
-    if (!rate) return;
-    if (fromCny) { const v = parseQty($("fx-cny").value); $("fx-vnd").value = v === null || Number.isNaN(v) ? "" : fxBox(v * rate.vnd_per_cny, 0); }
-    else { const v = parseQty($("fx-vnd").value); $("fx-cny").value = v === null || Number.isNaN(v) ? "" : fxBox(v / rate.vnd_per_cny, 2); }
-  };
-  $("fx-cny").addEventListener("input", () => { fromCny = true; convert(); });
-  $("fx-vnd").addEventListener("input", () => { fromCny = false; convert(); });
-  const refresh = async () => {
-    const btn = $("fx-refresh");
-    btn.disabled = true; btn.textContent = tr("fx.refreshing");
-    let problem = "";
-    try { rate = await fxFetch(); } catch (e) { problem = String(e && e.message || e) || "?"; }
-    if (!document.body.contains(btn)) return;  // the window was closed meanwhile
-    btn.disabled = false; btn.textContent = tr("fx.refresh");
-    show(problem); convert();
-  };
-  $("fx-refresh").addEventListener("click", refresh);
-  show(""); convert();
-  if (!rate || Date.now() - rate.fetched > FX_FRESH_MS) refresh();
+let fxBusy = false;
+
+function fxShow(problem = "") {
+  for (const b of document.querySelectorAll("[data-cur]")) b.classList.toggle("on", b.dataset.cur === (moneyInCny() ? "cny" : "vnd"));
+  const info = $("fx-info");
+  if (!FX.rate) { info.textContent = fxBusy ? tr("fx.no_rate") : problem ? tr("fx.no_rate_error") : ""; return; }
+  info.textContent = tr("fx.rate_short", { rate: Math.round(FX.rate.vnd_per_cny).toLocaleString("vi-VN"), when: fxDay(FX.rate.updated) }) +
+    (problem ? "\n" + tr("fx.offline", { when: fxTime(FX.rate.fetched) }) : "");
 }
 
-$("fx-btn").addEventListener("click", openConverter);
+/** Show the amounts in dong or yuan; yuan needs a rate (fetched first when this browser has none). */
+async function fxChoose(currency, explicit = true) {
+  if (currency === "cny" && !FX.rate) await fxRefresh(explicit);
+  if (currency === "cny" && !FX.rate) { FX.currency = "vnd"; fxShow(); return; }
+  FX.currency = currency;
+  keep(CUR_KEY, currency);
+  fxShow();
+  renderAll();
+  if (currency === "cny" && Date.now() - FX.rate.fetched > FX_FRESH_MS) fxRefresh(false);
+}
+
+async function fxRefresh(explicit = true) {
+  if (fxBusy) return;
+  fxBusy = true;
+  $("fx-refresh").disabled = true;
+  fxShow();
+  let problem = "";
+  try { FX.rate = await fxFetch(); } catch (e) { problem = String(e && e.message || e) || "?"; }
+  fxBusy = false;
+  $("fx-refresh").disabled = false;
+  fxShow(problem);
+  if (!problem && moneyInCny()) renderAll();  // a new rate: the amounts change
+  if (!FX.rate && explicit) alert(tr("fx.no_rate_error"));
+}
+
+FX.rate = fxCached();
+FX.currency = (() => { try { return store("localStorage").getItem(CUR_KEY) === "cny" && FX.rate ? "cny" : "vnd"; } catch (e) { return "vnd"; } })();
+$("fx-info").title = tr("fx.source", { source: FX_SOURCE });
+for (const b of document.querySelectorAll("[data-cur]")) b.addEventListener("click", () => fxChoose(b.dataset.cur));
+$("fx-refresh").addEventListener("click", () => fxRefresh(true));
+fxShow();
+if (moneyInCny() && Date.now() - FX.rate.fetched > FX_FRESH_MS) fxRefresh(false);

@@ -22,7 +22,7 @@ from dibekho import db
 from dibekho.core import activity, deliveries, queries, receipts
 from dibekho.excel import report
 from dibekho.core.stock import MAIN, close_document, is_mixed, set_location
-from dibekho.core.text import fmt_money, fmt_qty
+from dibekho.core.text import fmt_qty
 from dibekho.i18n import t
 from dibekho.ui.common import (
     RED,
@@ -31,6 +31,7 @@ from dibekho.ui.common import (
     date_item,
     error,
     fill_table,
+    show_money,
     fit_window,
     fmt_date,
     from_qdate,
@@ -181,12 +182,12 @@ class DocumentDialog(_Base):
             total = sum(ln["qty"] for ln in lines)
             self.layout_.addWidget(hint_label(t("doc.total", lines=len(lines), qty=fmt_qty(total))))
         if kind == "delivery" and head["order_total"] is not None:
-            self.layout_.addWidget(QLabel(t("doc.money", goods=fmt_money(head["goods_amount"] or 0),
-                                            fees=fmt_money(head["fee_amount"] or 0),
-                                            total=fmt_money(head["order_total"]))))
+            self.layout_.addWidget(QLabel(t("doc.money", goods=show_money(head["goods_amount"] or 0),
+                                            fees=show_money(head["fee_amount"] or 0),
+                                            total=show_money(head["order_total"]))))
             printed = head["note_total"]
             if printed is not None and abs(printed - head["order_total"]) >= 1:
-                self.layout_.addWidget(hint_label(t("doc.money_printed", total=fmt_money(printed))))
+                self.layout_.addWidget(hint_label(t("doc.money_printed", total=show_money(printed))))
         if kind == "delivery" and head["unpriced_lines"]:
             self.layout_.addWidget(hint_label(t("doc.unpriced", count=head["unpriced_lines"])))
         self.layout_.addWidget(hint_label(t("doc.hint_open_product")))
@@ -356,9 +357,9 @@ class CustomerDialog(_Base):
         self.date_to.setEnabled(not self.all_time.isChecked())
         start, end = self._range()
         money = queries.customer_money(self.ctx.conn, self.customer_id, start, end)
-        self.money.setText(t("cust.money_value", total=fmt_money(money["total"] or 0), orders=money["orders"],
-                             goods=fmt_money(money["goods"] or 0), fees=fmt_money(money["fees"] or 0))
-                           + (t("money.returned", returned=fmt_money(money["returned"])) if money["returned"] else ""))
+        self.money.setText(t("cust.money_value", total=show_money(money["total"] or 0), orders=money["orders"],
+                             goods=show_money(money["goods"] or 0), fees=show_money(money["fees"] or 0))
+                           + (t("money.returned", returned=show_money(money["returned"])) if money["returned"] else ""))
         self.unpriced.setText(t("cust.unpriced", count=money["unpriced"]) if money["unpriced"] else "")
         self.unpriced.setVisible(bool(money["unpriced"]))
         prods = queries.customer_products(self.ctx.conn, self.customer_id, start, end)
@@ -380,7 +381,7 @@ class CustomerDialog(_Base):
         for d in docs:
             head = QTreeWidgetItem([t("cust.order_head", date=fmt_date(d["doc_date"]), code=d["code"]), "", "",
                                     t("cust.order_lines", count=d["line_count"]), "", "",
-                                    fmt_money(d["goods_amount"]), ""])  # goods only: fees are apart
+                                    show_money(d["goods_amount"]), ""])  # goods only: fees are apart
             head.setData(0, Qt.UserRole, d["id"])
             font = head.font(0)
             font.setBold(True)
@@ -390,13 +391,13 @@ class CustomerDialog(_Base):
             for ln in lines.get(d["id"], []):
                 name = " · ".join(x for x in (ln["name_vi"], ln["variant"]) if x)
                 child = QTreeWidgetItem([name, ln["name_zh"], ln["spec"], fmt_qty(ln["qty"]), ln["unit"],
-                                         fmt_money(ln["unit_price"]), fmt_money(ln["amount"]), ln["note"]])
+                                         show_money(ln["unit_price"]), show_money(ln["amount"]), ln["note"]])
                 child.setData(0, Qt.UserRole, d["id"])
                 for c in (3, 5, 6):
                     child.setTextAlignment(c, right)
                 head.addChild(child)
             if d["fee_amount"]:
-                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", "", fmt_money(d["fee_amount"]), ""])
+                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", "", show_money(d["fee_amount"]), ""])
                 fee.setData(0, Qt.UserRole, d["id"])
                 fee.setTextAlignment(6, right)
                 head.addChild(fee)
@@ -431,8 +432,8 @@ class CustomerDialog(_Base):
 def _price_range(low, high) -> str:
     """'1.200.000', or '1.100.000 – 1.200.000' when the price changed over the period."""
     if low is None:
-        return fmt_money(None)
-    return fmt_money(low) if abs(high - low) < 0.5 else f"{fmt_money(low)} – {fmt_money(high)}"
+        return show_money(None)
+    return show_money(low) if abs(high - low) < 0.5 else f"{show_money(low)} – {show_money(high)}"
 
 
 # ---- product ---------------------------------------------------------------

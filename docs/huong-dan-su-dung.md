@@ -9,7 +9,7 @@ Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. 
 **Mục lục**
 1. [Làm quen với màn hình](#1-làm-quen-với-màn-hình)
 2. [Ngày đầu tiên](#2-ngày-đầu-tiên)
-3. [Hằng ngày: đọc phiếu giao hàng](#3-hằng-ngày-đọc-phiếu-giao-hàng) · [Phiếu xuất kho](#35-phiếu-xuất-kho) · [Quy đổi tỷ giá](#36-quy-đổi-tỷ-giá-nhân-dân-tệ--vnd)
+3. [Hằng ngày: đọc phiếu giao hàng](#3-hằng-ngày-đọc-phiếu-giao-hàng) · [Phiếu xuất kho](#35-phiếu-xuất-kho) · [Xem tiền bằng VND hoặc nhân dân tệ](#36-xem-tiền-bằng-vnd-hoặc-nhân-dân-tệ)
 4. [Xem tồn kho, hàng sắp hết, ghi chú](#4-xem-tồn-kho-hàng-sắp-hết-ghi-chú)
 5. [Hàng về](#5-hàng-về)
 6. [Kiểm kê từng nơi](#6-kiểm-kê-từng-nơi)
@@ -149,9 +149,9 @@ Dùng khi giao hàng cho khách mà chưa có file phiếu giao hàng: app tạo
 
 App tạo file Excel `output/phieu-xuat/PhieuXuat_PX….xlsx` giống phiếu giao hàng để in hoặc gửi. Bỏ lại file này vào thư mục phiếu cũng **không bị trừ hai lần**. Phiếu xuất kho tạo trên trang web (nếu dùng Cloud) chỉ được trừ tồn khi bạn bỏ file đó vào thư mục phiếu giao hàng rồi **⟳ Quét lại phiếu**. Làm nhầm: bấm **↶ Hoàn tác** hoặc **Huỷ phiếu** trong Chi tiết đơn.
 
-### 3.6. Quy đổi tỷ giá nhân dân tệ / VND
+### 3.6. Xem tiền bằng VND hoặc nhân dân tệ
 
-Bấm nút nhỏ **¥ ⇄ ₫** ở góc trái dưới. Gõ số tiền vào ô nhân dân tệ hoặc ô VND, ô kia tự đổi. Tỷ giá là tỷ giá thị trường, cập nhật mỗi ngày, **chỉ để tham khảo** (không phải giá mua/bán của ngân hàng). Máy không có mạng: app dùng tỷ giá lấy lần trước và ghi rõ ngày giờ. Trang web (nếu dùng Cloud) có cùng nút ở cùng chỗ.
+Ở góc trái dưới có công tắc **₫ | ¥**. Bấm **¥**: mọi số tiền trong app (doanh thu, đơn giá, thành tiền, Thống kê, Chi tiết đơn, Chi tiết khách…) hiện bằng nhân dân tệ theo **tỷ giá thị trường hôm nay**, cả đơn cũ. Bấm **₫** để về tiền Việt. Dữ liệu vẫn lưu bằng VND và mọi file xuất ra (Excel, gói dữ liệu, phiếu xuất kho) vẫn ghi VND; ô gõ đơn giá trong Phiếu xuất kho cũng luôn là VND. Dưới công tắc là tỷ giá đang dùng; bấm **⟳** để lấy tỷ giá mới. Tỷ giá chỉ để tham khảo (không phải giá mua/bán của ngân hàng); máy không có mạng thì app dùng tỷ giá lấy lần trước. Trang web (nếu dùng Cloud) có cùng công tắc ở cùng chỗ.
 
 ---
 
@@ -491,7 +491,7 @@ Phần này **không bắt buộc**. Chỉ dùng khi muốn nhiều máy (và tr
 **Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Chọn **Tiếng Việt** hoặc **中文** ngay ở trang đăng nhập (đổi lại ở góc phải trên hoặc **Cài đặt → Chung**). Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Trang web **chỉ để xem**: mọi việc ghi dữ liệu (hàng về, kiểm kê, sửa mặt hàng…) làm trên app. Trên web còn có:
 - **Tổng quan** (chỉ tài khoản vai trò máy chính, mở ra là thấy trang này): doanh thu và số đơn của kỳ so với cùng kỳ trước, hàng sắp hết, tồn âm, doanh thu 12 tháng, mặt hàng bán chạy, khách mua nhiều, đơn gần nhất. Bấm một dòng để xem chi tiết.
 - **📤 Phiếu xuất kho…** (vai trò máy chính và nhân viên): giống trên app nhưng web chỉ tạo file Excel; bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn (mục 3.5).
-- Nút **¥ ⇄ ₫** ở góc trái dưới (mục 3.6) và **Cài đặt → Sao lưu → Xuất dữ liệu** (tải toàn bộ dữ liệu chung về thành gói `.dibekho`).
+- Công tắc **₫ | ¥** ở góc trái dưới (mục 3.6) và **Cài đặt → Sao lưu → Xuất dữ liệu** (tải toàn bộ dữ liệu chung về thành gói `.dibekho`).
 
 Trên điện thoại chỉ xem Tồn kho.
 
