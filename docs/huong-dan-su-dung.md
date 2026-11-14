@@ -151,7 +151,7 @@ App tạo file Excel `output/phieu-xuat/PhieuXuat_PX….xlsx` giống phiếu gi
 
 ### 3.6. Quy đổi tỷ giá nhân dân tệ / VND
 
-Bấm nút nhỏ **¥ ⇄ ₫** ở góc trái dưới. Gõ số tiền vào ô nhân dân tệ hoặc ô VND, ô kia tự đổi. Tỷ giá là tỷ giá thị trường, cập nhật mỗi ngày, **chỉ để tham khảo** (không phải giá mua/bán của ngân hàng). Máy không có mạng: app dùng tỷ giá lấy lần trước và ghi rõ ngày giờ.
+Bấm nút nhỏ **¥ ⇄ ₫** ở góc trái dưới. Gõ số tiền vào ô nhân dân tệ hoặc ô VND, ô kia tự đổi. Tỷ giá là tỷ giá thị trường, cập nhật mỗi ngày, **chỉ để tham khảo** (không phải giá mua/bán của ngân hàng). Máy không có mạng: app dùng tỷ giá lấy lần trước và ghi rõ ngày giờ. Trang web (nếu dùng Cloud) có cùng nút ở cùng chỗ.
 
 ---
 
@@ -488,7 +488,12 @@ Phần này **không bắt buộc**. Chỉ dùng khi muốn nhiều máy (và tr
 
 **Sao lưu trên Cloud:** mỗi lần bấm **Đồng bộ ngay** và khi tắt app, app gửi một bản sao lưu đầy đủ lên Cloud (giữ 10 bản gần nhất, có nén cho nhẹ), kèm các file phiếu giao hàng gốc. Lấy lại: **Cài đặt → Cloud → Khôi phục từ Cloud…**. Mỗi ngày app cũng chép một bản `DiBeKho_dulieu-chung_<ngày>.sqlite` vào `sao-luu/`.
 
-**Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Chủ ghi thẳng được; nhân viên gửi yêu cầu, chủ duyệt trong app ở **Cần xử lý → Yêu cầu từ nhân viên (web)**. Trên điện thoại chỉ xem Tồn kho.
+**Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Chọn **Tiếng Việt** hoặc **中文** ngay ở trang đăng nhập (đổi lại ở góc phải trên hoặc **Cài đặt → Chung**). Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Trang web **chỉ để xem**: mọi việc ghi dữ liệu (hàng về, kiểm kê, sửa mặt hàng…) làm trên app. Trên web còn có:
+- **Tổng quan** (chỉ tài khoản vai trò máy chính, mở ra là thấy trang này): doanh thu và số đơn của kỳ so với cùng kỳ trước, hàng sắp hết, tồn âm, doanh thu 12 tháng, mặt hàng bán chạy, khách mua nhiều, đơn gần nhất. Bấm một dòng để xem chi tiết.
+- **📤 Phiếu xuất kho…** (vai trò máy chính và nhân viên): giống trên app nhưng web chỉ tạo file Excel; bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn (mục 3.5).
+- Nút **¥ ⇄ ₫** ở góc trái dưới (mục 3.6) và **Cài đặt → Sao lưu → Xuất dữ liệu** (tải toàn bộ dữ liệu chung về thành gói `.dibekho`).
+
+Trên điện thoại chỉ xem Tồn kho.
 
 **Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò, gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc. Không thấy mục Tài khoản: nhờ người cài đặt (cần cài thêm một lần).
 

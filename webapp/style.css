@@ -4,7 +4,7 @@
    ĐỔI MÀU NHẤN: chỉ hai dòng --primary / --primary-hover (và --primary-light đi theo). */
 :root {
   color-scheme: light;
-  --app-font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --app-font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", "Microsoft YaHei", "PingFang SC", sans-serif;
 
   /* màu nhấn: xanh của app (đậm hơn một bậc để chữ trắng trên nút đạt 5:1) */
   --primary: #1f6fb2;
@@ -37,6 +37,7 @@
   --error-text: #d1000a;
   --warning-bg: #fff4e0;
   --warning: #a14400;
+  --success-text: #047857;     /* emerald-700: 4.5:1 on white for small text */
 
   --radius: 12px;
   --radius-sm: 10px;
@@ -66,11 +67,10 @@ h1 { font-size: 24px; font-weight: 600; margin: 4px 0 6px; letter-spacing: -0.01
 h2 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
 h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; }
 
-/* ai thấy gì: body.role-desktop (chủ), role-editor (nhân viên), role-viewer */
-body:not(.role-desktop) .only-owner, body:not(.web-edits) .only-owner { display: none !important; }  /* the web only looks */
+/* ai thấy gì: body.role-desktop (máy chính), role-editor (nhân viên), role-viewer; the web only looks (14/11/2026) */
+body:not(.role-desktop) .only-owner { display: none !important; }  /* Tổng quan, Sao lưu */
 body:not(.account-admin) .only-admin { display: none !important; }  /* only the main machine's login manages accounts */
-body:not(.role-desktop) .only-writer, body:not(.web-edits) .only-writer { display: none !important; }  /* staff only look (user, 13/11/2026: the web is for emergencies) */
-.only-staff { display: none !important; }
+body:not(.maker) .only-maker { display: none !important; }  /* Phiếu xuất kho: máy chính + nhân viên */
 
 /* ===== ô nhập, chọn ===== */
 input, select { height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
@@ -184,24 +184,20 @@ td.yellow input, table.edit input { width: 100%; min-width: 80px; height: 36px; 
 td.yellow input:hover, table.edit input:hover { border-color: var(--border-strong); background: var(--surface); }
 td.yellow input:focus, table.edit input:focus { background: var(--surface); border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring-focus); }
 table.edit td { padding: 4px 6px; }
-table.edit input.rf-product { min-width: 280px; }
-.rf-pick { display: flex; gap: 4px; align-items: center; }
-.rf-pick button.rf-star { flex: none; white-space: nowrap; color: var(--primary); }
-.rf-newbox { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 4px; padding: 6px;
-             border: 1px dashed var(--primary); border-radius: 8px; min-width: 320px; }
-.rf-newbox b { grid-column: 1 / -1; color: var(--primary); }
-.rf-newbox button.rf-unstar { grid-column: 1 / -1; justify-self: start; }
-table.edit .rf-newbox input { border-color: var(--border-strong); background: var(--surface); }
+table.edit input.ix-product { min-width: 300px; }
+table.edit input.ix-price { min-width: 110px; }
+table.edit input.ix-note { min-width: 140px; }
+table.edit th { white-space: normal; min-width: 70px; }
+td.ix-have.over { color: var(--error-text); font-weight: 600; }  /* asks for more than the place has */
+td.bad input { border-color: var(--error-text) !important; }
 input.qty { text-align: right; font-variant-numeric: tabular-nums; }
-.key { padding: 1px 8px; border-radius: 6px; }
-.key.low { background: var(--row-orange); }
-.key.neg { background: var(--row-red); }
 
 /* ===== cửa sổ (như các cửa sổ riêng của app) ===== */
 dialog { border: none; border-radius: 16px; padding: 20px 24px; width: min(1100px, calc(100vw - 24px));
          max-height: calc((100vh - 24px) / var(--z, 1)); overflow: auto; background: var(--surface); color: var(--foreground);
          box-shadow: var(--elevation-modal), 0 0 0 1px rgb(0 0 0 / 0.04); }
 dialog::backdrop { background: rgb(20 20 30 / 0.4); }
+dialog.narrow { width: min(600px, calc(100vw - 24px)); }
 dialog .scroll { box-shadow: 0 0 0 1px var(--border-strong); }
 .dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .dlg-head h2 { margin: 0; font-size: 20px; }
@@ -229,6 +225,75 @@ dl.info dd { margin: 0; word-break: break-word; }
 .chart .bar { fill: var(--primary); }
 .chart .axis { fill: var(--muted); font-size: 10px; }
 
+/* ===== chọn ngôn ngữ, nút tỷ giá (góc trái dưới) ===== */
+select.lang { height: 36px; font-size: 14px; }
+.login-lang { display: flex; justify-content: flex-end; margin: -8px -8px 4px 0; }
+.login .login-lang select { width: auto; margin: 0; }
+.fx-btn { height: 40px; margin: 8px 4px 0; font-size: 15px; font-weight: 600; color: var(--primary);
+          border-color: var(--border-strong); background: var(--surface); }
+.fx-btn:hover { background: var(--primary-light); }
+.form2.fx { max-width: 440px; }
+.fx-box { display: flex; align-items: center; gap: 8px; }
+.fx-box input { flex: 1; min-width: 0; font-size: 18px; height: 44px; }
+.fx-box b { width: 18px; color: var(--muted); }
+#fx-info { white-space: pre-line; font-weight: 500; }
+
+/* ===== Tổng quan (dashboard.js): hàng số liệu, biểu đồ 12 tháng, bốn danh sách ===== */
+.dash-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dash-head label { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--muted); }
+#dash-range { margin: 2px 0 10px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border);
+        border-radius: var(--radius); overflow: hidden; box-shadow: var(--elevation-card), 0 0 0 1px rgb(0 0 0 / 0.03); }
+.kpi { min-width: 0; background: var(--surface); padding: 16px 20px; display: grid; grid-template-rows: subgrid; grid-row: span 3; align-content: start; }
+.kpi.click { cursor: pointer; }
+.kpi.click:hover { background: var(--surface-hover); }
+.kpi-label { margin: 0; font-size: 14px; font-weight: 500; color: var(--muted); }
+.kpi-value { margin: 4px 0 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-value .unit { font-size: 22px; color: var(--muted); }
+.kpi-sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.kpi-sub .up { color: var(--success-text); font-weight: 500; }
+.kpi-sub .down { color: var(--error-text); font-weight: 500; }
+#dash-banner .banner { margin: 12px 0 0; cursor: pointer; }
+.dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; align-items: start; }
+.panel { min-width: 0; background: var(--surface); border-radius: var(--radius); padding: 16px 20px 18px;
+         box-shadow: var(--elevation-card), 0 0 0 1px rgb(0 0 0 / 0.03); }
+.panel.wide { grid-column: 1 / -1; }
+.panel h2 { margin: 0 0 12px; font-size: 16px; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px 0 8px; }
+.panel-head h2 { margin: 0; }
+button.see-all { height: 32px; padding: 0 10px; margin-right: -10px; font-size: 14px; color: var(--primary); }
+.dash-empty { margin: 24px 0; text-align: center; }
+.mchart-wrap { overflow-x: auto; }
+.mchart { width: 100%; min-width: 560px; height: auto; display: block; }  /* narrow window: the chart scrolls, numbers stay readable */
+.mchart .bar { fill: var(--primary); }
+.mchart .bar.running { fill: rgb(31 111 178 / 0.45); }
+.mchart .val { fill: var(--foreground); font-size: 12px; font-weight: 600; text-anchor: middle; font-variant-numeric: tabular-nums; }
+.mchart .axis { fill: var(--muted); font-size: 12px; text-anchor: middle; }
+ol.rank, ul.lines { list-style: none; margin: 0; padding: 0; }
+ol.rank li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+ol.rank li:last-child, ul.lines li:last-child { border-bottom: none; }
+.rank-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.rank-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.rank-fig { flex: none; font-variant-numeric: tabular-nums; }
+.rank-sub { font-size: 13px; color: var(--muted); }
+svg.hbar { display: block; width: 100%; height: 6px; margin: 6px 0 2px; border-radius: 3px; }
+svg.hbar .track { fill: var(--secondary); }
+svg.hbar .bar { fill: var(--primary); }
+ul.lines li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px;
+              margin: 0 -10px; border-bottom: 1px solid var(--border); border-radius: 8px; }
+ul.lines li.low { background: var(--row-orange); border-bottom-color: transparent; margin-bottom: 4px; }
+ul.lines li.neg { background: var(--row-red); border-bottom-color: transparent; margin-bottom: 4px; }
+.line-main { min-width: 0; display: flex; flex-direction: column; }
+.line-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.line-sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.lines li.low .line-sub, ul.lines li.neg .line-sub { color: #55555a; }
+.line-fig { flex: none; font-variant-numeric: tabular-nums; }
+.line-fig small { font-weight: 400; color: var(--muted); }
+ol.rank li.click, ul.lines li.click { cursor: pointer; }
+ol.rank li.click:hover .rank-name, ul.lines li.click:hover .line-name { color: var(--primary); }
+@media (max-width: 980px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi-value { font-size: 22px; } }
+
 /* ===== điện thoại: thanh trái thành hàng nút trên cùng ===== */
 @media (max-width: 760px) {
   .shell { flex-direction: column; align-items: stretch; }  /* flex-start làm khung rộng bằng bảng: trang tràn ngang */
@@ -244,7 +309,7 @@ label.check input:focus, .scroll:focus { outline: none; }  /* evon I13 */
 /* ===== điện thoại: chỉ xem bảng Tồn kho (app.js PHONE) ===== */
 .only-phone { display: none; }
 body.phone .only-phone { display: inline-flex; }
-body.phone .side, body.phone .not-phone, body.phone .only-writer, body.phone .only-owner, body.phone .only-admin, body.phone .only-staff,
+body.phone .side, body.phone .not-phone, body.phone .only-maker, body.phone .only-owner, body.phone .only-admin,
 body.phone #freshness { display: none !important; }
 body.phone .page:not(#page-stock) { display: none !important; }
 body.phone #page-stock { display: block !important; }

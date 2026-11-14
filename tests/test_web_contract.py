@@ -1,11 +1,13 @@
 """The contract between the web page and the shared data, end to end.
 
-A real Chrome (headless) opens the page on a shop's shared rows, fills in and presses the owner's windows (and a staff
-member's), and the calls the page makes are captured. Those exact calls then run on a real Postgres with the project's
-SQL (PGlite), the app pulls the result with its normal two-way sync, and the shop's data must show every change. Staff
-requests are read by the app's own approval code. A renamed field or argument on either side turns this red, which no
-test of one side alone could notice. Skipped without Chrome or PGlite."""
+A real Chrome (headless) opens the page on a shop's shared rows (read from a real Postgres with the project's SQL,
+PGlite) and goes through it as staff, as a viewer and as the main machine's role. The web only looks (customer's
+request 14/11/2026): every call the page makes is captured, and nothing but the account tab's own calls may leave it.
+The Phiếu xuất kho file the page hands to the browser is read back by the app and dropped into its notes folder:
+the stock of each place goes down once. The same page in 中文 shows Chinese words and Chinese product names.
+Skipped without Chrome or PGlite."""
 
+import base64
 import functools
 import html
 import http.server
@@ -20,12 +22,19 @@ from pathlib import Path
 import pytest
 
 from dibekho import db
-from dibekho.core import catalog, receipts, stock
+from dibekho.core import catalog, deliveries, receipts, stock
 from dibekho.core.cloud import replica, twoway
+from dibekho.core.workspace import Workspace
+from dibekho.excel.delivery_note import read_delivery_note
 from tests.pgdb import WEB_FILES, FakeCloud, Session, needs_pg
 
 ROOT = Path(__file__).resolve().parent.parent
 OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+# what the owner's windows of the past called (cloud/supabase/009_web_rpc.sql, 010); the SQL stays on the server,
+# tests/test_cloud_web_rpc.py keeps it right, but the page itself never calls it any more
+WRITE_CALLS = ("web_transfer", "web_trial", "web_product_add", "web_product_edit", "web_product_merge",
+               "web_customer_merge", "web_cancel", "web_set_location", "web_receipt", "web_stock_count", "sync_push",
+               "web_inbox", "sb.storage", ".upload(")
 
 
 def find_chrome():
@@ -42,10 +51,8 @@ def find_chrome():
 
 
 CHROME = find_chrome()
-pytestmark = [pytest.mark.skipif(CHROME is None, reason="Chrome is not installed"), needs_pg]
+needs_chrome = pytest.mark.skipif(CHROME is None, reason="Chrome is not installed")
 TABLES = ("products", "customers", "suppliers", "documents", "document_lines", "stock_movements", "meta")
-ARG_TYPES = {"p": "jsonb", "p_replaces": "uuid", "p_doc": "uuid", "p_id": "uuid", "p_a": "uuid", "p_b": "uuid",
-             "p_location": "integer", "p_ids": "uuid[]", "p_name": "text"}
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -53,18 +60,36 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+def test_the_page_has_no_code_that_writes():
+    """The windows that wrote (009/010), the staff requests (web_inbox), the file upload and the package import are
+    gone from the page: only the account tab (SQL 011 + Edge Function) and the interface size (web_settings) remain."""
+    found = []
+    for path in sorted((ROOT / "webapp").glob("*.js")):
+        if path.name in ("config.js", "config.example.js"):
+            continue
+        text = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        found += [f"{path.name}: {w}" for w in WRITE_CALLS if w in text]
+        writes = re.findall(r"\.(?:insert|update|delete|upsert)\(", text.replace(".sel.delete(", ""))  # a Set's delete is fine
+        found += [f"{path.name}: {m}" for m in writes]
+    assert not found, found
+    rpcs = set()
+    for path in (ROOT / "webapp").glob("*.js"):
+        rpcs |= set(re.findall(r"""sb\.rpc\(\s*["'](\w+)["']""", path.read_text(encoding="utf-8")))
+    assert rpcs <= {"sync_pull", "web_setting_set", "web_accounts_list", "web_account_set_role", "web_account_revoke"} | {""}, rpcs
+
+
 def _shop(conn):
     with db.transaction(conn):
-        a = catalog.create_product(conn, "Keo A", spec="15kg", unit="thung", category="Keo")
+        a = catalog.create_product(conn, "Keo A", "胶A", spec="15kg", unit="thung", category="Keo")
         b = catalog.create_product(conn, "Mang B", spec="3mm", unit="cuon", category="Mang")
         catalog.create_product(conn, "Keo C", spec="15kg", unit="thung", category="Keo")
         cust = catalog.upsert_customer(conn, "Cong ty A", phone="0900 000 001")
         catalog.upsert_customer(conn, "Khach X", phone="0900 000 002")
-        catalog.upsert_customer(conn, "Khach Y", phone="0900 000 003")
-        stock.insert_document(conn, "delivery", date(2026, 11, 2), [stock.Line(a, 5)], code="7", code_norm="7",
-                              customer_id=cust)
+        stock.insert_document(conn, "delivery", date(2026, 11, 2), [stock.Line(a, 5, unit_price=100, amount=500)],
+                              code="7", code_norm="7", customer_id=cust)
         stock.insert_document(conn, "delivery", date(2026, 11, 3), [stock.Line(a, 3)], code="8", code_norm="8",
                               customer_id=cust, location_set=False)
+        stock.transfer(conn, date(2026, 11, 2), stock.MAIN, stock.OFFICE, [stock.Line(a, 10)])
     receipts.save(conn, receipts.ReceiptInput(date(2026, 11, 1), receipts.SUPPLIER, supplier_name="Cua khau",
                                               lines=[receipts.ReceiptLineInput(50, a),
                                                      receipts.ReceiptLineInput(20, b)]))
@@ -85,20 +110,23 @@ def cloud_shop(tmp_path):
     pg.close()
 
 
-def _run_page(pg, tmp_path, probe="web_contract_probe.js", extra=""):
+def _run_page(pg, tmp_path, probe="web_contract_probe.js", extra="", head=""):
     fixture = {t: [r["r"] for r in pg.query(f"select to_jsonb(x) as r from public.{t} x where not deleted")]
                for t in TABLES}
     fixture = {"products": fixture["products"], "customers": fixture["customers"], "suppliers": fixture["suppliers"],
                "documents": fixture["documents"], "lines": fixture["document_lines"],
                "movements": fixture["stock_movements"], "meta": fixture["meta"]}
     site = tmp_path / "site"
+    shutil.rmtree(site, ignore_errors=True)
     shutil.copytree(ROOT / "webapp", site, ignore=shutil.ignore_patterns("config.js"))
     (site / "config.js").write_text('const DIBEKHO_CLOUD = {url: "https://example.supabase.co", key: "k"};'
                                     "window.__DIBEKHO_TEST__ = true;", encoding="utf-8")
     (site / "fixture.js").write_text("window.__FIXTURE__ = " + json.dumps(fixture) + ";" + extra, encoding="utf-8")
+    (site / "head.js").write_text(head, encoding="utf-8")
     shutil.copy(ROOT / "tests" / probe, site / "probe.js")
     page = (site / "index.html").read_text(encoding="utf-8")
     page = page.replace("</body>", '<script src="fixture.js"></script><script src="probe.js"></script></body>')
+    page = page.replace("<title>", '<script src="head.js"></script><title>')  # runs before any script of the page
     # the supabase library from the CDN is not needed (sb is stubbed): a tiny local stand-in keeps the test offline
     page = re.sub(r'<script src="https://cdn\.jsdelivr\.net[^>]*></script>', '<script src="sb_stub.js"></script>', page)
     (site / "sb_stub.js").write_text("window.supabase = { createClient: () => ({ auth: {}, from: () => ({}), rpc: () => ({}) }) };",
@@ -121,103 +149,65 @@ def _run_page(pg, tmp_path, probe="web_contract_probe.js", extra=""):
     return out
 
 
-def _call(pg, fn, args):
-    params, parts = [], []
-    for i, (key, value) in enumerate(args.items(), start=1):
-        cast = ARG_TYPES[key]
-        if cast == "jsonb":
-            value = json.dumps(value)
-        elif cast == "uuid[]":
-            value = "{" + ",".join(value) + "}"
-        params.append(value)
-        parts.append(f"{key} => ${i}::{cast}")
-    return pg.query(f"select public.{fn}({', '.join(parts)}) as r", params, sub=OWNER)[0]["r"]
-
-
-def _count(conn, sql, *args):
-    return conn.execute(sql, args).fetchone()[0]
-
-
-def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path):
+@needs_chrome
+@needs_pg
+def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_shop, tmp_path):
     pg, conn, cloud, ids = cloud_shop
     out = _run_page(pg, tmp_path)
-
-    assert out["checks"]["staff"] == {"transfer": False, "receipt": False, "save": False, "editReceipt": False,
-                                      "sendFile": False, "countBoxes": False}  # staff only look (13/11/2026)
-    assert out["requests"] == []
-    assert not any(out["checks"]["ownerView"].values()), out["checks"]["ownerView"]  # the owner only looks too
-    assert out["checks"]["owner"] == {"transfer": True, "merge": True}
-    assert "HV001" in out["checks"]["editTitle"]
-    assert out["checks"]["returnFields"] is True
-    assert out["checks"]["returnPriceShown"] is True and out["checks"]["returnPriceAuto"] == ""
-    # named order; latest purchase; latest up to the day; another customer's order ignored; never bought
-    assert out["checks"]["priceRules"] == [100, 120, 100, 120, None]
-    assert out["checks"]["priceFilled"] == "100"  # the box fills itself when the order is typed
-    back = [c for c in out["calls"] if c["fn"] == "web_receipt" and c["args"]["p"]["source"] == "return"]
-    assert [ln.get("unit_price") for ln in back[0]["args"]["p"]["lines"]] == [95.5]
-    assert out["checks"]["countMsg"] == "Đã lưu kiểm kê."
-    assert out["checks"]["starSpec"] == "18L/Thung"
-
-    calls = out["calls"]
-    assert [c["fn"] for c in calls] == [
-        "web_transfer", "web_trial", "web_product_add", "web_product_edit", "web_product_merge", "web_customer_merge",
-        "web_cancel", "web_set_location", "web_receipt", "web_receipt", "web_stock_count", "web_receipt"]
-    for c in calls:
-        _call(pg, c["fn"], c["args"])
-    r = twoway.sync_round(conn, cloud, OWNER, "Shop")
-    assert all(not m.conflicts for m in r.merged)
-
-    got = conn.execute("SELECT l.unit_price, l.amount FROM document_lines l JOIN documents d ON d.id = l.document_id "
-                       "WHERE d.receipt_source = 'return'").fetchall()
-    assert [tuple(r) for r in got] == [(95.5, 95.5)]  # the typed price reached the app: 95,5 off the revenue
-    levels = stock.stock_levels(conn, by_location=True)
-    # transfer CH001: 12 to the office; trial DT001: 2 out at the office; delivery 8 taken from the office (-3)
-    assert _count(conn, "SELECT COUNT(*) FROM documents WHERE kind = 'transfer' AND code = 'CH001'") == 1
-    assert _count(conn, "SELECT COUNT(*) FROM documents WHERE kind = 'trial' AND code = 'DT001'") == 1
-    assert levels[(ids["a"], stock.OFFICE)] == 12 - 2 - 3
-
-    assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Keo D' AND spec = '25kg' AND unit = 'thung'") == 1
-    a = conn.execute("SELECT * FROM products WHERE id = ?", (ids["a"],)).fetchone()
-    assert (a["name_vi"], a["stock_note"], a["active"]) == ("Keo A moi", "2 thung mop", 0)
-    assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Keo C'") == 0  # merged into SP002
-    # its freed code went to the first new product made after the merge (step 12), as in the app
-    assert _count(conn, "SELECT COUNT(*) FROM products WHERE code = 'SP003' AND name_vi = 'Son lot'") == 1
-    assert _count(conn, "SELECT COUNT(*) FROM products WHERE id = ?", ids["b"]) == 1
-
-    assert _count(conn, "SELECT COUNT(*) FROM customers WHERE name IN ('Khach X', 'Khach Y')") == 0
-    assert _count(conn, "SELECT COUNT(*) FROM customers WHERE name = 'Khach XY'") == 1
-
-    assert _count(conn, "SELECT COUNT(*) FROM documents WHERE kind = 'delivery' AND code = '7' AND status = 'cancelled'") == 1
-    d8 = conn.execute("SELECT location_id, location_set FROM documents WHERE kind = 'delivery' AND code = '8'").fetchone()
-    assert (d8["location_id"], d8["location_set"]) == (2, 1)
-
-    assert [r[0] for r in conn.execute("SELECT status FROM documents WHERE code = 'HV001' ORDER BY id")] == ["replaced", "active"]
-    edited = conn.execute("SELECT SUM(l.qty) FROM document_lines l JOIN documents d ON d.id = l.document_id "
-                          "WHERE d.code = 'HV001' AND d.status = 'active' AND l.product_id = ?", (ids["a"],)).fetchone()[0]
-    assert edited == 60
-    back = conn.execute("SELECT customer_id, ref_code, code FROM documents WHERE kind = 'receipt' "
-                        "AND receipt_source = 'return'").fetchone()
-    assert (back["customer_id"], back["ref_code"], back["code"]) == (ids["cust"], "7", "HV002")
-
-    counted = conn.execute("SELECT l.qty, l.location_id FROM document_lines l JOIN documents d ON d.id = l.document_id "
-                           "WHERE d.kind = 'stock_count'").fetchall()
-    assert [tuple(r) for r in counted] == [(18, stock.MAIN)]
-    assert stock.stock_levels(conn, by_location=True)[(ids["b"], stock.MAIN)] == 18 + 2  # counted, then step 12
-
-    # 12: the new product came with its receipt; the look-alike became the existing Mang B, not a second one
-    star = conn.execute("SELECT id FROM documents WHERE kind = 'receipt' AND code = 'HV003'").fetchone()["id"]
-    got = conn.execute("SELECT p.name_vi, p.name_zh, p.spec, p.category, l.qty FROM document_lines l "
-                       "JOIN products p ON p.id = l.product_id WHERE l.document_id = ? ORDER BY l.line_no",
-                       (star,)).fetchall()
-    assert [tuple(r) for r in got] == [("Son lot", "底漆", "18L/Thung", "Son", 10), ("Mang B", "", "3mm", "Mang", 2)]
-    assert _count(conn, "SELECT COUNT(*) FROM products WHERE name_vi = 'Mang B'") == 1
-
-    # 13: Cài đặt → Tài khoản: the owner has the tab, staff do not; bad input never leaves the page; the buttons send
-    # what the Edge Function (create, reset) and SQL 011 (role, revoke) take, and not one call touches oneself
     checks = out["checks"]
-    assert checks["stockSorted"] and checks["stockStick"] and checks["zoom"] == "1"
+    assert (checks["lang"], checks["loginButton"]) == ("vi", "Đăng nhập")
+
+    # nothing but the account tab's calls left the page; the rate is the only thing fetched, once
+    assert out["calls"] == [] and out["froms"] == []
+    assert out["fetches"] == ["https://open.er-api.com/v6/latest/CNY"] and checks["fxFetches"] == 1
+    assert checks["gone"] == []
+
+    # who sees what: the overview only for the main machine's role, the issue note for it and staff
+    assert checks["staff"] == {"dashboard": False, "openedOn": "stock", "issue": True, "accounts": False, "backup": False}
+    assert checks["viewer"] == {"issue": False, "dashboard": False}
+    owner = checks["owner"]
+    assert (owner["dashboard"], owner["openedOn"], owner["backup"], owner["title"]) == (True, "dashboard", True, "Tổng quan")
+    assert (owner["kpis"], owner["months"]) == (4, 12)
+    assert owner["products"] >= 1 and owner["customers"] >= 1 and owner["recent"] == 2
+
+    # the issue window: phone of the customer filled in, price from the latest order (100), stock per place shown
+    assert checks["issueTitle"] == "Phiếu xuất kho" and checks["issuePhone"] == "0900 000 001"
+    assert checks["issuePrice"] == "100" and checks["issueHave"] == ["32", "10"]  # 50 - 5 - 3 - 10 at Kho tổng
+    assert checks["issueTotal"] == "Tiền hàng: 400" and checks["issueClosed"]
+    assert "2 dòng" in checks["twice"]
+    (made,) = out["files"]
+    assert re.fullmatch(r"PhieuXuat_PX\d{6}-\d{6}\.xlsx", made["name"]), made["name"]
+
+    # the file reads like the app's own, and dropped into the notes folder takes each place once
+    ws = Workspace(tmp_path / "ws")
+    ws.ensure()
+    path = ws.deliveries / made["name"]
+    path.write_bytes(base64.b64decode(made["b64"]))
+    note = read_delivery_note(path)
+    assert (note.customer_name, note.phone, note.code) == ("Cong ty A", "0900 000 001", made["name"][10:-5])
+    assert [(ln.product_code, ln.location_id, ln.qty, ln.unit_price, ln.amount) for ln in note.lines] == [
+        ("SP001", 1, 2, 100, 200), ("SP001", 2, 1.5, 100, 150), ("SP002", 1, 1, 50, 50)]
+    before = stock.stock_levels(conn, by_location=True)
+    deliveries.scan(conn, ws)
+    after = stock.stock_levels(conn, by_location=True)
+    a, b = ids["a"], ids["b"]
+    assert (before[(a, stock.MAIN)] - after[(a, stock.MAIN)], before[(a, stock.OFFICE)] - after[(a, stock.OFFICE)],
+            before[(b, stock.MAIN)] - after[(b, stock.MAIN)]) == (2, 1.5, 1)
+    deliveries.scan(conn, ws)
+    assert stock.stock_levels(conn, by_location=True) == after
+
+    # ¥ ⇄ ₫ both ways at the market rate
+    assert checks["fxVnd"] == "961538" and checks["fxCny"] == "260" and "3.846" in checks["fxInfo"]
+
+    # stock list and interface size, as before
+    assert checks["stockSorted"] and checks["zoom"] == "1"
+    assert checks["stockHeads"] == "Mã,Mặt hàng,Tên Trung,Quy cách,Loại / màu,Nhóm hàng,Đơn vị,Tồn"
+    assert checks["stockFirst"] == ["SP001", "Keo A", "胶A"]
     assert checks["scaleOwner"] is True and checks["scaleOther"] is False
-    assert checks["accountsTabStaff"] is False and checks["accountsTabOtherOwner"] is False and checks["accountsTabOwner"] is True and checks["accountRows"] == 3
+
+    # Cài đặt → Tài khoản: only the maychinh login has the tab; bad input never leaves the page; the buttons send
+    # what the Edge Function (create, reset) and SQL 011 (role, revoke) take, and not one call touches oneself
+    assert checks["accountsTabOtherOwner"] is False and checks["accountsTabOwner"] is True and checks["accountRows"] == 3
     assert "chưa giống nhau" in checks["pwMismatch"] and "ít nhất 8" in checks["pwShort"] and "@dibekho.local" in checks["userAt"]
     assert checks["pwAfterCreate"] == "" and checks["ownerCreateAsked"] == 1
     lan = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
@@ -234,3 +224,24 @@ def test_every_owner_window_writes_what_the_app_then_shows(cloud_shop, tmp_path)
     assert sum(1 for c in acc if c.get("rpc") == "web_accounts_list") >= 4  # the list reloads after every change
 
 
+@needs_chrome
+@needs_pg
+def test_the_same_page_in_chinese(cloud_shop, tmp_path):
+    pg, conn, cloud, ids = cloud_shop
+    out = _run_page(pg, tmp_path, head='try { localStorage.setItem("dibekho_lang", "zh"); } catch (e) {}')
+    checks = out["checks"]
+    assert (checks["lang"], checks["loginButton"]) == ("zh-CN", "登录")
+    assert checks["owner"]["title"] == "概览" and checks["issueTitle"] == "出库单"
+    assert checks["stockHeads"] == "编码,商品,越南语名称,规格,类型/颜色,类别,单位,库存"
+    assert checks["stockFirst"] == ["SP001", "胶A", "Keo A"]  # the Chinese name first, the Vietnamese one next to it
+    assert "两次输入的密码不一致" in checks["pwMismatch"]
+    assert checks["issueTotal"] == "货款：400"
+    (made,) = out["files"]
+    note = read_delivery_note(_save(tmp_path, made))
+    assert [ln.location_id for ln in note.lines] == [1, 2, 1]  # the file is the same bilingual file in any language
+
+
+def _save(tmp_path, made):
+    path = tmp_path / made["name"]
+    path.write_bytes(base64.b64decode(made["b64"]))
+    return path

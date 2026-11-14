@@ -151,7 +151,7 @@ The app writes an Excel file `output/phieu-xuat/PhieuXuat_PX….xlsx`, shaped li
 
 ### 3.6. Yuan / dong converter
 
-Click the small **¥ ⇄ ₫** button at the bottom left. Type an amount in yuan or in dong, the other box follows. It is the market rate, updated once a day, **for reference only** (not a bank's buy/sell price). Without internet the app uses the last rate and shows its date.
+Click the small **¥ ⇄ ₫** button at the bottom left. Type an amount in yuan or in dong, the other box follows. It is the market rate, updated once a day, **for reference only** (not a bank's buy/sell price). Without internet the app uses the last rate and shows its date. The web page (with Cloud) has the same button in the same place.
 
 ---
 
@@ -487,7 +487,12 @@ This part is **optional**. Use it only when several computers (and the web page)
 
 **Cloud backups:** each **Sync now** and each time you close the app, a full backup goes to the cloud (the newest 10 are kept, compressed), with the original delivery note files. To get one back: **Settings → Cloud → Restore from cloud…**. Every day the app also copies `DiBeKho_dulieu-chung_<date>.sqlite` into `sao-luu/`.
 
-**Web page:** open the address you were given and sign in with your name and password. It is laid out **like the app** (same buttons in the same places). The owner writes directly; staff send requests that the owner approves in the app under **To do → Staff requests (web)**. On a phone it only shows Stock.
+**Web page:** open the address you were given and sign in with your name and password. Pick **Tiếng Việt** or **中文** right on the sign-in page (switch later at the top right or in **Settings → General**). It is laid out **like the app** (same buttons in the same places). The web page **only shows** the data: everything that writes (goods in, stock counts, editing products…) is done in the app. The web page also has:
+- **Overview** (main-machine role only; the page it opens on): revenue and orders of the period against the same span before, low and negative stock, revenue of the last 12 months, best sellers, best customers, latest orders. Click a row for its details.
+- **📤 Stock issue note…** (main-machine role and staff): like the app's, but the web page only makes the Excel file; the stock goes down once that file is in the main machine's delivery notes folder (section 3.5).
+- The **¥ ⇄ ₫** button at the bottom left (section 3.6) and **Settings → Backup → Export data** (all the shared data as one `.dibekho` package).
+
+On a phone it only shows Stock.
 
 **Accounts for staff and managers:** only the main machine's login (**maychinh**) can create them, on the web page; nobody else can: **Settings → Accounts → Create account…**, type the user name, pick the role, type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves. If there is no Accounts tab, ask whoever installed it (a one-time extra setup).
 

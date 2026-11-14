@@ -1,13 +1,11 @@
-/* .dibekho data packages made and read by the web page itself (user's choice 13/11/2026), the same files the app makes
-   and reads (core/transfer.py). The shared data on the cloud is the most complete copy, so a package made here is the
+/* .dibekho data packages made by the web page itself (user's choice 13/11/2026), the same files the app makes and
+   reads (core/transfer.py). The shared data on the cloud is the most complete copy, so a package made here is the
    whole data of the shop -- without the kept Excel originals (phieu-goc) and the app's log, which the cloud never held.
 
    Export: every live row of the cloud (sync_pull from 0) written into a new SQLite database built with the app's own
    migrations (schema.js, generated from them), with integer ids, references translated and sync_map filled so the app
-   keeps the uuids. Import: the package's database checked and brought to the current schema like the app does
-   (_check_database, db.migrate), then ONE sync_push that marks every live cloud row deleted and writes every row of the
-   package, in a single transaction (core/cloud/admin.py does the same from the app). A copy of the current data is
-   downloaded first.
+   keeps the uuids. Importing a package is done in the app only (the web only looks, customer's request 14/11/2026;
+   core/cloud/admin.py).
 
    Pure functions take the libraries as arguments, so tests/web_package_cli.js runs the very same code in Node. */
 
@@ -15,7 +13,8 @@
 
 const DBK_PKG = (() => {
   const S = typeof DBK_SCHEMA !== "undefined" ? DBK_SCHEMA : require("./schema.js");
-  const keyOf = (t) => (t.natural ? t.key : "id");
+  // the page's language (i18n.js); in Node (tests/web_package_cli.js) the plain English words
+  const say = (key, plain) => (typeof tr === "function" ? tr(key) : plain);
 
   /* ---------------------------------------------------------------- the database */
 
@@ -91,7 +90,7 @@ const DBK_PKG = (() => {
     if (value === null || value === undefined) return null;
     if (t.refs[col]) {
       const local = ids[t.refs[col]].get(value);
-      if (local === undefined) throw new Error(`${t.name}.${col}: ${t.refs[col]} ${value} không có trong dữ liệu`);
+      if (local === undefined) throw new Error(`${t.name}.${col}: ${t.refs[col]} ${value} ${say("pkg.missing_ref", "is missing")}`);
       return local;
     }
     if (t.booleans.includes(col)) return value ? 1 : 0;
@@ -134,7 +133,7 @@ const DBK_PKG = (() => {
     }
     if (db.exec("PRAGMA foreign_key_check").length) {
       run(db, "ROLLBACK");
-      throw new Error("Dữ liệu trên Cloud không khớp nhau (khoá ngoại), chưa tạo được gói.");
+      throw new Error(say("pkg.broken_refs", "the cloud's rows do not match (foreign keys)"));
     }
     run(db, "COMMIT");
     run(db, "PRAGMA foreign_keys = ON");
@@ -167,118 +166,6 @@ const DBK_PKG = (() => {
     }
   }
 
-  /* ---------------------------------------------------------------- import */
-
-  class PackageError extends Error {}
-
-  /** The package's database, checked like core/transfer.py and brought to the current schema. -> {db, manifest} */
-  function readPackage(SQL, fflate, bytes) {
-    let files;
-    try {
-      files = fflate.unzipSync(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
-    } catch (e) {
-      throw new PackageError(`File gói dữ liệu bị hỏng: ${e.message}`);
-    }
-    if (!files["manifest.json"]) throw new PackageError("File gói dữ liệu bị hỏng: thiếu thông tin gói.");
-    if (!files["kho.sqlite"]) throw new PackageError("Gói dữ liệu thiếu database.");
-    let manifest;
-    try {
-      manifest = JSON.parse(fflate.strFromU8(files["manifest.json"]));
-    } catch (e) {
-      throw new PackageError(`File gói dữ liệu bị hỏng: ${e.message}`);
-    }
-    if (!manifest || !Number.isInteger(manifest.schema_version)) {
-      throw new PackageError("File gói dữ liệu bị hỏng: thiếu thông tin phiên bản.");
-    }
-    if (manifest.schema_version > S.version) {
-      throw new PackageError("Gói dữ liệu được tạo bởi phiên bản DiBeKho mới hơn. Hãy cập nhật trang web / app trước.");
-    }
-    let db;
-    try {
-      db = new SQL.Database(files["kho.sqlite"]);
-      const version = one(db, "PRAGMA user_version");
-      const tables = new Set(rows(db, "SELECT name FROM sqlite_master WHERE type = 'table'").map((r) => r.name));
-      const healthy = one(db, "PRAGMA quick_check") === "ok";
-      if (version < 1 || version !== manifest.schema_version || !tables.has("products") || !tables.has("documents") || !healthy) {
-        throw new PackageError("File gói dữ liệu bị hỏng hoặc không phải dữ liệu DiBeKho. Dữ liệu trên Cloud không bị thay đổi.");
-      }
-      migrate(db);
-    } catch (e) {
-      if (db) db.close();
-      if (e instanceof PackageError) throw e;
-      throw new PackageError(`File gói dữ liệu bị hỏng: ${e.message}`);
-    }
-    return { db, manifest };
-  }
-
-  /** A v4 uuid. crypto.randomUUID exists only on https or localhost; the page is also opened by a LAN address
-      (http://192.168.x.x), where getRandomValues still works. */
-  function newUuid() {
-    const c = typeof crypto !== "undefined" ? crypto : require("crypto").webcrypto;
-    const b = c.getRandomValues(new Uint8Array(16));
-    b[6] = (b[6] & 0x0f) | 0x40;
-    b[8] = (b[8] & 0x3f) | 0x80;
-    const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
-    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
-  }
-
-  /** Cloud rows of the package, like core/cloud/replica.snapshot: uuids from its sync_map, new ones (kept consistent
-      across references) where it has none. */
-  function cloudRows(db) {
-    const known = new Map();
-    for (const r of rows(db, "SELECT tbl, local_id, uid FROM sync_map")) known.set(`${r.tbl}:${r.local_id}`, r.uid);
-    const uid = (table, local) => {
-      const k = `${table}:${local}`;
-      if (!known.has(k)) known.set(k, newUuid());
-      return known.get(k);
-    };
-    const out = {};
-    for (const t of S.synced) {
-      const cols = columns(db, t.name);
-      const where = t.only_keys.length ? ` WHERE key IN (${t.only_keys.map(() => "?").join(", ")})` : "";
-      const select = `SELECT ${t.key === "rowid" ? "rowid AS _rowid, " : ""}* FROM ${t.name}${where}`;
-      out[t.name] = rows(db, select, t.only_keys).map((r) => {
-        const row = {};
-        for (const c of cols) {
-          let v = r[c];
-          if (v !== null && v !== undefined && t.refs[c]) v = uid(t.refs[c], v);
-          else if (v !== null && v !== undefined && t.booleans.includes(c)) v = !!v;
-          row[c] = v === undefined ? null : v;
-        }
-        if (!t.natural) row.id = uid(t.name, t.key === "rowid" ? r._rowid : r[t.key]);
-        row.deleted = false;
-        return row;
-      });
-    }
-    return out;
-  }
-
-  /** The keys of the rows the cloud holds now (not deleted). */
-  function liveKeys(pulled) {
-    const out = {};
-    for (const t of S.synced) {
-      out[t.name] = ((pulled.tables || {})[t.name] || []).filter((r) => !r.deleted).map((r) => r[keyOf(t)]);
-    }
-    return out;
-  }
-
-  /** Every live cloud row marked deleted, then every row of the package (sync_push applies deletes first). */
-  function buildBatch(db, pulled) {
-    const rowsOf = cloudRows(db), live = liveKeys(pulled), batch = {};
-    for (const t of S.synced) {
-      const key = keyOf(t);
-      batch[t.name] = [...live[t.name]].sort().map((k) => ({ [key]: k, deleted: true })).concat(rowsOf[t.name]);
-    }
-    return batch;
-  }
-
-  function summary(db) {
-    return {
-      products: one(db, "SELECT COUNT(*) FROM products WHERE active = 1"),
-      deliveries: one(db, "SELECT COUNT(*) FROM documents WHERE kind = 'delivery' AND status = 'active'"),
-    };
-  }
-
   /* ---------------------------------------------------------------- the browser */
 
   let libs = null;
@@ -288,7 +175,7 @@ const DBK_PKG = (() => {
       const s = document.createElement("script");
       s.src = src;
       s.onload = resolve;
-      s.onerror = () => reject(new Error(`không tải được ${src}`));
+      s.onerror = () => reject(new Error(`${say("pkg.no_script", "cannot load")} ${src}`));
       document.head.appendChild(s);
     });
   }
@@ -303,7 +190,6 @@ const DBK_PKG = (() => {
     return libs;
   }
 
-  return { migrate, buildDatabase, buildPackage, readPackage, cloudRows, liveKeys, buildBatch, summary, loadLibs,
-           newUuid, PackageError };
+  return { migrate, buildDatabase, buildPackage, loadLibs };
 })();
 if (typeof module !== "undefined") module.exports = DBK_PKG;

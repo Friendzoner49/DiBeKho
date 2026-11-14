@@ -18,8 +18,8 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 5. `cloud/supabase/005_full_view.sql` — gương có thêm bảng biến động tồn và vài cột, để web có **lịch sử vào ra, chi tiết mặt hàng/khách, Thống kê**. **Chạy xong thì mở app bấm Đồng bộ ngay một lần** (không thì web chưa có dữ liệu mới). Dự án cài mới đã có sẵn trong 001.
 6. `cloud/supabase/006_owner_commands.sql` — lệnh của chủ kiểu cũ qua hộp thư (web mới không dùng nữa, chạy cho đủ thứ tự). Dự án cài mới đã có sẵn trong 001.
 7. `cloud/supabase/007_core.sql` + `008_sync_rpc.sql` — bảng thật của **Dữ liệu chung** và đồng bộ 2 chiều.
-8. `cloud/supabase/009_web_rpc.sql` — **chủ ghi thẳng trên web** (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, nơi lấy hàng, mặt hàng, gộp khách). **Bắt buộc cho trang web mới.** Chạy lại nhiều lần không sao, **nhưng mỗi lần chạy lại 009 thì chạy lại 010 ngay sau** (009 đặt lại hàm hàng về cũ).
-9. `cloud/supabase/010_web_receipt_new_products.sql` — **"★ Mặt hàng mới" khi nhập hàng về trên web**: mặt hàng mới được tạo cùng lúc với phiếu (phiếu lỗi thì không để lại mặt hàng thừa). Chạy sau 009 (và chạy lại sau mỗi lần chạy lại 009); chạy lại nhiều lần không sao. Chưa chạy thì web báo "người cài đặt cần chạy SQL 010" khi bấm lưu phiếu có ★.
+8. `cloud/supabase/009_web_rpc.sql` — **chủ ghi thẳng trên web** (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, nơi lấy hàng, mặt hàng, gộp khách). **Bắt buộc cho trang web mới.** Chạy lại nhiều lần không sao, **nhưng mỗi lần chạy lại 009 thì chạy lại 010 ngay sau** (009 đặt lại hàm hàng về cũ). Từ 14/11/2026 trang web **không gọi** các hàm này nữa (web chỉ xem); vẫn chạy cho đủ thứ tự.
+9. `cloud/supabase/010_web_receipt_new_products.sql` — **"★ Mặt hàng mới" khi nhập hàng về trên web**: mặt hàng mới được tạo cùng lúc với phiếu (phiếu lỗi thì không để lại mặt hàng thừa). Chạy sau 009 (và chạy lại sau mỗi lần chạy lại 009); chạy lại nhiều lần không sao. Chưa chạy thì web báo "người cài đặt cần chạy SQL 010" khi bấm lưu phiếu có ★. Từ 14/11/2026 trang web **không gọi** các hàm này nữa (web chỉ xem); vẫn chạy cho đủ thứ tự.
 10. `cloud/supabase/011_accounts.sql` — **quản lý tài khoản ngay trên web** (liệt kê, đổi vai trò, thu hồi quyền; có chốt chặn không tự khoá mình). Chạy sau 009 (dùng một hàm của 009). Chạy lại nhiều lần không sao. Muốn tạo tài khoản và đặt lại mật khẩu trên web thì cần thêm Edge Function ở **mục 5b**.
 11. `cloud/supabase/012_web_settings.sql` — cỡ giao diện web dùng chung cho mọi máy (chỉ tài khoản `maychinh` đổi được, ở Cài đặt → Chung). Chạy sau 011.
 12. `cloud/supabase/013_return_prices.sql` — hàng khách trả lại có **Đơn giá trả lại** và được trừ khỏi doanh thu (phiếu trả hàng nhập trên web). Chạy sau 010; **chạy lại 009 hoặc 010 thì chạy lại 013**.
@@ -32,7 +32,7 @@ Authentication → Users → Add user → Create new user, tick *Auto Confirm Us
 | Tài khoản | Vai trò | Dùng để |
 |---|---|---|
 | `maychinh@dibekho.local` | `desktop` | app trên máy chính đẩy dữ liệu, kéo hộp thư, sao lưu |
-| `khach1@dibekho.local` … | `viewer` (chỉ xem) hoặc `editor` (xem + **gửi yêu cầu**) | trang web — mỗi nhân viên một tài khoản `editor` riêng, để biết ai gửi |
+| `khach1@dibekho.local` … | `viewer` (chỉ xem) hoặc `editor` (xem + tạo file **Phiếu xuất kho**) | trang web — mỗi người một tài khoản riêng. Sếp/quản lý muốn xem trang **Tổng quan** thì cấp vai trò `desktop` |
 
 Gán vai trò (SQL Editor), đổi tên/vai trò cho đúng:
 
@@ -45,35 +45,29 @@ select id, 'Nguoi xem', 'editor' from auth.users where email = 'khach1@dibekho.l
 
 Quên mật khẩu: không có email khôi phục. Cách tạo tài khoản từng bước, đổi mật khẩu, đổi vai trò và thu hồi quyền khi nhân viên nghỉ: [07-tai-khoan-va-mat-khau.md](07-tai-khoan-va-mat-khau.md).
 
-### Trang web giờ làm việc thẳng trên dữ liệu chung (từ 12/11/2026, SQL 009)
+### Trang web: chỉ xem, tiếng Việt / 中文 (từ 14/11/2026)
 
-Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud), trang web đọc và ghi **bảng thật** trên Cloud (không còn bản gương chờ máy chính đẩy lên). Bố cục web **giống app**: thanh bên trái *Tồn kho · Cần xử lý · Tra cứu · Hàng về · Kiểm kê · Cài đặt*, nút cùng tên, cùng chỗ (Chuyển hàng…/Xuất dùng thử…/Phiếu chuyển hàng… ở Kiểm kê; Đơn hàng/Khách hàng/Thống kê là nút trong Tra cứu; Thêm/Sửa/Gộp mặt hàng ở Cài đặt → Danh mục mặt hàng). Bấm một dòng để chọn, nháy đúp để mở, như app (điện thoại: chạm lần nữa vào dòng đã chọn).
+Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud), trang web đọc **bảng thật** trên Cloud. Bố cục **giống app** (thanh bên trái *Tồn kho · Cần xử lý · Tra cứu · Hàng về · Kiểm kê · Cài đặt*, nút cùng tên, cùng chỗ; bấm một dòng để chọn, nháy đúp để mở). Chọn **Tiếng Việt / 中文** ở trang đăng nhập, góc phải trên hoặc Cài đặt → Chung (nhớ trong trình duyệt; chữ ở `webapp/i18n.js`, kiểm bằng `tests/test_web_i18n.py`). Ở trang tiếng Trung, mặt hàng hiện tên Trung nếu có.
 
-**Chủ (`desktop`, ví dụ `maychinh`)** làm thẳng, **không cần app mở**: nhập/sửa phiếu hàng về, chuyển hàng (cả sửa phiếu), xuất dùng thử, kiểm kê (2 cột vàng Kho tổng/Văn phòng), huỷ phiếu, chọn nơi lấy hàng (ở chi tiết đơn và ở Cần xử lý), thêm/sửa/ngừng dùng/gộp mặt hàng, gộp khách hàng. Mỗi việc là một hàm trong `cloud/supabase/009_web_rpc.sql`, làm đúng như hàm của app và được kiểm song song với app (`tests/test_cloud_web_rpc.py`). App trên máy tính nhận thay đổi ở lần đồng bộ kế tiếp; phiếu hàng về nhập trên web được app tự tạo file Excel trong `output/hang-ve/`.
-- Thêm mặt hàng (Cài đặt → Thêm, hoặc ★ Mặt hàng mới khi nhập hàng về): web hỏi khi mặt hàng **trông giống** một mặt hàng đã có, đúng như app (cùng cách so tên Việt + tên Trung + quy cách; `webapp/dupes.js`, kiểm song song với app ở `tests/test_web_dupes.py`). ★ chỉ có ở tài khoản chủ; nhân viên nhờ chủ thêm mặt hàng trước.
-- Giờ trên phiếu theo đồng hồ của cửa hàng (`meta.clock_offset_min`, máy đồng bộ đầu tiên tự ghi; thiếu thì lấy giờ Việt Nam).
-- Khôi phục bản sao lưu, Khôi phục từ Cloud, nhập gói dữ liệu, Xoá toàn bộ dữ liệu khi bật dữ liệu chung: **thay dữ liệu chung cho mọi người** (web, nhân viên, máy khác). App hỏi, sao lưu trước, gửi lên Cloud trong một lần rồi mới thay file trên máy; cần có mạng và không còn thay đổi chờ gửi.
-- Hoàn tác khi bật dữ liệu chung: chỉ huỷ phiếu hàng về / chuyển hàng / dùng thử / kiểm kê vừa lưu trên máy đó (phiếu vẫn còn, ghi là đã huỷ). Việc khác làm nhầm: Huỷ phiếu / sửa phiếu / sửa tay. Mỗi ngày, sau lần đồng bộ đầu tiên, app chép một bản `sao-luu/DiBeKho_dulieu-chung_<ngày>.sqlite`.
-- Chưa bật dữ liệu chung thì mọi việc ghi của chủ trên web bị từ chối kèm lời nhắc (để không ghi vào chỗ không ai đọc).
+**Web không ghi dữ liệu của cửa hàng** (khách yêu cầu 14/11/2026): mọi việc ghi (hàng về, kiểm kê, chuyển hàng, dùng thử, sửa/gộp mặt hàng, gộp khách, huỷ phiếu, chọn nơi lấy hàng, nhập gói) làm trên app. Các cửa sổ ghi cũ của web, yêu cầu của nhân viên (hộp thư `web_inbox`) và gửi file phiếu đã gỡ khỏi trang; SQL 009/010 vẫn nằm trên Supabase (đã chạy thì không sửa), `tests/test_cloud_web_rpc.py` vẫn kiểm. Yêu cầu cũ còn trong hộp thư thì app vẫn duyệt được ở Cần xử lý. Những gì web còn làm:
+- **Tổng quan** (`webapp/dashboard.js`, chỉ vai trò `desktop`, là trang mở đầu của vai trò này): doanh thu tiền hàng và số đơn của kỳ (tháng này / tháng trước / quý này / năm nay) so với cùng kỳ trước, số mặt hàng sắp hết và tồn âm, doanh thu 12 tháng, mặt hàng bán chạy, khách mua nhiều, hàng sắp hết, đơn gần nhất. Chỉ tổng hợp dữ liệu mà mọi vai trò đã đọc được ở các trang khác, nên ẩn bằng giao diện là đủ (không cần RLS riêng).
+- **📤 Phiếu xuất kho…** (`webapp/issue.js` + `webapp/xlsx.js`, vai trò `desktop` và `editor`): giống app, nhưng trình duyệt chỉ tạo file Excel `PhieuXuat_PX….xlsx` (cùng bố cục với file app tạo, `tests/test_web_issue.py` đọc lại bằng bộ đọc của app). Bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn từng nơi; đọc lại không trừ hai lần.
+- **¥ ⇄ ₫** góc trái dưới (`webapp/fx.js`): tỷ giá thị trường từ open.er-api.com (miễn phí, không khoá; CSP `connect-src` có thêm địa chỉ này), nhớ tỷ giá lần trước trong trình duyệt.
+- **Cài đặt → Sao lưu → Xuất dữ liệu** (vai trò `desktop`, không có trên điện thoại): tải toàn bộ dữ liệu chung thành gói `.dibekho` app mở được (không kèm file Excel phiếu gốc và nhật ký). Trình duyệt tự làm gói bằng `webapp/package.js` + `webapp/vendor/` (sql.js, fflate; MIT); cấu trúc CSDL lấy từ `webapp/schema.js`, sinh bằng `scripts/make_web_schema.py` — **thêm migration thì chạy lại script này** (test báo đỏ nếu quên). Gói schema 10 nên app 0.4.5 của khách không mở được.
+- **Cài đặt → Tài khoản** và cỡ giao diện: chỉ tài khoản `maychinh` (mục 5b).
 
-**Nhân viên (`editor`)** vẫn **gửi yêu cầu chờ duyệt** từ cùng các nút (＋ Nhập hàng về…, Lưu kiểm kê, Gửi phiếu giao hàng (file Excel)…); chủ duyệt trong app → **Cần xử lý** → *Yêu cầu từ nhân viên (web)*, như trước:
-- **Hàng về**: xem tóm tắt, *Vào sổ…*. **Phiếu giao hàng**: *Vào sổ…* đặt file vào thư mục phiếu giao hàng, app đọc như mọi phiếu.
-- **Kiểm kê**: chênh lệch tính theo **lúc nhân viên gửi**; đếm cả 2 nơi thì thành 2 yêu cầu (mỗi nơi một). Phiếu giao vào sổ sau lúc đó hiện ở *đơn đọc sau kiểm kê*.
-- Nhân viên thấy trạng thái ở trang **Cần xử lý** của web (chờ duyệt / đã vào sổ / bị từ chối).
-- Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần vai trò riêng — chưa làm.
+**Điện thoại** (màn hình cảm ứng có cạnh ngắn ≤ 760 px, kể cả khi xoay ngang; máy tính màn nhỏ vẫn có đủ trang): chỉ xem bảng Tồn kho (tên, tồn, Kho tổng, Văn phòng), không có menu. Máy tính bảng và máy tính có đủ trang.
 
-**Điện thoại** (màn hình cảm ứng có cạnh ngắn ≤ 760 px, kể cả khi xoay ngang; máy tính màn nhỏ vẫn có đủ trang): chỉ xem bảng Tồn kho (tên, tồn, Kho tổng, Văn phòng), không có menu, không sửa được gì. Máy tính bảng và máy tính có đủ trang.
+Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần vai trò riêng — chưa làm.
 
-**Gói dữ liệu `.dibekho` trên web** (chủ, Cài đặt → Chuyển dữ liệu và sao lưu; không có trên điện thoại): *Xuất dữ liệu* tải về một gói chứa toàn bộ dữ liệu chung trên Cloud, app mở được như gói của app (không kèm file Excel phiếu gốc và nhật ký). *Nhập dữ liệu từ gói…* (cả gói của app bản cũ 0.4.5) hỏi hai lần, tải về một bản sao dữ liệu hiện tại (`DiBeKho_Web-truoc-nhap_….dibekho`), rồi thay toàn bộ dữ liệu chung trong một lần gửi. Trình duyệt tự làm gói bằng `webapp/package.js` + thư viện trong `webapp/vendor/` (sql.js, fflate; MIT); cấu trúc CSDL lấy từ `webapp/schema.js`, sinh bằng `scripts/make_web_schema.py` — **thêm migration thì chạy lại script này** (test báo đỏ nếu quên). Gói schema 10 nên app 0.4.5 của khách không mở được.
-
-**Lệnh của chủ kiểu cũ** (`cmd_*` qua hộp thư, SQL 006) và **bản gương** (`mirror_*`, hàm `replace_mirror`, SQL 001/005): đã gỡ khỏi app (12/11/2026). Bảng và hàm cũ vẫn nằm trên Supabase nhưng không ai dùng; SQL đã chạy thì không sửa.
+**Lệnh của chủ kiểu cũ** (`cmd_*` qua hộp thư, SQL 006) và **bản gương** (`mirror_*`, SQL 001/005, xoá ở 014): đã gỡ khỏi app (12/11/2026).
 
 ### Web xem được những gì (giống app)
 
 - **Tồn kho**: nháy đúp một mặt hàng → tồn theo nơi, **lịch sử vào ra** có số dư sau từng dòng, khách lấy nhiều nhất, xuất file CSV.
-- **Tra cứu → Đơn hàng / Khách hàng / Thống kê**: như app; Chi tiết đơn mở thành cửa sổ (chủ có Huỷ phiếu, Lấy hàng từ, Sửa phiếu…).
-- Số liệu Thống kê trên web được kiểm tự động bằng `tests/test_web_stats.py` (chạy `webapp/stats.js` dưới `node` và so với `core/stats.py`), nên hai nơi luôn khớp.
-- `tests/test_web_contract.py` cho Chrome thật bấm mọi cửa sổ của chủ (và của nhân viên), chạy đúng các lệnh trang gửi đi trên Postgres thử, rồi app kéo về và kiểm kết quả: tên trường hai bên mà lệch là test đỏ.
+- **Tra cứu → Đơn hàng / Khách hàng / Thống kê**: như app; Chi tiết đơn mở thành cửa sổ (phiếu xuất lấy ở cả 2 nơi ghi nơi của từng dòng).
+- Số liệu Thống kê và Tổng quan trên web dùng `webapp/stats.js`, được kiểm tự động bằng `tests/test_web_stats.py` (so với `core/stats.py`), nên hai nơi luôn khớp.
+- `tests/test_web_contract.py` cho Chrome thật đi qua trang với vai trò nhân viên, chỉ xem và máy chính (cả bản tiếng Trung): không lệnh ghi nào rời trang, file phiếu xuất trang tạo được app đọc và trừ tồn đúng từng nơi.
 
 ## 4. Nối app trên máy chính
 

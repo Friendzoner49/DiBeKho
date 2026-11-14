@@ -1,7 +1,11 @@
 /* DiBeKho web: the shop's shared data (the cloud's real tables, docs/cloud/06-cloud-la-goc.md), laid out like the
    desktop app so the same people find the same buttons in the same places (user's request 12/11/2026).
-   Plain JS on purpose: no build step, easy to edit. Reads with supabase-js; the owner writes through the functions of
-   cloud/supabase/009_web_rpc.sql + 010 (forms.js), staff send requests to web_inbox that the owner approves in the app. */
+   Plain JS on purpose: no build step, easy to edit. Reads with supabase-js.
+
+   The web only looks (customer's request 14/11/2026): nothing here writes the shop's data. What it can do besides
+   looking: make a Phiếu xuất kho Excel file (issue.js; the app takes the stock when the file is dropped in its notes
+   folder), convert yuan and dong (fx.js), download a data package (package.js), and for the maychinh login manage
+   accounts and the interface size (accounts.js). Every text comes from i18n.js (Tiếng Việt / 中文). */
 
 "use strict";
 
@@ -21,11 +25,10 @@ const authStorage = {
 const sb = supabase.createClient(DIBEKHO_CLOUD.url, DIBEKHO_CLOUD.key,
                                  { auth: { storage: authStorage, persistSession: true } });
 const EMAIL_DOMAIN = "dibekho.local";
-const KIND_VI = { delivery: "Phiếu giao hàng", receipt: "Hàng về", stock_count: "Kiểm kê",
-                  transfer: "Chuyển hàng", trial: "Dùng thử" };
 const KIND_ORDER = ["delivery", "receipt", "stock_count", "transfer", "trial"];
-const STATUS_VI = { active: "", cancelled: "đã huỷ", replaced: "đã thay" };
-const PLACE = { 1: "Kho tổng", 2: "Văn phòng" };
+const kindName = (k) => tr(`kind.${k}`);
+const statusName = (s) => (s === "active" ? "" : tr(`status.${s}`));
+const placeName = (id) => (id === 1 || id === 2 ? tr(`place.${id}`) : "");
 
 const $ = (id) => document.getElementById(id);
 const data = { products: [], customers: [], suppliers: [], documents: [], lines: [], movements: [], meta: {} };
@@ -35,16 +38,15 @@ let lowDefault = 30;  // the app's alarm level (meta low_stock_default; 0 = off)
 const ACCOUNT_ADMIN = "maychinh@dibekho.local";  // the one login that manages accounts (the server checks it too)
 const isReturn = (d) => d.kind === "receipt" && d.receipt_source === "return";  // goods a customer sent back
 const isOwner = () => userRole === "desktop";
-/* The web only looks (user, 13/11/2026: the owner works in the app; the web is for emergencies): no button that
-   writes is shown, double-click still opens every detail. The write windows stay in the code behind this one switch
-   (body class "web-edits"; the contract test turns it on to keep the SQL they call checked). */
-const canEdit = () => isOwner() && document.body.classList.contains("web-edits");
-const isStaff = () => userRole === "editor";
+/* Who may make a Phiếu xuất kho file: the main machine's role and staff; "chỉ xem" only looks. The file changes
+   nothing by itself: the app takes the stock when it reads it. */
+const canMakeIssue = () => userRole === "desktop" || userRole === "editor";
 
 /* ---------------------------------------------------------------- helpers */
 
 function unaccent(s) {
-  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replaceAll("đ", "d");
+  // marks off, then the letter d with a stroke (U+0111) as a plain d; written by its code: no Vietnamese in scripts
+  return (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll(String.fromCharCode(0x111), "d");
 }
 
 function matches(needle, hay) {
@@ -78,7 +80,7 @@ function todayLocal() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** A typed quantity: '1,5' and '1.5' both mean one and a half, full-width digits too (like the app). "" -> null. */
+/** A typed number: '1,5' and '1.5' both mean one and a half, full-width digits too (like the app). "" -> null. */
 function parseQty(text) {
   const s = String(text ?? "").normalize("NFKC").trim().replace(",", ".");
   if (!s) return null;
@@ -86,8 +88,13 @@ function parseQty(text) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+/** The product's name in the page's language: 中文 shows the Chinese name when the product has one. */
+const pn = (p) => (LANG === "zh" ? (p.name_zh || p.name_vi) : p.name_vi) || "";
+/** The other name, shown in the column next to it (Tên Trung on the Vietnamese page, 越南语名称 on the Chinese one). */
+const pnOther = (p) => (LANG === "zh" ? (p.name_zh ? p.name_vi : "") : p.name_zh) || "";
+
 function productName(p) {
-  return [p.name_vi, p.spec, p.variant].filter(Boolean).join(" · ");
+  return [pn(p), p.spec, p.variant].filter(Boolean).join(" · ");
 }
 
 function productLabel(p) {
@@ -99,7 +106,7 @@ const activeProducts = () => data.products.filter((p) => p.active)
   .sort((a, b) => (a.category || "").localeCompare(b.category || "", "vi") || a.name_vi.localeCompare(b.name_vi, "vi") ||
                   (a.spec || "").localeCompare(b.spec || "", "vi"));
 
-/* Sortable table, like the app's: click a header to sort; click a row to select it (select: "one" | "many"),
+/* Sortable table, like the app's: click a header to sort; click a row to select it (select: "one"),
    double-click to open it. cols = [{label, get, num?, cls?, html?}]. */
 const tableState = { "stock-table": { i: 0, dir: 1, sel: new Set() } };  // Tồn kho opens sorted by code (SP001…)
 
@@ -143,9 +150,8 @@ function buildTable(into, cols, items, opts = {}) {
         if (e.target.closest("input, select, button")) return;
         const k = keyOf(item);
         // phones cannot double-click reliably: tapping the row that is already selected opens it
-        if (opts.open && opts.select === "one" && st.sel.has(k)) { opts.open(item); return; }
-        if (opts.select === "many") { st.sel.has(k) ? st.sel.delete(k) : st.sel.add(k); }
-        else { st.sel.clear(); st.sel.add(k); }
+        if (opts.open && st.sel.has(k)) { opts.open(item); return; }
+        st.sel.clear(); st.sel.add(k);
         for (const other of el.querySelectorAll("tbody tr")) {
           const it = byKey.get(other.dataset.k);
           other.classList.toggle("sel", !!it && st.sel.has(keyOf(it)));
@@ -163,6 +169,17 @@ function buildTable(into, cols, items, opts = {}) {
 function selected(into) {
   const st = tableState[into];
   return st ? [...st.sel] : [];
+}
+
+/* ---------------------------------------------------------------- language */
+
+function fillLanguageChoices() {
+  for (const id of ["lang-login", "lang-app", "lang-settings"]) {
+    const sel = $(id);
+    sel.innerHTML = LANGS.map((l) => `<option value="${l}">${esc(LANG_NAMES[l])}</option>`).join("");
+    sel.value = LANG;
+    sel.addEventListener("change", () => setLang(sel.value));
+  }
 }
 
 /* ---------------------------------------------------------------- login */
@@ -183,7 +200,7 @@ async function signIn() {
   const { error } = await sb.auth.signInWithPassword({ email, password: $("password").value });
   if (error) {
     $("login-error").textContent = /credentials/i.test(error.message)
-      ? "Sai tên đăng nhập hoặc mật khẩu." : `Không đăng nhập được: ${error.message}`;
+      ? tr("login.wrong") : tr("login.failed", { reason: error.message });
     return;
   }
   showApp();
@@ -199,6 +216,7 @@ async function showApp() {
   setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0],
           (user.email || "").toLowerCase() === ACCOUNT_ADMIN);
   loadSharedScale();
+  showPage(isOwner() && !PHONE ? "dashboard" : "stock");  // the manager opens on the overview (customer, 14/11/2026)
   await loadAll();
 }
 
@@ -206,19 +224,16 @@ async function showApp() {
    when the page opens: a touch screen (no mouse) whose short side is small. A phone turned sideways is still a phone;
    a computer with a small screen or a narrow window is not; a tablet or a computer gets the whole page. */
 const PHONE = window.matchMedia("(pointer: coarse)").matches && Math.min(window.screen.width, window.screen.height) <= 760;
-if (PHONE) {
-  document.body.classList.add("phone");
-  $("stock-filter").placeholder = "Lọc theo tên, mã, quy cách…";
-}
+if (PHONE) document.body.classList.add("phone");
 
 function setRole(role, name, accountAdmin = false) {
   userRole = role || "";
   userName = name || "";
   document.body.classList.remove("role-desktop", "role-editor", "role-viewer");
   document.body.classList.toggle("account-admin", role === "desktop" && !!accountAdmin);
+  document.body.classList.toggle("maker", canMakeIssue());
   if (userRole) document.body.classList.add(`role-${userRole}`);
-  const what = { desktop: "chủ", editor: "nhân viên", viewer: "chỉ xem" }[userRole] || "chưa có quyền";
-  $("who").textContent = `${userName} (${what})`;
+  $("who").textContent = `${userName} (${tr(`role.short_${userRole || "none"}`)})`;
 }
 
 /* ---------------------------------------------------------------- data */
@@ -246,11 +261,10 @@ async function loadAll() {
     ]);
     setData({ products, customers, suppliers, documents, lines, movements, meta });
   } catch (e) {
-    $("load-error").textContent = `Không tải được dữ liệu: ${e.message || e}`;
+    $("load-error").textContent = tr("load.failed", { reason: e.message || e });
     return;
   }
   renderAll();
-  loadInbox();
 }
 
 function setData(d) {
@@ -276,12 +290,11 @@ function setData(d) {
   for (const list of [d.products, d.customers, d.documents, d.movements, d.lines]) {
     for (const r of list) if (r.updated_at && r.updated_at > newest) newest = r.updated_at;
   }
-  $("freshness").textContent = newest ? `Dữ liệu chung · thay đổi gần nhất lúc ${fmtTime(newest)}` : "";
-  // suggestion lists of the forms
+  $("freshness").textContent = newest ? tr("top.freshness", { when: fmtTime(newest) }) : "";
+  // suggestion lists of the Phiếu xuất kho window
   $("products-dl").innerHTML = activeProducts().map((p) => `<option value="${esc(productLabel(p))}">`).join("");
-  $("suppliers-dl").innerHTML = data.suppliers.map((s) => `<option value="${esc(s.name)}">`).join("");
-  $("categories-dl").innerHTML = [...new Set(data.products.map((p) => p.category).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, "vi")).map((c) => `<option value="${esc(c)}">`).join("");
+  $("customers-dl").innerHTML = data.customers.slice().sort((a, b) => a.name.localeCompare(b.name, "vi"))
+    .map((c) => `<option value="${esc(c.name)}">`).join("");
 }
 
 function productFromLabel(text) {
@@ -296,6 +309,7 @@ let page = "stock";
 let backTo = "stock";
 
 function showPage(name) {
+  if (name === "dashboard" && !isOwner()) name = "stock";  // only the main machine's role has the overview
   if (name !== "detail") backTo = name;
   page = name;
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("hidden", p.id !== `page-${name}`));
@@ -308,21 +322,22 @@ function showPage(name) {
    (user, 13/11/2026: Thống kê stayed empty). */
 function renderAll() {
   const failed = [];
-  const parts = [renderStock, renderPendingUnplaced, renderSearch, renderOrders, renderCustomers, renderReceipts,
-                 renderCount, renderCatalog, renderSettingsInfo,
-                 () => { if (!$("page-stats").dataset.ready) { initStats(); $("page-stats").dataset.ready = "1"; } else { syncStatsControls(); renderStats(); } }];
+  const parts = [renderDashboard, renderStock, renderPendingUnplaced, renderSearch, renderOrders, renderCustomers,
+                 renderReceipts, renderCount, renderCatalog, renderSettingsInfo,
+                 function renderStatsPage() { if (!$("page-stats").dataset.ready) { initStats(); $("page-stats").dataset.ready = "1"; } else { syncStatsControls(); renderStats(); } }];
   for (const part of parts) {
-    try { part(); } catch (e) { console.error(e); failed.push(`${part.name || "Thống kê"}: ${e.message || e}`); }
+    try { part(); } catch (e) { console.error(e); failed.push(`${part.name}: ${e.message || e}`); }
   }
-  if (failed.length) $("load-error").textContent = `Một phần trang bị lỗi (hãy chụp dòng này gửi người hỗ trợ): ${failed.join(" · ")}`;
+  if (failed.length) $("load-error").textContent = tr("load.part_failed", { parts: failed.join(" · ") });
 }
 
 /* ---------------------------------------------------------------- Tồn kho */
 
+const isLow = (p) => lowDefault && stockOf(p.id).total < lowDefault;
+
 function renderStock() {
   const f = $("stock-filter").value, onlyLow = $("stock-low").checked;
   const all = activeProducts();
-  const isLow = (p) => lowDefault && stockOf(p.id).total < lowDefault;
   const items = all.filter((p) => (!onlyLow || isLow(p)) &&
     (!f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`)));
   if (PHONE) {
@@ -330,107 +345,48 @@ function renderStock() {
     $("stock-table").innerHTML = '<div class="pcards">' + items.map((p) => {
       const s = stockOf(p.id), cls = s.total < 0 ? " neg" : isLow(p) ? " low" : "";
       const sub = [p.code, p.spec, p.variant].filter(Boolean).map(esc).join(" · ");
-      return `<div class="pcard${cls}"><div class="pc-main"><div class="pc-name">${esc(p.name_vi)}</div>` +
-        `<div class="pc-sub">${sub}</div><div class="pc-sub">Kho tổng ${fmtQty(s[1])} · Văn phòng ${fmtQty(s[2])}</div></div>` +
+      return `<div class="pcard${cls}"><div class="pc-main"><div class="pc-name">${esc(pn(p))}</div>` +
+        `<div class="pc-sub">${sub}</div><div class="pc-sub">${esc(tr("place.1"))} ${fmtQty(s[1])} · ${esc(tr("place.2"))} ${fmtQty(s[2])}</div></div>` +
         `<div class="pc-total"><span>${fmtQty(s.total)}</span><small>${esc(p.unit || "")}</small></div></div>`;
     }).join("") + "</div>";
   } else buildTable("stock-table", [
-    { label: "Mã", get: (p) => p.code },
-    { label: "Mặt hàng", get: (p) => p.name_vi, cls: "wrap" },
-    { label: "Tên Trung", get: (p) => p.name_zh, cls: "wrap" },
-    { label: "Quy cách", get: (p) => p.spec },
-    { label: "Loại / màu", get: (p) => p.variant },
-    { label: "Nhóm hàng", get: (p) => p.category },
-    { label: "Đơn vị", get: (p) => p.unit },
-    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
-    { label: "Ghi chú tồn kho", get: (p) => p.stock_note },
-    { label: "Kho tổng", get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
-    { label: "Văn phòng", get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
-    { label: "Xuất gần nhất", get: (p) => stockOf(p.id).lastOut || "" },
+    { label: tr("col.code"), get: (p) => p.code },
+    { label: tr("col.product"), get: pn, cls: "wrap" },
+    { label: tr("col.other_name"), get: pnOther, cls: "wrap" },
+    { label: tr("col.spec"), get: (p) => p.spec },
+    { label: tr("col.variant"), get: (p) => p.variant },
+    { label: tr("col.category"), get: (p) => p.category },
+    { label: tr("col.unit"), get: (p) => p.unit },
+    { label: tr("col.stock"), get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+    { label: tr("col.stock_note"), get: (p) => p.stock_note },
+    { label: tr("place.1"), get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
+    { label: tr("place.2"), get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
+    { label: tr("col.last_out"), get: (p) => stockOf(p.id).lastOut || "" },
   ], items, {
     rowClass: (p) => (stockOf(p.id).total < 0 ? "neg" : isLow(p) ? "low" : ""),
     select: "one", open: (p) => showProduct(p.id),
   });
   const low = all.filter(isLow).length, negative = all.filter((p) => stockOf(p.id).total < 0).length;
   $("stock-banner").classList.toggle("hidden", !low);
-  $("stock-banner").textContent = `⚠ ${low} mặt hàng sắp hết (dưới ${fmtQty(lowDefault)}) — nên đặt thêm hàng.` +
-    (PHONE ? "" : " Tick “Chỉ hiện hàng sắp hết” để xem riêng.");
-  $("stock-summary").textContent = `${all.length} mặt hàng · ${low} sắp hết (cam) · ${negative} tồn âm (đỏ — thiếu hàng về hoặc chưa kiểm kê)`;
+  $("stock-banner").textContent = tr("stock.banner", { n: low, level: fmtQty(lowDefault) }) +
+    (PHONE ? "" : " " + tr("stock.banner_tick"));
+  $("stock-summary").textContent = tr("stock.summary", { n: all.length, low, negative });
 }
 
 /* ---------------------------------------------------------------- Cần xử lý */
 
+const unplacedOrders = () => data.documents.filter((d) => d.kind === "delivery" && d.status === "active" && d.location_set === false);
+
 function renderPendingUnplaced() {
-  const items = data.documents.filter((d) => d.kind === "delivery" && d.status === "active" && d.location_set === false)
-    .sort((a, b) => a.doc_date.localeCompare(b.doc_date));
+  const items = unplacedOrders().sort((a, b) => a.doc_date.localeCompare(b.doc_date));
   buildTable("pending-unplaced", [
-    { label: "Ngày", get: (d) => d.doc_date },
-    { label: "Mã đơn", get: (d) => d.code },
-    { label: "Khách hàng", get: (d) => (customerById[d.customer_id] || {}).name || "" },
-    { label: "Mặt hàng", get: (d) => (linesByDoc[d.id] || []).map((l) => `${(productById[l.product_id] || {}).code || "?"}×${fmtQty(l.qty)}`).join(", ") },
-    { label: "Lấy hàng từ", get: () => "", html: (d) => canEdit()
-        ? `<select data-place="${esc(d.id)}"><option value="1">Kho tổng</option><option value="2">Văn phòng</option></select> ` +
-          `<button data-place-save="${esc(d.id)}">Lưu</button>` : "chưa chọn" },
-  ], items, { open: (d) => showOrder(d.id), empty: "Không có đơn nào chờ chọn nơi lấy hàng." });
-  for (const btn of $("pending-unplaced").querySelectorAll("[data-place-save]")) {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.placeSave;
-      const sel = $("pending-unplaced").querySelector(`select[data-place="${CSS.escape(id)}"]`);
-      ownerAction(() => rpcWrite("web_set_location", { p_doc: id, p_location: Number(sel.value) }));
-    });
-  }
-  updatePendingBadge();
-}
-
-let inboxRows = [];
-
-const INBOX_KIND = {
-  receipt: "Hàng về", delivery_file: "Phiếu giao hàng (file)", stock_count: "Kiểm kê",
-  cmd_transfer: "Chuyển hàng (lệnh cũ)", cmd_trial: "Xuất dùng thử (lệnh cũ)", cmd_product_add: "Thêm mặt hàng (lệnh cũ)",
-  cmd_product_edit: "Sửa mặt hàng (lệnh cũ)", cmd_product_merge: "Gộp mặt hàng (lệnh cũ)", cmd_customer_merge: "Gộp khách (lệnh cũ)",
-  cmd_cancel_doc: "Huỷ phiếu (lệnh cũ)", cmd_set_location: "Đặt nơi (lệnh cũ)", cmd_receipt_edit: "Sửa phiếu hàng về (lệnh cũ)",
-};
-
-function inboxDetail(r) {
-  const p = r.payload || {};
-  if (p.summary) return p.summary;
-  if (r.kind === "delivery_file") return p.file_name || "";
-  if (r.kind === "stock_count") return `${p.count_date || ""} · ${PLACE[p.location_id] || "Kho tổng"} · ${(p.lines || []).length} mặt hàng`;
-  return `${p.doc_date || ""} · ${p.supplier_name || (customerById[p.customer_id] || {}).name || ""} · ${(p.lines || []).length} dòng`;
-}
-
-function inboxStatus(r) {
-  const res = r.result || {};
-  if (r.status === "rejected") return res.reason ? `✖ Không vào sổ: ${res.reason}` : "✖ Bị từ chối";
-  if (r.status !== "applied") return "⏳ Chờ chủ duyệt trên app";
-  if (r.kind === "delivery_file") return res.already ? "✔ App đã có phiếu này" : "✔ Đã nhận, app đang đọc";
-  return `✔ Đã vào sổ${res.code ? ` (${res.code})` : ""}`;
-}
-
-async function loadInbox() {
-  if (!userRole || userRole === "viewer") { $("pending-inbox").innerHTML = ""; inboxRows = []; updatePendingBadge(); return; }
-  const { data: rows, error } = await sb.from("web_inbox").select("*").order("created_at", { ascending: false }).limit(50);
-  inboxRows = error || !rows ? [] : rows;
-  let names = new Map();
-  if (isOwner()) {
-    const { data: profs } = await sb.from("profiles").select("user_id,display_name");
-    names = new Map((profs || []).map((p) => [p.user_id, p.display_name || ""]));
-  }
-  buildTable("pending-inbox", [
-    { label: "Gửi lúc", get: (r) => fmtTime(r.created_at) },
-    ...(isOwner() ? [{ label: "Người gửi", get: (r) => names.get(r.created_by) || "" }] : []),
-    { label: "Loại", get: (r) => INBOX_KIND[r.kind] || r.kind },
-    { label: "Nội dung", get: inboxDetail },
-    { label: "Trạng thái", get: inboxStatus },
-  ], inboxRows, { empty: "Chưa có yêu cầu nào." });
-  updatePendingBadge();
-}
-
-function updatePendingBadge() {
-  const unplaced = data.documents.filter((d) => d.kind === "delivery" && d.status === "active" && d.location_set === false).length;
-  const waiting = inboxRows.filter((r) => r.status === "pending").length;
-  const n = unplaced + waiting;
-  $("nav-pending").textContent = n ? `Cần xử lý  (${n})` : "Cần xử lý";
+    { label: tr("col.date"), get: (d) => d.doc_date },
+    { label: tr("col.order_code"), get: (d) => d.code },
+    { label: tr("col.customer"), get: (d) => (customerById[d.customer_id] || {}).name || "" },
+    { label: tr("col.product"), get: (d) => (linesByDoc[d.id] || []).map((l) => `${(productById[l.product_id] || {}).code || "?"}×${fmtQty(l.qty)}`).join(", ") },
+  ], items, { open: (d) => showOrder(d.id), empty: tr("pending.none") });
+  const n = items.length;
+  $("nav-pending").textContent = n ? `${tr("nav.pending")}  (${n})` : tr("nav.pending");
   $("nav-pending").classList.toggle("alert", n > 0);
 }
 
@@ -444,19 +400,20 @@ function renderSearch() {
   const customers = data.customers.filter((c) => matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`));
   const docs = data.documents.filter((d) => matches(f, `${d.code} ${d.note} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name}`))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date)).slice(0, 200);
-  out.innerHTML = `<h2>Mặt hàng (${products.length})</h2><div id="sr-products"></div>` +
-    `<h2>Khách hàng (${customers.length})</h2><div id="sr-customers"></div><h2>Phiếu (${docs.length})</h2><div id="sr-docs"></div>`;
+  out.innerHTML = `<h2>${esc(tr("search.found_products", { n: products.length }))}</h2><div id="sr-products"></div>` +
+    `<h2>${esc(tr("search.found_customers", { n: customers.length }))}</h2><div id="sr-customers"></div>` +
+    `<h2>${esc(tr("search.found_docs", { n: docs.length }))}</h2><div id="sr-docs"></div>`;
   buildTable("sr-products", [
-    { label: "Mã", get: (p) => p.code }, { label: "Mặt hàng", get: productName }, { label: "Tên Trung", get: (p) => p.name_zh },
-    { label: "Tồn", get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+    { label: tr("col.code"), get: (p) => p.code }, { label: tr("col.product"), get: productName }, { label: tr("col.other_name"), get: pnOther },
+    { label: tr("col.stock"), get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
   ], products, { open: (p) => showProduct(p.id) });
   buildTable("sr-customers", [
-    { label: "Khách hàng", get: (c) => c.name }, { label: "Điện thoại", get: (c) => c.phone }, { label: "Địa chỉ", get: (c) => c.address },
+    { label: tr("col.customer"), get: (c) => c.name }, { label: tr("col.phone"), get: (c) => c.phone }, { label: tr("col.address"), get: (c) => c.address },
   ], customers, { open: (c) => showCustomer(c.id) });
   buildTable("sr-docs", [
-    { label: "Ngày", get: (d) => d.doc_date }, { label: "Loại", get: (d) => KIND_VI[d.kind] || d.kind }, { label: "Mã", get: (d) => d.code },
-    { label: "Khách / nguồn", get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
-    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
+    { label: tr("col.date"), get: (d) => d.doc_date }, { label: tr("col.kind"), get: (d) => kindName(d.kind) }, { label: tr("col.code"), get: (d) => d.code },
+    { label: tr("col.who"), get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
+    { label: tr("col.status"), get: (d) => statusName(d.status) },
   ], docs, { open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : "") });
 }
 
@@ -465,7 +422,8 @@ function renderSearch() {
 function renderOrders() {
   const kindSel = $("orders-kind");
   if (!kindSel.options.length) {
-    kindSel.innerHTML = `<option value="all">Tất cả</option>` + KIND_ORDER.map((k) => `<option value="${k}">${KIND_VI[k]}</option>`).join("");
+    kindSel.innerHTML = `<option value="all">${esc(tr("orders.all"))}</option>` +
+      KIND_ORDER.map((k) => `<option value="${k}">${esc(kindName(k))}</option>`).join("");
     kindSel.value = "delivery";
   }
   const kind = kindSel.value, f = $("orders-filter").value, withClosed = $("orders-closed").checked;
@@ -473,15 +431,15 @@ function renderOrders() {
       (!f || matches(f, `${d.code} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name} ${d.note}`)))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
   buildTable("orders-table", [
-    { label: "Ngày", get: (d) => d.doc_date },
-    ...(kind === "all" ? [{ label: "Loại", get: (d) => KIND_VI[d.kind] || d.kind }] : []),
-    { label: "Mã", get: (d) => d.code },
-    { label: "Khách / nguồn", get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
-    { label: "Nơi", get: placeOf },
-    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
-    { label: "Tổng tiền", get: (d) => d.note_total, num: true, cls: "num", html: (d) => fmtMoney(d.note_total) },
+    { label: tr("col.date"), get: (d) => d.doc_date },
+    ...(kind === "all" ? [{ label: tr("col.kind"), get: (d) => kindName(d.kind) }] : []),
+    { label: tr("col.code"), get: (d) => d.code },
+    { label: tr("col.who"), get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
+    { label: tr("col.place"), get: placeOf },
+    { label: tr("col.status"), get: (d) => statusName(d.status) },
+    { label: tr("col.note_total"), get: (d) => d.note_total, num: true, cls: "num", html: (d) => fmtMoney(d.note_total) },
   ], items, { select: "one", open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : "") });
-  $("orders-count").textContent = `${items.length} phiếu`;
+  $("orders-count").textContent = tr("orders.count", { n: items.length });
 }
 
 /* ---------------------------------------------------------------- Khách hàng */
@@ -497,31 +455,46 @@ function renderCustomers() {
     for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = (revenue[d.customer_id] || 0) + sign * l.amount;
   }
   buildTable("customers-table", [
-    { label: "Khách hàng", get: (c) => c.name }, { label: "Người liên hệ", get: (c) => c.contact },
-    { label: "Điện thoại", get: (c) => c.phone }, { label: "Địa chỉ", get: (c) => c.address },
-    { label: "Doanh thu", get: (c) => revenue[c.id] ?? null, num: true, cls: "num", html: (c) => fmtMoney(revenue[c.id]) },
-  ], items, { select: canEdit() ? "many" : null, open: (c) => showCustomer(c.id) });
+    { label: tr("col.customer"), get: (c) => c.name }, { label: tr("col.contact"), get: (c) => c.contact },
+    { label: tr("col.phone"), get: (c) => c.phone }, { label: tr("col.address"), get: (c) => c.address },
+    { label: tr("col.revenue"), get: (c) => revenue[c.id] ?? null, num: true, cls: "num", html: (c) => fmtMoney(revenue[c.id]) },
+  ], items, { open: (c) => showCustomer(c.id) });
 }
 
 /* ---------------------------------------------------------------- Hàng về */
+
+function receiptSource(d) {
+  return tr({ return: "source.return", other: "source.other" }[d.receipt_source] || "source.supplier");
+}
 
 function renderReceipts() {
   // only active receipts are listed, like the app: replaced (edited) and cancelled ones are left out (user, 13/11/2026)
   const items = data.documents.filter((d) => d.kind === "receipt" && d.status === "active")
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
   buildTable("receipts-table", [
-    { label: "Ngày về", get: (d) => d.doc_date },
-    { label: "Mã", get: (d) => d.code },
-    { label: "Nguồn hàng", get: (d) => ({ return: "Khách trả lại", other: "Nhà cung cấp khác" }[d.receipt_source] || "Cửa khẩu / công ty mẹ") },
-    { label: "Nhà cung cấp / khách", get: (d) => d.supplier_name || (customerById[d.customer_id] || {}).name || "" },
-    { label: "Nhập vào", get: (d) => PLACE[d.location_id] || "" },
-    { label: "Số mặt hàng", get: (d) => (linesByDoc[d.id] || []).length, num: true, cls: "num" },
-    { label: "Tổng số lượng", get: (d) => (linesByDoc[d.id] || []).reduce((a, l) => a + l.qty, 0), num: true, cls: "num",
+    { label: tr("col.receipt_date"), get: (d) => d.doc_date },
+    { label: tr("col.code"), get: (d) => d.code },
+    { label: tr("col.source"), get: receiptSource },
+    { label: tr("col.supplier_or_customer"), get: (d) => d.supplier_name || (customerById[d.customer_id] || {}).name || "" },
+    { label: tr("col.into"), get: (d) => placeName(d.location_id) },
+    { label: tr("col.items"), get: (d) => (linesByDoc[d.id] || []).length, num: true, cls: "num" },
+    { label: tr("col.total_qty"), get: (d) => (linesByDoc[d.id] || []).reduce((a, l) => a + l.qty, 0), num: true, cls: "num",
       html: (d) => fmtQty((linesByDoc[d.id] || []).reduce((a, l) => a + l.qty, 0)) },
-    { label: "Trạng thái", get: (d) => STATUS_VI[d.status] ?? d.status },
-    { label: "Ghi chú", get: (d) => d.note },
-  ], items, { select: "one", open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : ""),
-              empty: "Chưa có lần hàng về nào." });
+    { label: tr("col.note"), get: (d) => d.note },
+  ], items, { select: "one", open: (d) => showOrder(d.id), empty: tr("receipts.none") });
+}
+
+/* ---------------------------------------------------------------- Kiểm kê (look only: counting is done in the app) */
+
+function renderCount() {
+  buildTable("count-table", [
+    { label: tr("col.code"), get: (p) => p.code }, { label: tr("col.product"), get: pn }, { label: tr("col.other_name"), get: pnOther },
+    { label: tr("col.spec"), get: (p) => p.spec }, { label: tr("col.variant"), get: (p) => p.variant }, { label: tr("col.unit"), get: (p) => p.unit },
+    { label: tr("count.app_main"), get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
+    { label: tr("count.app_office"), get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
+    { label: tr("count.app_total"), get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
+    { label: tr("col.stock_note"), get: (p) => p.stock_note },
+  ], activeProducts(), { select: "one", open: (p) => showProduct(p.id) });
 }
 
 /* ---------------------------------------------------------------- Cài đặt */
@@ -531,22 +504,24 @@ function renderCatalog() {
   const items = data.products.filter((p) => !f || matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category}`))
     .sort((a, b) => a.code.localeCompare(b.code, "vi", { numeric: true }));
   buildTable("catalog-table", [
-    { label: "Mã", get: (p) => p.code }, { label: "Mặt hàng", get: (p) => p.name_vi }, { label: "Tên Trung", get: (p) => p.name_zh },
-    { label: "Quy cách", get: (p) => p.spec }, { label: "Loại / màu", get: (p) => p.variant }, { label: "Đơn vị", get: (p) => p.unit },
-    { label: "Nhóm hàng", get: (p) => p.category }, { label: "Đang dùng", get: (p) => (p.active ? "✔" : "") },
-  ], items, { select: "one", open: (p) => (canEdit() ? productForm(p) : showProduct(p.id)), rowClass: (p) => (p.active ? "" : "closed") });
+    { label: tr("col.code"), get: (p) => p.code }, { label: tr("col.product"), get: pn }, { label: tr("col.other_name"), get: pnOther },
+    { label: tr("col.spec"), get: (p) => p.spec }, { label: tr("col.variant"), get: (p) => p.variant }, { label: tr("col.unit"), get: (p) => p.unit },
+    { label: tr("col.category"), get: (p) => p.category }, { label: tr("col.in_use"), get: (p) => (p.active ? "✔" : "") },
+  ], items, { select: "one", open: (p) => showProduct(p.id), rowClass: (p) => (p.active ? "" : "closed") });
 }
 
 function renderSettingsInfo() {
-  const what = { desktop: "Chủ (làm được mọi việc như trên app)", editor: "Nhân viên (gửi yêu cầu, chủ duyệt trên app)",
-                 viewer: "Chỉ xem" }[userRole] || "Chưa được cấp quyền";
-  $("settings-info").innerHTML = `<dt>Tài khoản</dt><dd>${esc(userName)}</dd><dt>Quyền</dt><dd>${esc(what)}</dd>` +
-    `<dt>Báo động khi tồn dưới</dt><dd>${lowDefault ? esc(fmtQty(lowDefault)) : "đang tắt"} (đổi trong app: Cài đặt → Danh mục mặt hàng)</dd>` +
-    `<dt>Dữ liệu</dt><dd>${esc($("freshness").textContent)}</dd>`;
+  $("settings-info").innerHTML = `<dt>${esc(tr("settings.account"))}</dt><dd>${esc(userName)}</dd>` +
+    `<dt>${esc(tr("settings.role"))}</dt><dd>${esc(tr(`role.long_${userRole || "none"}`))}</dd>` +
+    `<dt>${esc(tr("settings.low"))}</dt><dd>${esc(lowDefault ? fmtQty(lowDefault) : tr("settings.low_off"))} ${esc(tr("settings.low_where"))}</dd>` +
+    `<dt>${esc(tr("settings.data"))}</dt><dd>${esc($("freshness").textContent)}</dd>`;
 }
 
 /* ---------------------------------------------------------------- wiring */
 
+applyStatic();
+fillLanguageChoices();
+if (PHONE) $("stock-filter").placeholder = tr("stock.filter_phone");
 for (const btn of document.querySelectorAll(".nav")) btn.addEventListener("click", () => showPage(btn.dataset.page));
 for (const btn of document.querySelectorAll("[data-sub]")) btn.addEventListener("click", () => showPage(btn.dataset.sub));
 for (const btn of document.querySelectorAll("[data-back]")) btn.addEventListener("click", () => showPage(btn.dataset.back));
@@ -585,7 +560,7 @@ $("ui-scale").addEventListener("change", async () => {
     if (error) throw error;
     keepScale(v); applyScale();
   } catch (e) {
-    alert("Chưa đổi được cỡ giao diện cho mọi máy" + (String(e && e.message || e).includes("web_setting_set") ? " (cần chạy SQL 012 trên Supabase)." : "."));
+    alert(String(e && e.message || e).includes("web_setting_set") ? tr("settings.scale_sql") : tr("settings.scale_failed"));
     $("ui-scale").value = String(uiScale());
   }
 });

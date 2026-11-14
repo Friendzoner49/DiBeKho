@@ -23,13 +23,13 @@ Các mục 1 và 8–10 dưới đây vẫn dùng. Các mục **2–7 là cách 
 
 | Vai trò | Dành cho | Làm được gì |
 |---|---|---|
-| `desktop` | **Người quản lý / chủ cửa hàng** và app trên máy chính | Xem tất cả. **Ghi thẳng** trên web và trong app (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, mặt hàng, gộp khách, nhập/xuất gói dữ liệu). **Duyệt** yêu cầu của nhân viên trong app (Cần xử lý). Khôi phục, thay toàn bộ dữ liệu |
-| `editor` | **Nhân viên** cần gửi số liệu | Xem tất cả. **Gửi yêu cầu chờ duyệt**: phiếu hàng về, kiểm kê, phiếu giao hàng (file Excel). Không ghi thẳng được |
+| `desktop` | **Người quản lý / chủ cửa hàng** và app trên máy chính | Xem tất cả, trang web mở vào **Tổng quan**. Tạo file **Phiếu xuất kho** trên web. Trong **app** trên máy chính: ghi mọi thứ (hàng về, chuyển hàng, dùng thử, kiểm kê, huỷ phiếu, mặt hàng, gộp khách, nhập/xuất gói dữ liệu), khôi phục, thay toàn bộ dữ liệu |
+| `editor` | **Nhân viên** | Xem tất cả. Tạo file **Phiếu xuất kho** trên web (app trừ tồn khi file vào thư mục phiếu giao hàng). Không thấy Tổng quan |
 | `viewer` | Người chỉ cần xem | Chỉ xem |
 
 Lưu ý:
 - **Mọi tài khoản đều xem được toàn bộ dữ liệu** (tồn, giá, khách). Chưa có vai trò xem hạn chế.
-- Tài khoản `desktop` có toàn quyền kể cả thay toàn bộ dữ liệu. **Chỉ cấp cho chủ.** Nhân viên dùng `editor`.
+- Từ 14/11/2026 **trang web chỉ xem** với mọi vai trò (khách yêu cầu): việc ghi làm trên app. Tài khoản `desktop` dùng được cho app trên máy chính nên có toàn quyền ghi kể cả thay toàn bộ dữ liệu. **Chỉ cấp cho chủ / quản lý** (ví dụ sếp cần xem Tổng quan). Nhân viên dùng `editor`.
 - Người dùng chỉ gõ tên ngắn, ví dụ `nhanvien1`. Hệ thống tự thêm đuôi `@dibekho.local`. Đây chỉ là "tên kỹ thuật", **không cần email thật** và sẽ không có thư khôi phục nào được gửi.
 
 ## 2. Tạo tài khoản mới (làm một lần cho mỗi người)
@@ -55,7 +55,7 @@ select id, 'Lan - kho', 'editor' from auth.users where email = 'nhanvien1@dibekh
 
 ## 3. Mật khẩu
 
-- **Mỗi người một mật khẩu riêng.** Không dùng chung một tài khoản cho nhiều nhân viên: không biết ai gửi yêu cầu nào, và khi một người nghỉ việc thì phải đổi mật khẩu của tất cả.
+- **Mỗi người một mật khẩu riêng.** Không dùng chung một tài khoản cho nhiều người: khi một người nghỉ việc thì phải đổi mật khẩu của tất cả.
 - Nên dài từ 10 ký tự, trộn chữ và số. Supabase chấp nhận ngắn hơn nhưng không nên.
 - Gửi riêng cho từng người, **không đăng vào nhóm chung**. Không ghi mật khẩu vào file trong thư mục dự án hay repo.
 - App và web **không lưu mật khẩu**. Ô **Nhớ tôi** trên web chỉ giữ phiên đăng nhập trong trình duyệt đó. App giữ phiên đăng nhập trong cấu hình của máy.
@@ -104,7 +104,7 @@ where user_id = (select id from auth.users where email = 'nhanvien1@dibekho.loca
 
 Rồi đổi mật khẩu tài khoản đó sang một chuỗi ngẫu nhiên (mục 4 cách 1) để người cũ không đăng nhập được nữa.
 
-**Đừng xoá tài khoản trong Authentication → Users nếu người đó từng gửi yêu cầu.** Các yêu cầu cũ còn trỏ tới tài khoản nên Supabase sẽ từ chối xoá. Chỉ cần xoá dòng vai trò như trên là đủ.
+**Xoá hẳn tài khoản**: dùng nút **Xoá tài khoản…** trên web (tài khoản `maychinh`, mục 5b của `05-cai-dat.md`). Chỉ muốn tạm khoá thì xoá dòng vai trò như trên là đủ.
 
 Muốn cho phép lại: chạy lại câu cấp vai trò ở mục 2 bước 2.
 
@@ -137,9 +137,9 @@ App trên mỗi máy chính tự đăng nhập bằng tài khoản `desktop`. Tr
 |---|---|---|
 | Đăng nhập báo sai tên hoặc mật khẩu | Gõ hoa/thường hoặc có dấu cách; mật khẩu đã đổi | Gõ lại tên viết thường không dấu; nếu vẫn sai, đặt lại mật khẩu (mục 4) |
 | Đăng nhập được nhưng trang trống, không có nút nào | Tài khoản **chưa có vai trò** | Cấp vai trò (mục 2 bước 2); kiểm tra bằng mục 7 |
-| Nhân viên không thấy nút Chuyển hàng, Xuất dùng thử, Thêm mặt hàng | Đúng thiết kế: vai trò `editor` chỉ gửi yêu cầu hàng về, kiểm kê, phiếu giao | Muốn ghi thẳng thì nâng lên `desktop` (mục 5), chỉ nên cho chủ |
-| Chủ báo "Chỉ tài khoản của chủ mới làm được việc này" | Đang dùng tài khoản `editor`/`viewer` | Đăng nhập bằng tài khoản `desktop` |
-| Chủ báo "Dữ liệu chung chưa được bật" | Máy chính chưa bật dữ liệu chung | Trên app: Cài đặt → Cloud → Bật dùng dữ liệu chung |
+| Không thấy nút Chuyển hàng, Xuất dùng thử, Thêm mặt hàng trên web | Đúng thiết kế: từ 14/11/2026 trang web chỉ xem (với mọi vai trò) | Làm việc đó trên app ở máy chính |
+| Không thấy trang **Tổng quan** | Tài khoản không phải vai trò `desktop` | Nâng lên `desktop` (mục 5) nếu người đó là quản lý |
+| Không thấy nút **📤 Phiếu xuất kho…** | Vai trò `viewer` (chỉ xem), hoặc đang mở trên điện thoại | Đổi sang `editor` nếu người đó cần tạo phiếu; dùng máy tính |
 | App báo "cần gõ lại mật khẩu" | Phiên đăng nhập hết hạn hoặc mật khẩu vừa đổi | Cài đặt → Cloud, gõ mật khẩu, **Đồng bộ ngay** |
 | Web báo «Chưa cài Edge Function accounts» / «cần chạy SQL 011» | Chưa làm [05-cai-dat.md](05-cai-dat.md) mục 5b / chưa chạy 011 | Làm theo 05; trong lúc chờ dùng cách trong trang quản trị Supabase (mục 2–7) |
 | Web báo Supabase từ chối phiên đăng nhập khi Tạo tài khoản | Công tắc Verify JWT của hàm | Tắt công tắc đó (05 mục 5b bước 3) |

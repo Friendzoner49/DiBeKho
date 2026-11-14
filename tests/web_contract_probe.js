@@ -1,18 +1,16 @@
-/* Driven by tests/test_web_contract.py inside headless Chrome. Fills in and presses the owner's windows of the web
-   page on the shared data of a real shop (window.__FIXTURE__ = the cloud's rows), captures every function call the page
-   would make (sb.rpc) and every staff request (web_inbox insert), and hands them back; the test then runs those calls on
-   a real Postgres and lets the app pull the result. No network here: sb is stubbed. */
+/* Driven by tests/test_web_contract.py inside headless Chrome, on the shared data of a real shop
+   (window.__FIXTURE__ = the cloud's rows). The web only looks (customer's request 14/11/2026): every call the page
+   makes is captured (sb.rpc, sb.from, fetch), the Phiếu xuất kho file it hands to the browser is kept, and the
+   test checks that nothing but the account tab's own calls ever leaves the page. No network: sb and fetch are stubbed. */
 
 (async () => {
-  const out = { calls: [], requests: [], accountCalls: [], checks: {}, error: null };
+  const out = { calls: [], froms: [], accountCalls: [], fetches: [], files: [], checks: {}, error: null };
   try {
     const F = window.__FIXTURE__;
     const reload = async () => { setData(JSON.parse(JSON.stringify(F))); renderAll(); };
-    loadAll = reload;           // after a write the page reloads: give it the same rows back
-    loadInbox = async () => {};
+    loadAll = reload;
     sb.rpc = async (fn, args) => {
-      if (fn === "web_api_version") return { data: 13, error: null };  // a read: the SQL the page needs is there
-      if (fn.startsWith("web_account")) {  // the account tab's own calls are kept apart from the documents' calls
+      if (fn.startsWith("web_account")) {  // the account tab's own calls are kept apart
         out.accountCalls.push({ rpc: fn, args });
         return { data: fn === "web_accounts_list" ? [
           { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", email: "maychinh@dibekho.local", display_name: "May chinh", role: "desktop" },
@@ -20,16 +18,19 @@
           { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", email: "moi@dibekho.local", display_name: "", role: "" }] : {}, error: null };
       }
       out.calls.push({ fn, args });
-      return { data: { code: "X", dropped: "Y" }, error: null };
+      return { data: null, error: { message: "not in this test" } };
     };
     sb.functions = { invoke: async (name, opts) => { out.accountCalls.push({ fn: name, body: opts.body }); return { data: { ok: true }, error: null }; } };
-    sb.from = () => ({ insert: async (row) => { out.requests.push(row); return { error: null }; } });
+    sb.from = (table) => { out.froms.push(table); return {}; };
+    const FX = { result: "success", base_code: "CNY", time_last_update_unix: 1794614551, rates: { VND: 3846.153846 } };
+    window.fetch = async (url) => { out.fetches.push(String(url)); return { ok: true, status: 200, json: async () => FX }; };
+    const toB64 = (bytes) => { let s = ""; for (const b of bytes) s += String.fromCharCode(b); return btoa(s); };
+    saveFile = (name, bytes) => out.files.push({ name, b64: toB64(bytes) });
     window.confirm = () => true;
     window.alert = () => {};
 
     const wait = () => new Promise((r) => setTimeout(r, 30));
     const prod = (code) => data.products.find((p) => p.code === code);
-    const docBy = (kind, code) => data.documents.find((d) => d.kind === kind && d.code === code && d.status === "active");
     const press = async (label) => {
       const btn = [...document.querySelectorAll("#dlg-buttons button")].find((b) => b.textContent === label);
       if (!btn) throw new Error(`no button “${label}” in: ${$("dlg-title").textContent}`);
@@ -37,141 +38,92 @@
       if ($("dlg-error").textContent) throw new Error(`${label}: ${$("dlg-error").textContent}`);
     };
     const typeIn = (el, value) => { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); };
-    const qtyRow = (tbody, code) => $(tbody).querySelector(`tr[data-pid="${prod(code).id}"] input`);
-    const shown = (id) => getComputedStyle($(id)).display !== "none";
+    const shown = (el) => !!el && getComputedStyle(el).display !== "none";
+    const navShown = (pageName) => shown(document.querySelector(`.nav[data-page="${pageName}"]`));
+    const GONE = ["receipt-new", "receipt-edit", "count-save", "count-clear", "count-transfer", "count-trial", "catalog-add",
+                  "catalog-edit", "catalog-merge", "customers-merge", "send-delivery", "pkg-import", "pkg-file", "pending-inbox"];
+    out.checks.lang = document.documentElement.lang;
+    out.checks.loginButton = $("login-btn").textContent;
 
-    // staff only look (user, 13/11/2026: the web is for emergencies): no goods-in, no count, no delivery file
+    // staff: no overview, may make a Phiếu xuất kho, no account tab
     setRole("editor", "NV");
     await reload();
-    out.checks.staff = { transfer: shown("count-transfer"), receipt: shown("receipt-new"), save: shown("count-save"),
-                         editReceipt: shown("receipt-edit"), sendFile: shown("send-delivery"),
-                         countBoxes: !!$("count-table").querySelector("input[data-count]") };
+    showPage("dashboard");
+    out.checks.staff = { dashboard: navShown("dashboard"), openedOn: page, issue: shown($("issue-new")),
+                         accounts: shown(document.querySelector('[data-stab="accounts"]')),
+                         backup: shown(document.querySelector('[data-stab="transfer"]')) };
+    setRole("viewer", "Xem");
+    out.checks.viewer = { issue: shown($("issue-new")), dashboard: navShown("dashboard") };
 
-    setRole("desktop", "Chủ");
-    await reload();
-    // the owner only looks too (user, 13/11/2026): no button that writes, the count table has no boxes
-    out.checks.ownerView = { transfer: shown("count-transfer"), merge: shown("catalog-merge"), receipt: shown("receipt-new"),
-                             save: shown("count-save"), sendFile: shown("send-delivery"), customersMerge: shown("customers-merge"),
-                             packageTab: getComputedStyle(document.querySelector('[data-stab="transfer"]')).display !== "none",
-                             countBoxes: !!$("count-table").querySelector("input[data-count]") };
-    // the write windows are still in the code behind one switch: turned on here to keep their SQL contract checked
-    document.body.classList.add("web-edits");
-    await reload();
-    out.checks.owner = { transfer: shown("count-transfer"), merge: shown("catalog-merge") };
-
-    // 1. transfer
-    transferForm(null);
-    $("tf-date").value = "2026-11-05"; $("tf-from").value = "1"; $("tf-to").value = "2";
-    $("tf-note").value = "ban tai van phong";
-    qtyRow("tf-lines", "SP001").value = "12";
-    await press("Lưu phiếu chuyển");
-    // 2. trial use
-    trialForm();
-    $("tu-date").value = "2026-11-06"; $("tu-loc").value = "2";
-    qtyRow("tu-lines", "SP001").value = "2";
-    await press("Lưu phiếu dùng thử");
-    // 3. add a product
-    productForm(null);
-    $("pf-name_vi").value = "Keo D"; $("pf-spec").value = "25kg"; $("pf-unit").value = "thung"; $("pf-category").value = "Keo";
-    await press("Thêm mặt hàng");
-    // 4. edit / stop a product
-    productForm(prod("SP001"));
-    $("pf-name_vi").value = "Keo A moi"; $("pf-stock_note").value = "2 thung mop"; $("pf-active").checked = false;
-    await press("Lưu");
-    // 5. merge two products (SP003 into SP002)
-    mergeProductsWindow(prod("SP003"));
-    $("mg-table").querySelector(`tr[data-k="${prod("SP002").id}"]`).click();
-    await press("Gộp");
-    // 6. merge customers: pick the rows in the Khách hàng list, then the button
-    for (const c of data.customers.filter((x) => x.name === "Khach X" || x.name === "Khach Y")) {
-      $("customers-table").querySelector(`tr[data-k="${c.id}"]`).click();
-    }
-    $("customers-merge").click(); await wait();
-    $("cm-name").value = "Khach XY";
-    await press("Gộp khách hàng");
-    // 7. cancel a delivery
-    showOrder(docBy("delivery", "7").id);
-    await press("Huỷ phiếu");
-    // 8. where delivery 8 was taken from
-    showOrder(docBy("delivery", "8").id);
-    $("od-place").value = "2";
-    $("od-place-save").click(); await wait(); await wait();
-    dlg.close();
-    // 9. edit the goods-in receipt HV001 (from the Hàng về page: select it, Sửa phiếu đã chọn…)
-    $("receipts-table").querySelector(`tr[data-k="${docBy("receipt", "HV001").id}"]`).click();
-    $("receipt-edit").click(); await wait();
-    out.checks.editTitle = $("dlg-title").textContent;
-    typeIn($("rf-lines").querySelector(".rf-qty"), "60");
-    await press("Lưu phiếu đã sửa");
-    // 10. a new receipt, returned by a customer
-    receiptForm(null);
-    document.querySelector('input[name="rf-src"][value="return"]').click();
-    out.checks.returnFields = shown("rf-customer") && !shown("rf-supplier");
-    $("rf-customer").value = data.customers.find((c) => c.name === "Cong ty A").id;
-    $("rf-ref").value = "7";
-    typeIn($("rf-lines").querySelector(".rf-product"), productLabel(prod("SP001")));
-    typeIn($("rf-lines").querySelector(".rf-qty"), "1");
-    out.checks.returnPriceShown = getComputedStyle($("rf-lines").querySelector(".rf-price").closest("td")).display !== "none";
-    out.checks.returnPriceAuto = $("rf-lines").querySelector(".rf-price").value;  // order 7 has no price: empty
-    {  // receipts.return_price on the page: the order named, else the latest purchase up to the day; then the box fills
-      const cust = $("rf-customer").value, pid = prod("SP001").id;
-      const fake = [{ id: "f1", kind: "delivery", status: "active", customer_id: cust, code: "90", doc_date: "2026-10-01", created_at: "1" },
-                    { id: "f2", kind: "delivery", status: "active", customer_id: cust, code: "91", doc_date: "2026-11-01", created_at: "2" },
-                    { id: "f3", kind: "delivery", status: "active", customer_id: "someone-else", code: "92", doc_date: "2026-11-02", created_at: "3" }];
-      const price = { f1: 100, f2: 120, f3: 999 };
-      for (const d of fake) { data.documents.push(d); linesByDoc[d.id] = [{ product_id: pid, line_no: 1, unit_price: price[d.id], qty: 1 }]; }
-      out.checks.priceRules = [returnPrice(cust, pid, "90", "2026-11-05"), returnPrice(cust, pid, "", "2026-11-05"),
-                               returnPrice(cust, pid, "", "2026-10-15"), returnPrice(cust, pid, "92", "2026-11-05"),
-                               returnPrice(cust, prod("SP002").id, "", "2026-11-05")];
-      $("rf-ref").value = "90"; $("rf-ref").dispatchEvent(new Event("input", { bubbles: true }));
-      out.checks.priceFilled = $("rf-lines").querySelector(".rf-price").value;
-      for (const d of fake) { data.documents.splice(data.documents.indexOf(d), 1); delete linesByDoc[d.id]; }
-      $("rf-ref").value = "7"; $("rf-ref").dispatchEvent(new Event("input", { bubbles: true }));
-    }
-    typeIn($("rf-lines").querySelector(".rf-price"), "95,5");
-    await press("Lưu phiếu hàng về");
-    // 11. a stock count of Kho tổng, typed into the yellow column of the Kiểm kê page
-    $("count-date").value = "2026-11-07";
-    typeIn($("count-table").querySelector(`input[data-count="${prod("SP002").id}"][data-place="1"]`), "18");
-    $("count-save").click(); await wait(); await wait();
-    out.checks.countMsg = $("count-msg").textContent;
-    // 12. a receipt with "★ Mặt hàng mới": one really new, one that is already in the catalog (the page asks, the
-    // owner says yes: the existing product is used instead of a duplicate)
-    receiptForm(null);
-    $("rf-supplier").value = "Cong ty me";
-    const rows = $("rf-lines").querySelectorAll("tr");
-    rows[0].querySelector(".rf-star").click();
-    typeIn(rows[0].querySelector(".rf-n-name_vi"), "Son lot");
-    typeIn(rows[0].querySelector(".rf-n-name_zh"), "底漆");
-    typeIn(rows[0].querySelector(".rf-n-spec"), "18L/Thung");
-    typeIn(rows[0].querySelector(".rf-n-category"), "Son");
-    typeIn(rows[0].querySelector(".rf-qty"), "10");
-    out.checks.starSpec = rows[0].querySelector(".rf-spec").textContent;
-    rows[1].querySelector(".rf-star").click();
-    typeIn(rows[1].querySelector(".rf-n-name_vi"), "mang  b");
-    typeIn(rows[1].querySelector(".rf-n-spec"), "3MM");
-    typeIn(rows[1].querySelector(".rf-qty"), "2");
-    await press("Lưu phiếu hàng về");
-
-    // 13. Cài đặt → Tài khoản: only the owner has the tab; the buttons send what the Edge Function / SQL 011 expect
-    const OWN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", LAN = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-    const accTab = () => getComputedStyle(document.querySelector('[data-stab="accounts"]')).display !== "none";
-    setRole("editor", "NV");
-    out.checks.accountsTabStaff = accTab();
-    setRole("desktop", "Quan ly", false);
-    out.checks.accountsTabOtherOwner = accTab();
+    // the main machine's role: the overview, drawn from the shop's data
     setRole("desktop", "Chủ", true);
-    out.checks.accountsTabOwner = accTab();
-    // stock list: opens sorted by code, Tồn stays in view, interface 120%, size choice only for the account manager
+    await reload();
+    showPage("dashboard");
+    out.checks.owner = { dashboard: navShown("dashboard"), openedOn: page, backup: shown(document.querySelector('[data-stab="transfer"]')),
+                         kpis: $("dash-kpis").querySelectorAll(".kpi").length, months: $("dash-months").querySelectorAll("rect.bar").length,
+                         products: $("dash-products").querySelectorAll("li").length, customers: $("dash-customers").querySelectorAll("li").length,
+                         recent: $("dash-recent").querySelectorAll("li").length, title: document.querySelector("#page-dashboard h1").textContent,
+                         revenue: $("dash-kpis").querySelector(".kpi-value").getAttribute("title") };
+    out.checks.gone = GONE.filter((id) => document.getElementById(id));
+
+    // Phiếu xuất kho: customer picked from the list fills its phone; the price comes from the latest order; 2 from
+    // Kho tổng and 1 from Văn phòng of SP001, 1 of SP002 at a typed price
+    $("issue-new").click(); await wait();
+    out.checks.issueTitle = $("dlg-title").textContent;
+    typeIn($("ix-customer"), "Cong ty A");
+    out.checks.issuePhone = $("ix-phone").value;
+    const rows = () => $("ix-lines").querySelectorAll("tr");
+    typeIn(rows()[0].querySelector(".ix-product"), productLabel(prod("SP001")));
+    out.checks.issuePrice = rows()[0].querySelector(".ix-price").value;
+    out.checks.issueHave = [...rows()[0].querySelectorAll(".ix-have")].map((td) => td.textContent);
+    typeIn(rows()[0].querySelector('.ix-qty[data-place="1"]'), "2");
+    typeIn(rows()[0].querySelector('.ix-qty[data-place="2"]'), "1,5");
+    typeIn(rows()[1].querySelector(".ix-product"), productLabel(prod("SP002")));
+    typeIn(rows()[1].querySelector('.ix-qty[data-place="1"]'), "1");
+    typeIn(rows()[1].querySelector(".ix-price"), "50");
+    out.checks.issueTotal = $("ix-total").textContent;
+    await press(tr("issue.save"));
+    out.checks.issueClosed = !$("dlg").open;
+
+    // a mistake stays on the page: the same product on two rows
+    $("issue-new").click(); await wait();
+    typeIn($("ix-customer"), "Cong ty A");
+    for (const i of [0, 1]) {
+      typeIn(rows()[i].querySelector(".ix-product"), productLabel(prod("SP001")));
+      typeIn(rows()[i].querySelector('.ix-qty[data-place="1"]'), "1");
+    }
+    try { await press(tr("issue.save")); out.checks.twice = ""; } catch (e) { out.checks.twice = String(e.message); }
+    dlg.close();
+
+    // ¥ ⇄ ₫: the rate is fetched once, kept, and both boxes follow each other
+    try { localStorage.removeItem("dibekho_fx"); } catch (e) { /* none */ }
+    $("fx-btn").click(); await wait(); await wait();
+    typeIn($("fx-cny"), "250");
+    out.checks.fxVnd = $("fx-vnd").value;
+    typeIn($("fx-vnd"), "1000000");
+    out.checks.fxCny = $("fx-cny").value;
+    out.checks.fxInfo = $("fx-info").textContent;
+    dlg.close();
+    $("fx-btn").click(); await wait(); await wait();   // fresh: not asked again
+    out.checks.fxFetches = out.fetches.length;
+    dlg.close();
+
+    // stock list: opens sorted by code, Tồn stays in view; names in the page's language
     renderStock();
     const codes = [...$("stock-table").querySelectorAll("tbody tr td:first-child")].map((td) => td.textContent);
     out.checks.stockSorted = codes.join() === codes.slice().sort((a, b) => a.localeCompare(b, "vi", { numeric: true })).join() && codes.length > 1;
-    out.checks.stockStick = [...$("stock-table").querySelectorAll("thead th")].map((th) => th.textContent.trim()).slice(0, 8).join() === "Mã,Mặt hàng,Tên Trung,Quy cách,Loại / màu,Nhóm hàng,Đơn vị,Tồn";
+    out.checks.stockHeads = [...$("stock-table").querySelectorAll("thead th")].map((th) => th.textContent.trim()).slice(0, 8).join();
+    out.checks.stockFirst = [...$("stock-table").querySelectorAll("tbody tr:first-child td")].slice(0, 3).map((td) => td.textContent);
     out.checks.zoom = document.documentElement.style.zoom;
-    out.checks.scaleOwner = getComputedStyle($("ui-scale").parentElement).display !== "none";
+    out.checks.scaleOwner = shown($("ui-scale").parentElement);
     setRole("desktop", "Quan ly", false);
-    out.checks.scaleOther = getComputedStyle($("ui-scale").parentElement).display !== "none";
+    out.checks.scaleOther = shown($("ui-scale").parentElement);
+    out.checks.accountsTabOtherOwner = shown(document.querySelector('[data-stab="accounts"]'));
     setRole("desktop", "Chủ", true);
+    out.checks.accountsTabOwner = shown(document.querySelector('[data-stab="accounts"]'));
+
+    // Cài đặt → Tài khoản: the buttons send what the Edge Function / SQL 011 expect
+    const OWN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", LAN = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     currentUserId = OWN;
     await loadAccounts();
     out.checks.accountRows = accounts.length;
@@ -180,25 +132,24 @@
     typeIn($("acc-user"), " Quan.Ly2 ");
     $("acc-name").value = "Chi Hoa"; $("acc-role").value = "viewer";
     $("acc-pw").value = "MatKhau-12345"; $("acc-pw2").value = "khac-hoan-toan";
-    out.checks.pwMismatch = await tryPress("Tạo tài khoản");        // refused on the page, nothing sent
+    out.checks.pwMismatch = await tryPress(tr("acc.create_do"));
     $("acc-pw").value = "ngan"; $("acc-pw2").value = "ngan";
-    out.checks.pwShort = await tryPress("Tạo tài khoản");
+    out.checks.pwShort = await tryPress(tr("acc.create_do"));
     $("acc-pw").value = "MatKhau-12345"; $("acc-pw2").value = "MatKhau-12345";
-    $("acc-user").value = "co@dau"; out.checks.userAt = await tryPress("Tạo tài khoản");
+    $("acc-user").value = "co@dau"; out.checks.userAt = await tryPress(tr("acc.create_do"));
     $("acc-user").value = "Quan.Ly2";
-    await press("Tạo tài khoản");
-    out.checks.pwAfterCreate = ($("acc-pw") || { value: "" }).value;  // dialog closed, nothing left in the fields
-    // an owner account asks for a second confirmation (the stub's confirm answers yes; count the questions)
+    await press(tr("acc.create_do"));
+    out.checks.pwAfterCreate = ($("acc-pw") || { value: "" }).value;
     let asked = 0; const realConfirm = window.confirm; window.confirm = (t) => { asked += 1; return realConfirm(t); };
     $("acc-btn-add").click(); await wait();
     $("acc-user").value = "chu2"; $("acc-role").value = "desktop"; $("acc-pw").value = "MatKhau-12345"; $("acc-pw2").value = "MatKhau-12345";
-    await press("Tạo tài khoản");
+    await press(tr("acc.create_do"));
     out.checks.ownerCreateAsked = asked; window.confirm = realConfirm;
     const pick = (id) => $("acc-table").querySelector(`tr[data-k="${id}"]`).click();
     pick(LAN); $("acc-btn-role").click(); await wait();
-    $("acc-role").value = "viewer"; await press("Lưu");
+    $("acc-role").value = "viewer"; await press(tr("btn.save"));
     pick(LAN); $("acc-btn-pass").click(); await wait();
-    $("acc-pw").value = "Moi-MatKhau-9"; $("acc-pw2").value = "Moi-MatKhau-9"; await press("Đổi mật khẩu");
+    $("acc-pw").value = "Moi-MatKhau-9"; $("acc-pw2").value = "Moi-MatKhau-9"; await press(tr("acc.pass_do"));
     pick(OWN); $("acc-btn-revoke").click(); await wait(); await wait();   // refused on the page: not a single call
     pick(LAN); $("acc-btn-revoke").click(); await wait(); await wait();
     pick(OWN); $("acc-btn-delete").click(); await wait(); await wait();   // refused on the page too

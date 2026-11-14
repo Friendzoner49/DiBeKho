@@ -3,22 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self' https://*.supabase.co https://open.er-api.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>DiBeKho</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Every text of the page comes from i18n.js (data-i18n = text, data-i18n-ph = placeholder, data-i18n-title = tooltip):
+     Tiếng Việt and 中文 (user's request 14/11/2026: the Chinese boss reads the web). -->
 
 <!-- Đăng nhập -->
 <div id="login" class="card login hidden">
+  <div class="login-lang"><select id="lang-login" class="lang" aria-label="Language"></select></div>
   <h1 class="brand"><img src="logo.png" alt="" width="40" height="40"> DiBeKho</h1>
-  <p class="hint">Dữ liệu kho dùng chung với app trên máy tính.</p>
-  <label>Tên đăng nhập <input id="user" autocomplete="username"></label>
-  <label>Mật khẩu <input id="password" type="password" autocomplete="current-password"></label>
-  <label class="check"><input id="remember" type="checkbox" checked> Nhớ tôi trên máy này</label>
-  <p class="hint">Bỏ tick nếu dùng máy chung: đóng trình duyệt là phải đăng nhập lại.</p>
-  <button id="login-btn" class="primary">Đăng nhập</button>
+  <p class="hint" data-i18n="login.lead"></p>
+  <label><span data-i18n="login.user"></span> <input id="user" autocomplete="username"></label>
+  <label><span data-i18n="login.password"></span> <input id="password" type="password" autocomplete="current-password"></label>
+  <label class="check"><input id="remember" type="checkbox" checked> <span data-i18n="login.remember"></span></label>
+  <p class="hint" data-i18n="login.remember_hint"></p>
+  <button id="login-btn" class="primary" data-i18n="login.button"></button>
   <p id="login-error" class="error"></p>
 </div>
 
@@ -26,32 +29,54 @@
 <div id="app" class="shell hidden">
   <aside class="side">
     <div class="brand side-brand"><img src="logo.png" alt="" width="36" height="36"> DiBeKho</div>
-    <button data-page="stock" class="nav active">Tồn kho</button>
-    <button data-page="pending" class="nav" id="nav-pending">Cần xử lý</button>
-    <button data-page="search" class="nav">Tra cứu</button>
-    <button data-page="receipts" class="nav">Hàng về</button>
-    <button data-page="count" class="nav">Kiểm kê</button>
-    <button data-page="settings" class="nav">Cài đặt</button>
+    <button data-page="dashboard" class="nav only-owner" data-i18n="nav.dashboard"></button>
+    <button data-page="stock" class="nav active" data-i18n="nav.stock"></button>
+    <button data-page="pending" class="nav" id="nav-pending" data-i18n="nav.pending"></button>
+    <button data-page="search" class="nav" data-i18n="nav.search"></button>
+    <button data-page="receipts" class="nav" data-i18n="nav.receipts"></button>
+    <button data-page="count" class="nav" data-i18n="nav.count"></button>
+    <button data-page="settings" class="nav" data-i18n="nav.settings"></button>
+    <span class="spacer"></span>
+    <button id="fx-btn" class="fx-btn" data-i18n-title="fx.title">¥ ⇄ ₫</button>
   </aside>
 
   <section class="main">
     <div class="topbar">
-      <button id="reload">⟳ Tải lại dữ liệu</button>
-      <button id="send-delivery" class="only-writer">Gửi phiếu giao hàng (file Excel)…</button>
+      <button id="reload" data-i18n="top.reload"></button>
+      <button id="issue-new" class="only-maker not-phone" data-i18n="issue.button"></button>
       <span id="freshness" class="hint"></span>
       <span class="spacer"></span>
-      <button id="who" class="who" title="Mở Cài đặt → Chung (có nút Đăng xuất)"></button>
-      <button id="logout-phone" class="only-phone">Đăng xuất</button>
+      <select id="lang-app" class="lang not-phone" aria-label="Language"></select>
+      <button id="who" class="who" data-i18n-title="top.who_tip"></button>
+      <button id="logout-phone" class="only-phone" data-i18n="top.logout"></button>
     </div>
     <p id="load-error" class="error"></p>
 
+    <!-- Tổng quan (chỉ vai trò máy chính) -->
+    <div id="page-dashboard" class="page hidden">
+      <div class="dash-head">
+        <h1 data-i18n="nav.dashboard"></h1>
+        <label><span data-i18n="dash.period"></span> <select id="dash-period"></select></label>
+      </div>
+      <p id="dash-range" class="hint"></p>
+      <div id="dash-kpis" class="kpis"></div>
+      <div id="dash-banner"></div>
+      <div class="dash-grid">
+        <section class="panel wide"><h2 data-i18n="dash.revenue_12"></h2><div id="dash-months"></div></section>
+        <section class="panel" id="dash-products"></section>
+        <section class="panel" id="dash-customers"></section>
+        <section class="panel" id="dash-low"></section>
+        <section class="panel" id="dash-recent"></section>
+      </div>
+    </div>
+
     <!-- Tồn kho -->
     <div id="page-stock" class="page">
-      <h1>Tồn kho</h1>
-      <p class="hint not-phone">Tồn được tính từ kiểm kê, hàng về và các phiếu giao hàng, chia theo Kho tổng và Văn phòng. Nháy đúp (điện thoại: chạm 2 lần) một dòng để xem lịch sử vào ra.</p>
+      <h1 data-i18n="nav.stock"></h1>
+      <p class="hint not-phone" data-i18n="stock.hint"></p>
       <div class="row">
-        <input id="stock-filter" class="grow" placeholder="Lọc theo tên, mã, quy cách (gõ không dấu cũng được)…">
-        <label class="check"><input id="stock-low" type="checkbox"> Chỉ hiện hàng sắp hết</label>
+        <input id="stock-filter" class="grow" data-i18n-ph="stock.filter">
+        <label class="check"><input id="stock-low" type="checkbox"> <span data-i18n="stock.only_low"></span></label>
       </div>
       <p id="stock-banner" class="banner hidden"></p>
       <div id="stock-table"></div>
@@ -60,37 +85,34 @@
 
     <!-- Cần xử lý -->
     <div id="page-pending" class="page hidden">
-      <h1>Cần xử lý</h1>
-      <h2>Đơn chưa chọn nơi lấy hàng</h2>
-      <p class="hint">Phiếu giao hàng mới tạm trừ ở Kho tổng cho tới khi chọn nơi lấy hàng trên app.</p>
+      <h1 data-i18n="nav.pending"></h1>
+      <h2 data-i18n="pending.unplaced"></h2>
+      <p class="hint" data-i18n="pending.unplaced_hint"></p>
       <div id="pending-unplaced"></div>
-      <h2>Yêu cầu gửi từ web</h2>
-      <p class="hint" id="pending-inbox-hint">Yêu cầu của nhân viên nằm chờ ở đây cho tới khi chủ duyệt trên app (mục Cần xử lý của app).</p>
-      <div id="pending-inbox"></div>
     </div>
 
     <!-- Tra cứu -->
     <div id="page-search" class="page hidden">
-      <h1>Tra cứu</h1>
-      <p class="hint">Tìm trong mọi thông tin: mặt hàng (tiếng Việt/Trung), khách, số điện thoại, mã phiếu, ghi chú. Gõ không dấu cũng được.</p>
-      <input id="search-input" class="wide" placeholder="Gõ để tìm…">
+      <h1 data-i18n="nav.search"></h1>
+      <p class="hint" data-i18n="search.hint"></p>
+      <input id="search-input" class="wide" data-i18n-ph="search.placeholder">
       <div id="search-results"></div>
       <div class="row more">
-        <span class="hint">Xem thêm:</span>
-        <button data-sub="orders">Danh sách đơn hàng</button>
-        <button data-sub="customers">Danh sách khách hàng</button>
-        <button data-sub="stats">Thống kê và xuất Excel</button>
+        <span class="hint" data-i18n="search.more"></span>
+        <button data-sub="orders" data-i18n="search.orders"></button>
+        <button data-sub="customers" data-i18n="search.customers"></button>
+        <button data-sub="stats" data-i18n="search.stats"></button>
       </div>
     </div>
 
     <!-- Tra cứu → Đơn hàng -->
     <div id="page-orders" class="page hidden">
-      <div class="backbar"><button class="back" data-back="search">← Tra cứu</button><h1>Đơn hàng</h1></div>
-      <p class="hint">Nháy đúp (điện thoại: chạm 2 lần) một đơn để xem chi tiết.</p>
+      <div class="backbar"><button class="back" data-back="search" data-i18n="back.search"></button><h1 data-i18n="nav.orders"></h1></div>
+      <p class="hint" data-i18n="hint.open_row"></p>
       <div class="row">
-        <label>Loại phiếu <select id="orders-kind"></select></label>
-        <input id="orders-filter" class="grow" placeholder="Tìm mã phiếu hoặc tên khách…">
-        <label class="check"><input id="orders-closed" type="checkbox"> Gồm cả phiếu đã huỷ</label>
+        <label><span data-i18n="orders.kind"></span> <select id="orders-kind"></select></label>
+        <input id="orders-filter" class="grow" data-i18n-ph="orders.filter">
+        <label class="check"><input id="orders-closed" type="checkbox"> <span data-i18n="orders.closed"></span></label>
       </div>
       <div id="orders-table"></div>
       <p id="orders-count" class="hint"></p>
@@ -98,33 +120,34 @@
 
     <!-- Tra cứu → Khách hàng -->
     <div id="page-customers" class="page hidden">
-      <div class="backbar"><button class="back" data-back="search">← Tra cứu</button><h1>Khách hàng</h1></div>
-      <p class="hint">Khách hàng được lấy tự động từ phiếu giao hàng. Nháy đúp (điện thoại: chạm 2 lần) để xem khách hay mua gì.<span class="only-owner"> Muốn gộp: bấm chọn từ 2 khách trở lên rồi bấm Gộp khách hàng….</span></p>
+      <div class="backbar"><button class="back" data-back="search" data-i18n="back.search"></button><h1 data-i18n="nav.customers"></h1></div>
+      <p class="hint" data-i18n="customers.hint"></p>
       <div class="row">
-        <input id="customers-filter" class="grow" placeholder="Tìm tên, số điện thoại, địa chỉ…">
-        <button id="customers-merge" class="only-owner">Gộp khách hàng…</button>
+        <input id="customers-filter" class="grow" data-i18n-ph="customers.filter">
       </div>
       <div id="customers-table"></div>
     </div>
 
     <!-- Tra cứu → Thống kê -->
     <div id="page-stats" class="page hidden">
-      <div class="backbar"><button class="back" data-back="search">← Tra cứu</button><h1>Thống kê</h1></div>
+      <div class="backbar"><button class="back" data-back="search" data-i18n="back.search"></button><h1 data-i18n="nav.stats"></h1></div>
       <div class="row wrap">
-        <label>Kỳ <select id="st-period"><option value="day">Ngày</option><option value="month" selected>Tháng</option>
-          <option value="quarter">Quý</option><option value="year">Năm</option><option value="range">Khoảng tự chọn</option></select></label>
-        <label id="st-l-day" class="hidden">Ngày <input id="st-day" type="date"></label>
-        <label id="st-l-month">Tháng <input id="st-month" type="month"></label>
-        <label id="st-l-year" class="hidden">Năm <input id="st-year" type="number" min="2000" max="2100"></label>
-        <label id="st-l-quarter" class="hidden">Quý <select id="st-quarter"><option value="1">1</option><option value="2">2</option>
+        <label><span data-i18n="st.period"></span> <select id="st-period"><option value="day" data-i18n="period.day"></option>
+          <option value="month" selected data-i18n="period.month"></option><option value="quarter" data-i18n="period.quarter"></option>
+          <option value="year" data-i18n="period.year"></option><option value="range" data-i18n="period.range"></option></select></label>
+        <label id="st-l-day" class="hidden"><span data-i18n="period.day"></span> <input id="st-day" type="date"></label>
+        <label id="st-l-month"><span data-i18n="period.month"></span> <input id="st-month" type="month"></label>
+        <label id="st-l-year" class="hidden"><span data-i18n="period.year"></span> <input id="st-year" type="number" min="2000" max="2100"></label>
+        <label id="st-l-quarter" class="hidden"><span data-i18n="period.quarter"></span> <select id="st-quarter"><option value="1">1</option><option value="2">2</option>
           <option value="3">3</option><option value="4">4</option></select></label>
-        <label id="st-l-from" class="hidden">Từ ngày <input id="st-from" type="date"></label>
-        <label id="st-l-to" class="hidden">Đến ngày <input id="st-to" type="date"></label>
-        <label>Phạm vi <select id="st-scope"><option value="all">Tất cả</option><option value="category">Nhóm hàng</option>
-          <option value="product">Một mặt hàng</option><option value="customer">Một khách (chỉ số xuất)</option></select></label>
-        <label id="st-l-value" class="hidden">Chọn <select id="st-value"></select></label>
-        <label>Chia theo <select id="st-by"><option value="none">Không chia</option><option value="day">Ngày</option>
-          <option value="month">Tháng</option></select></label>
+        <label id="st-l-from" class="hidden"><span data-i18n="st.from"></span> <input id="st-from" type="date"></label>
+        <label id="st-l-to" class="hidden"><span data-i18n="st.to"></span> <input id="st-to" type="date"></label>
+        <label><span data-i18n="st.scope"></span> <select id="st-scope"><option value="all" data-i18n="st.scope_all"></option>
+          <option value="category" data-i18n="st.scope_category"></option><option value="product" data-i18n="st.scope_product"></option>
+          <option value="customer" data-i18n="st.scope_customer"></option></select></label>
+        <label id="st-l-value" class="hidden"><span data-i18n="st.pick"></span> <select id="st-value"></select></label>
+        <label><span data-i18n="st.by"></span> <select id="st-by"><option value="none" data-i18n="st.by_none"></option>
+          <option value="day" data-i18n="period.day"></option><option value="month" data-i18n="period.month"></option></select></label>
       </div>
       <div id="st-summary"></div>
       <div id="st-chart"></div>
@@ -137,87 +160,70 @@
 
     <!-- Hàng về -->
     <div id="page-receipts" class="page hidden">
-      <h1>Hàng về</h1>
-      <p class="hint">Các lần hàng về. Nháy đúp (điện thoại: chạm 2 lần) một phiếu để xem chi tiết. Nhập hàng về làm trên app.</p>
-      <div class="row">
-        <button id="receipt-new" class="only-writer">＋ Nhập hàng về…</button>
-        <button id="receipt-edit" class="only-owner">Sửa phiếu đã chọn…</button>
-      </div>
-      <h2>Các lần hàng về:</h2>
+      <h1 data-i18n="nav.receipts"></h1>
+      <p class="hint" data-i18n="receipts.hint"></p>
+      <h2 data-i18n="receipts.list"></h2>
       <div id="receipts-table"></div>
     </div>
 
     <!-- Kiểm kê -->
     <div id="page-count" class="page hidden">
-      <h1>Kiểm kê</h1>
-      <p class="hint">Tồn theo app ở từng nơi. Kiểm kê, chuyển hàng và xuất dùng thử làm trên app.</p>
+      <h1 data-i18n="nav.count"></h1>
+      <p class="hint" data-i18n="count.hint"></p>
       <div class="row wrap">
-        <label class="only-writer">Ngày kiểm kê: <input id="count-date" type="date"></label>
-        <label class="grow only-writer">Ghi chú <input id="count-note"></label>
-        <button id="count-transfer" class="only-owner">Chuyển hàng…</button>
-        <button id="count-trial" class="only-owner">Xuất dùng thử…</button>
-      </div>
-      <div class="row wrap">
-        <button data-doclist="transfer">Phiếu chuyển hàng…</button>
-        <button data-doclist="trial">Phiếu dùng thử…</button>
-        <button data-doclist="stock_count">Phiếu kiểm kê…</button>
+        <button data-doclist="transfer" data-i18n="count.transfers"></button>
+        <button data-doclist="trial" data-i18n="count.trials"></button>
+        <button data-doclist="stock_count" data-i18n="count.counts"></button>
       </div>
       <div id="count-table"></div>
-      <div class="row foot">
-        <span id="count-summary" class="hint"></span>
-        <span class="spacer"></span>
-        <button id="count-clear" class="only-writer">Xoá hết số đã nhập</button>
-        <button id="count-save" class="only-writer primary-btn">Lưu kiểm kê</button>
-      </div>
-      <p id="count-msg" class="hint"></p>
     </div>
 
     <!-- Cài đặt -->
     <div id="page-settings" class="page hidden">
-      <h1>Cài đặt</h1>
+      <h1 data-i18n="nav.settings"></h1>
       <div class="tabs">
-        <button data-stab="general" class="stab active">Chung</button>
-        <button data-stab="products" class="stab">Danh mục mặt hàng</button>
-        <button data-stab="transfer" class="stab only-owner">Chuyển dữ liệu và sao lưu</button>
-        <button data-stab="accounts" class="stab only-admin">Tài khoản</button>
+        <button data-stab="general" class="stab active" data-i18n="settings.general"></button>
+        <button data-stab="products" class="stab" data-i18n="settings.products"></button>
+        <button data-stab="transfer" class="stab only-owner" data-i18n="settings.backup"></button>
+        <button data-stab="accounts" class="stab only-admin" data-i18n="settings.accounts"></button>
       </div>
       <div id="stab-general" class="spane">
         <dl class="info" id="settings-info"></dl>
-        <div class="row wrap only-admin">
-          <label for="ui-scale">Cỡ giao diện (chữ và nút), áp dụng cho mọi máy</label>
-          <select id="ui-scale"><option value="100">Bình thường (100%)</option><option value="110">To hơn (110%)</option><option value="120">To nhất (120%)</option></select>
+        <div class="row wrap">
+          <label for="lang-settings" data-i18n="settings.language"></label>
+          <select id="lang-settings" class="lang"></select>
         </div>
-        <button id="logout">Đăng xuất</button>
+        <div class="row wrap only-admin">
+          <label for="ui-scale" data-i18n="settings.scale"></label>
+          <select id="ui-scale"><option value="100" data-i18n="settings.scale_100"></option><option value="110" data-i18n="settings.scale_110"></option>
+            <option value="120" data-i18n="settings.scale_120"></option></select>
+        </div>
+        <button id="logout" data-i18n="top.logout"></button>
       </div>
       <div id="stab-products" class="spane hidden">
-        <p class="hint">Nháy đúp một mặt hàng để xem chi tiết. Thêm, sửa hoặc gộp mặt hàng làm trên app.</p>
+        <p class="hint" data-i18n="catalog.hint"></p>
         <div class="row wrap">
-          <input id="catalog-filter" class="grow" placeholder="Lọc theo tên, mã, quy cách…">
-          <button id="catalog-add" class="only-owner">Thêm mặt hàng</button>
-          <button id="catalog-edit" class="only-owner">Sửa mặt hàng…</button>
-          <button id="catalog-merge" class="only-owner">Gộp mặt hàng trùng…</button>
+          <input id="catalog-filter" class="grow" data-i18n-ph="catalog.filter">
         </div>
         <div id="catalog-table"></div>
       </div>
-      <div id="stab-transfer" class="spane hidden">
-        <h2>Gói dữ liệu (.dibekho)</h2>
-        <p class="hint">Gói dữ liệu chứa toàn bộ dữ liệu chung trên Cloud: mặt hàng, khách, mọi phiếu, tồn kho. Mở được bằng app trên máy tính (bỏ vào thư mục input). Gói tạo trên web không kèm file Excel phiếu gốc và nhật ký của app.</p>
+      <div id="stab-transfer" class="spane hidden only-owner">
+        <h2 data-i18n="pkg.title"></h2>
+        <p class="hint" data-i18n="pkg.hint"></p>
         <div class="row wrap">
-          <button id="pkg-export">Xuất dữ liệu</button>
-          <button id="pkg-import">Nhập dữ liệu từ gói…</button>
-          <input id="pkg-file" type="file" accept=".dibekho" class="hidden">
+          <button id="pkg-export" data-i18n="pkg.export"></button>
         </div>
         <p id="pkg-msg" class="hint"></p>
       </div>
       <div id="stab-accounts" class="spane hidden only-admin">
-        <p class="hint">Tạo tài khoản cho nhân viên hoặc người quản lý, đổi vai trò, đặt lại mật khẩu, thu hồi quyền hoặc xoá hẳn tài khoản khi ai đó nghỉ. Mật khẩu do bạn gõ; trang web không lưu và không hiện lại mật khẩu. Chọn một dòng rồi bấm nút.</p>
+        <p class="hint" data-i18n="acc.hint"></p>
         <div class="row wrap">
-          <button id="acc-btn-add">Tạo tài khoản…</button>
-          <button id="acc-btn-role">Đổi vai trò…</button>
-          <button id="acc-btn-pass">Đặt lại mật khẩu…</button>
-          <button id="acc-btn-revoke">Thu hồi quyền…</button>
-          <button id="acc-btn-delete">Xoá tài khoản…</button>
-          <button id="acc-btn-reload" class="flat">Tải lại</button>
+          <button id="acc-btn-add" data-i18n="acc.add"></button>
+          <button id="acc-btn-role" data-i18n="acc.role"></button>
+          <button id="acc-btn-pass" data-i18n="acc.pass"></button>
+          <button id="acc-btn-revoke" data-i18n="acc.revoke"></button>
+          <button id="acc-btn-delete" data-i18n="acc.delete"></button>
+          <button id="acc-btn-reload" class="flat" data-i18n="acc.reload"></button>
         </div>
         <p id="acc-msg" class="hint"></p>
         <div id="acc-table"></div>
@@ -228,23 +234,26 @@
 
 <!-- cửa sổ (như các cửa sổ của app) -->
 <dialog id="dlg">
-  <div class="dlg-head"><h2 id="dlg-title"></h2><button id="dlg-x" class="flat" title="Đóng">✕</button></div>
+  <div class="dlg-head"><h2 id="dlg-title"></h2><button id="dlg-x" class="flat" data-i18n-title="btn.close">✕</button></div>
   <div id="dlg-body"></div>
   <p id="dlg-error" class="error"></p>
   <div id="dlg-buttons" class="dlg-buttons"></div>
 </dialog>
 <datalist id="products-dl"></datalist>
-<datalist id="suppliers-dl"></datalist>
-<datalist id="categories-dl"></datalist>
+<datalist id="customers-dl"></datalist>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"
         integrity="sha384-2zrRDgDHSYB/GN3nFW3fsZXoxEhKIr3N2h63Tc6DEOB9JJdFIu8xMJT2Cph/gBil" crossorigin="anonymous"></script>
 <script src="config.js"></script>
+<script src="i18n.js"></script>
 <script src="stats.js"></script>
-<script src="dupes.js"></script>
 <script src="app.js"></script>
 <script src="views.js"></script>
-<script src="forms.js"></script>
+<script src="dashboard.js"></script>
+<script src="vendor/fflate.js"></script>
+<script src="xlsx.js"></script>
+<script src="issue.js"></script>
+<script src="fx.js"></script>
 <script src="accounts.js"></script>
 <script src="schema.js"></script>
 <script src="package.js"></script>
