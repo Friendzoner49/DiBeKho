@@ -166,8 +166,16 @@ class DocumentDialog(_Base):
                      money_item(ln["unit_price"]), money_item(ln["amount"]), ln["note"]] for ln in lines]
             if self.mixed:
                 headers.insert(5, t("col.place"))
+                taken: dict = {}  # product -> [(place, qty)]: a line taken from both places has no single place
+                for m in self.ctx.conn.execute(
+                        "SELECT product_id, location_id, -SUM(qty) AS qty FROM stock_movements WHERE document_id = ? "
+                        "AND kind = 'delivery_out' GROUP BY product_id, location_id ORDER BY location_id",
+                        (self.doc_id,)):
+                    taken.setdefault(m["product_id"], []).append((m["location_id"], m["qty"]))
                 for row, ln in zip(rows, lines):
-                    row.insert(5, location_name(ln["location_id"]))
+                    both = taken.get(ln["product_id"], [])
+                    row.insert(5, location_name(ln["location_id"]) if ln["location_id"] else
+                               " · ".join(f"{location_name(loc)} {fmt_qty(q)}" for loc, q in both))
         else:
             headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.qty"),
                        t("col.unit"),

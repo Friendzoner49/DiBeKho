@@ -240,6 +240,8 @@ class MainWindow(QMainWindow):
         parts = []
         if result is not None:
             parts.append(t("main.scan_result", count=len(result.imported)))
+            if result.copies:
+                parts.append(t("main.scan_copies", count=len(result.copies)))
         if pending:
             parts.append(t("main.pending", count=pending))
         self.status.setText(" · ".join(parts))

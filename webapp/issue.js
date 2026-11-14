@@ -28,6 +28,16 @@ function lastPrice(customerName, productId) {
   return (best || bestAny) ? (best || bestAny).l.unit_price : null;
 }
 
+/** The company lines the app read above the title of the shop's delivery notes (meta note_letterhead, synced). */
+function letterhead() {
+  try {
+    const lines = JSON.parse(data.meta.note_letterhead || "[]");
+    return Array.isArray(lines) ? lines.filter((x) => typeof x === "string").slice(0, 3) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function issueRowHtml() {
   return `<tr class="ix-row"><td><input class="ix-product" list="products-dl" placeholder="${esc(tr("issue.pick_ph"))}"></td>` +
     `<td class="ix-spec"></td><td class="ix-unit"></td>` +
@@ -158,11 +168,14 @@ async function saveIssue() {
   if (f.date > todayLocal() && !confirm(tr("issue.future_ask"))) return false;
   const rows = DBK_XLSX.noteRows(productById, f.lines);
   const total = rows.reduce((a, r) => a + (r.amount || 0), 0);
-  const summary = rows.map((r) => `• ${r.code} ${r.name_vi}: ${fmtQty(r.qty)} ${r.unit} · ${tr(`place.${r.location_id}`)}` +
+  const summary = rows.map((r) => `• ${r.code} ${r.name_vi}: ${fmtQty(r.qty)} ${r.unit} · ` +
+    r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${fmtVnd(r.amount)}` : "")).join("\n");
   if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: fmtVnd(total) })}`)) return false;
   const code = DBK_XLSX.newCode(new Date());
-  const bytes = DBK_XLSX.issueNote(fflate, { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address }, rows);
+  const head = { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
+                 letterhead: letterhead() };
+  const bytes = DBK_XLSX.issueNote(fflate, head, rows);
   const name = `PhieuXuat_${code}.xlsx`;
   saveFile(name, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   alert(tr("issue.done", { name }));

@@ -40,7 +40,9 @@ class Line:
     line_no: int | None = None  # delivery notes: the Excel row, so lines added later can be told apart
     unit_price: float | None = None  # delivery notes only; None = unknown
     amount: float | None = None
-    location_id: int | None = None  # this line's own place (a stock issue note taking from both); None = the document's
+    location_id: int | None = None  # this line's own place (a stock issue note); None = the document's
+    # a stock issue note line taken from both places: ((location id, qty), ...) adding up to qty; () = one place
+    places: tuple = ()
 
 
 def insert_document(conn, kind, doc_date: date, lines: list[Line], code="", code_norm="",
@@ -77,10 +79,10 @@ def _insert_lines(conn, doc_id, lines, movement_kind, sign, occurred_on, locatio
             "INSERT INTO document_lines(document_id, line_no, product_id, qty, raw_name, raw_spec, note, unit_price, "
             "amount, location_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
             (doc_id, line.line_no or i, line.product_id, line.qty, line.raw_name, line.raw_spec, line.note,
-             line.unit_price, line.amount, line.location_id),
+             line.unit_price, line.amount, None if len(line.places) > 1 else line.location_id),
         )
-        _move(conn, line.product_id, sign * line.qty, doc_id, movement_kind, occurred_on,
-              line.location_id or location_id)
+        for place, qty in line.places if len(line.places) > 1 else ((line.location_id or location_id, line.qty),):
+            _move(conn, line.product_id, sign * qty, doc_id, movement_kind, occurred_on, place)
     db.touch(conn)
 
 
@@ -246,8 +248,8 @@ def set_location(conn, doc_id: int, location_id: int) -> None:
     if doc is None or doc["kind"] not in _FORWARD or location_id not in LOCATIONS:
         raise ValueError("Không đổi được nơi lấy hàng của phiếu này.")
     if is_mixed(conn, doc_id):
-        raise ValueError("Phiếu này lấy hàng ở cả Kho tổng và Văn phòng (ghi trong file phiếu): không đổi chung "
-                         "một nơi được. Muốn đổi, hãy sửa cột 'Lấy từ kho' trong file rồi Đọc lại cả phiếu.")
+        raise ValueError("Phiếu này lấy hàng ở cả Kho tổng và Văn phòng: không đổi chung một nơi được. "
+                         "Muốn đổi, hãy huỷ phiếu rồi tạo lại phiếu xuất kho.")
     conn.execute("UPDATE stock_movements SET location_id = ? WHERE document_id = ?", (location_id, doc_id))
     conn.execute("UPDATE document_lines SET location_id = ? WHERE document_id = ? AND location_id IS NOT NULL",
                  (location_id, doc_id))

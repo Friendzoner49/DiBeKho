@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 
 # meta keys that describe the shared data (the rest belong to one machine: cloud_*, last_*, device...)
 # clock_offset_min: the shop's clock (minutes from UTC), so times the web writes match the app's (cloud 009)
+# note_letterhead: the company lines of the shop's delivery notes, printed on the stock issue notes (app and web)
 SHARED_META = ("low_stock_default", "freed_codes", "count_checked", "skipped_lines_backfilled", "product_code_max",
-               "clock_offset_min")
+               "clock_offset_min", "note_letterhead")
 
 
 @dataclass(frozen=True)

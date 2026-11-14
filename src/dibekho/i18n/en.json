@@ -24,6 +24,7 @@
   "main.rescan": "⟳ Rescan notes",
   "main.open_deliveries": "Open delivery notes folder",
   "main.scan_result": "Last scan: {count} new notes",
+  "main.scan_copies": "{count} file(s) are copies of a note already read (not counted again)",
   "main.pending": "{count} items to review",
   "main.scan_failed": "Could not scan the delivery notes folder:\n{error}",
   "btn.yes": "Yes",

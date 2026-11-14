@@ -109,16 +109,16 @@ def last_price(conn, customer_name: str, product_id: int | None) -> float | None
 
 
 def note_rows(conn, data: IssueInput) -> list[IssueRow]:
-    """The table of the file: one row per product and place (a product taken from both places is two rows)."""
+    """The table of the file: one row per product, like a delivery note; where it is taken from (Kho tổng and/or
+    Văn phòng) goes in the hidden 'Lấy từ kho' column."""
     rows = []
     for ln in data.filled():
         p = conn.execute("SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone()
         name_vi = " ".join(x for x in (p["name_vi"], p["variant"]) if x)
-        for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
-            if qty and qty > 0:
-                amount = None if ln.unit_price is None else round(qty * ln.unit_price, 2)
-                rows.append(IssueRow(p["code"], name_vi, p["name_zh"], p["spec"], p["unit"], qty, loc,
-                                     ln.unit_price, amount, clean(ln.note)))
+        places = [(loc, qty) for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)) if qty and qty > 0]
+        amount = None if ln.unit_price is None else round(ln.qty * ln.unit_price, 2)
+        rows.append(IssueRow(p["code"], name_vi, p["name_zh"] or "", p["spec"] or "", ln.qty, places,
+                             ln.unit_price, amount, clean(ln.note)))
     return rows
 
 
@@ -139,7 +139,7 @@ def save(conn, ws: Workspace, data: IssueInput, now: datetime | None = None) -> 
         raise ValueError("Phiếu xuất kho chưa đủ thông tin.")
     code = new_code(now)
     head = IssueHead(code, data.doc_date, clean(data.customer_name), clean(data.phone), clean(data.contact),
-                     clean(data.address))
+                     clean(data.address), deliveries.letterhead(conn))
     user_copy = _free(ws.output / FOLDER / f"{FILE_PREFIX}{code}.xlsx")
     write_issue_note(user_copy, head, note_rows(conn, data))
     ws.deliveries_done.mkdir(parents=True, exist_ok=True)

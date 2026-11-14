@@ -45,19 +45,22 @@ COLUMN_LABELS = {
 }
 # price columns: the Vietnamese header often reads only 'VND' (单 价|VND, 金 额|VND), so the Chinese label
 # (spaces removed) is the reliable one
-# optional columns of the stock issue notes DiBeKho writes itself (Phiếu xuất kho): the product code, read before
-# the name, and the place each line is taken from. Customer notes without them read as before.
+# optional (hidden) columns of the stock issue notes DiBeKho writes itself (Phiếu xuất kho): the product code, read
+# before the name, and where the goods of each line are taken from ('Kho tổng 总仓: 3; Văn phòng 办公室: 2').
+# Customer notes without them read as before.
 EXTRA_LABELS = {
     "code": ("ma hang", "货号"),
     "place": ("lay tu kho", "取货地点"),
 }
-# what a 'Lấy từ kho' cell may say -> location id (1 Kho tổng, 2 Văn phòng)
+# the place names of a 'Lấy từ kho' cell -> location id (1 Kho tổng, 2 Văn phòng)
 PLACE_VALUES = {"kho tong": 1, "总仓": 1, "van phong": 2, "办公室": 2}
 PRICE_LABELS = {
     "price": ("don gia", "单价"),
     "amount": ("thanh tien", "金额"),
 }
 END_MARKERS = ("tong cong", "nguoi giao hang")
+# the title row of a note; the lines above it are the shop's letterhead (company name, address)
+TITLE_MARKERS = ("phieu giao hang", "phieu xuat kho", "销售单", "出库单")
 TOTAL_MARKER = "tong cong"
 _COLON = re.compile(r"[:：]")
 _DATE = re.compile(r"(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4})")
@@ -84,7 +87,8 @@ class DeliveryLine:
     unit_price: float | None = None
     amount: float | None = None
     product_code: str = ""  # 'Mã hàng' column (issue notes written by the app); '' when there is none
-    location_id: int | None = None  # 'Lấy từ kho' column: 1 Kho tổng, 2 Văn phòng; None = not said
+    # 'Lấy từ kho' column: ((location id, qty), ...) adding up to qty; () = not said (or edited so it no longer adds up)
+    places: tuple = ()
 
     @property
     def key(self) -> str:
@@ -104,6 +108,8 @@ class DeliveryNote:
     fees: list[tuple[str, float]] = field(default_factory=list)  # rows without quantity that have an amount
     total: float | None = None  # the amount printed on the 'Tổng cộng' row, only to check against
     warnings: list[str] = field(default_factory=list)
+    title: str = ""  # '销售单 PHIẾU GIAO HÀNG', '出库单 PHIẾU XUẤT KHO'; '' when the note has none
+    letterhead: list[str] = field(default_factory=list)  # the lines above the title (company name, address)
 
     @property
     def code_norm(self) -> str:
@@ -143,6 +149,7 @@ def _find_header_row(grid) -> int | None:
 def _parse(grid) -> DeliveryNote:
     header_row = _find_header_row(grid)
     head = _read_header_fields(grid[:header_row])
+    title, letterhead = _title(grid[:header_row])
     columns = _map_columns(grid[header_row])
 
     warnings: list[str] = []
@@ -158,7 +165,6 @@ def _parse(grid) -> DeliveryNote:
     skipped: list[str] = []
     fees: list[tuple[str, float]] = []
     bad_qty: list[str] = []
-    bad_place: list[str] = []
     total = None
     for r in range(header_row + 1, len(grid)):
         row = grid[r]
@@ -196,10 +202,6 @@ def _parse(grid) -> DeliveryNote:
             warnings.append(f"Dòng {excel_row}: có số lượng nhưng thiếu tên hàng, bỏ qua.")
             continue
         price, amount = _line_money(row, columns, qty, excel_row, warnings)
-        place_text = clean(_text(_cell(row, columns.get("place"))))
-        location_id = _place(place_text)
-        if place_text and location_id is None:
-            bad_place.append(f"{excel_row} ('{place_text}')")
         name_vi, name_zh = split_bilingual_name(raw_name)
         lines.append(
             DeliveryLine(
@@ -213,16 +215,13 @@ def _parse(grid) -> DeliveryNote:
                 unit_price=price,
                 amount=amount,
                 product_code=clean(_text(_cell(row, columns.get("code")))).upper(),
-                location_id=location_id,
+                places=_places(_text(_cell(row, columns.get("place"))), qty),
             )
         )
 
     if bad_qty:
         raise DeliveryNoteError(f"Dòng {', '.join(bad_qty)}: không đọc được số lượng. Hãy sửa file phiếu "
                                 f"(ô Số lượng chỉ ghi số, ví dụ 1500 hoặc 2,5) rồi bấm Quét lại.")
-    if bad_place:
-        raise DeliveryNoteError(f"Dòng {', '.join(bad_place)}: ô 'Lấy từ kho' chỉ ghi Kho tổng hoặc Văn phòng. "
-                                f"Hãy sửa file phiếu rồi bấm Quét lại.")
     if not lines:
         raise DeliveryNoteError("Phiếu không có dòng hàng nào có số lượng.")
 
@@ -238,7 +237,25 @@ def _parse(grid) -> DeliveryNote:
         fees=fees,
         total=total,
         warnings=warnings,
+        title=title,
+        letterhead=letterhead,
     )
+
+
+def _title(rows) -> tuple[str, list[str]]:
+    """The title of the note and the lines above it (the first text of each row)."""
+    for r, row in enumerate(rows):
+        for value in row:
+            text = clean(_text(value))
+            if any(m in unaccent(text) or m in text for m in TITLE_MARKERS):
+                above = [_lines(next((v for v in prev if clean(_text(v))), "")) for prev in rows[:r]]
+                return text, [x for x in above if x]
+    return "", []
+
+
+def _lines(value) -> str:
+    """A cell's text with its own line breaks kept ('中文名\n Tên Việt' -> '中文名\nTên Việt')."""
+    return "\n".join(x for x in (clean(part) for part in _text(value).split("\n")) if x)
 
 
 def _read_header_fields(rows) -> dict:
@@ -276,12 +293,17 @@ def _neighbour_value(rows, r: int, c: int):
     row = rows[r]
     for value in row[c + 1:]:
         if value not in (None, ""):
-            return value
+            return None if _is_label(value) else value  # an empty field: the next cell is another field's label
     if r + 1 < len(rows) and c < len(rows[r + 1]):
         below = rows[r + 1][c]
-        if below not in (None, ""):
+        if below not in (None, "") and not _is_label(below):
             return below
     return None
+
+
+def _is_label(value) -> bool:
+    text = _text(value)
+    return any(label in unaccent(text) for label in HEADER_LABELS.values()) or         any(label in text for label in HEADER_LABELS_ZH.values())
 
 
 def _map_columns(header) -> dict:
@@ -308,6 +330,23 @@ def _place(text: str) -> int | None:
     plain = unaccent(text)
     found = {loc for word, loc in PLACE_VALUES.items() if word in plain or word in text}
     return found.pop() if len(found) == 1 else None
+
+
+def _places(text: str, qty: float) -> tuple:
+    """'Kho tổng 总仓: 3; Văn phòng 办公室: 2' -> ((1, 3.0), (2, 2.0)). Anything that does not add up to the line's
+    quantity (the quantity edited in Excel afterwards) or cannot be read -> (): the app asks where, as for any note."""
+    found: dict[int, float] = {}
+    for part in clean(text).split(";"):
+        if not part.strip():
+            continue
+        name, _, number = part.rpartition(":")
+        loc, value = _place(name), _to_number(number.strip())
+        if loc is None or value is None or value <= 0 or loc in found:
+            return ()
+        found[loc] = value
+    if not found or abs(sum(found.values()) - qty) > 1e-9:
+        return ()
+    return tuple(sorted(found.items()))
 
 
 def _cell(row, index):

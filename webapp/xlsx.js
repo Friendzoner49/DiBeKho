@@ -1,129 +1,230 @@
-/* The Phiếu xuất kho Excel file, written in the browser: the same layout, labels and values as the app's own
-   (src/dibekho/excel/issue_note.py), so the app reads it like any delivery note (excel/delivery_note.py) and takes
-   the stock of each place when it is dropped into the notes folder. Only plain values, never formulas (the app reads
-   files with data_only=True). The labels are the file's own bilingual text, the same whatever the page's language.
+/* The Phiếu xuất kho Excel file, written in the browser: the very cells of the app's own
+   (src/dibekho/excel/issue_note.py), that is the grid of the shop's delivery notes (销售单 PHIẾU GIAO HÀNG) cell for
+   cell, with the title PHIẾU XUẤT KHO, the company lines the app read from the shop's notes (meta note_letterhead) and
+   two hidden columns (H Mã hàng, I Lấy từ kho) so the app reads it back exactly. The app reads it like any delivery
+   note (excel/delivery_note.py) and takes the stock of each place when it is dropped into the notes folder. Only plain
+   values, never formulas (the app reads files with data_only=True). The labels are the file's own bilingual text, the
+   same whatever the page's language.
 
-   A tiny xlsx writer (one sheet, shared strings, a few cell styles, merged cells, column widths) on top of fflate's
-   zip. Pure functions: tests/web_issue_cli.js runs this very code in Node and tests/test_web_issue.py reads the file
-   back with the app's reader. */
+   A tiny xlsx writer (one sheet, shared strings, cell styles, merged cells, widths, hidden columns, print setup) on top
+   of fflate's zip. Pure functions: tests/web_issue_cli.js runs this very code in Node and tests/test_web_issue.py
+   compares the file with the app's cell by cell and reads it back with the app's reader. */
 
 "use strict";
 
 const DBK_XLSX = (() => {
-  const TITLE = "出库单  PHIẾU XUẤT KHO";
+  const TITLE = "出库单 PHIẾU XUẤT KHO";
   const LABELS = {
-    customer: "客户名称 ( Tên khách hàng )",
-    phone: "联系电话 ( Điện thoại liên hệ )",
-    code: "订货单号 ( Mã đơn hàng )",
-    contact: "联系人 ( Người liên hệ )",
-    date: "送货日期 ( Ngày giao hàng )",
-    address: "地址 ( Địa chỉ )",
+    customer: "客户名称 ( Tên khách hàng ): ",
+    phone: "联系电话 ( Điện thoại liên hệ ): ",
+    code: "订货单号 ( Mã đơn hàng )：",
+    contact: "联系人( Người liên hệ )：",
+    date: "送货日期 ( Ngày giao hàng )：",
+    address: "地址( Địa chỉ): ",
   };
-  const HEADERS = ["编号\nSTT", "货号\nMã hàng", "商品全名\nTên hàng", "规格\nQuy cách", "单位\nĐơn vị", "数量\nSố lượng",
-                   "取货地点\nLấy từ kho", "单价\nĐơn giá", "金额\nThành tiền", "备注\nGhi chú"];
+  const HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
+                   "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"];
   const PLACES = { 1: "Kho tổng 总仓", 2: "Văn phòng 办公室" };
-  const TOTAL = "合计  Tổng cộng";
-  const SIGNATURES = ["Người lập phiếu  制单人", "Người giao hàng  送货人", "Người nhận hàng  收货人"];
-  const HEADER_ROW = 7;
-  const WIDTHS = [6, 10, 42, 14, 8, 10, 16, 13, 15, 20];
+  const WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)";
+  const QTY_LABEL = "页小计 \n( Tổng số lượng ):\n";
+  const SIGN_FROM = "送货单位及经手人（盖章）：Người giao hàng";
+  const SIGN_TO = "收货单位及经手人（盖章）：Người nhận hàng";
   const SHEET = "出库单";
-  const ST = { plain: 0, title: 1, label: 2, header: 3, cell: 4, money: 5, bold: 6, boldMoney: 7 };
+  const HEADER_ROW = 8;
+  const WIDTHS = [17.1, 62.8, 20.2, 13.0, 34.8, 25.1, 25.8, 12.0, 24.0];  // A..I; H and I hidden
+  const HIDDEN = [8, 9];
+  const HEIGHTS = { 1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 44.25, 7: 31.9, [HEADER_ROW]: 40.15 };
+  const LINE_HEIGHT = 38.0, TOTAL_HEIGHT = 76.5, SIGN_HEIGHT = 82.9;
+  const MONEY = "[$VND]\\ #,##0";
+  const TNR = "Times New Roman";
+  const DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+  const UNITS = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
 
   /** '中文名\nTên Việt', like the customer's notes (core/text.split_bilingual_name reads it back). */
   function productName(nameVi, nameZh) {
     return nameZh && nameVi ? `${nameZh}\n${nameVi}` : (nameVi || nameZh || "");
   }
 
-  const xml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
-  const col = (c) => String.fromCharCode(64 + c);  // the note has 10 columns: A..J
-  const ref = (r, c) => `${col(c)}${r}`;
+  /** 3 -> '3', 2.5 -> '2.5' (issue_note.number_text). */
+  const numberText = (v) => String(Number(v));
+  const placesText = (places) => places.filter(([, q]) => q).map(([loc, q]) => `${PLACES[loc]}: ${numberText(q)}`).join("; ");
 
-  /** The cells of the note: {cells: Map(row -> Map(col -> {v, s})), merges: [...], heights: {row: pt}}. */
+  function three(n, full) {
+    const h = Math.floor(n / 100), t = Math.floor(n / 10) % 10, u = n % 10, w = [];
+    if (full || h) w.push(DIGITS[h], "trăm");
+    if (t === 0) { if (u && (full || h)) w.push("linh"); }
+    else if (t === 1) w.push("mười");
+    else w.push(DIGITS[t], "mươi");
+    if (u) w.push(u === 1 && t >= 2 ? "mốt" : u === 5 && t >= 1 ? "lăm" : DIGITS[u]);
+    return w;
+  }
+
+  /** 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG' (issue_note.vnd_words). */
+  function vndWords(amount) {
+    let n = Math.floor(amount + 0.5);
+    if (n < 0) return "";
+    if (n === 0) return "KHÔNG VIỆT NAM ĐỒNG";
+    const groups = [];
+    do { groups.push(n % 1000); n = Math.floor(n / 1000); } while (n);
+    const words = [];
+    for (let i = groups.length - 1; i >= 0; i--) {
+      if (groups[i] === 0 && (words.length || i)) continue;
+      words.push(...three(groups[i], words.length > 0));
+      if (UNITS[i]) words.push(UNITS[i]);
+    }
+    return words.join(" ").toUpperCase() + " VIỆT NAM ĐỒNG";
+  }
+
+  /** About how many lines a wrapped cell takes (Excel does not grow a row a program wrote). */
+  function wrappedLines(text, width, size) {
+    const perLine = Math.max(1, width * 11 / size);
+    let total = 0;
+    for (const part of String(text || "").split("\n")) {
+      let units = 0;
+      for (const ch of part) units += ch.codePointAt(0) > 0x2E7F ? 2 : 1;
+      total += Math.max(1, Math.ceil(units / perLine));
+    }
+    return total;
+  }
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  /** The cells of the note (issue_note.issue_sheet): {cells: Map("r,c" -> cell), merges, heights, lastRow}. */
   function issueSheet(head, rows) {
-    const cells = new Map(), merges = [], heights = { [HEADER_ROW]: 34 };
-    const put = (r, c, v, s) => { if (!cells.has(r)) cells.set(r, new Map()); cells.get(r).set(c, { v, s }); };
-    const last = HEADERS.length;
-    put(1, 1, TITLE, ST.title);
-    merges.push(`A1:${col(last)}1`);
-    const label = (r, c, key, value, span) => {
-      if (!value) return;  // an empty optional field is not written: the reader would take the next cell as its value
-      put(r, c, `${LABELS[key]}：${value}`, ST.label);
-      merges.push(`${ref(r, c)}:${ref(r, c + span - 1)}`);
-    };
+    const cells = new Map(), merges = [], heights = { ...HEIGHTS };
+    const put = (r, c, value, style = {}) => cells.set(`${r},${c}`, {
+      r, c, value: value === "" || value === undefined ? null : value, font: TNR, size: 15, border: false,
+      align: "center", wrap: true, money: false, ...style });
+    const letter = [...(head.letterhead || []), "", ""].slice(0, 2);
+    put(1, 1, letter[0] || null, { size: 20 });
+    put(2, 1, letter[1] || null, { size: 20 });
+    put(4, 1, TITLE, { size: 24 });
     const [y, m, d] = String(head.doc_date).split("-");
-    label(3, 1, "customer", head.customer, 4);
-    label(3, 5, "phone", head.phone, 3);
-    label(3, 8, "code", head.code, 3);
-    label(4, 1, "contact", head.contact, 4);
-    label(4, 8, "date", `${d}-${m}-${y}`, 3);
-    label(5, 1, "address", head.address, last);
-    HEADERS.forEach((text, i) => put(HEADER_ROW, i + 1, text, ST.header));
+    put(5, 1, `${LABELS.customer}\n${head.customer}`, { size: 20, align: "left" });
+    put(5, 3, LABELS.phone + (head.phone || ""), { size: 14, align: "left" });
+    put(5, 6, LABELS.code + head.code, { size: 14, align: "left" });
+    put(6, 3, LABELS.contact + (head.contact || ""), { size: 14, align: "left" });
+    put(6, 6, `${LABELS.date}${pad(d)}-${pad(m)}-${y}`, { size: 14, align: "left" });
+    put(7, 1, LABELS.address + (head.address || ""), { size: 14, align: "left" });
+    merges.push("A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B6", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "A7:E7");
+    HEADERS.forEach((text, i) => put(HEADER_ROW, i + 1, text, { border: i < 7 }));
     let r = HEADER_ROW, qtyTotal = 0, moneyTotal = 0, priced = false;
     rows.forEach((ln, i) => {
       r = HEADER_ROW + i + 1;
-      const values = [i + 1, ln.code, productName(ln.name_vi, ln.name_zh), ln.spec, ln.unit, ln.qty, PLACES[ln.location_id],
-                      ln.unit_price, ln.amount, ln.note];
-      values.forEach((v, j) => put(r, j + 1, v === "" ? null : v, j === 7 || j === 8 ? ST.money : ST.cell));
+      const name = productName(ln.name_vi, ln.name_zh);
+      put(r, 1, i + 1, { border: true });
+      put(r, 2, name, { border: true });
+      put(r, 3, ln.spec || null, { size: 18, border: true });
+      put(r, 4, ln.qty, { size: 18, border: true });
+      put(r, 5, ln.unit_price ?? null, { size: 18, border: true, money: true });
+      put(r, 6, ln.amount ?? null, { size: 18, border: true, money: true });
+      put(r, 7, ln.note || null, { border: true });
+      put(r, 8, ln.code, { size: 11, wrap: false });
+      put(r, 9, placesText(ln.places || []) || null, { size: 11, wrap: false });
+      const lines = Math.max(wrappedLines(name, WIDTHS[1], 15), wrappedLines(ln.note, WIDTHS[6], 15),
+                             wrappedLines(ln.spec, WIDTHS[2], 18));
+      heights[r] = Math.max(LINE_HEIGHT, 20 * lines);
       qtyTotal += ln.qty;
       if (ln.amount !== null && ln.amount !== undefined) { moneyTotal += ln.amount; priced = true; }
     });
     r += 1;
-    put(r, 3, TOTAL, ST.bold);
-    put(r, 6, qtyTotal, ST.bold);
-    if (priced) put(r, 9, moneyTotal, ST.boldMoney);
-    [2, 5, 8].forEach((c, i) => put(r + 2, c, SIGNATURES[i], ST.bold));
-    return { cells, merges, heights };
+    put(r, 1, WORDS_LABEL, { border: true });
+    put(r, 2, priced ? vndWords(moneyTotal) : null, { border: true });
+    put(r, 3, null, { border: true });
+    put(r, 4, QTY_LABEL + numberText(qtyTotal), { border: true });
+    put(r, 5, null, { border: true });
+    put(r, 6, priced ? moneyTotal : null, { size: 18, border: true, money: true });
+    put(r, 7, null, { border: true });
+    merges.push(`B${r}:C${r}`);
+    heights[r] = TOTAL_HEIGHT;
+    r += 1;
+    put(r, 1, SIGN_FROM, { size: 14, align: "left", wrap: false });
+    put(r, 4, SIGN_TO, { size: 14, align: "left", wrap: false });
+    merges.push(`A${r}:C${r}`);
+    heights[r] = SIGN_HEIGHT;
+    return { cells, merges, heights, lastRow: r };
   }
 
+  const xml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  const col = (c) => String.fromCharCode(64 + c);
+  const ref = (r, c) => `${col(c)}${r}`;
   const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
   const REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
   const HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 
+  /** The style sheet of the cells used; gives every cell its format number (cell.s). */
+  function stylesXml(sheet) {
+    const fonts = [], fontIndex = new Map(), xfs = [], xfIndex = new Map();
+    const fontOf = (name, size) => {
+      const key = `${name}|${size}`;
+      if (!fontIndex.has(key)) {
+        fontIndex.set(key, fonts.length + 1);
+        fonts.push(`<font><b/><sz val="${size}"/><name val="${xml(name)}"/></font>`);
+      }
+      return fontIndex.get(key);
+    };
+    for (const cell of sheet.cells.values()) {
+      const key = `${cell.font}|${cell.size}|${cell.border}|${cell.align}|${cell.wrap}|${cell.money}`;
+      if (!xfIndex.has(key)) {
+        const f = fontOf(cell.font, cell.size);
+        xfIndex.set(key, xfs.length + 1);
+        xfs.push(`<xf numFmtId="${cell.money ? 164 : 0}" fontId="${f}" fillId="0" borderId="${cell.border ? 1 : 0}" xfId="0"` +
+          `${cell.money ? ' applyNumberFormat="1"' : ""} applyFont="1"${cell.border ? ' applyBorder="1"' : ""} applyAlignment="1">` +
+          `<alignment horizontal="${cell.align}" vertical="center"${cell.wrap ? ' wrapText="1"' : ""}/></xf>`);
+      }
+      cell.s = xfIndex.get(key);
+    }
+    const side = (n) => `<${n} style="thin"><color auto="1"/></${n}>`;
+    return `${HEAD}<styleSheet ${NS}>` +
+      `<numFmts count="1"><numFmt numFmtId="164" formatCode="${xml(MONEY)}"/></numFmts>` +
+      `<fonts count="${fonts.length + 1}"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>${fonts.join("")}</fonts>` +
+      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+      `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>${side("left")}${side("right")}` +
+      `${side("top")}${side("bottom")}<diagonal/></border></borders>` +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      `<cellXfs count="${xfs.length + 1}"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>${xfs.join("")}</cellXfs>` +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  }
+
   function sheetXml(sheet, strings) {
     const index = new Map();
     const sid = (s) => { if (!index.has(s)) { index.set(s, strings.length); strings.push(s); } return index.get(s); };
-    const rowsXml = [...sheet.cells.keys()].sort((a, b) => a - b).map((r) => {
+    const byRow = new Map();
+    for (const cell of sheet.cells.values()) {
+      if (!byRow.has(cell.r)) byRow.set(cell.r, []);
+      byRow.get(cell.r).push(cell);
+    }
+    const rowNumbers = [...new Set([...byRow.keys(), ...Object.keys(sheet.heights).map(Number)])].sort((a, b) => a - b);
+    const rowsXml = rowNumbers.map((r) => {
       const ht = sheet.heights[r] ? ` ht="${sheet.heights[r]}" customHeight="1"` : "";
-      const cs = [...sheet.cells.get(r).entries()].sort((a, b) => a[0] - b[0]).map(([c, { v, s }]) => {
-        const at = `r="${ref(r, c)}"${s ? ` s="${s}"` : ""}`;
-        if (v === null || v === undefined) return `<c ${at}/>`;
-        if (typeof v === "number") return `<c ${at}><v>${v}</v></c>`;
-        return `<c ${at} t="s"><v>${sid(String(v))}</v></c>`;
+      const cs = (byRow.get(r) || []).sort((a, b) => a.c - b.c).map((cell) => {
+        const at = `r="${ref(r, cell.c)}" s="${cell.s}"`;
+        if (cell.value === null) return `<c ${at}/>`;
+        if (typeof cell.value === "number") return `<c ${at}><v>${cell.value}</v></c>`;
+        return `<c ${at} t="s"><v>${sid(String(cell.value))}</v></c>`;
       }).join("");
       return `<row r="${r}"${ht}>${cs}</row>`;
     }).join("");
-    const cols = WIDTHS.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("");
-    const merges = sheet.merges.length
-      ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "";
-    return `${HEAD}<worksheet ${NS} xmlns:r="${REL}"><cols>${cols}</cols><sheetData>${rowsXml}</sheetData>${merges}` +
-      `<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
+    const cols = WIDTHS.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"` +
+      `${HIDDEN.includes(i + 1) ? ' hidden="1"' : ""}/>`).join("");
+    const merges = `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`;
+    return `${HEAD}<worksheet ${NS} xmlns:r="${REL}"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><cols>${cols}</cols>` +
+      `<sheetData>${rowsXml}</sheetData>${merges}` +
+      '<pageMargins left="0" right="0" top="0.393700787401575" bottom="0.393700787401575" header="0.3" footer="0.3"/>' +
+      '<pageSetup paperSize="9" scale="67" orientation="landscape"/></worksheet>';
   }
-
-  const font = (bold, size) => `<font>${bold ? "<b/>" : ""}<sz val="${size}"/><name val="Calibri"/><family val="2"/></font>`;
-  const side = (n) => `<${n} style="thin"><color rgb="FF999999"/></${n}>`;
-  const xf = (num, fontId, border, align) => `<xf numFmtId="${num}" fontId="${fontId}" fillId="0" borderId="${border}" xfId="0"` +
-    `${num ? ' applyNumberFormat="1"' : ""}${fontId ? ' applyFont="1"' : ""}${border ? ' applyBorder="1"' : ""}` +
-    (align ? ` applyAlignment="1"><alignment ${align}/></xf>` : "/>");
-  const WRAP = 'vertical="center" wrapText="1"';
-  const STYLES = `${HEAD}<styleSheet ${NS}>` +
-    `<fonts count="3">${font(false, 11)}${font(true, 11)}${font(true, 16)}</fonts>` +
-    '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
-    `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>${side("left")}${side("right")}` +
-    `${side("top")}${side("bottom")}<diagonal/></border></borders>` +
-    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    `<cellXfs count="8">${xf(0, 0, 0, "")}${xf(0, 2, 0, 'horizontal="center"')}${xf(0, 0, 0, WRAP)}` +
-    `${xf(0, 1, 1, `horizontal="center" ${WRAP}`)}${xf(0, 0, 1, WRAP)}${xf(3, 0, 1, WRAP)}${xf(0, 1, 0, "")}${xf(3, 1, 0, "")}</cellXfs>` +
-    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   /** The .xlsx bytes of one sheet. */
   function workbook(fflate, sheet, name, now) {
     const strings = [];
+    const styles = stylesXml(sheet);
     const sheet1 = sheetXml(sheet, strings);
     const sst = `${HEAD}<sst ${NS} count="${strings.length}" uniqueCount="${strings.length}">` +
       strings.map((s) => `<si><t xml:space="preserve">${xml(s)}</t></si>`).join("") + "</sst>";
     const when = (now || new Date()).toISOString().replace(/\.\d+Z$/, "Z");
     const T = "http://schemas.openxmlformats.org/";
+    const printArea = `<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'${xml(name)}'!$A$1:$G$${sheet.lastRow}</definedName></definedNames>`;
     const files = {
       "[Content_Types].xml": `${HEAD}<Types xmlns="${T}package/2006/content-types">` +
         `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
@@ -145,13 +246,13 @@ const DBK_XLSX = (() => {
         'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
         `<dcterms:created xsi:type="dcterms:W3CDTF">${when}</dcterms:created>` +
         `<dcterms:modified xsi:type="dcterms:W3CDTF">${when}</dcterms:modified></cp:coreProperties>`,
-      "xl/workbook.xml": `${HEAD}<workbook ${NS} xmlns:r="${REL}"><sheets><sheet name="${xml(name)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+      "xl/workbook.xml": `${HEAD}<workbook ${NS} xmlns:r="${REL}"><sheets><sheet name="${xml(name)}" sheetId="1" r:id="rId1"/></sheets>${printArea}</workbook>`,
       "xl/_rels/workbook.xml.rels": `${HEAD}<Relationships xmlns="${T}package/2006/relationships">` +
         `<Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/>` +
         `<Relationship Id="rId2" Type="${REL}/styles" Target="styles.xml"/>` +
         `<Relationship Id="rId3" Type="${REL}/sharedStrings" Target="sharedStrings.xml"/></Relationships>`,
       "xl/worksheets/sheet1.xml": sheet1,
-      "xl/styles.xml": STYLES,
+      "xl/styles.xml": styles,
       "xl/sharedStrings.xml": sst,
     };
     const zip = {};
@@ -159,21 +260,19 @@ const DBK_XLSX = (() => {
     return fflate.zipSync(zip, { level: 6 });
   }
 
-  /** The table of the file, as core/issues.note_rows: one row per product and place (a product taken from both places
-      is two rows). lines [{product_id, qty_main, qty_office, unit_price (null = no price), note}]. */
+  /** The table of the file, as core/issues.note_rows: one row per product, like a delivery note; where it is taken
+      from goes in the hidden 'Lấy từ kho' column. lines [{product_id, qty_main, qty_office, unit_price (null = no
+      price), note}]. The unit is only for the window's summary, it is not in the file. */
   function noteRows(productById, lines) {
-    const rows = [];
-    for (const ln of lines) {
+    return lines.map((ln) => {
       const p = productById[ln.product_id];
       const nameVi = [p.name_vi, p.variant].filter(Boolean).join(" ");
-      for (const [place, qty] of [[1, ln.qty_main], [2, ln.qty_office]]) {
-        if (!(qty > 0)) continue;
-        const amount = ln.unit_price === null || ln.unit_price === undefined ? null : Math.round(qty * ln.unit_price * 100) / 100;
-        rows.push({ code: p.code, name_vi: nameVi, name_zh: p.name_zh || "", spec: p.spec || "", unit: p.unit || "", qty,
-                    location_id: place, unit_price: ln.unit_price ?? null, amount, note: String(ln.note || "").replace(/\s+/g, " ").trim() });
-      }
-    }
-    return rows;
+      const places = [[1, ln.qty_main], [2, ln.qty_office]].filter(([, q]) => q > 0);
+      const qty = (ln.qty_main || 0) + (ln.qty_office || 0);
+      const amount = ln.unit_price === null || ln.unit_price === undefined ? null : Math.round(qty * ln.unit_price * 100) / 100;
+      return { code: p.code, name_vi: nameVi, name_zh: p.name_zh || "", spec: p.spec || "", unit: p.unit || "", qty, places,
+               unit_price: ln.unit_price ?? null, amount, note: String(ln.note || "").replace(/\s+/g, " ").trim() };
+    });
   }
 
   /** PX + date and time (PX261114-093215), like core/issues.new_code: machines and the web never share a counter. */
@@ -182,12 +281,12 @@ const DBK_XLSX = (() => {
     return `PX${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   }
 
-  /** The bytes of a Phiếu xuất kho: head {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address},
-      rows [{code, name_vi, name_zh, spec, unit, qty, location_id, unit_price, amount, note}]. */
+  /** The bytes of a Phiếu xuất kho: head {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address, letterhead},
+      rows [{code, name_vi, name_zh, spec, qty, places [[location id, qty]], unit_price, amount, note}]. */
   function issueNote(fflate, head, rows, now) {
     return workbook(fflate, issueSheet(head, rows), SHEET, now);
   }
 
-  return { TITLE, LABELS, HEADERS, PLACES, TOTAL, SIGNATURES, HEADER_ROW, productName, issueSheet, noteRows, newCode, issueNote };
+  return { TITLE, LABELS, HEADERS, PLACES, HEADER_ROW, productName, placesText, vndWords, issueSheet, noteRows, newCode, issueNote };
 })();
 if (typeof module !== "undefined") module.exports = DBK_XLSX;

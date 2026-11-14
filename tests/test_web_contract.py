@@ -185,8 +185,8 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     path.write_bytes(base64.b64decode(made["b64"]))
     note = read_delivery_note(path)
     assert (note.customer_name, note.phone, note.code) == ("Cong ty A", "0900 000 001", made["name"][10:-5])
-    assert [(ln.product_code, ln.location_id, ln.qty, ln.unit_price, ln.amount) for ln in note.lines] == [
-        ("SP001", 1, 2, 100, 200), ("SP001", 2, 1.5, 100, 150), ("SP002", 1, 1, 50, 50)]
+    assert [(ln.product_code, ln.places, ln.qty, ln.unit_price, ln.amount) for ln in note.lines] == [
+        ("SP001", ((1, 2), (2, 1.5)), 3.5, 100, 350), ("SP002", ((1, 1),), 1, 50, 50)]
     before = stock.stock_levels(conn, by_location=True)
     deliveries.scan(conn, ws)
     after = stock.stock_levels(conn, by_location=True)
@@ -241,7 +241,7 @@ def test_the_same_page_in_chinese(cloud_shop, tmp_path):
     assert checks["issueTotal"] == "货款：400"
     (made,) = out["files"]
     note = read_delivery_note(_save(tmp_path, made))
-    assert [ln.location_id for ln in note.lines] == [1, 2, 1]  # the file is the same bilingual file in any language
+    assert [ln.places for ln in note.lines] == [((1, 2), (2, 1.5)), ((1, 1),)]  # the same bilingual file in any language
 
 
 def _save(tmp_path, made):

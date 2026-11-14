@@ -24,6 +24,7 @@
   "main.rescan": "⟳ 重新扫描送货单",
   "main.open_deliveries": "打开送货单文件夹",
   "main.scan_result": "最近一次扫描：{count} 张新送货单",
+  "main.scan_copies": "{count} 个文件是已读单据的副本（不再重复扣库存）",
   "main.pending": "{count} 项待处理",
   "main.scan_failed": "无法扫描送货单文件夹：\n{error}",
   "btn.yes": "是",

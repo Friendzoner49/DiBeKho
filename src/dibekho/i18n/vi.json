@@ -24,6 +24,7 @@
   "main.rescan": "⟳ Quét lại phiếu",
   "main.open_deliveries": "Mở thư mục phiếu giao hàng",
   "main.scan_result": "Lần quét gần nhất: {count} phiếu mới",
+  "main.scan_copies": "{count} file là bản chép của phiếu đã có (không trừ tồn lần nữa)",
   "main.pending": "{count} việc cần xử lý",
   "main.scan_failed": "Không quét được thư mục phiếu:\n{error}",
   "btn.yes": "Có",

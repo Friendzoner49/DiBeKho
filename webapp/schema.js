@@ -235,7 +235,8 @@ const DBK_SCHEMA = {
     "count_checked",
     "skipped_lines_backfilled",
     "product_code_max",
-    "clock_offset_min"
+    "clock_offset_min",
+    "note_letterhead"
    ],
    "booleans": [],
    "timestamps": []
@@ -247,7 +248,8 @@ const DBK_SCHEMA = {
   "count_checked",
   "skipped_lines_backfilled",
   "product_code_max",
-  "clock_offset_min"
+  "clock_offset_min",
+  "note_letterhead"
  ]
 };
 if (typeof module !== "undefined") module.exports = DBK_SCHEMA;

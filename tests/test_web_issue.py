@@ -68,40 +68,58 @@ def test_the_code_is_the_apps():
     assert _node("code") == "PX261114-093015" == issues.new_code(__import__("datetime").datetime(2026, 11, 14, 9, 30, 15))
 
 
+def _plain(row: dict) -> dict:
+    row = {k: v for k, v in row.items() if k != "unit"}  # the unit is only for the web window's summary
+    row["places"] = [list(p) for p in row["places"]]
+    return row
+
+
 def test_the_rows_are_the_apps(conn, goods, tmp_path):
     paint, sand = goods
     data = _input(paint, sand)
-    app = [dataclasses.asdict(r) for r in issues.note_rows(conn, data)]
-    web = _web_rows(conn, data, tmp_path)
+    app = [_plain(dataclasses.asdict(r)) for r in issues.note_rows(conn, data)]
+    web = [_plain(r) for r in _web_rows(conn, data, tmp_path)]
     assert web == app
-    assert [(r["location_id"], r["qty"]) for r in web] == [(MAIN, 10), (OFFICE, 3), (MAIN, 2.5)]
+    assert [(r["places"], r["qty"]) for r in web] == [([[MAIN, 10], [OFFICE, 3]], 13), ([[MAIN, 2.5]], 2.5)]
 
 
 def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path):
     paint, sand = goods
     data = _input(paint, sand)
     rows = issues.note_rows(conn, data)
-    head = IssueHead("PX261114-093015", data.doc_date, data.customer_name, data.phone, data.contact, data.address)
+    head = IssueHead("PX261114-093015", data.doc_date, data.customer_name, data.phone, data.contact, data.address,
+                     ["CÔNG TY MẪU 样本公司", "Số 1 Đường Mẫu"])
     app_file = write_issue_note(tmp_path / "app.xlsx", head, rows)
     web_file = _web_file({"code": head.code, "doc_date": "2026-11-14", "customer": head.customer, "phone": head.phone,
-                          "contact": head.contact, "address": head.address},
+                          "contact": head.contact, "address": head.address, "letterhead": head.letterhead},
                          [dataclasses.asdict(r) for r in rows], tmp_path / "web.xlsx")
     app_note, web_note = read_delivery_note(app_file), read_delivery_note(web_file)
     assert web_note == app_note
     assert (web_note.code, web_note.customer_name, web_note.doc_date) == ("PX261114-093015", "Công ty A", date(2026, 11, 14))
-    assert [(ln.product_code, ln.location_id, ln.qty, ln.unit_price) for ln in web_note.lines] == [
-        ("SP001", MAIN, 10, 512500.5), ("SP001", OFFICE, 3, 512500.5), ("SP002", MAIN, 2.5, None)]
+    assert [(ln.product_code, ln.places, ln.qty, ln.unit_price) for ln in web_note.lines] == [
+        ("SP001", ((MAIN, 10), (OFFICE, 3)), 13, 512500.5), ("SP002", ((MAIN, 2.5),), 2.5, None)]
     assert not web_note.warnings
 
-    # cell by cell, merged ranges, widths: the same sheet
+    # cell by cell (value, font, border, alignment, number format), merged ranges, widths, heights, hidden columns,
+    # print setup: the same sheet
     a, w = openpyxl.load_workbook(app_file).active, openpyxl.load_workbook(web_file).active
     assert w.title == a.title == "出库单"
-    cells = lambda ws: {(c.row, c.column): c.value for row in ws.iter_rows() for c in row if c.value not in (None, "")}  # noqa: E731
+
+    def cells(ws):
+        return {(c.row, c.column): (c.value, c.font.name, c.font.sz, bool(c.font.b), c.border.left.style,
+                                    c.alignment.horizontal, bool(c.alignment.wrap_text), c.number_format)
+                for row in ws.iter_rows() for c in row if c.has_style or c.value is not None}
+
     assert cells(w) == cells(a)
     assert sorted(map(str, w.merged_cells.ranges)) == sorted(map(str, a.merged_cells.ranges))
-    assert {k: v.width for k, v in w.column_dimensions.items()} == {k: v.width for k, v in a.column_dimensions.items()}
-    assert w["I8"].number_format == a["I8"].number_format == "#,##0"
-    assert w["A1"].font.b and w["A1"].font.sz == 16
+    dims = lambda ws: {k: (v.width, bool(v.hidden)) for k, v in ws.column_dimensions.items() if v.width}  # noqa: E731
+    assert dims(w) == dims(a)
+    assert {r: d.height for r, d in w.row_dimensions.items() if d.height} == \
+        {r: d.height for r, d in a.row_dimensions.items() if d.height}
+    assert (w.page_setup.orientation, w.page_setup.scale, w.page_setup.paperSize) == \
+        (a.page_setup.orientation, a.page_setup.scale, int(a.page_setup.paperSize)) == ("landscape", 67, 9)
+    assert w.print_area == a.print_area
+    assert w["A1"].value == "CÔNG TY MẪU 样本公司" and w["A4"].value == "出库单 PHIẾU XUẤT KHO"
 
 
 def test_a_web_file_dropped_in_the_folder_takes_each_place_once(conn, ws, goods, tmp_path):
@@ -117,7 +135,7 @@ def test_a_web_file_dropped_in_the_folder_takes_each_place_once(conn, ws, goods,
     assert (doc["code"], doc["location_set"], doc["status"]) == ("PX261114-093015", 1, "active")
     amounts = sorted(r[0] for r in conn.execute("SELECT amount FROM document_lines WHERE document_id = ? AND amount IS NOT NULL",
                                                 (doc["id"],)))
-    assert amounts == [1537501.5, 5125005]
+    assert amounts == [6662506.5]
     assert deliveries.pending_count(conn) == 0 and deliveries.unplaced_count(conn) == 0
     deliveries.scan(conn, ws)  # read again: nothing more is taken
     assert stock_levels(conn, by_location=True) == levels

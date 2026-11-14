@@ -10,6 +10,7 @@ The database is the source of truth; files are only input:
 """
 
 import hashlib
+import json
 import shutil
 import stat
 import tempfile
@@ -19,7 +20,8 @@ from pathlib import Path
 
 from dibekho import db
 from dibekho.core import catalog
-from dibekho.core.stock import MAIN, Line, add_lines, close_document, insert_document, stock_count, stock_levels
+from dibekho.core.stock import (MAIN, Line, add_lines, close_document, insert_document, is_mixed, stock_count,
+                                 stock_levels)
 from dibekho.core.text import clean, fmt_qty, match_key, nfc, normalize_code, normalize_phone, unaccent
 from dibekho.core.workspace import PROCESSED, Workspace
 from dibekho.excel.delivery_note import (
@@ -31,6 +33,7 @@ from dibekho.excel.delivery_note import (
 
 PENDING_STATUSES = ("error", "needs_mapping", "changed", "missing")
 OTHER_ORDER_DAYS = 31  # an edit may fix a wrong date by a few days; further apart it is likely another order
+LETTERHEAD_KEY = "note_letterhead"  # meta: JSON list, the lines above the title of the shop's delivery notes
 COUNT_CHECKED_KEY = "count_checked"  # meta: notes (by file hash) the user decided about after a stock count
 
 
@@ -38,6 +41,7 @@ COUNT_CHECKED_KEY = "count_checked"  # meta: notes (by file hash) the user decid
 class ScanResult:
     imported: list[str] = field(default_factory=list)
     pending: int = 0
+    copies: list[str] = field(default_factory=list)  # files with the same content as another one: counted once
 
 
 @dataclass
@@ -119,6 +123,9 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
         except OSError:
             unreadable = True  # being written / locked / not downloaded yet; next scan will get it
             continue
+        if h in seen:  # a copy of a file met in this scan (copied back into the folder): the same note, once
+            result.copies.append(rel)
+            continue
         seen.add(h)
         found.append((path, rel, h))
         row = conn.execute("SELECT * FROM scanned_files WHERE hash = ?", (h,)).fetchone()
@@ -167,6 +174,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     sort_files(conn, ws, found)
     backfill_customers(conn, ws)
     backfill_prices(conn, ws)
+    backfill_letterhead(conn, ws)
     from dibekho.core import receipts  # receipts imports this module
 
     receipts.backfill_return_prices(conn)  # after the notes have their prices: a return takes its price from them
@@ -291,7 +299,8 @@ def _note_lines(conn, note: DeliveryNote, rows=()) -> list[Line]:
         pid = line_product(conn, ln)
         if pid is not None and ln.row not in rows:
             lines.append(Line(pid, ln.qty, ln.raw_name, ln.spec, ln.note, line_no=ln.row,
-                              unit_price=ln.unit_price, amount=ln.amount, location_id=ln.location_id))
+                              unit_price=ln.unit_price, amount=ln.amount,
+                              location_id=ln.places[0][0] if len(ln.places) == 1 else None, places=ln.places))
     return lines
 
 
@@ -299,7 +308,7 @@ def _add_known_lines(conn, doc_id: int, note: DeliveryNote) -> None:
     rows = {r[0] for r in conn.execute("SELECT line_no FROM document_lines WHERE document_id = ?", (doc_id,))}
     new = _note_lines(conn, note, rows)
     if not note_places(note):
-        new = [replace(ln, location_id=None) for ln in new]
+        new = [replace(ln, location_id=None, places=()) for ln in new]
     if new:
         add_lines(conn, doc_id, new)
         db.log(conn, "delivery_lines_added", f"{note.code}: {len(new)}")
@@ -347,10 +356,12 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
     code_norm = separate or (prev["code_norm"] if replaces is not None else _separate_code(conn, h)) or note.code_norm
     location_id, location_set = (prev["location_id"] if prev else MAIN), bool(prev and prev["location_set"])
     if note_places(note):  # a stock issue note says the place of each line itself: nothing to choose
-        places = {ln.location_id for ln in note.lines}
+        places = {loc for ln in note.lines for loc, _ in ln.places}
         location_id, location_set = (places.pop() if len(places) == 1 else MAIN), True
     else:
-        lines = [replace(ln, location_id=None) for ln in lines]  # a place on some lines only: the note's place
+        lines = [replace(ln, location_id=None, places=()) for ln in lines]  # some lines only: the note's place
+        if replaces is not None and is_mixed(conn, replaces):
+            location_set = False  # it took from both places and the edit lost the split: ask again
     doc_id = insert_document(
         conn, "delivery", note.doc_date, lines, code=note.code, code_norm=code_norm,
         customer_id=customer_id, source_file=rel, source_hash=h,
@@ -361,6 +372,7 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
             conn.execute("INSERT INTO document_skipped_lines(document_id, key, raw_name) VALUES(?,?,?)",
                          (doc_id, ln.key, ln.raw_name))
     set_money(conn, doc_id, note)
+    keep_letterhead(conn, note)
     _record(conn, h, rel, "imported", "", doc_id)
     db.log(conn, "delivery_imported", f"{note.code} ({rel})")
     return doc_id
@@ -421,8 +433,44 @@ def line_product(conn, ln) -> int | None:
 
 
 def note_places(note: DeliveryNote) -> bool:
-    """Every goods line says where it is taken from ('Lấy từ kho'): the note places itself."""
-    return bool(note.lines) and all(ln.location_id for ln in note.lines)
+    """Every goods line says where it is taken from (the hidden 'Lấy từ kho' column of a stock issue note)."""
+    return bool(note.lines) and all(ln.places for ln in note.lines)
+
+
+def keep_letterhead(conn, note: DeliveryNote) -> None:
+    """The company name and address printed above the title of the shop's own delivery notes, kept in meta for the
+    stock issue notes (app and web) to print the same way. Never taken from an issue note, and never written in the
+    code: the repository is public."""
+    if not note.letterhead or not any(m in unaccent(note.title) or m in note.title for m in ("phieu giao hang", "销售单")):
+        return
+    value = json.dumps(note.letterhead[:3], ensure_ascii=False)
+    if db.get_meta(conn, LETTERHEAD_KEY, "") != value:
+        db.set_meta(conn, LETTERHEAD_KEY, value)
+
+
+def letterhead(conn) -> list[str]:
+    try:
+        lines = json.loads(db.get_meta(conn, LETTERHEAD_KEY, "") or "[]")
+    except ValueError:
+        return []
+    return [str(x) for x in lines if isinstance(x, str)][:3] if isinstance(lines, list) else []
+
+
+def backfill_letterhead(conn, ws: Workspace) -> None:
+    """Data recorded before the letterhead was kept: read it once from the latest delivery note's stored copy."""
+    if db.get_meta(conn, LETTERHEAD_KEY, ""):
+        return
+    for d in conn.execute("SELECT source_hash FROM documents WHERE kind = 'delivery' AND source_hash <> '' "
+                          "ORDER BY doc_date DESC, id DESC LIMIT 20").fetchall():
+        path = original_copy(ws, d["source_hash"])
+        try:
+            note = read_delivery_note(path) if path else None
+        except (OSError, NotDeliveryNote, DeliveryNoteError):
+            continue
+        if note is not None and note.letterhead:
+            keep_letterhead(conn, note)
+            if db.get_meta(conn, LETTERHEAD_KEY, ""):
+                return
 
 
 def goods_lines(conn, note: DeliveryNote):
