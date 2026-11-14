@@ -71,7 +71,7 @@ class WebCountDialog(QDialog):
 
 class WebRequestsPanel(QGroupBox):
     def __init__(self, ctx, run, parent=None):
-        """run(action, undo_action): PendingPage._run -- undo point, the action, then a rescan."""
+        """run(action, name): PendingPage._run -- the action, then a rescan."""
         super().__init__(t("web.title"), parent)
         self.ctx, self.run = ctx, run
         lay = QVBoxLayout(self)

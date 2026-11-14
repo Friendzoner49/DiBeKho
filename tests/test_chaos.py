@@ -17,7 +17,7 @@ import openpyxl
 import pytest
 
 from dibekho import db
-from dibekho.core import catalog, deliveries, receipts, stats, transfer, undo
+from dibekho.core import catalog, deliveries, receipts, stats, transfer
 from dibekho.core import reset as reset_mod
 from dibekho.core.receipts import SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
 from dibekho.core.stock import (
@@ -211,9 +211,9 @@ def test_tc11_partly_approved_note_edited_then_finished_leaves_nothing_waiting(c
     check_ledger(conn)
 
 
-def test_tc12_reread_whole_note_fails_cleanly_when_a_related_note_has_no_file(conn, ws):
-    """'Đọc lại cả phiếu' rereads every note sharing a name. If one of them can no longer be read (file and
-    stored copy gone), nothing may change: the names were forgotten and half the notes reread before."""
+def test_tc12_reread_whole_note_reads_only_that_note(conn, ws):
+    """'Đọc lại cả phiếu' reads that note again only (user, 15/11/2026): another note with the same name keeps what
+    it recorded, even when its file is gone. A note whose own file is gone changes nothing."""
     make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])
     make_note(ws.deliveries / "b.xlsx", code="2", lines=[LINE_A])
     learn_all(conn, ws)
@@ -223,10 +223,11 @@ def test_tc12_reread_whole_note_fails_cleanly_when_a_related_note_has_no_file(co
     (ws.originals / f"{hb}.xlsx").unlink()
     before = stock_levels(conn)
     with pytest.raises(ValueError):
-        deliveries.forget_order(conn, ws, doc_a)
+        deliveries.forget_order(conn, ws, doc_b)
     assert stock_levels(conn) == before
-    assert catalog.alias_product(conn, read_delivery_note(ws.deliveries_done / "a.xlsx").lines[0].key)
-    assert conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[0] == 2
+    assert deliveries.forget_order(conn, ws, doc_a) == 1
+    assert conn.execute("SELECT status FROM documents WHERE id = ?", (doc_b,)).fetchone()[0] == "active"
+    assert conn.execute("SELECT status FROM documents WHERE id = ?", (doc_a,)).fetchone()[0] == "replaced"
 
 
 # ---- the hurried user: double clicks, wrong buttons ----------------------------------------------------------
@@ -392,25 +393,7 @@ def test_tc22b_export_failing_halfway_leaves_no_broken_package(tmp_path, monkeyp
     assert list(ws_a.output.glob("*.dibekho")) == []
 
 
-# ---- undo, reset, start-up -----------------------------------------------------------------------------------
-
-def test_tc23_undo_pressed_25_times(tmp_path):
-    ws = Workspace(tmp_path / "W")
-    ws.ensure()
-    conn = db.connect(ws.db_path)
-    for i in range(25):
-        undo.mark(conn, ws, "product")
-        with db.transaction(conn):
-            catalog.create_product(conn, f"Hàng {i}")
-    conn.close()
-    steps = 0
-    while (p := undo.latest(ws)) is not None:
-        undo.undo(ws, p)
-        steps += 1
-    assert steps == undo.KEEP
-    conn = db.connect(ws.db_path)
-    assert conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 25 - undo.KEEP
-
+# ---- reset, start-up -----------------------------------------------------------------------------------
 
 def test_tc24_reset_stock_then_scan_gives_the_same_numbers(conn, ws):
     make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A])

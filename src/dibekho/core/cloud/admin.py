@@ -11,7 +11,6 @@ Only once the cloud has it does the caller put the new file in place of the old 
 from pathlib import Path
 
 from dibekho import db
-from dibekho.core import undo
 from dibekho.core.cloud import replica, twoway
 from dibekho.core.cloud.client import CloudError
 from dibekho.db.sync_schema import SYNCED
@@ -70,7 +69,6 @@ def replace_shared(conn, new_path: Path, client, token: str, device: str) -> int
         with db.transaction(new):
             db.set_meta(new, twoway.CURSOR_KEY, str(rev))
             db.set_meta(new, twoway.CONFLICTS_KEY, "[]")
-            undo.forget_doc(new)
             replica.set_enabled(new, True)
         return rev
     finally:

@@ -8,8 +8,7 @@ Files:
 - output/phieu-xuat/PhieuXuat_<code>.xlsx: the copy for the user (print, send);
 - phieu-giao-hang/da-xu-ly/PhieuXuat_<code>.xlsx: the copy the scan sees, so 'Đặt lại tồn kho' and a data
   package read it again like the other notes.
-Hoàn tác (local data) puts the database back, then after_undo() moves that second copy out of the folder,
-otherwise the next scan would record the note again.
+A wrong note is deleted (delete(), from the order's window: Huỷ phiếu → Xoá hẳn) and typed again.
 
 Codes (user's choice 14/11/2026): A + the number after the highest order number so far (orders up to 159 -> A160);
 the web page writes W160 (webapp/xlsx.js nextCode), so the app and the web never take the same code. The shop's own
@@ -32,7 +31,6 @@ PREFIX = "A"  # made in the app; "W" on the web page
 _NUMBERED = re.compile(r"^\s*[AaWw]?\s*0*(\d{1,9})\s*$")  # an order number, maybe with the app's or the web's letter
 FILE_PREFIX = "PhieuXuat_"
 FOLDER = "phieu-xuat"
-UNDONE = "da-hoan-tac"
 DELETED = "da-xoa"
 _ISSUE_CODE = re.compile(r"^\s*[AaWw]\d+\s*$")
 
@@ -82,27 +80,24 @@ def problems(conn, data: IssueInput) -> list[tuple[str, dict]]:
         found.append(("issue.need_customer", {}))
     if not data.filled():
         found.append(("issue.need_lines", {}))
-    seen: set[int] = set()
     for ln in data.filled():
-        if ln.product_id in seen:
-            found.append(("issue.same_product_twice", {"id": ln.product_id}))
-        seen.add(ln.product_id)
         if (ln.qty_main or 0) < 0 or (ln.qty_office or 0) < 0 or (ln.unit_price or 0) < 0:
             found.append(("issue.negative", {"id": ln.product_id}))
     return found
 
 
 def short_of(conn, data: IssueInput) -> list[tuple[int, int, float, float]]:
-    """Lines asking for more than a place has now: (product_id, location_id, asked, in stock). Only a warning:
-    stock may go below zero (the app never blocks it, the row turns red)."""
+    """Products asked for more than a place has now: (product_id, location_id, asked, in stock); the lines of one
+    product count together (it may stand on several lines, each with its price). Only a warning: stock may go
+    below zero (the app never blocks it, the row turns red)."""
     levels = stock_levels(conn, by_location=True)
-    result = []
+    asked: dict[tuple[int, int], float] = {}
     for ln in data.filled():
         for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
-            have = levels.get((ln.product_id, loc), 0.0)
-            if qty and qty > have:
-                result.append((ln.product_id, loc, qty, have))
-    return result
+            if qty:
+                asked[(ln.product_id, loc)] = asked.get((ln.product_id, loc), 0.0) + qty
+    return [(pid, loc, qty, levels.get((pid, loc), 0.0)) for (pid, loc), qty in asked.items()
+            if qty > levels.get((pid, loc), 0.0)]
 
 
 def last_price(conn, customer_name: str, product_id: int | None) -> float | None:
@@ -122,8 +117,8 @@ def last_price(conn, customer_name: str, product_id: int | None) -> float | None
 
 
 def note_rows(conn, data: IssueInput) -> list[IssueRow]:
-    """The table of the file: one row per product, like a delivery note; where it is taken from (Kho tổng and/or
-    Văn phòng) goes in the hidden 'Lấy từ kho' column."""
+    """The table of the file: one row per line typed, like a delivery note (a product may come twice, at two
+    prices); where it is taken from (Kho tổng and/or Văn phòng) goes in the hidden 'Lấy từ kho' column."""
     rows = []
     for ln in data.filled():
         p = conn.execute("SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone()
@@ -169,40 +164,6 @@ def save(conn, ws: Workspace, data: IssueInput) -> tuple[int, Path]:
     return row["document_id"], user_copy
 
 
-def known_issue_files(conn, ws: Workspace) -> dict:
-    """Issue notes in the delivery folders that the data knows: {path: hash}. Taken just before Hoàn tác."""
-    from dibekho.core import deliveries
-
-    result = {}
-    for path in deliveries.delivery_files(ws):
-        if not path.name.startswith(FILE_PREFIX):
-            continue
-        try:
-            h = deliveries.file_hash(path)
-        except OSError:
-            continue
-        if conn.execute("SELECT 1 FROM scanned_files WHERE hash = ?", (h,)).fetchone():
-            result[path] = h
-    return result
-
-
-def after_undo(conn, ws: Workspace, before: dict) -> int:
-    """After Hoàn tác: issue notes the data no longer knows (the undone action recorded them) leave the delivery
-    folder for output/phieu-xuat/da-hoan-tac/, so the next scan does not record them again. Returns how many."""
-    moved = 0
-    for path, h in before.items():
-        if conn.execute("SELECT 1 FROM scanned_files WHERE hash = ?", (h,)).fetchone() or not path.exists():
-            continue
-        target = _free(ws.output / FOLDER / UNDONE / path.name)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            path.replace(target)
-        except OSError:
-            continue
-        moved += 1
-    return moved
-
-
 def is_issue_code(code) -> bool:
     """A160 (made in the app) or W160 (made on the web): a stock issue note, which may be deleted."""
     return bool(_ISSUE_CODE.match(str(code or "")))
@@ -213,7 +174,7 @@ def delete(conn, ws: Workspace, doc_id: int) -> int:
     wrong note must leave no hole): the document and its earlier versions (same code, edited in Excel), their lines and
     stock movements, so the stock is as if it never was; its number is free again (new_code). Its files leave the
     notes folder and output/phieu-xuat/ for output/phieu-xuat/da-xoa/, otherwise the next scan would record it
-    again; the stored copy in data/phieu-goc/ stays, so Hoàn tác can bring the file back. On shared data the deletes
+    again; the stored copy in data/phieu-goc/ stays. On shared data the deletes
     go to the cloud like any change. Run inside a transaction. Returns how many files were moved."""
     from dibekho.core import deliveries
 
@@ -245,7 +206,7 @@ def delete(conn, ws: Workspace, doc_id: int) -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             path.replace(target)
         except OSError:
-            continue  # open in Excel: the user is told by the scan (it is read again), Hoàn tác is there
+            continue  # open in Excel: the user is told by the scan (it is read again)
         moved += 1
     return moved
 

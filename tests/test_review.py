@@ -3,7 +3,7 @@
 import openpyxl
 
 from dibekho import db
-from dibekho.core import catalog, deliveries, undo
+from dibekho.core import catalog, deliveries
 from dibekho.core.stock import stock_levels
 from dibekho.excel.delivery_note import read_delivery_note
 from tests.conftest import make_note
@@ -88,26 +88,6 @@ def test_learned_names_grouped_by_order_and_forget_one_line(conn, ws):
     assert levels == {"SP001": -20, "SP002": -20, "SP004": 0}
 
 
-def test_undo_puts_the_data_back_step_by_step(conn, ws):
-    """Undo needs a database file: the in-memory one of the other tests cannot be swapped."""
-    conn = db.connect(ws.db_path)
-    with db.transaction(conn):
-        catalog.create_product(conn, "A", "甲", "")
-    undo.mark(conn, ws, "product_add")
-    with db.transaction(conn):
-        catalog.create_product(conn, "B", "乙", "")
-    undo.mark(conn, ws, "product_delete")
-    with db.transaction(conn):
-        conn.execute("DELETE FROM products")
-    assert [p.action for p in undo.points(ws)] == ["product_delete", "product_add"]
-
-    for expected in (["A", "B"], ["A"]):
-        conn.close()
-        undo.undo(ws, undo.latest(ws))
-        conn = db.connect(ws.db_path)
-        assert [r[0] for r in conn.execute("SELECT name_vi FROM products ORDER BY id")] == expected
-    assert undo.latest(ws) is None
-    conn.close()
 
 
 def test_excel_lock_file_in_the_originals_folder_is_left_out(conn, ws, tmp_path):

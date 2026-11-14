@@ -471,11 +471,13 @@ def test_merge_products_fills_empty_fields_from_the_dropped_product(conn):
     assert (row["name_zh"], row["category"], row["stock_note"], row["min_stock"]) == ("涂料A", "Sơn", "2 thùng in lệch", 15)
 
 
-def test_deleted_products_are_found_in_an_undo_snapshot_and_file_is_untouched(conn, ws):
-    from dibekho.core import undo
+def test_deleted_products_are_found_in_an_old_undo_snapshot_and_file_is_untouched(conn, ws):
+    from dibekho.core import backup
 
     pid = catalog.create_product(conn, "Sơn riêng")
-    point = undo.mark(conn, ws, "delete_product")
+    point = ws.backups / "hoan-tac" / "2026-11-01_100000_000000__delete_product.sqlite"  # left by versions < 0.5.3
+    point.parent.mkdir(parents=True, exist_ok=True)
+    backup.snapshot(conn, point)
     catalog.delete_product(conn, pid)
     before = point.stat().st_mtime
     codes = [d.code for d in catalog.deleted_products(conn, ws)]

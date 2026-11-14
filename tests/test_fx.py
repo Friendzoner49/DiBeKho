@@ -43,9 +43,36 @@ def test_the_last_rate_is_kept_for_offline_use():
     fx.save(rate)
     again = fx.cached()
     assert again == rate
-    assert fx.is_fresh(again, now=datetime(2026, 11, 14, 14, 0))
-    assert not fx.is_fresh(again, now=datetime(2026, 11, 14, 16, 0))
+    assert fx.is_fresh(again, now=datetime(2026, 11, 14, 9, 5))
+    assert not fx.is_fresh(again, now=datetime(2026, 11, 14, 9, 15))  # the rate of the minute: asked every 10 min
     assert not fx.is_fresh(None)
+
+
+LIVE = {"success": True, "base": "CNY", "timestamp": 1794694140, "date": "2026-11-14T22:09:00.000Z",
+        "rates": {"VND": 3854.894313612}}
+
+
+def test_the_rate_of_the_minute_first_the_daily_rate_when_it_does_not_answer():
+    rate = fx.parse(LIVE)
+    assert rate.vnd_per_cny == pytest.approx(3854.894313612) and rate.source == fx.SOURCE
+    asked = []
+
+    def get(url, timeout):
+        asked.append(url)
+        return LIVE
+    assert fx.fetch(get=get).source == fx.SOURCE and asked == [fx.URL]
+
+    def down(url, timeout):
+        asked.append(url)
+        if url == fx.URL:
+            raise OSError("no answer")
+        return ANSWER
+    asked.clear()
+    rate = fx.fetch(get=down)
+    assert asked == [fx.URL, fx.DAILY_URL] and rate.source == fx.DAILY_SOURCE
+    assert fx.cached().source == fx.DAILY_SOURCE
+    with pytest.raises(ValueError):
+        fx.parse({**LIVE, "rates": {"VND": True}})
 
 
 @pytest.fixture(autouse=True)

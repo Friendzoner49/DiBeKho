@@ -119,7 +119,7 @@ class ProductEditor(QDialog):
                 self.accept()
                 ProductEditor(self.ctx, dups[0], self.parent()).exec()
                 return
-        self.ctx.undo_point("product_edit" if self.product else "product_add")
+        self.ctx.log_action("product_edit" if self.product else "product_add")
         with db.transaction(self.ctx.conn):
             if self.product:
                 catalog.update_product(self.ctx.conn, self.product["id"], active=int(self.active.isChecked()),
@@ -272,7 +272,7 @@ class SettingsPage(Page):
 
     def refresh(self):
         self.low_default.blockSignals(True)
-        self.low_default.setValue(low_stock_default(self.ctx.conn))  # may come with a data package or an undo
+        self.low_default.setValue(low_stock_default(self.ctx.conn))  # may come with a data package
         self.low_default.blockSignals(False)
         rows = catalog.products(self.ctx.conn, include_inactive=True)
         fill_table(self.table, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"], p["category"],
@@ -336,7 +336,7 @@ class SettingsPage(Page):
                            orders=", ".join(orders) or "—")):
             return
         activity.log("forget", line.label)
-        self.ctx.undo_point("forget")
+        self.ctx.log_action("forget")
         try:
             count = deliveries.forget_name(self.ctx.conn, self.ctx.ws, line.key)
             deliveries.scan(self.ctx.conn, self.ctx.ws)
@@ -365,14 +365,14 @@ class SettingsPage(Page):
             if not p["active"]:
                 error(self, t("settings.delete_used_inactive", name=catalog.label(p), docs=used))
             elif ask(self, t("settings.delete_used", name=catalog.label(p), docs=used)):
-                self.ctx.undo_point("product_edit")
+                self.ctx.log_action("product_edit")
                 with db.transaction(conn):
                     catalog.update_product(conn, product_id, active=0)
                 self.ctx.notify()
             return
         if not ask(self, t("settings.confirm_delete_product", name=catalog.label(p))):
             return
-        self.ctx.undo_point("product_delete")
+        self.ctx.log_action("product_delete")
         with db.transaction(conn):
             catalog.delete_product(conn, product_id)
             db.log(conn, "product_deleted", catalog.label(p))
@@ -400,7 +400,7 @@ class SettingsPage(Page):
         keep, drop = (a, b) if catalog._code_num(a["code"]) <= catalog._code_num(b["code"]) else (b, a)
         if not ask(self, t("settings.merge_confirm", keep=catalog.long_label(keep), drop=catalog.long_label(drop))):
             return
-        self.ctx.undo_point("product_merge")
+        self.ctx.log_action("product_merge")
         with db.transaction(conn):
             catalog.merge_products(conn, first_id, other_id)
             db.log(conn, "product_merged", f"{drop['code']} -> {keep['code']}")
@@ -422,7 +422,7 @@ class SettingsPage(Page):
     def reset_stock(self):
         if not ask(self, t("reset.confirm_stock")):
             return
-        self.ctx.undo_point("reset")
+        self.ctx.log_action("reset")
         try:
             moved = reset.reset_stock(self.ctx.conn, self.ctx.ws)
         except Exception as exc:
@@ -462,7 +462,7 @@ class SettingsPage(Page):
         value = self.low_default.value()
         if abs(value - low_stock_default(self.ctx.conn)) < 1e-9:
             return
-        self.ctx.undo_point("low_default")
+        self.ctx.log_action("low_default")
         with db.transaction(self.ctx.conn):
             db.set_meta(self.ctx.conn, "low_stock_default", str(int(value)))
             db.log(self.ctx.conn, "low_stock_default", fmt_qty(value))

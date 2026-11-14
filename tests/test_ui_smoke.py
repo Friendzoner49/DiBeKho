@@ -163,46 +163,7 @@ def test_pending_page_groups_lines_by_order(app, ws, monkeypatch):
     win.close()
 
 
-def test_undo_the_last_apply(app, ws, monkeypatch):
-    import dibekho.ui.main_window as main_mod
-
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
-    monkeypatch.setattr(main_mod, "ask", lambda *a, **k: True)
-    monkeypatch.setattr(main_mod, "info", lambda *a, **k: None)
-    i18n.set_language("vi")
-    from dibekho.core import catalog
-    from dibekho.ui.common import AppContext
-    from dibekho.ui.main_window import MainWindow
-    from tests.conftest import make_note
-
-    make_note(ws.deliveries / "a.xlsx", code="125", lines=[("管根套 90-110\nBọc ống chân 90-110", "Cái", 20, "")])
-    ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
-    with ctx.conn:
-        pipe = catalog.create_product(ctx.conn, "Bọc chống thấm cổ ống nước 90-110", "管根套90-110", "90-110")
-        membrane = catalog.create_product(ctx.conn, "Màng PPE", "高分子聚乙烯涤纶防水卷材", "16.5KG")
-    win = MainWindow(ctx)
-    win.show()
-    win.rescan()
-    page = win.pending
-    page.refresh()
-    assert not win.undo_btn.isEnabled()
-    [key] = page._unknown
-    assert page.choice(key) == pipe  # the right one is suggested first
-    page.set_choice(key, membrane)  # the customer's mistake
-    page.apply_mapping(confirm=False)
-    assert ctx.conn.execute("SELECT product_id FROM document_lines").fetchone()[0] == membrane
-    assert win.undo_btn.isEnabled() and "Áp dụng" in win.undo_btn.text()
-
-    win.undo_last()
-    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
-    assert ctx.conn.execute("SELECT COUNT(*) FROM product_aliases").fetchone()[0] == 0
-    page.refresh()
-    assert list(page._unknown) == [key]  # back in 'Cần xử lý', to choose again
-    assert not win.undo_btn.isEnabled()
-    win.close()
-
-
-def test_undo_buttons(app, ws, monkeypatch):
+def test_reread_buttons(app, ws, monkeypatch):
     """'Đọc lại cả phiếu' in the order window and 'Quên và đọc lại' in settings (grouped by order)."""
     import dibekho.ui.common as common_mod
     import dibekho.ui.details as details_mod
@@ -223,11 +184,10 @@ def test_undo_buttons(app, ws, monkeypatch):
     win.show()
     doc = ctx.conn.execute("SELECT id FROM documents WHERE code = '1'").fetchone()[0]
     DocumentDialog(ctx, doc, win).reread_doc()
-    # the whole order's names are forgotten: every active note sharing one (orders 2 and 3 too, via A)
-    # comes back to Cần xử lý, not just order 1
+    # only order 1 comes back to Cần xử lý; orders 2 and 3 (which share a name with it) stay as recorded
     assert ctx.conn.execute("SELECT status FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "replaced"
-    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[0] == 0
-    assert "Đọc lại cả phiếu" in win.undo_btn.text()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[0] == 2
+    assert not hasattr(win, "undo_btn")
 
     # choose the same products again, so the rest of this test can exercise the per-line 'Quên và đọc lại'
     from dibekho.core import deliveries
@@ -252,7 +212,6 @@ def test_undo_buttons(app, ws, monkeypatch):
                tree.topLevelItem(i).childCount())
     # both notes with the forgotten name wait under "Cần xử lý", and the third one for its place
     assert "(3)" in win.nav.item(1).text()
-    assert "Quên" in win.undo_btn.text()
     win.close()
 
 
@@ -544,7 +503,7 @@ def test_goods_in_window(app, ws, monkeypatch):
 
     import dibekho.ui.receipt_form as form_mod
     from dibekho import db
-    from dibekho.core import catalog, receipts, undo
+    from dibekho.core import catalog, receipts
     from dibekho.core.receipts import SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
     from dibekho.core.stock import stock_levels
     from dibekho.ui.common import AppContext, NoWheelSpin
@@ -590,7 +549,6 @@ def test_goods_in_window(app, ws, monkeypatch):
     new_id = ctx.conn.execute("SELECT id FROM products WHERE name_vi = 'Keo mới'").fetchone()[0]
     levels = stock_levels(ctx.conn)
     assert levels[first] == 1 + 12 and levels[new_id] == 4
-    assert [p.action for p in undo.points(ws)][0] == "receipt"
     assert list((ws.output / "hang-ve").glob("HangVe_HV002_*.xlsx"))
 
     # edit: 12 was meant to be 2

@@ -169,7 +169,7 @@ def import_master_file(ctx, parent, path, data=None) -> bool:
     if not ask(parent, text):
         return False
     backup.named_backup(ctx.conn, ctx.ws, "truoc-nhap-du-lieu-goc")
-    ctx.undo_point("master")
+    ctx.log_action("master")
     if stock:  # notes up to today must be in the ledger first, or they would be subtracted from the count
         deliveries.scan(ctx.conn, ctx.ws)
     result = catalog.import_master(ctx.conn, products, customers, stock, note=t("master.stock_note"))
@@ -409,7 +409,7 @@ class TransferPanel(QWidget):
             return
         try:
             backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-khoi-phuc")
-            self.ctx.undo_point("restore")
+            self.ctx.log_action("restore")
             self.ctx.close()
             backup.restore(self.ctx.ws, chosen)
         finally:
@@ -428,7 +428,7 @@ class TransferPanel(QWidget):
         if not chosen:
             error(self, t("restore.pick_first"))
             return
-        self.ctx.undo_point("restore_product")
+        self.ctx.log_action("restore_product")
         merged = 0
         for data in chosen:
             with db.transaction(self.ctx.conn):

@@ -160,7 +160,7 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
 
     # nothing but the account tab's calls left the page; the rate is the only thing fetched, once
     assert out["calls"] == [] and out["froms"] == []
-    assert out["fetches"] == ["https://open.er-api.com/v6/latest/CNY"] and checks["fxFetches"] == 1
+    assert out["fetches"] == ["https://api.fxratesapi.com/latest?base=CNY&currencies=VND"] and checks["fxFetches"] == 1
     assert checks["gone"] == []
 
     # who sees what: the overview only for the main machine's role, the issue note for it and staff
@@ -175,11 +175,11 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     assert checks["issueTitle"] == "Phiếu xuất kho" and checks["issuePhone"] == "0900 000 001"
     assert checks["issuePrice"] == "100" and checks["issueHave"] == ["32", "10"]  # 50 - 5 - 3 - 10 at Kho tổng
     assert checks["issueTotal"] == "Tiền hàng: 400" and checks["issueClosed"]
-    assert "2 dòng" in checks["twice"]
-    (made,) = out["files"]
+    assert checks["twice"] == "" and checks["twiceClosed"]  # the same product on two lines is allowed
+    made, _twice = out["files"]  # the second: the same product on two lines
     assert made["name"] == "PhieuXuat_W101.xlsx"  # the code the server handed out
     # the owner's note went to the cloud once (cloud 015 takes the stock), with what the window said
-    (sent,) = out["issueCalls"]
+    sent, _sent_twice = out["issueCalls"]
     assert sent["p"]["customer"] == "Cong ty A" and sent["p"]["phone"] == "0900 000 001"
     assert [(ln["qty_main"], ln["qty_office"], ln["unit_price"]) for ln in sent["p"]["lines"]] == [(2, 1.5, 100), (1, 0, 50)]
 
@@ -205,7 +205,7 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     assert checks["fxBefore"] == checks["fxAfter"] == "500"
     assert checks["fxOn"] and "3.846" in checks["fxInfo"] and checks["fxMoney"] == "¥1.000"
     assert checks["fxCustomer"] == "¥0,13" and checks["fxKpi"].startswith("¥") and "đ" not in checks["fxKpi"]
-    assert checks["fxIssueAmount"] == "200"
+    assert checks["fxIssueAmount"] == "¥200"  # prices typed in yuan while ¥ is shown (user, 15/11/2026)
 
     # stock list and interface size, as before
     assert checks["stockSorted"] and checks["zoom"] == "1"
@@ -244,7 +244,7 @@ def test_the_same_page_in_chinese(cloud_shop, tmp_path):
     assert checks["stockFirst"] == ["SP001", "胶A", "Keo A"]  # the Chinese name first, the Vietnamese one next to it
     assert "两次输入的密码不一致" in checks["pwMismatch"]
     assert checks["issueTotal"] == "货款：400"
-    (made,) = out["files"]
+    made, _twice = out["files"]  # the second: the same product on two lines
     note = read_delivery_note(_save(tmp_path, made))
     assert [ln.places for ln in note.lines] == [((1, 2), (2, 1.5)), ((1, 1),)]  # the same bilingual file in any language
 

@@ -236,7 +236,7 @@ class DocumentDialog(_Base):
         CustomerDialog(self.ctx, self.head["customer_id"], self).exec()
 
     def change_location(self):
-        self.ctx.undo_point("places")
+        self.ctx.log_action("places")
         with db.transaction(self.ctx.conn):
             set_location(self.ctx.conn, self.doc_id, self.location.currentData())
         self.ctx.notify()
@@ -257,7 +257,7 @@ class DocumentDialog(_Base):
             return
         if self.head["kind"] == "delivery" and issues.is_issue_code(self.head["code"]) and \
                 ask(self, t("doc.ask_delete_issue", code=self.head["code"])):
-            self.ctx.undo_point("delete_issue")  # the user asked: a wrong issue note leaves no hole in the numbers
+            self.ctx.log_action("delete_issue")
             try:
                 with db.transaction(self.ctx.conn):
                     issues.delete(self.ctx.conn, self.ctx.ws, self.doc_id)
@@ -267,7 +267,7 @@ class DocumentDialog(_Base):
             self.ctx.notify()
             self.accept()
             return
-        self.ctx.undo_point("cancel_doc")
+        self.ctx.log_action("cancel_doc")
         try:
             with db.transaction(self.ctx.conn):
                 close_document(self.ctx.conn, self.doc_id, "cancelled")

@@ -19,13 +19,13 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import APP_NAME, __version__
-from dibekho.core import activity, deliveries, inbox, issues, undo
+from dibekho.core import activity, deliveries, inbox
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import sync as cloud_sync
-from dibekho.core.cloud import replica, twoway
+from dibekho.core.cloud import twoway
 from dibekho.core.cloud.client import CloudError
 from dibekho.i18n import t
-from dibekho.ui.common import AppContext, ask, error, fit_window, info, open_path
+from dibekho.ui.common import AppContext, error, fit_window, info, open_path
 from dibekho.ui.conflict_dialog import ConflictDialog
 from dibekho.ui.count_page import CountPage
 from dibekho.ui.pending_page import PendingPage
@@ -102,8 +102,6 @@ class MainWindow(QMainWindow):
         open_notes.clicked.connect(lambda: open_path(ctx.ws.deliveries))
         issue = QPushButton(t("issue.button"))
         issue.clicked.connect(self.new_issue_note)
-        self.undo_btn = QPushButton()
-        self.undo_btn.clicked.connect(self.undo_last)
         self.status = QLabel()
         top.addWidget(scan)
         top.addWidget(open_notes)
@@ -113,7 +111,6 @@ class MainWindow(QMainWindow):
         self.sync_btn.setFlat(True)
         self.sync_btn.clicked.connect(self._sync_clicked)
         top.addWidget(self.sync_btn)
-        top.addWidget(self.undo_btn)
 
         right = QWidget()
         right_lay = QVBoxLayout(right)
@@ -150,8 +147,6 @@ class MainWindow(QMainWindow):
         self._update_badge()
         # e.g. a note read again from its detail window: keep the 'Cần xử lý' counter current
         ctx.changed.connect(lambda: self._update_badge(self._last))
-        ctx.changed.connect(self._update_undo)
-        self._update_undo()
         QTimer.singleShot(1500, self._cloud_check_on_open)  # after the window is up, not before
         # The shop app is open all day: staff requests sent from the web must not wait for the next start.
         self._inbox_timer = QTimer(self)
@@ -181,6 +176,7 @@ class MainWindow(QMainWindow):
         if not quiet:
             # the button also refreshes requests sent from the web; the user asked: show them when they arrive
             self._pull_async(notify=True, explicit=True)
+            self.currency.refresh_if_shown()  # F5 also asks for the rate of the minute (user, 15/11/2026)
         if result.imported or not quiet:
             self.ctx.notify()
         self._update_badge(result)
@@ -245,71 +241,6 @@ class MainWindow(QMainWindow):
         if pending:
             parts.append(t("main.pending", count=pending))
         self.status.setText(" · ".join(parts))
-
-    def _update_undo(self):
-        if replica.enabled(self.ctx.conn):
-            return self._update_cloud_undo()
-        point = undo.latest(self.ctx.ws)
-        self.undo_btn.setEnabled(point is not None)
-        if point is None:
-            self.undo_btn.setText(t("undo.button_none"))
-            self.undo_btn.setToolTip(t("undo.none"))
-            return
-        action = t(f"undo.{point.action}")
-        self.undo_btn.setText(t("undo.button", action=action))
-        self.undo_btn.setToolTip(t("undo.tip", action=action, at=point.at.strftime("%d/%m/%Y %H:%M")))
-
-    def _update_cloud_undo(self):
-        point = undo.cloud_latest(self.ctx.conn)
-        self.undo_btn.setEnabled(point is not None)
-        if point is None:
-            self.undo_btn.setText(t("undo.button_none"))
-            self.undo_btn.setToolTip(t("undo.cloud_none"))
-            return
-        action = t(f"undo.{point.action}")
-        self.undo_btn.setText(t("undo.button", action=f"{action} {point.code}".strip()))
-        self.undo_btn.setToolTip(t("undo.cloud_tip", code=point.code))
-
-    def undo_cloud(self):
-        """On shared data: cancel the document this machine has just saved (like Huỷ phiếu), never an old file."""
-        point = undo.cloud_latest(self.ctx.conn)
-        if point is None:
-            self._update_undo()
-            return
-        action = t(f"undo.{point.action}")
-        if not ask(self, t("undo.cloud_confirm", action=action, code=point.code)):
-            return
-        activity.log("undo", f"cloud {point.action} #{point.doc_id}")
-        try:
-            undo.cloud_undo(self.ctx.conn, point)
-        except ValueError as exc:  # cancelled elsewhere in the meantime
-            error(self, str(exc))
-        self.ctx.notify()
-        info(self, t("undo.cloud_done", action=action, code=point.code))
-
-    def undo_last(self):
-        """Put the data back as it was just before the last action that left an undo point."""
-        if replica.enabled(self.ctx.conn):
-            return self.undo_cloud()
-        point = undo.latest(self.ctx.ws)
-        if point is None:
-            return
-        action = t(f"undo.{point.action}")
-        if not ask(self, t("undo.confirm", action=action, at=point.at.strftime("%d/%m/%Y %H:%M"))):
-            return
-        activity.log("undo", f"{point.action} ({point.at:%d/%m/%Y %H:%M})")
-        issue_files = issues.known_issue_files(self.ctx.conn, self.ctx.ws)
-        try:
-            self.ctx.close()
-            undo.undo(self.ctx.ws, point)
-        except Exception as exc:
-            error(self, str(exc))
-        finally:
-            self.ctx.reopen()
-        issues.after_undo(self.ctx.conn, self.ctx.ws, issue_files)  # else the scan below records them again
-        self.rescan(quiet=True)  # notes go back in or out of da-xu-ly/ as the restored data says
-        self.ctx.notify()
-        info(self, t("undo.done", action=action))
 
     def new_issue_note(self):
         from dibekho.ui.issue_form import open_issue_form

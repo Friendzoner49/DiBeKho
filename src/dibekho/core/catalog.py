@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from dibekho import db
-from dibekho.core import backup, undo
+from dibekho.core import backup
 from dibekho.core.stock import stock_count
 from dibekho.core.text import clean, normalize_phone, unaccent
 from dibekho.core.workspace import Workspace
@@ -170,8 +170,9 @@ def _open_readonly(path: Path) -> sqlite3.Connection:
 
 def _backup_files(ws: Workspace) -> list[Path]:
     """Every backup that might still have a deleted product's row, oldest first (so the newest one read
-    for a given code wins): daily/named backups and Hoàn tác snapshots (the one just before a delete)."""
-    files = backup.list_backups(ws) + [p.path for p in undo.points(ws)]
+    for a given code wins): daily/named backups, and the snapshots versions before 0.5.3 kept in
+    sao-luu/hoan-tac/ (the app no longer writes there, the old files are still read)."""
+    files = backup.list_backups(ws) + list((ws.backups / "hoan-tac").glob("*.sqlite"))
     return sorted(set(files), key=lambda p: p.stat().st_mtime)
 
 

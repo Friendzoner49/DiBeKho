@@ -63,8 +63,8 @@ def restore(ws: Workspace, backup: Path) -> None:
 def _prune(ws: Workspace) -> None:
     """Keep at most the newest KEEP backups in total (daily and named together -- the user asked for "10
     bản gần nhất", not 10 of each kind), and drop anything older than MAX_AGE_DAYS -- except the newest
-    KEEP_FLOOR, so a machine left off for a month still opens with more than today's single copy. Hoàn tác
-    snapshots live in their own sub-folder (sao-luu/hoan-tac/) and keep their own separate limit (core.undo)."""
+    KEEP_FLOOR, so a machine left off for a month still opens with more than today's single copy. The
+    snapshots older versions kept in sao-luu/hoan-tac/ are left alone."""
     files = sorted(ws.backups.glob("*.sqlite"), key=lambda p: p.stat().st_mtime, reverse=True)
     cutoff = datetime.now().timestamp() - MAX_AGE_DAYS * 86400
     for i, p in enumerate(files):

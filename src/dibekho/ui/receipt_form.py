@@ -3,7 +3,7 @@
 Where the goods come from (border gate / parent company, or a customer sending goods back), the date, and the
 lines: 3 products are suggested (changed or cleared freely), '＋ Thêm dòng' adds more, a product that is not in
 the catalog yet can be entered on its row. Nothing is written until 'Lưu'; then the receipt is recorded, an
-undo point is kept, and the receipt is written to an Excel file in output/hang-ve/.
+action is logged, and the receipt is written to an Excel file in output/hang-ve/.
 
 The same window edits a saved receipt (the old one is marked replaced).
 """
@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dibekho.core import activity, catalog, receipts, undo
+from dibekho.core import activity, catalog, receipts
 from dibekho.core.receipts import NAMED, OTHER, RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
 from dibekho.core.text import fmt_money, fmt_qty, unaccent
 from dibekho.i18n import t
@@ -512,7 +512,7 @@ class ReceiptForm(QDialog):
         if not ask(self, self._confirm_text(data), t("receipt_form.confirm_title")):
             return
         activity.log("receipt", self._confirm_text(data).split("\n\n" + t("receipt_form.confirm_new"))[0])
-        self.ctx.undo_point("receipt_edit" if self.doc_id else "receipt")
+        self.ctx.log_action("receipt_edit" if self.doc_id else "receipt")
         try:
             doc = receipts.save(self.ctx.conn, data, replaces=self.doc_id, ws=self.ctx.ws)
         except Exception as exc:
@@ -521,7 +521,6 @@ class ReceiptForm(QDialog):
         self.saved_doc = doc
         if not self.doc_id:
             self.ctx.receipt_draft = None
-            undo.remember_doc(self.ctx.conn, "receipt", doc)
         self.ctx.notify()
         code = self.ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0]
         try:

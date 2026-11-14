@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho import i18n
-from dibekho.core import activity, deliveries, fx, undo
+from dibekho.core import activity, deliveries, fx
 from dibekho.core.text import fmt_qty, parse_number
 from dibekho.core.workspace import Config, Workspace
 from dibekho.i18n import t
@@ -208,11 +208,9 @@ class AppContext(QObject):
     def notify(self) -> None:
         self.changed.emit()
 
-    def undo_point(self, action: str) -> None:
-        """Call just before an action the user may want to undo ('Hoàn tác'); action names t('undo.<action>')."""
+    def log_action(self, action: str) -> None:
+        """Call just before an action that writes data: one line in the activity log (data/app.log)."""
         activity.log("action", action)
-        undo.mark(self.conn, self.ws, action)
-        undo.forget_doc(self.conn)  # on shared data Hoàn tác only takes back the document of this very action
 
     def close(self) -> None:
         self.conn.close()
@@ -222,9 +220,9 @@ class AppContext(QObject):
         if self.conn is not None:
             self.conn.close()
         self.conn = db.connect(self.ws.db_path)
-        # The file was replaced (Undo, restore, package, reset): its last_change_at and cloud_last_push_at both
+        # The file was replaced (restore, package, reset): its last_change_at and cloud_last_push_at both
         # come from the older copy, so without this the cloud would never be told and the web would keep
-        # showing what was just undone.
+        # showing the old data.
         with db.transaction(self.conn):
             db.touch(self.conn)
         self.notify()
@@ -734,7 +732,7 @@ def save_stock_note(ctx: "AppContext", product_id: int, text: str, notify=True) 
     row = ctx.conn.execute("SELECT code, stock_note FROM products WHERE id = ?", (product_id,)).fetchone()
     if row is None or row["stock_note"] == text:
         return False
-    ctx.undo_point("stock_note")
+    ctx.log_action("stock_note")
     with db.transaction(ctx.conn):
         catalog.update_product(ctx.conn, product_id, stock_note=text)
         db.log(ctx.conn, "stock_note", row["code"])
@@ -744,20 +742,12 @@ def save_stock_note(ctx: "AppContext", product_id: int, text: str, notify=True) 
 
 
 def reread_whole_note(ctx: "AppContext", parent: QWidget, doc_id: int) -> bool:
-    """Forget every learned name used by this delivery note and read it (and any other active note sharing
-    those names) again from scratch. Shared by the order detail window, Settings → 'Tên trên phiếu đã học'
+    """Forget the learned names used by this delivery note and read only this note again from scratch (other
+    notes keep what they recorded). Shared by the order detail window, Settings → 'Tên trên phiếu đã học'
     and the Đơn hàng list, so a wrong choice can be fixed from wherever the user happens to see the order."""
-    others = deliveries.documents_sharing_names(ctx.conn, doc_id)
-    if others:
-        codes = [r[0] for r in ctx.conn.execute(
-            f"SELECT code FROM documents WHERE id IN ({','.join('?' * len(others))}) ORDER BY doc_date",
-            others)]
-        text = t("doc.confirm_reread_others", orders=", ".join(codes))
-    else:
-        text = t("doc.confirm_reread")
-    if not ask(parent, text):
+    if not ask(parent, t("doc.confirm_reread")):
         return False
-    ctx.undo_point("reread")
+    ctx.log_action("reread")
     try:
         deliveries.forget_order(ctx.conn, ctx.ws, doc_id)
         result = deliveries.scan(ctx.conn, ctx.ws)

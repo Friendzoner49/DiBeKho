@@ -89,7 +89,7 @@
     await press(tr("issue.save"));
     out.checks.issueClosed = !$("dlg").open;
 
-    // a mistake stays on the page: the same product on two rows
+    // the same product on two rows (another quantity, another price): allowed
     $("issue-new").click(); await wait();
     typeIn($("ix-customer"), "Cong ty A");
     for (const i of [0, 1]) {
@@ -97,9 +97,10 @@
       typeIn(rows()[i].querySelector('.ix-qty[data-place="1"]'), "1");
     }
     try { await press(tr("issue.save")); out.checks.twice = ""; } catch (e) { out.checks.twice = String(e.message); }
-    dlg.close();
+    out.checks.twiceClosed = !$("dlg").open;
+    if ($("dlg").open) dlg.close();
 
-    // ₫ / ¥: the rate is fetched once and kept; every amount on screen turns into yuan, the issue window stays in dong
+    // ₫ / ¥: the rate is fetched once and kept; every amount on screen turns into yuan, the issue window takes yuan
     try { localStorage.removeItem("dibekho_fx"); localStorage.removeItem("dibekho_currency"); } catch (e) { /* none */ }
     const priced = data.documents.find((d) => d.code === "7");
     out.checks.fxBefore = fmtMoney(500);

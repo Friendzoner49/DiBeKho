@@ -2,7 +2,12 @@
 
 The customer (picked from the list, or typed), the date, and the lines: each product says how many are taken from
 Kho tổng and how many from Văn phòng (both may be filled), with the price (the customer's last one is filled in).
+The same product may stand on several lines: another quantity, another price (user, 15/11/2026).
 'Lưu phiếu' writes the Excel file (output/phieu-xuat/) and lowers the stock at once (core/issues.py).
+
+While the ₫ | ¥ switch shows yuan, the prices are typed in yuan (user, 15/11/2026) at the rate the window opened
+with; the note and the data keep dong: a typed price is turned into whole dong, a suggested price left untouched
+keeps its exact dong.
 """
 
 from datetime import date
@@ -20,7 +25,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from dibekho.core import activity, catalog, issues, undo
+from dibekho import i18n
+from dibekho.core import activity, catalog, fx, issues
 from dibekho.core.issues import IssueInput, IssueLineInput
 from dibekho.core.stock import MAIN, OFFICE, stock_levels
 from dibekho.core.text import fmt_money, fmt_qty
@@ -63,6 +69,7 @@ class _Row:
         self.qty_office = _spin(1e7, 100)
         self.price = _spin(1e12, 120)
         self.price_typed = False  # typed by the user: the app no longer fills it in
+        self.price_vnd: float | None = None  # the price the app filled in, exact in dong (the box may show yuan)
         self.note = QLineEdit()
         self.remove = QPushButton("✕")
         self.remove.setToolTip(t("receipt_form.remove_row"))
@@ -83,10 +90,13 @@ class IssueForm(QDialog):
         self.levels = stock_levels(ctx.conn, by_location=True)
         self.customers = issues.customer_choices(ctx.conn)
         self.rows: list[_Row] = []
+        self.rate = fx.Display.rate if fx.Display.in_cny() else None  # prices typed in yuan at this rate
 
         lay = QVBoxLayout(self)
         lay.addWidget(title_label(self.windowTitle()))
         lay.addWidget(hint_label(t("issue.hint")))
+        if self.rate is not None:
+            lay.addWidget(hint_label(t("issue.cny_hint", rate=fmt_money(round(self.rate.vnd_per_cny)))))
         form = QFormLayout()
         self.date = NoWheelDate()
         self.date.setCalendarPopup(True)
@@ -113,7 +123,8 @@ class IssueForm(QDialog):
         self.table.setHorizontalHeaderLabels([
             t("col.product"), t("col.spec"), t("col.unit"), t("issue.have", place=t("loc.main")),
             t("issue.take", place=t("loc.main")), t("issue.have", place=t("loc.office")),
-            t("issue.take", place=t("loc.office")), t("issue.price"), t("issue.amount"), t("col.note"), ""])
+            t("issue.take", place=t("loc.office")), t("issue.price_cny" if self.rate else "issue.price"),
+            t("issue.amount_cny" if self.rate else "issue.amount"), t("col.note"), ""])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(PRODUCT, QHeaderView.Stretch)
         for col, width in ((SPEC, 100), (UNIT, 60), (HAVE_MAIN, 80), (QTY_MAIN, 100), (HAVE_OFFICE, 80),
@@ -157,7 +168,24 @@ class IssueForm(QDialog):
             from_qdate(self.date.date()), self.customer.currentText().split(" · ")[0].strip(),
             phone=self.phone.text(), contact=self.contact.text(), address=self.address.text(),
             lines=[IssueLineInput(r.product_id, r.qty_main.value(), r.qty_office.value(),
-                                  r.price.value() or None, r.note.text()) for r in self.rows])
+                                  self._price_vnd(r), r.note.text()) for r in self.rows])
+
+    def _price_vnd(self, row: _Row) -> float | None:
+        """The row's price in dong, as it is saved."""
+        shown = row.price.value()
+        if not shown:
+            return None
+        if self.rate is None:
+            return shown
+        if not row.price_typed and row.price_vnd:
+            return row.price_vnd
+        return float(round(self.rate.to_vnd(shown)))
+
+    def _money(self, vnd: float) -> str:
+        """An amount as this window shows it: dong, or yuan at the window's rate."""
+        if self.rate is None:
+            return fmt_money(vnd)
+        return fx.cny_text(self.rate.to_cny(vnd), i18n.language())
 
     def _customer_picked(self):
         i = self.customer.currentData()
@@ -217,21 +245,36 @@ class IssueForm(QDialog):
         p = self.products.get(row.product_id) if row.product_id else None
         self.table.cellWidget(i, SPEC).setText(p["spec"] if p else "")
         self.table.cellWidget(i, UNIT).setText(p["unit"] if p else "")
-        for col, loc, box in ((HAVE_MAIN, MAIN, row.qty_main), (HAVE_OFFICE, OFFICE, row.qty_office)):
-            have = self.levels.get((row.product_id, loc), 0.0) if p else None
-            label = self.table.cellWidget(i, col)
-            label.setText("" if have is None else fmt_qty(have))
-            label.setStyleSheet(f"color: {RED.name()};" if have is not None and box.value() > have else "")
-        amount = row.qty() * row.price.value() if row.price.value() else None
-        self.table.cellWidget(i, AMOUNT).setText(fmt_money(amount) if amount else "")
+        price = self._price_vnd(row)
+        amount = row.qty() * price if price else None
+        self.table.cellWidget(i, AMOUNT).setText(self._money(amount) if amount else "")
+        self._show_stock()
         self._update_summary()
+
+    def _show_stock(self):
+        """'Đang có' of every row; red when the rows of that product together take more than the place has."""
+        asked: dict[tuple, float] = {}
+        for r in self.rows:
+            if r.product_id:
+                for loc, box in ((MAIN, r.qty_main), (OFFICE, r.qty_office)):
+                    asked[(r.product_id, loc)] = asked.get((r.product_id, loc), 0.0) + box.value()
+        for i, r in enumerate(self.rows):
+            for col, loc in ((HAVE_MAIN, MAIN), (HAVE_OFFICE, OFFICE)):
+                label = self.table.cellWidget(i, col)
+                if label is None:
+                    continue
+                have = self.levels.get((r.product_id, loc), 0.0) if r.product_id in self.products else None
+                label.setText("" if have is None else fmt_qty(have))
+                over = have is not None and asked.get((r.product_id, loc), 0.0) > have
+                label.setStyleSheet(f"color: {RED.name()};" if over else "")
 
     def _fill_price(self, row: _Row):
         if row.price_typed or not row.product_id:
             return
         price = issues.last_price(self.ctx.conn, self.data().customer_name, row.product_id)
+        row.price_vnd = price or None
         row.price.blockSignals(True)
-        row.price.setValue(price or 0)
+        row.price.setValue((round(self.rate.to_cny(price), 2) if self.rate else price) if price else 0)
         row.price.blockSignals(False)
         self._show_row(row)
 
@@ -246,11 +289,6 @@ class IssueForm(QDialog):
             if p is None:
                 return
             self.products[product_id] = p
-        other = next((r for r in self.rows if r is not row and r.product_id == product_id), None)
-        if other is not None:
-            error(self, t("issue.already_on_row", product=self._label(other), row=self.rows.index(other) + 1))
-            other.qty_main.setFocus()
-            return
         if product_id != row.product_id:
             row.price_typed = False
         row.product_id = product_id
@@ -266,7 +304,7 @@ class IssueForm(QDialog):
         lines = data.filled()
         money = sum(ln.qty * ln.unit_price for ln in lines if ln.unit_price)
         self.summary.setText(t("issue.summary", lines=len(lines), qty=fmt_qty(sum(ln.qty for ln in lines)),
-                               money=fmt_money(money)))
+                               money=self._money(money)))
 
     # ---- save ------------------------------------------------------------------------------------------------
 
@@ -276,11 +314,15 @@ class IssueForm(QDialog):
             p = self.products[ln.product_id]
             parts = [f"{location_name(loc)} {fmt_qty(q)}" for loc, q in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office))
                      if q]
-            money = f" × {fmt_money(ln.unit_price)}" if ln.unit_price else ""
+            money = f" × {self._both(ln.unit_price)}" if ln.unit_price else ""
             lines.append(f"• {catalog.long_label(p)}: {' + '.join(parts)} {p['unit']}".rstrip() + money)
         total = sum(ln.qty * ln.unit_price for ln in data.filled() if ln.unit_price)
         return t("issue.confirm", date=data.doc_date.strftime("%d/%m/%Y"), customer=data.customer_name,
-                 lines="\n".join(lines), money=fmt_money(total))
+                 lines="\n".join(lines), money=self._both(total))
+
+    def _both(self, vnd: float) -> str:
+        """Before saving the user sees what is written: yuan as typed and the dong the note will carry."""
+        return fmt_money(vnd) if self.rate is None else f"{self._money(vnd)} = {fmt_money(vnd)} ₫"
 
     def save(self):
         data = self.data()
@@ -305,14 +347,13 @@ class IssueForm(QDialog):
         if not ask(self, self._confirm_text(data), t("issue.confirm_title")):
             return
         activity.log("issue", f"{len(data.filled())} mặt hàng")
-        self.ctx.undo_point("issue_note")
+        self.ctx.log_action("issue_note")
         try:
             doc, path = issues.save(self.ctx.conn, self.ctx.ws, data)
         except Exception as exc:
             error(self, t("issue.failed", error=str(exc)))
             return
         self.saved_doc = doc
-        undo.remember_doc(self.ctx.conn, "issue_note", doc)
         self.ctx.notify()
         code = self.ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0]
         if ask(self, t("issue.saved", code=code, path=str(path))):

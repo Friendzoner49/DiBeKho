@@ -7,7 +7,7 @@ from datetime import date, datetime
 import pytest
 
 from dibekho import db
-from dibekho.core import backup, catalog, deliveries, issues, reset, undo
+from dibekho.core import catalog, deliveries, issues, reset
 from dibekho.core.issues import IssueInput, IssueLineInput
 from dibekho.core.stock import MAIN, OFFICE, close_document, is_mixed, set_location, stock_count, stock_levels
 from dibekho.excel.delivery_note import read_delivery_note
@@ -130,29 +130,6 @@ def test_read_again_keeps_the_places_of_the_file(conn, ws, goods):
     assert deliveries.unplaced_count(conn) == 0
 
 
-def test_undo_takes_the_note_back_and_the_scan_does_not_record_it_again(conn, ws, goods, tmp_path):
-    """Local data: Hoàn tác puts the old database back; the copy in the folder must leave it."""
-    paint, sand = goods
-    path_db = ws.db_path
-    backup.snapshot(conn, path_db)  # the fixture data as a real file
-    conn = db.connect(path_db)
-    try:
-        undo.mark(conn, ws, "issue_note")
-        issues.save(conn, ws, note_for(paint, sand))
-        before = issues.known_issue_files(conn, ws)
-        assert len(before) == 1
-        conn.close()
-        undo.undo(ws, undo.latest(ws))
-        conn = db.connect(path_db)
-        assert issues.after_undo(conn, ws, before) == 1
-        deliveries.scan(conn, ws)
-        assert places(conn, paint) == (50, 8)
-        assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
-        assert list((ws.output / issues.FOLDER / issues.UNDONE).glob("*.xlsx"))
-    finally:
-        conn.close()
-
-
 def test_reset_stock_reads_the_issue_notes_again(conn, ws, goods):
     paint, sand = goods
     issues.save(conn, ws, note_for(paint, sand))
@@ -169,7 +146,9 @@ def test_problems_and_prices(conn, ws, goods):
     keys = [k for k, _ in issues.problems(conn, empty)]
     assert keys == ["issue.need_customer"]
     twice = IssueInput(date(2026, 11, 14), "A", lines=[IssueLineInput(paint, 1), IssueLineInput(paint, 2)])
-    assert [k for k, _ in issues.problems(conn, twice)] == ["issue.same_product_twice"]
+    assert issues.problems(conn, twice) == []  # the same product at two prices (user, 15/11/2026)
+    together = IssueInput(date(2026, 11, 14), "A", lines=[IssueLineInput(paint, 30), IssueLineInput(paint, 30)])
+    assert issues.short_of(conn, together) == [(paint, MAIN, 60, 50)]  # the lines of one product count together
     assert issues.problems(conn, IssueInput(date(2026, 11, 14), "A")) == [("issue.need_lines", {})]
     short = issues.short_of(conn, IssueInput(date(2026, 11, 14), "A", lines=[IssueLineInput(paint, 60, 9)]))
     assert short == [(paint, MAIN, 60, 50), (paint, OFFICE, 9, 8)]

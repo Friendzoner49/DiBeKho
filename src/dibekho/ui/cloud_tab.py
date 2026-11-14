@@ -203,7 +203,7 @@ class CloudTab(QWidget):
 
     def restore_from_cloud(self):
         """Replace the local database with a full backup from the cloud: checked first, the current data
-        backed up and an undo point taken, exactly like restoring a local backup (transfer_page.restore)."""
+        backed up, exactly like restoring a local backup (transfer_page.restore)."""
         activity.log("click", "cloud_restore")
         ctx = self.ctx
         try:
@@ -243,7 +243,7 @@ class CloudTab(QWidget):
             with tempfile.TemporaryDirectory() as tmp:
                 path = self._busy(lambda: cloud_backup.fetch(client, token, chosen.name, Path(tmp)))
                 backup.named_backup(ctx.conn, ctx.ws, "truoc-khoi-phuc-cloud")
-                ctx.undo_point("restore")
+                ctx.log_action("restore")
                 ctx.close()
                 try:
                     backup.restore(ctx.ws, path)

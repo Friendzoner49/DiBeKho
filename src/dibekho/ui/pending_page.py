@@ -200,7 +200,7 @@ class PendingPage(Page):
     def save_places(self):
         if not self._unplaced:
             return
-        self.ctx.undo_point("places")
+        self.ctx.log_action("places")
         with db.transaction(self.ctx.conn):
             for d, combo in zip(self._unplaced, self._place_combos):
                 set_location(self.ctx.conn, d["id"], combo.currentData())
@@ -403,8 +403,8 @@ class PendingPage(Page):
 
     # ---- actions -----------------------------------------------------------
 
-    def _run(self, action, undo_action="file"):
-        self.ctx.undo_point(undo_action)
+    def _run(self, action, name="file"):
+        self.ctx.log_action(name)
         try:
             action()
         except Exception as exc:  # show the reason instead of failing silently
@@ -438,7 +438,7 @@ class PendingPage(Page):
         if confirm and not ask(self, t("pending.confirm_apply", mapped=counts["map"], created=counts[NEW],
                                        skipped=counts[SKIP], later=counts[LATER])):
             return
-        self.ctx.undo_point("apply")
+        self.ctx.log_action("apply")
         codes = dict(conn.execute("SELECT id, code FROM products"))
         activity.log("apply", "\n".join(
             f"{deliveries.line_label(u)} → {codes.get(c, c) if c not in (NEW, SKIP, LATER) else c}"
@@ -507,7 +507,7 @@ class PendingPage(Page):
             return
         try:
             backup.named_backup(self.ctx.conn, self.ctx.ws, "truoc-nhap-du-lieu")
-            self.ctx.undo_point("package")
+            self.ctx.log_action("package")
             self.ctx.close()
             manifest = transfer.import_package(self.ctx.ws, it.path)
             self.ctx.reopen()

@@ -692,7 +692,7 @@ def create_product_for_line(conn, line: UnknownLine, category: str = "", opening
 # After mapping, call scan() again: rows with status error/needs_mapping/changed are re-processed.
 
 
-# ---- undo: read a note again / forget a learned name -------------------------
+# ---- a wrong choice: read a note again / forget a learned name -------------------------
 
 @dataclass
 class LearnedName:
@@ -874,37 +874,25 @@ def _order_keys(conn, doc_id: int) -> set[str]:
         "SELECT raw_name, raw_spec FROM document_lines WHERE document_id = ?", (doc_id,))}
 
 
-def documents_sharing_names(conn, doc_id: int) -> list[int]:
-    """Other active delivery notes that share at least one learned name with this one: forget_order() rereads
-    them too, because forgetting a name is global, not per-order. Shown in the confirm dialog before acting."""
-    docs: set[int] = set()
-    for key in _order_keys(conn, doc_id):
-        docs.update(documents_with_key(conn, key))
-    docs.discard(doc_id)
-    return sorted(docs)
-
-
 def forget_order(conn, ws: Workspace, doc_id: int) -> int:
     """Forget every name learned from this note's goods lines ('not goods' lines are left alone -- unignoring
-    a fee like 'Phí vận chuyển' would reread nearly every order) and read every active note containing any of
-    those names again, including this one. Returns the number of notes re-read.
+    a fee like 'Phí vận chuyển' would touch nearly every order) and read THIS note again. Returns 1.
 
-    This is what makes 'Đọc lại phiếu' actually change something: read alone, with the names unchanged, it
-    only reproduces the same note (see doc.confirm_reread before this existed)."""
+    Other notes that use the same names stay exactly as they were recorded (user's request 15/11/2026: 'only
+    this order is read again'); only notes read from now on ask for those names again. Forgetting the names is
+    what makes 'Đọc lại cả phiếu' change something: read alone, with the names unchanged, it would only
+    reproduce the same note."""
     backfill_skipped_lines(conn, ws)
     doc = conn.execute(
         "SELECT 1 FROM documents WHERE id = ? AND kind = 'delivery' AND status = 'active'", (doc_id,)
     ).fetchone()
     if doc is None:
         raise ValueError("Chỉ đọc lại được phiếu giao hàng đang hiệu lực.")
-    keys = _order_keys(conn, doc_id)
-    docs = {doc_id} | {d for key in keys for d in documents_with_key(conn, key)}
-    _check_rereadable(conn, ws, docs)
-    for key in keys:
+    _check_rereadable(conn, ws, [doc_id])
+    for key in _order_keys(conn, doc_id):
         catalog.forget_alias(conn, key)
-    for d in sorted(docs):
-        reread_document(conn, ws, d)
-    return len(docs)
+    reread_document(conn, ws, doc_id)
+    return 1
 
 
 def forget_name(conn, ws: Workspace, key: str) -> int:

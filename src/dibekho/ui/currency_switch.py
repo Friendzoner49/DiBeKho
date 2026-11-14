@@ -2,12 +2,12 @@
 app (revenue, prices, totals, statistics) in yuan at today's market rate; ₫ goes back to dong. The data and every
 file (Excel, packages, the issue note) stay in VND: only the text on screen changes (core/fx.Display).
 
-The rate comes from core/fx.py: kept in fx.json for offline use, fetched again in the background when older than six
-hours. The choice is remembered in config.json. Nothing here writes the shop's data: no undo point."""
+The rate comes from core/fx.py: kept in fx.json for offline use, fetched again in the background when older than ten
+minutes (while yuan is shown: every ten minutes, and whenever the user presses ⟳ or Quét lại / F5). The choice is remembered in config.json. Nothing here writes the shop's data."""
 
 import threading
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from dibekho.core import fx
@@ -55,6 +55,9 @@ class CurrencySwitch(QWidget):
         self.info.setStyleSheet("color: palette(placeholder-text);")
         lay.addWidget(self.info)
         self._got.connect(self._arrived)
+        self._timer = QTimer(self)  # the app is open all day: the rate on screen follows the market
+        self._timer.timeout.connect(self.refresh_if_shown)
+        self._timer.start(fx.FRESH_SECONDS * 1000)
 
         fx.Display.rate = fx.cached()
         fx.Display.currency = "cny" if getattr(ctx.cfg, "currency", "vnd") == "cny" and fx.Display.rate else "vnd"
@@ -94,13 +97,18 @@ class CurrencySwitch(QWidget):
         if rate is None:
             self.info.setText(t("fx.no_rate") if self._busy else (t("fx.no_rate_error") if problem else ""))
             return
-        text = t("fx.rate_short", rate=fmt_money(round(rate.vnd_per_cny)), when=rate.updated.strftime("%d/%m"))
+        text = t("fx.rate_short", rate=fmt_money(round(rate.vnd_per_cny)), when=rate.updated.strftime("%H:%M %d/%m"))
         if problem:
             text += "\n" + t("fx.offline", when=rate.fetched.strftime("%d/%m %H:%M"))
         self.info.setText(text)
-        self.info.setToolTip(t("fx.source", source=fx.SOURCE))
+        self.info.setToolTip(t("fx.source", source=rate.source))
 
     # ---------------------------------------------------------------- the rate
+
+    def refresh_if_shown(self):
+        """Quét lại / F5 and the ten-minute timer: a new rate when the amounts are in yuan (no message on failure)."""
+        if fx.Display.currency == "cny":
+            self.refresh()
 
     def refresh(self, explicit: bool = False):
         if self._busy:

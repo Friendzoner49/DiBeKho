@@ -286,19 +286,23 @@ def test_forget_works_for_notes_read_by_an_older_version(conn, ws):
     assert deliveries.forget_name(conn, ws, dropped.key) == 1
 
 
-def test_forget_order_rereads_the_whole_note_and_notes_sharing_a_name(conn, ws):
+def test_forget_order_rereads_only_that_note(conn, ws):
+    """User, 15/11/2026: 'Đọc lại cả phiếu' must not touch the other orders that share a name."""
     make_note(ws.deliveries / "a.xlsx", code="1", lines=[LINE_A, LINE_B])
     make_note(ws.deliveries / "b.xlsx", code="2", lines=[LINE_B])
     map_everything(conn, ws)
     doc_a = conn.execute("SELECT id FROM documents WHERE code = '1'").fetchone()[0]
     doc_b = conn.execute("SELECT id FROM documents WHERE code = '2'").fetchone()[0]
-    assert deliveries.documents_sharing_names(conn, doc_a) == [doc_b]
-    assert deliveries.forget_order(conn, ws, doc_a) == 2  # a (its own lines) and b (shares LINE_B)
+    before_b = conn.execute("SELECT product_id, qty FROM document_lines WHERE document_id = ?", (doc_b,)).fetchall()
+    assert deliveries.forget_order(conn, ws, doc_a) == 1
     deliveries.scan(conn, ws)
     unknown = {u.name_vi for u in deliveries.unknown_lines(conn, ws)}
     assert unknown == {"vữa chống thấm", "chất cố định cát"}
     files = sorted({f for u in deliveries.unknown_lines(conn, ws) for f in u.files})
-    assert files == ["a.xlsx", "b.xlsx"]
+    assert files == ["a.xlsx"]
+    assert conn.execute("SELECT status FROM documents WHERE id = ?", (doc_b,)).fetchone()[0] == "active"
+    assert conn.execute("SELECT product_id, qty FROM document_lines WHERE document_id = ?",
+                        (doc_b,)).fetchall() == before_b
 
 
 def test_forget_order_leaves_fee_lines_dropped(conn, ws):

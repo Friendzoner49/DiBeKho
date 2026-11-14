@@ -260,7 +260,7 @@ class CustomersPage(Page):
         listing = "\n".join(f"• {n} ({t('cust.merge_order_count', count=int(c))})" for _, n, c in picked)
         if not ask(self, t("cust.merge_confirm", count=len(picked), name=name, names=listing)):
             return
-        self.ctx.undo_point("customers_merged")
+        self.ctx.log_action("customers_merged")
         with db.transaction(self.ctx.conn):
             catalog.merge_customers(self.ctx.conn, [cid for cid, _, _ in picked], name)
         self.refresh()
