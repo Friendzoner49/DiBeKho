@@ -10,6 +10,7 @@ uv run pytest -q
 if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
 if (Test-Path build) { Remove-Item -Recurse -Force build }
 if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+uv run python scripts\make_cloud_builtin.py
 uv run pyinstaller packaging\dibekho.spec --noconfirm
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 

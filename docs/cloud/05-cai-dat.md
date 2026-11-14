@@ -25,6 +25,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 12. `cloud/supabase/013_return_prices.sql` — hàng khách trả lại có **Đơn giá trả lại** và được trừ khỏi doanh thu (phiếu trả hàng nhập trên web). Chạy sau 010; **chạy lại 009 hoặc 010 thì chạy lại 013**.
 13. `cloud/supabase/014_drop_mirror.sql` — xoá các bảng `mirror_*` và hàm `replace_mirror` của mô hình gương cũ (không app/web nào dùng nữa; riêng `mirror_snapshot` giữ 30 bản dữ liệu dạng jsonb). Chạy lại được.
 14. `cloud/supabase/015_web_issue.sql` — **Phiếu xuất kho** lưu trên web bằng tài khoản chủ (`desktop`) trừ tồn ngay: hàm `web_issue` ghi phiếu `delivery` mã **W** + số đơn lớn nhất + 1, khách (tìm theo SĐT rồi tên), dòng có giá, biến động từng nơi; app đọc file `PhieuXuat_W….xlsx` của phiếu đó thì chỉ nối vào phiếu đã có, không trừ lần hai. Chạy sau 009, chạy lại được.
+15. `cloud/supabase/016_staff_push.sql` — **tài khoản nhân viên dùng app** (15/11/2026): máy đăng nhập vai trò `editor` không ghi thẳng; gửi cả hàng đợi vào bảng `push_requests` (`push_request_send`, một yêu cầu mỗi tài khoản + máy), chủ xem `push_requests_pending` và `push_request_decide` (duyệt = ghi đúng lô đó qua `sync_push` dưới tên máy nhân viên; dòng nào trên Cloud đã đổi sau `base_rev` hoặc trùng mã → `stale`, đóng với lý do `__stale__`, máy nhân viên tự gộp rồi gửi lại). `web_issue` cho một mặt hàng ở nhiều dòng. Chạy sau 015 (chạy lại 009/015 thì chạy lại 016).
 
 ## 3. Tạo tài khoản
 
@@ -73,8 +74,7 @@ Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn
 ## 4. Nối app trên máy chính
 
 Project Settings → API: lấy **Project URL** và **publishable (anon) key** (hai thứ này công khai theo thiết kế).
-App → Cài đặt → tab **Cloud**: dán URL, mã kết nối, tên đăng nhập `maychinh`, mật khẩu → **Đồng bộ ngay**.
-Từ đó: tắt app tự đẩy, mở app tự kéo phiếu từ web. Mật khẩu không được lưu; app giữ phiên đăng nhập trong `config.json`.
+Từ 0.5.3 app **đăng nhập ngay khi mở** (tài khoản + mật khẩu) và tự nối với dữ liệu chung. Địa chỉ và mã kết nối được nhúng vào bản build: thêm 2 secret của repo GitHub (Settings → Secrets and variables → Actions) **`DIBEKHO_CLOUD_URL`** (= Project URL) và **`DIBEKHO_CLOUD_KEY`** (= publishable key); `scripts/make_cloud_builtin.py` ghi `src/dibekho/core/cloud/builtin.json` (gitignored) lúc build, trên máy người phát triển thì lấy từ `webapp/config.js`. Bản build không có 2 secret này vẫn chạy: cửa sổ đăng nhập hiện thêm 2 ô địa chỉ + mã kết nối. Mật khẩu không được lưu; app giữ phiên đăng nhập và vai trò trong `config.json`. Vai trò dùng được app: `desktop` (chủ, ghi thẳng) và `editor` (nhân viên, chờ chủ duyệt, SQL 016); `viewer` chỉ dùng web.
 
 ## 5. Trang web (`webapp/`)
 
@@ -110,7 +110,7 @@ Chạy lại nhiều lần không sao. ⚠ Script chưa chạy thử với khoá
 ## 6. Sao lưu và khôi phục
 
 Khi bấm Đồng bộ ngay và lúc tắt app (nếu dữ liệu đổi từ lần trước), app tải lên một bản sao đầy đủ `kho.sqlite` **nén gzip** (`…sqlite.gz`, khoảng 1/3 cỡ gốc: dữ liệu thật 13/11/2026 là 550 KB → 165 KB), Cloud giữ **10 bản** gần nhất (từ 0.5.1; trước đó 30 bản không nén — bản `.sqlite` cũ vẫn khôi phục được và tự bị xoá dần).
-**Khôi phục:** Cài đặt → Cloud → **Khôi phục từ Cloud…** → chọn bản. App kiểm tra, sao lưu dữ liệu hiện tại, tạo điểm Hoàn tác rồi mới thay.
+**Khôi phục:** Cài đặt → Cloud → **Khôi phục từ Cloud…** → chọn bản. App kiểm tra, sao lưu dữ liệu hiện tại rồi mới thay (chỉ tài khoản chủ).
 **File Excel phiếu gốc** (`data/phieu-goc/`, cho Mở file gốc / Khôi phục file) cũng lên Cloud, cùng kho riêng tư, thư mục `phieu-goc/`: mỗi file một lần (tên = mã băm nội dung), tối đa 90 giây mỗi lần Đồng bộ ngay và 4 giây lúc tắt app (phần còn lại để lần sau); không bao giờ bị xoá vì bản sao lưu cũ vẫn trỏ tới. Khôi phục từ Cloud tải về những file máy đang thiếu (kiểm mã băm trước khi ghi). Chỉ tài khoản chủ đọc được; trang web và gói web vẫn **không** có file phiếu gốc. Không cần SQL mới. Các bảng `mirror_*` cũ đã xoá bằng SQL 014.
 **Nhật ký thao tác của từng máy chính** (`data/app.log`, gồm các bước chạy chậm `[slow]` và lỗi) cũng lên kho riêng tư này, thư mục `nhat-ky/`, mỗi máy một file nén thay bản cũ, tối đa 10 phút một lần (trong lượt đồng bộ nền). Người phát triển tải về bằng `python -X utf8 scripts/fetch_cloud_logs.py <thư mục>` (dùng đăng nhập Cloud của máy đó). Nhật ký có tên khách và tên file: không đưa ra ngoài. Không cần SQL mới.
 

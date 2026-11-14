@@ -420,6 +420,11 @@ class SettingsPage(Page):
         info(self, t("settings.restart_needed"))
 
     def reset_stock(self):
+        from dibekho.core.cloud import approval
+
+        if approval.is_staff(self.ctx.cfg):  # it would rewrite every document of the shared data
+            error(self, t("staff.not_for_staff"))
+            return
         if not ask(self, t("reset.confirm_stock")):
             return
         self.ctx.log_action("reset")
@@ -433,6 +438,11 @@ class SettingsPage(Page):
         self.go_pending()  # notes are read again: what is known is recorded, the rest waits here
 
     def reset_all(self):
+        from dibekho.core.cloud import approval
+
+        if approval.is_staff(self.ctx.cfg):
+            error(self, t("staff.not_for_staff"))
+            return
         if not ask(self, t("reset.confirm_all")) or not ask(self, t("reset.confirm_all_again")):
             return
         if replica.enabled(self.ctx.conn):  # shared data: the cloud is emptied first, for every machine and the web

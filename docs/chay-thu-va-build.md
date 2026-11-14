@@ -47,6 +47,8 @@ File `.github/workflows/build.yml` build cả bản Mac (máy Apple Silicon củ
    `DiBeKho-mac-arm64.dmg`, `DiBeKho-windows-setup.exe` và `DiBeKho-windows-setup.zip` (bộ cài nén zip, để Edge không chặn file .exe chưa ký) → hai nút tải ở đầu README (Windows: bộ cài .exe; bản .zip nằm trong bảng "Các bản tải về") luôn trỏ tới bản mới nhất.
 3. **Chỉ build thử** (không phát hành): tab **Actions** → **build** → **Run workflow** → tải ở mục **Artifacts** của lần chạy đó.
 
+Địa chỉ Cloud nhúng vào bản build lấy từ 2 secret của repo: **`DIBEKHO_CLOUD_URL`**, **`DIBEKHO_CLOUD_KEY`** (Settings → Secrets and variables → Actions). Thiếu thì app vẫn chạy, cửa sổ đăng nhập hỏi thêm địa chỉ và mã kết nối. Build trên máy: `scripts/make_cloud_builtin.py` đọc `webapp/config.js`.
+
 Chi phí: repo private có 2.000 phút miễn phí/tháng, phút trên máy Mac tính gấp 10 → khoảng 20–40 lần build Mac/tháng, đủ dùng.
 File tải từ trình duyệt bị macOS đánh dấu "từ internet": mở lần đầu cần "Vẫn mở" như dưới, hoặc chạy
 `xattr -cr /Applications/DiBeKho.app` trong Terminal.

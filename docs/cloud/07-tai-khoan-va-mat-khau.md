@@ -78,7 +78,7 @@ where email = 'nhanvien1@dibekho.local';
 Sau khi đổi:
 - Báo mật khẩu mới cho người đó theo cách ở mục 3.
 - Trên trang web: đăng nhập lại bằng mật khẩu mới.
-- Trên app: máy đang đăng nhập có thể vẫn chạy thêm một lúc. Khi app báo "cần gõ lại mật khẩu", vào **Cài đặt → Cloud**, gõ mật khẩu mới rồi bấm **Đồng bộ ngay**.
+- Trên app: máy đang đăng nhập có thể vẫn chạy thêm một lúc. Khi dòng trạng thái Cloud báo "bấm vào đây để gõ lại mật khẩu", bấm vào đó và gõ mật khẩu mới.
 
 > Các câu SQL ở mục 2, 5, 6, 7 và các nút trên web (đổi vai trò, thu hồi) đã kiểm trên Postgres thử nghiệm; Edge Function được kiểm với một Supabase giả. **Chưa chạy thử trên project Supabase thật của bạn**: tạo tài khoản và đặt lại mật khẩu (cả trên web lẫn bằng SQL `crypt` ở cách 1) hãy thử lần đầu với một **tài khoản thử**.
 
@@ -129,7 +129,7 @@ Dòng nào cột `role` trống là tài khoản **chưa được cấp vai trò
 
 ## 9. Thêm máy chính thứ hai
 
-App trên mỗi máy chính tự đăng nhập bằng tài khoản `desktop`. Trên **từng máy**: **Cài đặt → Cloud**, điền địa chỉ Cloud, mã kết nối, tên đăng nhập, mật khẩu, bấm **Đồng bộ ngay**, rồi **Bật dùng dữ liệu chung** (xem mục 15 của hướng dẫn sử dụng). Hai máy có thể dùng chung một tài khoản `desktop`, hoặc mỗi máy một tài khoản (`maychinh`, `maychinh2`, cấp vai trò `desktop` cho cả hai) nếu muốn tách bạch. Cách nào cũng được.
+App trên mỗi máy chính tự đăng nhập bằng tài khoản `desktop`. Trên **từng máy**: mở app, đăng nhập (từ 0.5.3 app hỏi ngay khi mở và tự nối với dữ liệu chung; xem mục 15 của hướng dẫn sử dụng). Máy nhân viên dùng tài khoản vai trò `editor`: thay đổi chờ chủ duyệt ở Cần xử lý. Hai máy có thể dùng chung một tài khoản `desktop`, hoặc mỗi máy một tài khoản (`maychinh`, `maychinh2`, cấp vai trò `desktop` cho cả hai) nếu muốn tách bạch. Cách nào cũng được.
 
 ## 10. Sự cố thường gặp
 
@@ -140,7 +140,7 @@ App trên mỗi máy chính tự đăng nhập bằng tài khoản `desktop`. Tr
 | Không thấy nút Chuyển hàng, Xuất dùng thử, Thêm mặt hàng trên web | Đúng thiết kế: từ 14/11/2026 trang web chỉ xem (với mọi vai trò) | Làm việc đó trên app ở máy chính |
 | Không thấy trang **Tổng quan** | Tài khoản không phải vai trò `desktop` | Nâng lên `desktop` (mục 5) nếu người đó là quản lý |
 | Không thấy nút **📤 Phiếu xuất kho…** | Vai trò `viewer` (chỉ xem), hoặc đang mở trên điện thoại | Đổi sang `editor` nếu người đó cần tạo phiếu; dùng máy tính |
-| App báo "cần gõ lại mật khẩu" | Phiên đăng nhập hết hạn hoặc mật khẩu vừa đổi | Cài đặt → Cloud, gõ mật khẩu, **Đồng bộ ngay** |
+| App báo "cần gõ lại mật khẩu" | Phiên đăng nhập hết hạn hoặc mật khẩu vừa đổi | Bấm dòng trạng thái Cloud, gõ mật khẩu |
 | Web báo «Chưa cài Edge Function accounts» / «cần chạy SQL 011» | Chưa làm [05-cai-dat.md](05-cai-dat.md) mục 5b / chưa chạy 011 | Làm theo 05; trong lúc chờ dùng cách trong trang quản trị Supabase (mục 2–7) |
 | Web báo Supabase từ chối phiên đăng nhập khi Tạo tài khoản | Công tắc Verify JWT của hàm | Tắt công tắc đó (05 mục 5b bước 3) |
 | Tạo xong tài khoản nhưng đăng nhập không được | Quên tick **Auto Confirm User** | Authentication → Users, mở tài khoản và xác nhận (hoặc xoá tài khoản mới tạo rồi tạo lại có tick) |

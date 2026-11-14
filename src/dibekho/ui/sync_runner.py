@@ -3,7 +3,11 @@
 A round = pull (network, worker thread) -> merge (database, main thread, only at a safe moment: no dialog open and
 not on a page where the user is typing) -> push (network, worker) -> finish (main). The window never waits on the
 network. Rounds start: shortly after opening, a few seconds after any change here, and every minute (to see what
-other machines and the web wrote). Closing the app sends what is still queued, briefly."""
+other machines and the web wrote). Closing the app sends what is still queued, briefly.
+
+A machine signed in with a staff account (core/cloud/approval.py) never pushes: its round is the answer about its
+request (network) -> that answer taken, then merge (main thread) -> its queue sent for the owner's approval when it
+changed (network). On the owner's machine every round also fetches the staff requests waiting (ctx.staff_pushes)."""
 
 import sqlite3
 import threading
@@ -13,6 +17,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from dibekho.core import activity, backup
+from dibekho.core.cloud import approval
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import logs as cloud_logs
 from dibekho.core.cloud import replica, twoway
@@ -38,6 +43,7 @@ class SyncRunner(QObject):
         self.last_ok: datetime | None = None
         self.last_error = ""
         self.signed_out = False
+        self.not_allowed = False  # the owner took this account's right to use the app away
         self.logs = cloud_logs.LogUploader()
         self._done.connect(lambda then, result, err: then(result, err))
         self.timer = QTimer(self)
@@ -61,6 +67,19 @@ class SyncRunner(QObject):
         if conflicts:
             parts.append(t("sync.conflicts", n=conflicts))
         queued = twoway.queued_count(self.ctx.conn)
+        if approval.is_staff(self.ctx.cfg) and not self.signed_out and not self.last_error:
+            st = approval.state(self.ctx.conn)
+            if st.get("status") == "rejected":
+                parts.append(t("staff.status_rejected", reason=st.get("reason") or "—"))
+            elif st.get("status") == "pending" and queued:
+                parts.append(t("staff.status_pending", n=queued))
+            elif queued:
+                parts.append(t("staff.status_unsent", n=queued))
+            elif self.last_ok:
+                parts.append(t("sync.ok", at=self.last_ok.strftime("%H:%M")))
+            else:
+                parts.append(t("sync.waiting"))
+            return " · ".join(parts)
         if self.signed_out:
             parts.append(t("sync.signed_out", n=queued))
         elif self.last_error:
@@ -97,15 +116,17 @@ class SyncRunner(QObject):
             return
         self.busy = True
         cfg, ws, after = self.ctx.cfg, self.ctx.ws, twoway.cursor(self.ctx.conn)
+        staff = approval.is_staff(cfg)
 
         def pull():
             pair = cloud_sync.session(cfg, timeout=15)
             if pair is None:
                 return None
             client, token = pair
+            request = approval.mine(client, token, cfg.device_id) if staff else None
             pulled = twoway.fetch(client, token, after)
             self.logs.maybe_upload(ws, cfg, client, token)  # this machine's app.log, every 10 minutes at most
-            return client, token, pulled
+            return client, token, pulled, request
 
         self._background(pull, lambda result, err: self._pulled(result, err, tries, after))
 
@@ -116,7 +137,7 @@ class SyncRunner(QObject):
         if result is None or self.ctx.conn is None or (after is not None and twoway.cursor(self.ctx.conn) != after):
             self.busy = False
             return None
-        client, token, pulled = result
+        client, token, pulled, request = result
         # rows from elsewhere wait until the user is not typing (Kiểm kê, Cần xử lý, an open window); what was saved
         # here still goes at once when nothing came in (a transfer saved from Kiểm kê once waited for ever)
         if not self.is_safe() and not twoway.nothing_new(pulled):
@@ -124,6 +145,9 @@ class SyncRunner(QObject):
             self.soon.start(RETRY_UNSAFE)
             return None
         conn = self.ctx.conn
+        staff = approval.is_staff(self.ctx.cfg)
+        if staff and approval.take_answer(conn, request):  # before the merge: an approved queue is cleared first
+            self.ctx.notify()
         with activity.slow_watch("cloud merge"):
             merged = twoway.merge(conn, pulled)
         try:
@@ -134,9 +158,11 @@ class SyncRunner(QObject):
             self.ctx.notify()
         self._tell_about(merged)
         batch, seq, hold = twoway.prepare(conn)
+        if staff:
+            return self._send_for_approval(client, token, batch, seq)
         if twoway.empty(batch):
             self._confirm_requests(client, token)
-            return self._finished()
+            return self._owner_extras(client, token)
         expected, device = twoway.cursor(conn), self.ctx.cfg.device_id
         self._background(lambda: twoway.send(client, token, device, expected, batch),
                          lambda answer, e: self._sent(answer, e, seq, hold, tries, client, token))
@@ -148,10 +174,43 @@ class SyncRunner(QObject):
         if answer.get("ok"):
             twoway.finish(self.ctx.conn, seq, int(answer["max_rev"]), hold)
             self._confirm_requests(client, token)
-            return self._finished()
+            return self._owner_extras(client, token)
         self.busy = False  # someone wrote in between: pull again
         if tries > 1:
             self.start(tries - 1)
+        return None
+
+    def _send_for_approval(self, client, token, batch, seq) -> None:
+        """A staff machine: its queue goes to the owner when it changed since it was last sent."""
+        conn = self.ctx.conn
+        approval.forget_answer_if_idle(conn)
+        if not approval.needs_sending(conn, batch):
+            self.status_changed.emit()
+            return self._finished()
+        base, device, summary = twoway.cursor(conn), self.ctx.cfg.device_id, approval.summarize(conn, batch)
+
+        def then(answer, err):
+            if err is not None:
+                return self._failed(err)
+            if self.ctx.conn is not None:
+                approval.sent(self.ctx.conn, batch, seq, answer)
+                self.ctx.notify()
+            return self._finished()
+        self._background(lambda: approval.send(client, token, device, base, batch, summary), then)
+        return None
+
+    def _owner_extras(self, client, token) -> None:
+        """The owner's machine: the staff requests waiting, fetched after the round (Cần xử lý)."""
+        def then(items, err):
+            if err is None and items is not None:
+                before = [x.get("id") for x in getattr(self.ctx, "staff_pushes", [])]
+                self.ctx.staff_pushes = items
+                if [x.get("id") for x in items] != before:
+                    self.ctx.notify()
+            elif err is not None:
+                activity.log("error", f"staff requests: {err}")
+            return self._finished()
+        self._background(lambda: approval.pending(client, token), then)
         return None
 
     def _confirm_requests(self, client, token) -> None:
@@ -195,6 +254,9 @@ class SyncRunner(QObject):
             if pair is None:
                 return
             client, token = pair
+            if approval.is_staff(self.ctx.cfg):
+                approval.staff_round(self.ctx.conn, client, token, self.ctx.cfg.device_id)
+                return
             result = twoway.sync_round(self.ctx.conn, client, token, self.ctx.cfg.device_id, tries=2)
             for merged in result.merged:
                 twoway.export_renamed(self.ctx.conn, self.ctx.ws, merged)

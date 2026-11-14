@@ -6,7 +6,7 @@
 
 [English](README.md) · **Tiếng Việt** · [中文](README.zh.md) · [Русский](README.ru.md)
 
-**Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: chạy ngay trên máy, không cần internet, chi phí 0₫.**
+**Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: app trên máy, dữ liệu chung trên Cloud (giống trang web), chi phí 0₫.**
 
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
@@ -33,11 +33,11 @@ Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc 
 - 🔎 **Tra cứu** mặt hàng, khách, số điện thoại, mã phiếu; gõ không dấu hay tiếng Trung đều được.
 - 💰 **Doanh thu theo khách:** tiền hàng (phí vận chuyển tính riêng), mặt hàng khách hay mua, từng đơn với đơn giá và thành tiền, lọc theo khoảng thời gian.
 - 📊 **Thống kê** theo ngày, tháng, quý, năm và **xuất ra Excel**.
-- ↶ **Hoàn tác:** làm nhầm thì bấm một nút là quay lại như cũ.
+- 👥 **Tài khoản chủ và nhân viên:** mở app là đăng nhập; thay đổi của nhân viên chờ chủ duyệt.
 - 💾 **Sao lưu tự động** mỗi ngày; **chuyển dữ liệu** sang máy khác bằng một file.
 - 🌐 Giao diện **tiếng Việt, tiếng Anh, tiếng Trung**.
 
-> App đọc **giá bán** (đơn giá, thành tiền, phí vận chuyển) ghi trên phiếu giao hàng để tính doanh thu. **Doanh thu chỉ tính tiền hàng**; phí vận chuyển, phí khác được ghi riêng. App không có giá nhập nên không tính lãi. Dữ liệu nằm trên máy của bạn, không gửi đi đâu.
+> App đọc **giá bán** (đơn giá, thành tiền, phí vận chuyển) ghi trên phiếu giao hàng để tính doanh thu. **Doanh thu chỉ tính tiền hàng**; phí vận chuyển, phí khác được ghi riêng. App không có giá nhập nên không tính lãi. Dữ liệu chung nằm trên Cloud của cửa hàng (bản chuẩn, giống trang web); mỗi máy giữ một bản để làm việc cả khi mất mạng.
 
 ## Tải và cài đặt
 
@@ -93,7 +93,7 @@ Tải bản mới như trên rồi **cài đè** lên bản cũ (Mac: kéo vào 
 
 Làm 4 bước này một lần, theo thứ tự.
 
-**1. Mở app.** Chọn ngôn ngữ và **thư mục làm việc** (để mặc định `Tài liệu/DiBeKho` là được), bấm **Bắt đầu**. Không chọn thư mục nằm trong OneDrive, iCloud hay Google Drive: đồng bộ đám mây có thể làm hỏng dữ liệu.
+**1. Mở app.** Chọn ngôn ngữ và **thư mục làm việc** (để mặc định `Tài liệu/DiBeKho` là được), bấm **Bắt đầu**. Không chọn thư mục nằm trong OneDrive, iCloud hay Google Drive: đồng bộ đám mây có thể làm hỏng dữ liệu. Sau đó **đăng nhập** bằng tài khoản và mật khẩu chủ cấp: app tự nối với dữ liệu chung.
 
 **2. Nạp danh mục mặt hàng** từ file thống kê tồn kho hằng tháng (Excel):
 1. Ở màn hình **Tồn kho**, bấm **Nhập danh mục từ Excel…** và chọn file.
@@ -144,7 +144,7 @@ Làm 4 bước này một lần, theo thứ tự.
 4. Chọn **Nhập vào**: Kho tổng hoặc Văn phòng.
 5. Bấm **Lưu phiếu hàng về**, đọc lại bảng tóm tắt rồi đồng ý. Tồn tăng, phiếu có mã (HV001, HV002…) và một file Excel của phiếu được lưu trong `output/hang-ve/`.
 
-Nhập nhầm? Bấm **↶ Hoàn tác** ngay, hoặc chọn phiếu trong danh sách rồi bấm **Sửa phiếu đã chọn…**. Phiếu cũ vẫn còn trong lịch sử với trạng thái "đã thay".
+Nhập nhầm? Chọn phiếu trong danh sách rồi bấm **Sửa phiếu đã chọn…**. Phiếu cũ vẫn còn trong lịch sử với trạng thái "đã thay".
 
 Lỡ đóng cửa sổ khi chưa lưu? Phiếu được giữ lại: bấm **＋ Nhập hàng về…** lần sau để nhập tiếp. Muốn sửa số tồn bị sai thì dùng **Kiểm kê**, không dùng Hàng về.
 
@@ -207,7 +207,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 
 | Tình huống | Cách làm |
 |---|---|
-| Vừa bấm nhầm (Áp dụng, kiểm kê, nhập hàng về, sửa/xoá mặt hàng, nhập dữ liệu…) | Bấm **↶ Hoàn tác** ở góc trên bên phải: dữ liệu về đúng như trước thao tác đó. Bấm tiếp để lùi thêm (tối đa 20 bước) |
+| Vừa chọn nhầm mặt hàng cho một đơn | Mở đơn → **Đọc lại cả phiếu** (chỉ đơn đó được đọc lại) |
 | Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
 | Một phiếu nhập nhầm | Mở đơn hàng, bấm **Huỷ phiếu** (tồn được trả lại, lịch sử vẫn giữ). Xoá file **không** phải cách huỷ phiếu |
 | Lỡ xoá file phiếu khỏi thư mục | Tồn không đổi. **Cần xử lý** cho chọn **Khôi phục file**, **Huỷ phiếu** hoặc **Bỏ qua** |
@@ -229,7 +229,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 
 **Đổi ngôn ngữ?** **Cài đặt → Chung → Ngôn ngữ**.
 
-**Nhiều máy (và điện thoại, trình duyệt) dùng chung một bộ dữ liệu được không?** Được, nhưng là phần **tuỳ chọn**: người cài đặt bật giúp bạn ở **Cài đặt → Cloud**. Không bật thì mỗi máy vẫn làm việc riêng như bình thường. Cách dùng: [Hướng dẫn chi tiết, mục 15](docs/huong-dan-su-dung.md#15-dữ-liệu-chung-qua-cloud-tuỳ-chọn).
+**Nhiều máy (và điện thoại, trình duyệt) dùng chung một bộ dữ liệu được không?** Được: mọi máy đăng nhập cùng dùng dữ liệu chung trên Cloud. Tài khoản nhân viên làm việc bình thường, thay đổi chờ chủ duyệt ở **Cần xử lý**. Cách dùng: [Hướng dẫn chi tiết, mục 15](docs/huong-dan-su-dung.md#15-tài-khoản-và-dữ-liệu-chung-trên-cloud).
 
 **Trình duyệt Edge báo "DiBeKho-windows-setup.exe thường không được tải xuống" và huỷ tải?** Edge cảnh báo vì bộ cài chưa có chữ ký số (app an toàn). Cách nhanh nhất: tải bản **`.zip`** trong bảng [Các bản tải về](#các-bản-tải-về), mở nó rồi nháy đúp vào bộ cài bên trong. Hoặc giữ file đã bị chặn: trong danh sách tải xuống của Edge, rê chuột lên file → bấm nút **…** → chọn giữ lại (*Keep*) → **Hiển thị thêm** (*Show more*) → vẫn giữ lại (*Keep anyway*).
 

@@ -27,6 +27,8 @@ CLAUDE*.md
 02-nghien-cuu-huong-phat-trien-wms.md
 *.bundle
 webapp/config.js
+# the Cloud address put into a build (scripts/make_cloud_builtin.py)
+src/dibekho/core/cloud/builtin.json
 
 # dev-only test dependency (tests/pg)
 node_modules/

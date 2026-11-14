@@ -120,6 +120,72 @@ def self_test() -> int:
     return 0
 
 
+def sign_in_and_link(ctx) -> bool:
+    """The first window (user's request 15/11/2026): the account and the password, then the machine joins the shared
+    data on the Cloud (core/cloud/account.py). A machine already signed in opens without asking, also offline when it
+    is linked already (it syncs when the line is back). False: the app does not open."""
+    from dibekho.core.cloud import account, replica
+    from dibekho.core.cloud.client import CloudError, SessionExpired
+    from dibekho.ui.login_dialog import LoginDialog
+
+    cfg = ctx.cfg
+    account.apply_builtin(cfg)
+    session, message = None, ""
+    if account.has_saved_session(cfg):
+        try:
+            session = account.resume(cfg)
+        except account.NotForApp as exc:
+            account.sign_out(cfg)
+            message = str(exc)
+        except SessionExpired:
+            message = t("login.again")
+        except CloudError:
+            if replica.enabled(ctx.conn):
+                activity.log("cloud", "offline at start: working on the local copy")
+                return True
+            message = t("login.offline")
+    while session is None:
+        dlg = LoginDialog(cfg, message)
+        if dlg.exec() != QDialog.Accepted:
+            return False
+        session = dlg.session
+    activity.log("start", f"signed in as {cfg.cloud_user} ({session.role})")
+
+    def confirm_adopt():
+        box = QMessageBox(QMessageBox.Question, APP_NAME, t("login.confirm_adopt"))
+        yes = box.addButton(t("btn.yes"), QMessageBox.AcceptRole)
+        box.addButton(t("btn.cancel"), QMessageBox.RejectRole)
+        box.exec()
+        return box.clickedButton() is yes
+
+    try:
+        linked = account.link(ctx.conn, ctx.ws, session, confirm_adopt)
+    except CloudError as exc:
+        QMessageBox.critical(None, APP_NAME, str(exc))
+        return False
+    if linked == account.EMPTY_CLOUD:
+        QMessageBox.information(None, APP_NAME, t("login.empty_cloud"))
+        return False
+    if linked == account.REFUSED:
+        QMessageBox.information(None, APP_NAME, t("login.refused"))
+        return False
+    activity.log("cloud", f"shared data: {linked}")
+    if linked in (account.UPLOADED, account.ADOPTED):
+        # the first round now, before the window scans the notes folder: the notes must find their documents
+        from dibekho.core.cloud import approval, twoway
+
+        try:
+            if session.role == approval.STAFF:
+                approval.staff_round(ctx.conn, session.client, session.token, cfg.device_id)
+            else:
+                for merged in twoway.sync_round(ctx.conn, session.client, session.token, cfg.device_id).merged:
+                    twoway.export_renamed(ctx.conn, ctx.ws, merged)
+        except CloudError as exc:
+            QMessageBox.critical(None, APP_NAME, str(exc))
+            return False
+    return True
+
+
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
@@ -198,6 +264,10 @@ def main() -> int:
             backup.run_maintenance(ctx.conn, ws, cfg)
     except (OSError, sqlite3.DatabaseError):
         pass  # a failed backup/cleanup must not block daily work; it is retried next start
+
+    if not sign_in_and_link(ctx):
+        ctx.close()
+        return 0
 
     window = MainWindow(ctx)
     window.show()

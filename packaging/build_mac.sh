@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 uv sync
 uv run pytest -q
 rm -rf build dist
+uv run python scripts/make_cloud_builtin.py
 uv run pyinstaller packaging/dibekho.spec --noconfirm
 
 # The packaged app must start and open every screen.

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, inbox
+from dibekho.core.cloud import approval
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud import twoway
@@ -197,7 +198,7 @@ class MainWindow(QMainWindow):
 
     def _pull_async(self, notify: bool, explicit: bool = False) -> None:
         """Ask the cloud for the staff requests without blocking. The database is read here, the network in the thread."""
-        if self._pulling:
+        if self._pulling or approval.is_staff(self.ctx.cfg):  # the web's staff requests are the owner's
             return
         cfg, conn = self.ctx.cfg, self.ctx.conn
         seen = inbox_mod.applied_map(conn)
@@ -229,7 +230,7 @@ class MainWindow(QMainWindow):
     def _update_badge(self, result=None):
         pending = (deliveries.pending_count(self.ctx.conn) + deliveries.unplaced_count(self.ctx.conn)
                    + len(deliveries.count_conflicts(self.ctx.conn)) + len(inbox.items(self.ctx.conn, self.ctx.ws))
-                   + len(self.ctx.web_inbox))
+                   + len(self.ctx.web_inbox) + len(self.ctx.staff_pushes))
         label = t("nav.pending") + (f"  ({pending})" if pending else "")
         self.nav.item(PENDING).setText(label)
         self.nav.item(PENDING).setForeground(Qt.red if pending else self.nav.palette().text().color())
@@ -306,7 +307,14 @@ class MainWindow(QMainWindow):
         self.sync_btn.setVisible(bool(text))
 
     def _sync_clicked(self) -> None:
-        if twoway.conflicts(self.ctx.conn):
+        if self.sync.signed_out:  # the session ended (password changed, signed out on the web): ask once more
+            from dibekho.ui.login_dialog import sign_in_again
+
+            if sign_in_again(self.ctx.cfg, self) is not None:
+                self.sync.signed_out = False
+                self.sync.start()
+            self._update_sync()
+        elif twoway.conflicts(self.ctx.conn):
             ConflictDialog(self.ctx, self).exec()
             self._update_sync()
         else:
@@ -328,6 +336,8 @@ class MainWindow(QMainWindow):
         catches up. Bounded: each request waits at most CLOSE_TIMEOUT s, and the backup is skipped on a slow line, so
         the window cannot look frozen for a minute."""
         try:
+            if approval.is_staff(self.ctx.cfg):  # the backup on the cloud is the owner's
+                return
             if not cloud_sync.has_unpushed(self.ctx.conn) and not inbox_mod.applied_map(self.ctx.conn):
                 return
             QGuiApplication.setOverrideCursor(Qt.WaitCursor)

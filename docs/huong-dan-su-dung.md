@@ -4,7 +4,7 @@
 
 Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. Chưa cài app? Xem [Tải và cài đặt](../README.vi.md#tải-và-cài-đặt).
 
-> **Làm nhầm cũng đừng lo.** Gần như mọi thao tác đều quay lại được bằng nút **↶ Hoàn tác** ở góc trên bên phải (xem [mục 11](#11-khi-làm-nhầm-hoàn-tác-sao-lưu)).
+> **Làm nhầm cũng đừng lo.** Chọn nhầm mặt hàng thì **Đọc lại cả phiếu**; phiếu sai thì **Huỷ phiếu** (phiếu xuất: **Xoá hẳn**) rồi lập lại; app còn tự sao lưu mỗi ngày (xem [mục 11](#11-khi-làm-nhầm-sửa-lại-sao-lưu)).
 
 **Mục lục**
 1. [Làm quen với màn hình](#1-làm-quen-với-màn-hình)
@@ -17,11 +17,11 @@ Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. 
 8. [Khách hàng, doanh thu và giá bán](#8-khách-hàng-doanh-thu-và-giá-bán) · [Gộp khách hàng](#84-gộp-khách-hàng)
 9. [Đơn hàng](#9-đơn-hàng)
 10. [Thống kê và xuất Excel](#10-thống-kê-và-xuất-excel)
-11. [Khi làm nhầm: Hoàn tác, sao lưu](#11-khi-làm-nhầm-hoàn-tác-sao-lưu)
+11. [Khi làm nhầm: sửa lại, sao lưu](#11-khi-làm-nhầm-sửa-lại-sao-lưu)
 12. [Danh mục mặt hàng và mức báo động](#12-danh-mục-mặt-hàng-và-mức-báo-động)
 13. [Chuyển sang máy khác](#13-chuyển-sang-máy-khác)
 14. [Xử lý tình huống thường gặp](#14-xử-lý-tình-huống-thường-gặp)
-15. [Dữ liệu chung qua Cloud (tuỳ chọn)](#15-dữ-liệu-chung-qua-cloud-tuỳ-chọn)
+15. [Tài khoản và dữ liệu chung trên Cloud](#15-tài-khoản-và-dữ-liệu-chung-trên-cloud)
 
 ---
 
@@ -38,10 +38,11 @@ Bên trái là **6 mục**. Bấm vào một mục để mở nó:
 | **Kiểm kê** | Ghi số đếm thực tế; chuyển hàng giữa hai nơi |
 | **Cài đặt** | Ngôn ngữ, cỡ chữ, danh mục mặt hàng, sao lưu, chuyển dữ liệu |
 
-Phía trên cùng có 3 nút dùng chung:
+Phía trên cùng có các nút dùng chung:
 - **⟳ Quét lại phiếu** (phím **F5**): đọc các phiếu giao hàng mới.
 - **Mở thư mục phiếu giao hàng**: mở thư mục để chép phiếu vào.
-- **↶ Hoàn tác** (góc phải): quay lại trước thao tác vừa làm.
+- **📤 Phiếu xuất kho…**: lập phiếu xuất cho khách (mục 3.5).
+- Dòng trạng thái **Cloud** (góc phải): đã đồng bộ chưa, thay đổi nào đang chờ.
 
 **Màu trong bảng:**
 - **Cam** + chữ **⚠ Sắp hết — nên đặt hàng**: hàng sắp hết, nên đặt thêm.
@@ -65,6 +66,7 @@ Chỉ làm một lần, theo thứ tự.
 1. Chọn ngôn ngữ.
 2. Chọn **thư mục làm việc**: để mặc định `Tài liệu/DiBeKho` là được. **Không** chọn thư mục trong OneDrive, iCloud hay Google Drive (đồng bộ đám mây có thể làm hỏng dữ liệu).
 3. Bấm **Bắt đầu**. App tạo sẵn các thư mục con (xem [mục 14](#dữ-liệu-nằm-ở-đâu)).
+4. **Đăng nhập** bằng tài khoản và mật khẩu chủ cấp. App tự nối với dữ liệu chung trên Cloud (xem [mục 15](#15-tài-khoản-và-dữ-liệu-chung-trên-cloud)); máy đã có dữ liệu riêng thì app hỏi trước và sao lưu trước khi dùng dữ liệu trên Cloud.
 
 **Bước 2. Đưa dữ liệu vào.** Chọn **một** trong ba cách:
 
@@ -143,15 +145,15 @@ Dùng khi giao hàng cho khách mà chưa có file phiếu giao hàng: app tạo
 
 1. Bấm **📤 Phiếu xuất kho…** ở thanh trên cùng.
 2. Chọn khách trong danh sách (điện thoại, địa chỉ tự điền), hoặc gõ tên khách mới.
-3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng** và/hoặc **Lấy ở Văn phòng** (lấy ở cả hai nơi thì ghi cả hai ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ.
-4. **Đơn giá** tự điền theo đơn gần nhất của khách (khách mới: đơn gần nhất của mặt hàng đó). Sửa lại nếu giá khác.
+3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng** và/hoặc **Lấy ở Văn phòng** (lấy ở cả hai nơi thì ghi cả hai ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ. Một mặt hàng bán **hai mức giá** (số lượng khác nhau giá khác nhau)? Ghi nó ở **hai dòng**, mỗi dòng một giá.
+4. **Đơn giá** tự điền theo đơn gần nhất của khách (khách mới: đơn gần nhất của mặt hàng đó). Sửa lại nếu giá khác. Công tắc góc trái dưới đang ở **¥** thì cột ghi **Đơn giá (¥)**: gõ giá bằng nhân dân tệ, app đổi sang ₫ theo tỷ giá lúc mở phiếu (hộp hỏi trước khi lưu hiện cả hai).
 5. Bấm **Lưu phiếu** → xem lại → **Có**. Tồn kho bị trừ **ngay**, đơn có trong **Đơn hàng** và doanh thu của khách.
 
-App tạo file Excel `output/phieu-xuat/PhieuXuat_A160.xlsx` để in hoặc gửi. Mã phiếu là **A** + số tiếp theo sau mã đơn lớn nhất (đơn gần nhất là 159 thì phiếu mới là **A160**); phiếu tạo trên web có chữ **W** (W160). File có **cùng khuôn với phiếu giao hàng**: tên và địa chỉ công ty (app lấy từ phiếu giao hàng gần nhất đã đọc), khối thông tin khách, 7 cột STT · Tên hàng · Quy cách · Số lượng · Đơn giá · Thành tiền · Ghi chú, tổng tiền viết bằng chữ, chỗ ký. Chỉ khác tiêu đề: **PHIẾU XUẤT KHO**. Nơi lấy hàng không in trên phiếu: app tự nhớ. Bỏ lại file này (hay bản chép của nó) vào thư mục phiếu cũng **không bị trừ hai lần**; dòng dưới thanh trên cùng sẽ báo "… là bản chép của phiếu đã có". Sửa file trong Excel (vd. đổi số lượng) rồi bỏ vào thư mục thì app hỏi **Thay bằng bản mới?** như phiếu giao hàng. Nếu đã đổi số lượng của mặt hàng lấy ở cả hai nơi, app sẽ hỏi lại lấy hàng ở đâu. Phiếu xuất kho tạo trên trang web (nếu dùng Cloud) bằng **tài khoản chủ** được trừ tồn ngay khi lưu (mã W…); tạo bằng tài khoản nhân viên thì chỉ ra file, bỏ file đó vào thư mục phiếu giao hàng rồi **⟳ Quét lại phiếu** thì app mới trừ tồn. Làm nhầm: bấm **↶ Hoàn tác** hoặc **Huỷ phiếu** trong Chi tiết đơn. Với phiếu xuất (mã A… hoặc W…), sau khi bấm Huỷ phiếu app hỏi thêm **Xoá hẳn phiếu?**: chọn Có thì phiếu biến mất, tồn trả lại và mã đó được dùng lại cho phiếu xuất tiếp theo, để số đơn không bị hụt khi tính doanh thu cuối quý.
+App tạo file Excel `output/phieu-xuat/PhieuXuat_A160.xlsx` để in hoặc gửi. Mã phiếu là **A** + số tiếp theo sau mã đơn lớn nhất (đơn gần nhất là 159 thì phiếu mới là **A160**); phiếu tạo trên web có chữ **W** (W160). File có **cùng khuôn với phiếu giao hàng**: tên và địa chỉ công ty (app lấy từ phiếu giao hàng gần nhất đã đọc), khối thông tin khách, 7 cột STT · Tên hàng · Quy cách · Số lượng · Đơn giá · Thành tiền · Ghi chú, tổng tiền viết bằng chữ, chỗ ký. Chỉ khác tiêu đề: **PHIẾU XUẤT KHO**. Nơi lấy hàng không in trên phiếu: app tự nhớ. Bỏ lại file này (hay bản chép của nó) vào thư mục phiếu cũng **không bị trừ hai lần**; dòng dưới thanh trên cùng sẽ báo "… là bản chép của phiếu đã có". Sửa file trong Excel (vd. đổi số lượng) rồi bỏ vào thư mục thì app hỏi **Thay bằng bản mới?** như phiếu giao hàng. Nếu đã đổi số lượng của mặt hàng lấy ở cả hai nơi, app sẽ hỏi lại lấy hàng ở đâu. Phiếu xuất kho tạo trên trang web (nếu dùng Cloud) bằng **tài khoản chủ** được trừ tồn ngay khi lưu (mã W…); tạo bằng tài khoản nhân viên thì chỉ ra file, bỏ file đó vào thư mục phiếu giao hàng rồi **⟳ Quét lại phiếu** thì app mới trừ tồn. Làm nhầm: **Huỷ phiếu** trong Chi tiết đơn. Với phiếu xuất (mã A… hoặc W…), sau khi bấm Huỷ phiếu app hỏi thêm **Xoá hẳn phiếu?**: chọn Có thì phiếu biến mất, tồn trả lại và mã đó được dùng lại cho phiếu xuất tiếp theo, để số đơn không bị hụt khi tính doanh thu cuối quý.
 
 ### 3.6. Xem tiền bằng VND hoặc nhân dân tệ
 
-Ở góc trái dưới có công tắc **₫ | ¥**. Bấm **¥**: mọi số tiền trong app (doanh thu, đơn giá, thành tiền, Thống kê, Chi tiết đơn, Chi tiết khách…) hiện bằng nhân dân tệ theo **tỷ giá thị trường hôm nay**, cả đơn cũ. Bấm **₫** để về tiền Việt. Dữ liệu vẫn lưu bằng VND và mọi file xuất ra (Excel, gói dữ liệu, phiếu xuất kho) vẫn ghi VND; ô gõ đơn giá trong Phiếu xuất kho cũng luôn là VND. Dưới công tắc là tỷ giá đang dùng; bấm **⟳** để lấy tỷ giá mới. Tỷ giá chỉ để tham khảo (không phải giá mua/bán của ngân hàng); máy không có mạng thì app dùng tỷ giá lấy lần trước. Trang web (nếu dùng Cloud) có cùng công tắc ở cùng chỗ.
+Ở góc trái dưới có công tắc **₫ | ¥**. Bấm **¥**: mọi số tiền trong app (doanh thu, đơn giá, thành tiền, Thống kê, Chi tiết đơn, Chi tiết khách…) hiện bằng nhân dân tệ theo **tỷ giá thị trường lúc này**, cả đơn cũ. Bấm **₫** để về tiền Việt. Dữ liệu vẫn lưu bằng VND và mọi file xuất ra (Excel, gói dữ liệu, phiếu xuất kho) vẫn ghi VND; khi đang ở ¥, Phiếu xuất kho cho gõ đơn giá bằng ¥ (mục 3.5) nhưng file vẫn ghi ₫. Dưới công tắc là tỷ giá đang dùng và giờ cập nhật; app tự lấy tỷ giá mới mỗi 10 phút khi đang hiện ¥, khi bấm **⟳** hoặc **⟳ Quét lại phiếu** (F5). Tỷ giá chỉ để tham khảo (không phải giá mua/bán của ngân hàng); máy không có mạng thì app dùng tỷ giá lấy lần trước. Trang web (nếu dùng Cloud) có cùng công tắc ở cùng chỗ.
 
 ---
 
@@ -221,7 +223,7 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
 
 Kết quả: tồn tăng ở nơi đã chọn, phiếu có mã **HV001, HV002…**, và một file Excel của phiếu được lưu trong `output/hang-ve/` (để in hoặc gửi).
 
-- Nhập nhầm: bấm **↶ Hoàn tác** ngay, hoặc chọn phiếu trong danh sách → **Sửa phiếu đã chọn…** (phiếu cũ vẫn giữ trong lịch sử với trạng thái "đã thay").
+- Nhập nhầm: chọn phiếu trong danh sách → **Sửa phiếu đã chọn…** (phiếu cũ vẫn giữ trong lịch sử với trạng thái "đã thay").
 - File hàng về dạng cũ (file mẫu đã điền) vẫn nhập được bằng **Chọn file để nhập…**.
 
 ---
@@ -275,7 +277,7 @@ Dùng khi mở hàng ra thử nghiệm/dùng nội bộ, **không bán cho khác
 3. Gõ số lượng vào cột vàng **Số lượng dùng thử** cho từng mặt hàng. (Tuỳ chọn) gõ **Ghi chú** lý do dùng thử.
 4. Bấm **Lưu phiếu dùng thử**, đọc tóm tắt và đồng ý. Phiếu có mã **DT001, DT002…**
 
-Nhầm số lượng hoặc mặt hàng? Mở phiếu đó (Chi tiết đơn) và bấm **Huỷ phiếu**, rồi lập phiếu mới (hoặc dùng **↶ Hoàn tác** ngay sau khi lưu).
+Nhầm số lượng hoặc mặt hàng? Mở phiếu đó (Chi tiết đơn) và bấm **Huỷ phiếu**, rồi lập phiếu mới.
 
 Xem lại phiếu dùng thử: **Kiểm kê → Phiếu dùng thử…** (hoặc **Tra cứu → Danh sách đơn hàng**, ở ô **Loại phiếu** chọn **Phiếu dùng thử**).
 
@@ -325,7 +327,7 @@ Dùng để dọn các khách hàng trùng/thừa, ví dụ các "khách hàng" 
 3. Gõ tên khách hàng chung (ví dụ "Văn phòng DiBeKho") hoặc chọn 1 trong các tên đang hiển thị, rồi bấm **Lưu**.
 4. Đọc tóm tắt và đồng ý. Mọi đơn của các khách đã chọn chuyển sang khách chung; các khách cũ bị xoá (đơn và lịch sử vẫn giữ nguyên).
 
-Gộp nhầm? Bấm **↶ Hoàn tác** ngay sau đó.
+Gộp rồi thì không tách lại được: xem kỹ trước khi bấm.
 
 ---
 
@@ -372,12 +374,12 @@ Ghi chú: chọn khách thì chỉ số **xuất** được lọc theo khách. C
 
 ---
 
-## 11. Khi làm nhầm: Hoàn tác, sao lưu
+## 11. Khi làm nhầm: sửa lại, sao lưu
 
-**↶ Hoàn tác** (góc trên bên phải):
-- Đưa dữ liệu về **đúng như trước** thao tác vừa làm. Tên thao tác hiện trên nút, ví dụ "↶ Hoàn tác: Kiểm kê".
-- Bấm tiếp để lùi thêm, tối đa 20 bước.
-- Dùng được cho: Áp dụng ở Cần xử lý, chọn nơi lấy hàng, kiểm kê, chuyển hàng, nhập/sửa hàng về, huỷ phiếu, đọc lại phiếu, thêm/sửa/xoá mặt hàng, ghi chú tồn kho, mức báo động, nhập dữ liệu…
+App không còn nút Hoàn tác. Làm nhầm thì sửa đúng chỗ:
+- Chọn nhầm mặt hàng cho một đơn: mở đơn → **Đọc lại cả phiếu** (chỉ đơn đó được đọc lại).
+- Một đơn, phiếu hàng về, chuyển hàng, dùng thử, kiểm kê nhập nhầm: mở phiếu → **Huỷ phiếu** (hoặc **Sửa phiếu**) rồi lập lại. Phiếu xuất kho: **Huỷ phiếu → Xoá hẳn**, mã được dùng lại.
+- Sửa nhầm mặt hàng: **Sửa mặt hàng…** lần nữa.
 
 **Sao lưu tự động:** mỗi ngày khi mở app, giữ **10 bản gần nhất** trong `sao-luu/`, bản nào quá **30 ngày** cũng tự xoá để đỡ tốn dung lượng (app tự dọn lại mỗi 2 tuần). Trong **Cài đặt → Chuyển dữ liệu và sao lưu**:
 - **Sao lưu ngay**: tạo một bản sao lưu lúc này.
@@ -403,11 +405,11 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 
 **Các nút khác:**
 - **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên Việt, tên Trung, quy cách, loại/màu, đơn vị, nhóm hàng. Khi **thêm mới**, nếu trông giống một mặt hàng đã có (so cả tên Việt lẫn tên Trung, quy cách), app hỏi lại trước khi tạo — tránh tạo trùng. Lời nhắc tương tự cũng hiện khi chọn "Tạo mặt hàng mới" ở Cần xử lý hoặc khi nhập hàng về.
-- **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại trong danh sách. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Làm nhầm thì bấm **↶ Hoàn tác** ngay.
+- **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại trong danh sách. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Gộp rồi không tách lại được.
 - **Xoá mặt hàng**: chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - **Nhập danh mục từ Excel…**: nạp thêm mặt hàng từ file thống kê tháng.
 - **Tên trên phiếu đã học**: danh sách tên hàng app đã học, nhóm theo đơn. Bấm vào đơn để xem; **Quên và đọc lại…** để chọn lại mặt hàng cho **một tên**.
-- **Đọc lại cả phiếu**: muốn chọn lại **mọi dòng hàng** trong một đơn (không phải từng dòng một)? Nhấn **chuột phải vào tên đơn** — ở đây, hoặc ở Danh sách đơn hàng (mục 9), hoặc bấm nút cùng tên khi mở chi tiết đơn. App quên cách ghép tên cho mọi dòng trong đơn đó rồi đọc lại từ đầu; đơn (và mọi đơn khác đang dùng chung tên nào đó) hiện lại ở **Cần xử lý** để chọn lại. Lịch sử cũ vẫn giữ, bấm **↶ Hoàn tác** được nếu đổi ý.
+- **Đọc lại cả phiếu**: muốn chọn lại **mọi dòng hàng** trong một đơn (không phải từng dòng một)? Nhấn **chuột phải vào tên đơn** — ở đây, hoặc ở Danh sách đơn hàng (mục 9), hoặc bấm nút cùng tên khi mở chi tiết đơn. App quên cách ghép tên cho mọi dòng trong đơn đó rồi đọc lại **riêng đơn đó** từ đầu; đơn hiện lại ở **Cần xử lý** để chọn lại, các đơn khác giữ nguyên. Lịch sử cũ vẫn giữ. (Còn **Quên và đọc lại…** ở một tên thì đọc lại **mọi** đơn có tên đó.)
 
 ---
 
@@ -431,7 +433,7 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 
 | Tình huống | Cách làm |
 |---|---|
-| Vừa bấm nhầm | **↶ Hoàn tác** |
+| Vừa chọn nhầm mặt hàng cho một đơn | Mở đơn → **Đọc lại cả phiếu** |
 | Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
 | Muốn chọn lại cả một đơn (nhiều dòng cùng lúc) | Nhấn chuột phải vào tên đơn (Đơn hàng, Tên trên phiếu đã học, hoặc chi tiết đơn) → **Đọc lại cả phiếu** ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
 | Một đơn nhập nhầm | Mở đơn → **Huỷ phiếu** |
@@ -441,7 +443,7 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 | Quá nhiều hàng báo "Sắp hết" | Hạ **Báo động khi tồn dưới** ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
 | Đơn không có giá (—) | Phiếu giấy không ghi đơn giá / thành tiền. Sửa file phiếu rồi **Dùng bản mới** ở Cần xử lý |
 | Lỡ xoá file phiếu | Tồn không đổi. **Cần xử lý → Khôi phục file** |
-| Lỡ xoá nhầm một mặt hàng | Bấm **↶ Hoàn tác** ngay nếu còn kịp; nếu không, **Cài đặt → Chuyển dữ liệu và sao lưu → Khôi phục mặt hàng đã xoá…** (mục 11) |
+| Lỡ xoá nhầm một mặt hàng | **Cài đặt → Chuyển dữ liệu và sao lưu → Khôi phục mặt hàng đã xoá…** (mục 11) |
 | Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** |
 | Mở file gốc báo lỗi | File đang mở trong Excel: đóng Excel rồi thử lại |
 | Xuất Excel báo file đang mở | Đóng file Excel cùng tên rồi xuất lại |
@@ -467,36 +469,32 @@ DiBeKho/
 
 ---
 
-## 15. Dữ liệu chung qua Cloud (tuỳ chọn)
+## 15. Tài khoản và dữ liệu chung trên Cloud
 
-Phần này **không bắt buộc**. Chỉ dùng khi muốn nhiều máy (và trang web) cùng xem, cùng ghi một bộ dữ liệu. Người cài đặt sẽ tạo tài khoản và điền sẵn **Địa chỉ Cloud** và **Mã kết nối** cho bạn. Không bật thì app vẫn làm việc riêng trên máy như mọi khi.
+Dữ liệu trên Cloud (giống trang web) là **bản chuẩn**. App là nơi làm việc: mở app là phải **đăng nhập** (tài khoản + mật khẩu do chủ cấp), đăng nhập xong app tự nối với dữ liệu chung. Lần sau mở app không phải gõ lại; mất mạng vẫn mở và làm việc được, có mạng lại thì tự gửi.
 
-**Bật lần đầu trên một máy**
-1. **Cài đặt → Cloud**: gõ **Tên đăng nhập** và **Mật khẩu** (chỉ cần gõ mật khẩu lần đầu), bấm **Đồng bộ ngay**.
-2. Ở khung **Dữ liệu chung trên Cloud**, bấm **Bật dùng dữ liệu chung**.
-   - Máy đầu tiên: app hỏi có đưa dữ liệu của máy này lên làm bản chính không.
-   - Các máy sau: máy đó dùng dữ liệu trên Cloud thay cho dữ liệu riêng (dữ liệu cũ được sao lưu trước).
-3. Bấm **⟳ Quét lại phiếu** một lần để app nhận lại các file phiếu giao hàng.
+**Hai loại tài khoản dùng app:**
+- **Chủ** (vai trò máy chính): ghi thẳng vào dữ liệu chung.
+- **Nhân viên**: làm việc trên máy như bình thường, nhưng thay đổi **chờ chủ duyệt**. Dòng trạng thái Cloud ghi "Chờ chủ duyệt: … thay đổi". Chủ từ chối thì dòng đó ghi lý do; sửa lại (app gửi lại) hoặc **Cài đặt → Cloud → Bỏ thay đổi chưa duyệt…** để lấy lại dữ liệu chung.
+- Tài khoản **chỉ xem** chỉ dùng trên trang web.
 
-**Hằng ngày** vẫn làm như cũ. App tự gửi và nhận thay đổi khoảng mỗi phút, **kể cả khi mất mạng** (có mạng lại thì tự gửi). Dòng trạng thái ở trên cho biết tình hình, ví dụ "Cloud: đã đồng bộ lúc 09:30" hoặc "3 thay đổi chờ gửi". Báo "cần gõ lại mật khẩu": vào **Cài đặt → Cloud**, gõ mật khẩu, bấm **Đồng bộ ngay**.
+**Chủ duyệt:** thay đổi của nhân viên hiện ở **Cần xử lý → Thay đổi của nhân viên chờ duyệt** (rê chuột vào cột Nội dung để xem từng phiếu, mặt hàng, khách). **Duyệt** ghi đúng những thay đổi đó vào dữ liệu chung; **Từ chối** gửi lý do cho nhân viên. Nếu chủ đã sửa đúng chỗ đó sau khi nhân viên gửi, app báo và không ghi đè; máy nhân viên tự cập nhật rồi gửi lại.
+
+**Hằng ngày** vẫn làm như cũ. App tự gửi và nhận thay đổi khoảng mỗi phút, **kể cả khi mất mạng**. Dòng trạng thái ở trên cho biết tình hình, ví dụ "Cloud: đã đồng bộ lúc 09:30". Báo "bấm vào đây để gõ lại mật khẩu" (đổi mật khẩu hoặc Đăng xuất trên web): bấm vào dòng đó, gõ mật khẩu.
 
 **Hai nơi sửa cùng một chỗ** (ví dụ cùng sửa ghi chú một mặt hàng): dòng trạng thái báo "⚠ … chỗ cần chọn bản giữ". Bấm vào dòng đó, chọn từng dòng rồi bấm **Giữ bản của máy này** hoặc **Lấy bản trên Cloud**.
 
-**Khi làm nhầm** (khác với [mục 11](#11-khi-làm-nhầm-hoàn-tác-sao-lưu)):
-- **↶ Hoàn tác** chỉ huỷ được phiếu hàng về, chuyển hàng, dùng thử hoặc kiểm kê **vừa lưu trên chính máy này** (phiếu vẫn còn, ghi là đã huỷ). Việc khác: **Huỷ phiếu**, sửa phiếu hoặc sửa lại bằng tay.
-- **Khôi phục bản sao lưu**, **nhập gói dữ liệu**, **Xoá toàn bộ dữ liệu** sẽ thay dữ liệu **cho mọi người** (các máy khác và trang web). App hỏi trước, sao lưu trước, và cần có mạng.
+**Cài đặt → Cloud:** tài khoản đang dùng, **Đăng xuất**, **Đồng bộ ngay**, **Khôi phục từ Cloud…** (chủ). **Khôi phục bản sao lưu**, **nhập gói dữ liệu**, **Đặt lại / Xoá toàn bộ dữ liệu** thay dữ liệu **cho mọi người**: chỉ tài khoản chủ làm được, app hỏi trước, sao lưu trước, cần có mạng.
 
-**Sao lưu trên Cloud:** mỗi lần bấm **Đồng bộ ngay** và khi tắt app, app gửi một bản sao lưu đầy đủ lên Cloud (giữ 10 bản gần nhất, có nén cho nhẹ), kèm các file phiếu giao hàng gốc. Lấy lại: **Cài đặt → Cloud → Khôi phục từ Cloud…**. Mỗi ngày app cũng chép một bản `DiBeKho_dulieu-chung_<ngày>.sqlite` vào `sao-luu/`.
+**Sao lưu trên Cloud:** máy của chủ, mỗi lần bấm **Đồng bộ ngay** và khi tắt app, gửi một bản sao lưu đầy đủ lên Cloud (giữ 10 bản gần nhất, có nén cho nhẹ), kèm các file phiếu giao hàng gốc. Mỗi ngày app cũng chép một bản `DiBeKho_dulieu-chung_<ngày>.sqlite` vào `sao-luu/`.
 
-**Trang web:** mở địa chỉ người cài đặt gửi, đăng nhập bằng tên và mật khẩu của bạn. Chọn **Tiếng Việt** hoặc **中文** ngay ở trang đăng nhập (đổi lại ở góc phải trên hoặc **Cài đặt → Chung**). Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Trang web **chỉ để xem**: mọi việc ghi dữ liệu (hàng về, kiểm kê, sửa mặt hàng…) làm trên app. Trên web còn có:
+**Trang web:** mở địa chỉ chủ gửi, đăng nhập bằng tên và mật khẩu của bạn. Chọn **Tiếng Việt** hoặc **中文** ngay ở trang đăng nhập (đổi lại ở góc phải trên hoặc **Cài đặt → Chung**). Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Trang web **chỉ để xem**: mọi việc ghi dữ liệu (hàng về, kiểm kê, sửa mặt hàng…) làm trên app. Trên web còn có:
 - **Tổng quan** (chỉ tài khoản vai trò máy chính, mở ra là thấy trang này): doanh thu và số đơn của kỳ so với cùng kỳ trước, hàng sắp hết, tồn âm, doanh thu 12 tháng, mặt hàng bán chạy, khách mua nhiều, đơn gần nhất. Bấm một dòng để xem chi tiết.
 - **📤 Phiếu xuất kho…** (vai trò máy chính và nhân viên): giống trên app. Tài khoản chủ bấm lưu là **trừ tồn ngay** (mã W…, trang tự tải lại) và tải file Excel về để in; tài khoản nhân viên chỉ tạo file, bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn (mục 3.5).
 - Công tắc **₫ | ¥** ở góc trái dưới (mục 3.6) và **Cài đặt → Sao lưu → Xuất dữ liệu** (tải toàn bộ dữ liệu chung về thành gói `.dibekho`).
 
 Trên điện thoại chỉ xem Tồn kho.
 
-**Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò, gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc. Không thấy mục Tài khoản: nhờ người cài đặt (cần cài thêm một lần).
-
-**Tắt:** **Cài đặt → Cloud → Tắt dữ liệu chung**. Máy này làm việc riêng; bật lại thì lấy dữ liệu trên Cloud.
+**Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò (**Máy chính**, **Nhân viên** hoặc **Chỉ xem**), gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc.
 
 <sub>Ảnh trong hướng dẫn dùng dữ liệu giả lập, không phải dữ liệu khách hàng thật.</sub>

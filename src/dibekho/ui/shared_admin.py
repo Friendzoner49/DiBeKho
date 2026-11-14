@@ -18,6 +18,11 @@ from dibekho.ui.common import ask, error
 def replace_shared_data(ctx, parent, build, what: str) -> bool:
     """build(folder) -> path of the new database, made inside that temporary folder without touching the live file.
     what: the action as the user knows it (t('admin.what_*')). True when the shared data was replaced."""
+    from dibekho.core.cloud import approval
+
+    if approval.is_staff(ctx.cfg):
+        error(parent, t("staff.not_for_staff"))
+        return False
     if not ask(parent, t("admin.confirm", what=what)):
         return False
     runner = getattr(ctx, "sync_runner", None)

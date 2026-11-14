@@ -6,7 +6,7 @@
 
 **English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [Русский](README.ru.md)
 
-**Automatic stock tracking from Excel delivery notes: runs on your own computer, no internet needed, zero running cost.**
+**Automatic stock tracking from Excel delivery notes: an app on your computer, the shared data on the Cloud (the same as the web page), zero running cost.**
 
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
@@ -33,11 +33,11 @@ You drop Excel delivery notes into a folder. The app reads them, takes the goods
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
 - 💰 **Revenue per customer:** goods only (shipping apart), the products they buy most, every order with unit prices and amounts, for any period.
 - 📊 **Statistics** by day, month, quarter or year, and **export to Excel**.
-- ↶ **Undo:** a mistake is put right with one button.
+- 👥 **Owner and staff accounts:** the app signs in when it opens; staff changes wait for the owner's approval.
 - 💾 **Automatic daily backups**; **move all data** to another computer with one file.
 - 🌐 Interface in **Vietnamese, English and Chinese**.
 
-> The app reads the **selling prices** on the delivery notes (unit price, amount, shipping fee) to work out revenue. **Revenue counts the goods only**; shipping and other fees are shown apart. It has no purchase prices, so it does not compute profit. Your data stays on your computer and is never sent anywhere.
+> The app reads the **selling prices** on the delivery notes (unit price, amount, shipping fee) to work out revenue. **Revenue counts the goods only**; shipping and other fees are shown apart. It has no purchase prices, so it does not compute profit. The shared data is on the shop's Cloud (the reference copy, the same as the web page); each computer keeps a copy to work even without internet.
 
 ## Download and install
 
@@ -95,7 +95,7 @@ Download the new version as above and **install it over the old one** (Mac: drag
 
 Do these 4 steps once, in this order.
 
-**1. Open the app.** Choose the language and the **working folder** (the default `Documents/DiBeKho` is fine) and click **Start**. Do not choose a folder inside OneDrive, iCloud or Google Drive: cloud syncing can damage the data.
+**1. Open the app.** Choose the language and the **working folder** (the default `Documents/DiBeKho` is fine) and click **Start**. Do not choose a folder inside OneDrive, iCloud or Google Drive: cloud syncing can damage the data. Then **sign in** with the account and password the owner gave you: the app connects to the shared data by itself.
 
 **2. Load the product catalog** from your monthly stock sheet (Excel):
 1. On the **Stock** screen, click **Import catalog from Excel…** and choose the file.
@@ -146,7 +146,7 @@ Do these 4 steps once, in this order.
 4. Choose **Put in**: main warehouse or office.
 5. Click **Save goods in**, read the summary and agree. The stock goes up, the receipt gets a code (HV001, HV002…) and an Excel file of it is saved in `output/hang-ve/`.
 
-A mistake? Click **↶ Undo** straight away, or select the receipt in the list and click **Edit selected…**. The old receipt stays in the history as "replaced".
+A mistake? Select the receipt in the list and click **Edit selected…**. The old receipt stays in the history as "replaced".
 
 Closed the window before saving? The receipt is kept: click **＋ Goods in…** next time to go on. To correct a wrong stock figure use **Stock count**, not Goods in.
 
@@ -209,7 +209,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 
 | Situation | What to do |
 |---|---|
-| You just did something wrong (Apply, stock count, goods in, editing/deleting a product, an import…) | Click **↶ Undo** at the top right: the data goes back to exactly how it was before. Click again to go further back (up to 20 steps) |
+| You just picked the wrong product for an order | Open it → **Reread the whole note** (only that order is read again) |
 | A line was matched to the wrong product some time ago | **Settings → Products → Learned names on notes**: click the order, then **Forget and read again…** on the wrong line. The note comes back to **To do** to choose again |
 | You want to redo a whole order at once (not line by line) | Right-click the order's name (order list, Learned names on notes, or the order's own window) → **Reread the whole note** |
 | A note was entered by mistake | Open the order, **Cancel document** (stock is given back, history kept). Deleting the file does **not** cancel it |
@@ -219,7 +219,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 | **To do** says a quantity cannot be read, or "File Excel đời cũ (.xls)" | Leave only a number in the quantity cell (1500 or 2,5), or open the file in Excel and **Save As** .xlsx, then **⟳ Rescan notes** |
 | On opening: "DiBeKho's data was not found" | Plug in the USB stick / network drive holding the workspace, or rename the folder back, then open the app again. Choose **Create new data** only to start over |
 | On opening: "DiBeKho is already open" | The app is open in another window: look in the taskbar (Windows) or the Dock (Mac) |
-| A product was deleted by mistake | **↶ Undo** right away if you can, otherwise **Settings → Data transfer and backups → Restore a deleted product…** |
+| A product was deleted by mistake | **Settings → Data transfer and backups → Restore a deleted product…** |
 | You want to go back to an earlier day | **Settings → Data transfer and backups**, pick a backup, **Restore selected** |
 
 ### Sending the log when something goes wrong
@@ -244,7 +244,7 @@ The app writes what you do and every error into a log (1 MB and 7 days at most; 
 
 **Change the language?** **Settings → General → Language**.
 
-**Can several computers (and a phone or browser) share one set of data?** Yes, as an **optional** extra: whoever installs it turns it on for you in **Settings → Cloud**. Without it, each computer keeps working on its own as usual. How to use it: [User guide, section 15](docs/user-guide.md#15-shared-data-through-the-cloud-optional).
+**Can several computers (and a phone or browser) share one set of data?** Yes: every computer that signs in works on the shared data on the Cloud. A staff account works as usual and its changes wait for the owner's approval in **To do**. How to use it: [User guide, section 15](docs/user-guide.md#15-account-and-shared-data-on-the-cloud).
 
 **Edge says "DiBeKho-windows-setup.exe isn't commonly downloaded" and cancels the download?** Edge warns because the installer has no code signature (the app is safe). Quickest: download the **`.zip`** from [Downloads](#downloads), open it and double-click the installer inside. Or keep the blocked file: in Edge's download list, hover over it → click **…** → **Keep** → **Show more** → **Keep anyway**.
 

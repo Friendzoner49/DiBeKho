@@ -43,6 +43,7 @@ from dibekho.ui.page import Page
 from dibekho.ui.receipt_page import review_receipt
 from dibekho.ui.shared_admin import replace_shared_data
 from dibekho.ui.transfer_page import import_master_file
+from dibekho.ui.staff_pushes import StaffPushPanel
 from dibekho.ui.web_requests import WebRequestsPanel
 
 NEW, LATER, SKIP, OTHER = "new", "later", "skip", "other"
@@ -117,6 +118,8 @@ class PendingPage(Page):
         self.layout_.addWidget(self.count_box, 2)
 
         # requests staff sent from the webapp (goods in, Excel delivery notes, stock counts)
+        self.staff_panel = StaffPushPanel(ctx)
+        self.layout_.addWidget(self.staff_panel, 2)
         self.web_panel = WebRequestsPanel(ctx, self._run)
         self.layout_.addWidget(self.web_panel, 2)
 
@@ -152,6 +155,7 @@ class PendingPage(Page):
         self.files.resizeColumnsToContents()
         self.files_box.setVisible(bool(rows))
 
+        self.staff_panel.refresh()
         self.web_panel.refresh()
 
         self._items = inbox.items(conn, ws)
@@ -163,7 +167,7 @@ class PendingPage(Page):
         self.inbox_box.setVisible(bool(self._items))
 
         self.empty.setVisible(not (self._unknown or rows or self._items or self._unplaced or self._conflicts
-                                   or self.ctx.web_inbox))
+                                   or self.ctx.web_inbox or self.ctx.staff_pushes))
 
     # ---- orders read after a stock count -------------------------------------------
 

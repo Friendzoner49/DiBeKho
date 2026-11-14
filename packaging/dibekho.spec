@@ -17,6 +17,9 @@ datas = [
     (str(SRC / "ui" / "icon.png"), "dibekho/ui"),
     (str(SRC / "licenses" / "LICENSES.txt"), "dibekho/licenses"),  # MIT + third-party (Qt: LGPLv3)
 ]
+# the shop's Cloud address, when scripts/make_cloud_builtin.py wrote it (gitignored, never in the repository)
+if (SRC / "core" / "cloud" / "builtin.json").exists():
+    datas.append((str(SRC / "core" / "cloud" / "builtin.json"), "dibekho/core/cloud"))
 
 # Qt modules the app never uses; keeps the bundle small.
 excludes = [

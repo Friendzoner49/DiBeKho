@@ -75,7 +75,8 @@ class FakeCloud:
     def rpc(self, name: str, args: dict, access_token: str):
         params, parts = [], []
         for i, (key, value) in enumerate(args.items(), start=1):
-            cast = "jsonb" if isinstance(value, (dict, list)) else "bigint" if isinstance(value, int) else "text"
+            cast = ("jsonb" if isinstance(value, (dict, list)) else "boolean" if isinstance(value, bool)
+                    else "bigint" if isinstance(value, int) else "text")
             params.append(json.dumps(value) if cast == "jsonb" else value)
             parts.append(f"{key} => ${i}::{cast}")
         rows = self.session.query(f"select public.{name}({', '.join(parts)}) as r", params, sub=access_token)
@@ -89,4 +90,4 @@ class FakeCloud:
 WEB_FILES = [*ALL_FILES, "cloud/supabase/009_web_rpc.sql", "cloud/supabase/010_web_receipt_new_products.sql",
              "cloud/supabase/011_accounts.sql", "cloud/supabase/012_web_settings.sql",
              "cloud/supabase/013_return_prices.sql", "cloud/supabase/014_drop_mirror.sql",
-             "cloud/supabase/015_web_issue.sql"]
+             "cloud/supabase/015_web_issue.sql", "cloud/supabase/016_staff_push.sql"]

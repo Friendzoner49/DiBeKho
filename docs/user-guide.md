@@ -4,7 +4,7 @@
 
 This guide goes step by step, using the exact button names on screen. Not installed yet? See [Download and install](../README.md#download-and-install).
 
-> **Don't worry about mistakes.** Almost every action can be reversed with the **↶ Undo** button at the top right (see [section 11](#11-mistakes-undo-and-backups)).
+> **Don't worry about mistakes.** A wrong product match: **Reread the whole note**; a wrong document: **Cancel document** (issue notes: **Delete entirely**) and make it again; the app also backs up every day (see [section 11](#11-mistakes-fixing-and-backups)).
 
 **Contents**
 1. [Getting to know the screen](#1-getting-to-know-the-screen)
@@ -17,11 +17,11 @@ This guide goes step by step, using the exact button names on screen. Not instal
 8. [Customers, revenue and selling prices](#8-customers-revenue-and-selling-prices) · [Merge customers](#84-merge-customers)
 9. [Orders](#9-orders)
 10. [Statistics and Excel export](#10-statistics-and-excel-export)
-11. [Mistakes: Undo and backups](#11-mistakes-undo-and-backups)
+11. [Mistakes: fixing and backups](#11-mistakes-fixing-and-backups)
 12. [Product catalog and alert level](#12-product-catalog-and-alert-level)
 13. [Moving to another computer](#13-moving-to-another-computer)
 14. [Common situations](#14-common-situations)
-15. [Shared data through the cloud (optional)](#15-shared-data-through-the-cloud-optional)
+15. [Account and shared data on the Cloud](#15-account-and-shared-data-on-the-cloud)
 
 ---
 
@@ -41,7 +41,8 @@ On the left are **6 items**. Click one to open it:
 At the top are 3 buttons:
 - **⟳ Rescan notes** (key **F5**): read new delivery notes.
 - **Open delivery notes folder**: the folder to copy notes into.
-- **↶ Undo** (right): go back to before the last action.
+- **📤 Stock issue note…**: goods out to a customer (section 3.5).
+- The **Cloud** status line (right): synced or not, what is waiting.
 
 **Colours in the tables:**
 - **Orange** + **⚠ Running low — order more**: the product is running low.
@@ -65,6 +66,7 @@ Do this once, in order.
 1. Choose the language.
 2. Choose the **working folder**: the default `Documents/DiBeKho` is fine. Do **not** choose a folder in OneDrive, iCloud or Google Drive (cloud sync can damage the data).
 3. Click **Start**. The app creates its sub-folders (see [section 14](#where-the-data-is)).
+4. **Sign in** with the account and password the owner gave you. The app connects to the shared data on the Cloud (see [section 15](#15-account-and-shared-data-on-the-cloud)); a computer that has data of its own is asked first and backed up before it uses the Cloud data.
 
 **Step 2. Bring your data in.** Choose **one** of these:
 
@@ -143,15 +145,15 @@ Use it when goods leave for a customer and there is no delivery note file yet: t
 
 1. Click **📤 Stock issue note…** in the top bar.
 2. Pick the customer from the list (phone and address fill in), or type a new name.
-3. On each row: click to pick a product, then type how many to **Take from Main warehouse** and/or **Take from Office** (both may be filled). The **In …** columns show what each place has; asking for more turns the number red.
-4. The **Unit price** comes from the customer's latest order (a new customer: the product's latest order). Change it if the price is different.
+3. On each row: click to pick a product, then type how many to **Take from Main warehouse** and/or **Take from Office** (both may be filled). The **In …** columns show what each place has; asking for more turns the number red. One product sold at **two prices** (another quantity, another price)? Put it on **two rows**, one price each.
+4. The **Unit price** comes from the customer's latest order (a new customer: the product's latest order). Change it if the price is different. With the switch at the bottom left on **¥**, the column says **Unit price (¥)**: type the price in yuan, the app turns it into ₫ at the rate of the moment the window opened (the question before saving shows both).
 5. Click **Save** → check → **Yes**. The stock goes down **at once**; the order appears in **Orders** and in the customer's revenue.
 
-The app writes an Excel file `output/phieu-xuat/PhieuXuat_A160.xlsx` to print or send. Its code is **A** + the number after the highest order number (latest order 159: the new note is **A160**); a note made on the web page starts with **W** (W160). It has **the same layout as a delivery note**: the company name and address (taken from the latest delivery note the app read), the customer block, the 7 columns STT · Name · Packing · Quantity · Unit price · Amount · Note, the total in words, the signatures. Only the title differs: **PHIẾU XUẤT KHO**. Where the goods are taken from is not printed: the app remembers it. Putting that file (or a copy of it) back in the notes folder **never counts it twice**; the line under the top bar says "… copies of a note already read". Edit the file in Excel (say, a quantity) and put it in the folder: the app asks **Replace with the new version?** as for a delivery note. If you changed the quantity of an item taken from both places, the app asks again where it was taken from. An issue note saved on the web page (with Cloud) with the **owner's account** takes the stock at once (code W…); made with a staff account it is only a file, and the stock goes down once you put that file in the delivery notes folder and click **⟳ Rescan notes**. A mistake: **↶ Undo**, or **Cancel document** in the order's details. For an issue note (code A… or W…), after Cancel document the app also asks **Delete the note entirely?**: Yes and it disappears, the stock comes back and its code is used again for the next issue note, so the order numbers have no gap at the end of the quarter.
+The app writes an Excel file `output/phieu-xuat/PhieuXuat_A160.xlsx` to print or send. Its code is **A** + the number after the highest order number (latest order 159: the new note is **A160**); a note made on the web page starts with **W** (W160). It has **the same layout as a delivery note**: the company name and address (taken from the latest delivery note the app read), the customer block, the 7 columns STT · Name · Packing · Quantity · Unit price · Amount · Note, the total in words, the signatures. Only the title differs: **PHIẾU XUẤT KHO**. Where the goods are taken from is not printed: the app remembers it. Putting that file (or a copy of it) back in the notes folder **never counts it twice**; the line under the top bar says "… copies of a note already read". Edit the file in Excel (say, a quantity) and put it in the folder: the app asks **Replace with the new version?** as for a delivery note. If you changed the quantity of an item taken from both places, the app asks again where it was taken from. An issue note saved on the web page (with Cloud) with the **owner's account** takes the stock at once (code W…); made with a staff account it is only a file, and the stock goes down once you put that file in the delivery notes folder and click **⟳ Rescan notes**. A mistake: **Cancel document** in the order's details. For an issue note (code A… or W…), after Cancel document the app also asks **Delete the note entirely?**: Yes and it disappears, the stock comes back and its code is used again for the next issue note, so the order numbers have no gap at the end of the quarter.
 
 ### 3.6. Amounts in dong or yuan
 
-The **₫ | ¥** switch is at the bottom left. Click **¥**: every amount in the app (revenue, prices, totals, Statistics, order and customer details…) shows in yuan at **today's market rate**, old orders included. Click **₫** to go back to dong. The data stays in VND and every exported file (Excel, data packages, stock issue notes) stays in VND; prices typed in the stock issue note are always in VND too. The rate in use is shown under the switch; click **⟳** for a new one. The rate is for reference only (not a bank's buy/sell price); without internet the app uses the last rate. The web page (with Cloud) has the same switch in the same place.
+The **₫ | ¥** switch is at the bottom left. Click **¥**: every amount in the app (revenue, prices, totals, Statistics, order and customer details…) shows in yuan at **the market rate of the moment**, old orders included. Click **₫** to go back to dong. The data stays in VND and every exported file (Excel, data packages, stock issue notes) stays in VND; while ¥ is shown, the stock issue note takes prices in ¥ (section 3.5) but the file keeps ₫. The rate in use and its time are shown under the switch; the app fetches a new rate every 10 minutes while ¥ is shown, and when you click **⟳** or **⟳ Rescan notes** (F5). The rate is for reference only (not a bank's buy/sell price); without internet the app uses the last rate. The web page (with Cloud) has the same switch in the same place.
 
 ---
 
@@ -221,7 +223,7 @@ Had to close the window while typing (e.g. to fix a product's name in Settings)?
 
 Result: the stock goes up at the chosen place, the receipt gets a code **HV001, HV002…**, and an Excel file of it is saved in `output/hang-ve/` (to print or send).
 
-- A mistake: click **↶ Undo** right away, or select the receipt in the list → **Edit selected…** (the old one stays in the history as "replaced").
+- A mistake: select the receipt in the list → **Edit selected…** (the old one stays in the history as "replaced").
 - Old goods-in files (the filled-in template) still import with **Choose a file to import…**.
 
 ---
@@ -275,7 +277,7 @@ For goods opened for in-house trial/testing, **not sold to a customer** — inst
 3. Type the quantity in the yellow **Qty used for trial** column for each product. (Optional) type a **Note** with the reason.
 4. Click **Save trial-use note**, read the summary and agree. These get codes **DT001, DT002…**
 
-Typed the wrong quantity or product? Open that note (order details) and **Cancel document**, then record a fresh one (or use **↶ Undo** right after saving).
+Typed the wrong quantity or product? Open that note (order details) and **Cancel document**, then record a fresh one.
 
 To see trial-use notes: **Stock count → Trial-use notes…** (or **Search → Order list**, set **Document type** to **Trial use**).
 
@@ -325,7 +327,7 @@ For tidying up duplicate or unneeded customers — for example sham "customers" 
 3. Type the shared name (e.g. "DiBeKho office") or pick one of the names shown, then click **Save**.
 4. Read the summary and agree. Every order of the selected customers moves to the shared one; the old customers are deleted (orders and history stay the same).
 
-Merged by mistake? Click **↶ Undo** right afterwards.
+A merge cannot be split again: check before clicking.
 
 ---
 
@@ -372,12 +374,12 @@ Choosing customers filters only the **out** quantities. Transfers between the tw
 
 ---
 
-## 11. Mistakes: Undo and backups
+## 11. Mistakes: fixing and backups
 
-**↶ Undo** (top right):
-- Puts the data back **exactly as before** the last action. The action's name is on the button, e.g. "↶ Undo: Stock count".
-- Click again to go further back, up to 20 steps.
-- Works for: Apply in To do, places of orders, stock counts, transfers, goods in and its edits, cancelling, reading a note again, adding/editing/deleting products, stock notes, the alert level, data imports…
+The app has no Undo button any more. Fix a mistake where it is:
+- The wrong product picked for an order: open it → **Reread the whole note** (only that order is read again).
+- A wrong order, goods in, transfer, trial use or stock count: open it → **Cancel document** (or **Edit**) and make it again. A stock issue note: **Cancel document → Delete entirely**, its code is used again.
+- A product edited by mistake: **Edit product…** again.
 
 **Automatic backups:** every day when the app opens, the newest **10** are kept in `sao-luu/`, and anything over **30 days** old is dropped to save space (the app also tidies itself up every two weeks). In **Settings → Data transfer and backups**:
 - **Back up now**.
@@ -403,11 +405,11 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 
 **Other buttons:**
 - **Add product**, **Edit product…** (or double-click a row): Vietnamese and Chinese name, packing, type/colour, unit, category. When **adding** one, if it looks like a product that already exists (checked by Vietnamese and Chinese name and packing), the app asks before creating it, to avoid a duplicate. The same prompt can appear when choosing "Create new product" in To do, or when entering goods in.
-- **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other in the list. Every document, stock figure and learned name goes to the one with the smaller code; the other disappears. Made a mistake? Click **↶ Undo** right after.
+- **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other in the list. Every document, stock figure and learned name goes to the one with the smaller code; the other disappears. A merge cannot be split again.
 - **Delete product**: only for products in no document. A product already used can be set *inactive* (hidden, old documents unchanged). Codes of deleted products are never given again.
 - **Import catalog from Excel…**: add products from the monthly sheet.
 - **Learned names on notes**: names the app has learned, grouped by order. Click an order to see them; **Forget and read again…** to choose the product for **one name** again.
-- **Reread the whole note**: want to redo **every line** of an order at once instead of one at a time? Right-click its name here, in the Order list (section 9), or press the same button when an order is open. The app forgets the product match for every line of that order and reads it again from scratch; it (and any other active note sharing a name) shows up in To do to choose again. Old history stays, and ↶ Undo works if you change your mind.
+- **Reread the whole note**: want to redo **every line** of an order at once instead of one at a time? Right-click its name here, in the Order list (section 9), or press the same button when an order is open. The app forgets the product match for every line of that order and reads **that order only** again from scratch; it shows up in To do to choose again, other orders stay as they are. Old history stays. (**Forget and reread…** on one name reads **every** order with that name again.)
 
 ---
 
@@ -431,7 +433,7 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 
 | Situation | What to do |
 |---|---|
-| Just clicked something by mistake | **↶ Undo** |
+| Just picked the wrong product for an order | Open it → **Reread the whole note** |
 | Wrong product chosen for a line long ago | **Settings → Products → Learned names on notes**: click the order, **Forget and read again…** on the wrong line. The note comes back in **To do** |
 | Want to redo a whole order (several lines at once) | Right-click the order's name (Order list, Learned names on notes, or the order's own window) → **Reread the whole note** ([section 12](#12-product-catalog-and-alert-level)) |
 | An order recorded by mistake | Open it → **Cancel document** |
@@ -441,7 +443,7 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 | Too many "Running low" | Lower **Alert when stock is below** ([section 12](#12-product-catalog-and-alert-level)) |
 | An order without prices (—) | The paper note has no unit price / amount. Fix the file, then **Use new version** in To do |
 | A note file deleted by mistake | Stock unchanged. **To do → Restore file** |
-| A product deleted by mistake | **↶ Undo** right away if you can; otherwise **Settings → Data transfer and backups → Restore a deleted product…** (section 11) |
+| A product deleted by mistake | **Settings → Data transfer and backups → Restore a deleted product…** (section 11) |
 | Go back to a day before | **Settings → Data transfer and backups**, choose the backup, **Restore selected** |
 | Excel export says the file is open | Close the Excel file with that name and export again |
 | To do says a quantity cannot be read ("không đọc được số lượng") | The note's quantity cell has words or thousands dots ("3 thùng", "1.500"). Open the note, write only the number (1500 or 2,5), save, then **⟳ Rescan notes** |
@@ -466,36 +468,32 @@ DiBeKho/
 
 ---
 
-## 15. Shared data through the cloud (optional)
+## 15. Account and shared data on the Cloud
 
-This part is **optional**. Use it only when several computers (and the web page) should see and write one set of data. Whoever installs it for you creates the accounts and fills in the **Cloud address** and **Connection key**. Without it, the app keeps working on its own computer as always.
+The data on the Cloud (the same as the web page) is **the reference copy**. The app is where the work is done: it asks you to **sign in** when it opens (the account and password the owner gave you) and then connects to the shared data by itself. Later starts do not ask again; without internet the app still opens and works, and sends once the line is back.
 
-**Turning it on for a computer**
-1. **Settings → Cloud**: type your **User name** and **Password** (the password only the first time), press **Sync now**.
-2. In **Shared data on the Cloud**, press **Turn on shared data**.
-   - First computer: the app asks whether to put this computer's data on the cloud as the main copy.
-   - The next computers use the cloud data instead of their own (their old data is backed up first).
-3. Press **⟳ Rescan notes** once so the app finds the delivery note files again.
+**Two kinds of accounts use the app:**
+- **Owner** (main-machine role): writes the shared data directly.
+- **Staff**: works on the computer as usual, but the changes **wait for the owner's approval**. The Cloud status line says "Waiting for the owner's approval: … changes". If the owner rejects them the line shows the reason; fix them (the app sends again) or use **Settings → Cloud → Give up unapproved changes…** to take the shared data again.
+- A **view-only** account is for the web page only.
 
-**Every day** you work as before. The app sends and receives changes about every minute, **even without internet** (it sends them once the connection is back). The status line at the top tells you how it stands, for example "Cloud: synced at 09:30" or "3 change(s) waiting". If it says to type the password again: **Settings → Cloud**, type it, press **Sync now**.
+**The owner approves:** staff changes show in **To do → Staff changes waiting for approval** (hover over the Detail column to see each document, product, customer). **Approve** writes exactly those changes into the shared data; **Reject** sends a reason back. If the owner changed the same thing after the staff sent it, the app says so and does not overwrite; the staff computer updates itself and sends again.
+
+**Every day** you work as before. The app sends and receives changes about every minute, **even without internet**. The status line at the top tells you how it stands, for example "Cloud: synced at 09:30". If it says "click here to type the password again" (password changed, or signed out on the web): click it and type the password.
 
 **The same thing changed in two places** (for example a product note): the status line shows "⚠ … item(s) need a choice". Click it, pick each row and press **Keep this computer's version** or **Take the Cloud version**.
 
-**Mistakes** (different from [section 11](#11-mistakes-undo-and-backups)):
-- **↶ Undo** only cancels a goods-in, transfer, trial use or stock count **just saved on this computer** (the document stays, marked cancelled). Anything else: **Cancel document**, edit the document, or correct it by hand.
-- **Restoring a backup**, **importing a data package** and **Delete all data** replace the data **for everyone** (other computers and the web page). The app asks and backs up first, and needs internet.
+**Settings → Cloud:** the account in use, **Sign out**, **Sync now**, **Restore from cloud…** (owner). **Restoring a backup**, **importing a data package**, **Reset / Delete all data** replace the data **for everyone**: only the owner's account can do them; the app asks and backs up first, and needs internet.
 
-**Cloud backups:** each **Sync now** and each time you close the app, a full backup goes to the cloud (the newest 10 are kept, compressed), with the original delivery note files. To get one back: **Settings → Cloud → Restore from cloud…**. Every day the app also copies `DiBeKho_dulieu-chung_<date>.sqlite` into `sao-luu/`.
+**Cloud backups:** the owner's computer sends a full backup to the cloud at each **Sync now** and each time the app closes (the newest 10 are kept, compressed), with the original delivery note files. Every day the app also copies `DiBeKho_dulieu-chung_<date>.sqlite` into `sao-luu/`.
 
-**Web page:** open the address you were given and sign in with your name and password. Pick **Tiếng Việt** or **中文** right on the sign-in page (switch later at the top right or in **Settings → General**). It is laid out **like the app** (same buttons in the same places). The web page **only shows** the data: everything that writes (goods in, stock counts, editing products…) is done in the app. The web page also has:
+**Web page:** open the address the owner gave you and sign in with your name and password. Pick **Tiếng Việt** or **中文** right on the sign-in page (switch later at the top right or in **Settings → General**). It is laid out **like the app** (same buttons in the same places). The web page **only shows** the data: everything that writes (goods in, stock counts, editing products…) is done in the app. The web page also has:
 - **Overview** (main-machine role only; the page it opens on): revenue and orders of the period against the same span before, low and negative stock, revenue of the last 12 months, best sellers, best customers, latest orders. Click a row for its details.
 - **📤 Stock issue note…** (main-machine role and staff): like the app's. With the owner's account, saving **takes the stock at once** (code W…, the page reloads) and downloads the Excel file to print; with a staff account it only makes the file, and the stock goes down once that file is in the main machine's delivery notes folder (section 3.5).
 - The **₫ | ¥** switch at the bottom left (section 3.6) and **Settings → Backup → Export data** (all the shared data as one `.dibekho` package).
 
 On a phone it only shows Stock.
 
-**Accounts for staff and managers:** only the main machine's login (**maychinh**) can create them, on the web page; nobody else can: **Settings → Accounts → Create account…**, type the user name, pick the role, type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves. If there is no Accounts tab, ask whoever installed it (a one-time extra setup).
-
-**Turning it off:** **Settings → Cloud → Turn off shared data**. This computer then works on its own; turning it on again takes the cloud data.
+**Accounts for staff and managers:** only the main machine's login (**maychinh**) can create them, on the web page; nobody else can: **Settings → Accounts → Create account…**, type the user name, pick the role (**Main machine**, **Staff** or **View only**), type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves.
 
 <sub>Screenshots use made-up data, not real customer data.</sub>
