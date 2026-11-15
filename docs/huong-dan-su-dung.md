@@ -500,7 +500,7 @@ Dữ liệu trên Cloud (giống trang web) là **bản chuẩn**. App là nơi 
 
 **Trên điện thoại:** tài khoản chủ (vai trò máy chính) mở ra là **Tổng quan**: doanh thu của kỳ viết số to, số đơn, hàng sắp hết, tồn âm, doanh thu 12 tháng, đơn gần nhất, bán chạy, khách mua nhiều; nút **☰** ở góc trái mở **Tồn kho, Đơn hàng, Khách hàng, Thống kê** và **Đăng xuất**; ở các trang đó bấm **‹** để về Tổng quan. Tài khoản nhân viên và chỉ xem trên điện thoại chỉ xem Tồn kho. Máy tính bảng (iPad) có trang đầy đủ như máy tính.
 
-**Chuyển nhanh giữa các trang:** trên điện thoại hoặc iPad **vuốt sang trái** để sang trang sau, **vuốt sang phải** để về trang trước (theo thứ tự trong menu); trên máy tính bấm **PgDn** / **PgUp**. Khi đang gõ chữ trong một ô, hoặc đang mở một hộp thoại, thao tác này không chuyển trang; vuốt trên một bảng rộng thì chỉ cuộn bảng.
+**Chuyển nhanh giữa các trang:** trên điện thoại hoặc iPad **vuốt sang trái** để sang trang sau, **vuốt sang phải** để về trang trước (theo thứ tự trong menu); trên máy tính bấm **PgDn** / **PgUp**. Khi đang mở một hộp thoại thì không chuyển trang. Vuốt trên một bảng rộng hơn màn hình thì bảng cuộn trước; bảng đã cuộn hết về phía đó thì vuốt tiếp là chuyển trang.
 
 **Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò (**Máy chính**, **Nhân viên** hoặc **Chỉ xem**), gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc.
 

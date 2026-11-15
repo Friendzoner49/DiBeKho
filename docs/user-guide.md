@@ -499,7 +499,7 @@ The data on the Cloud (the same as the web page) is **the reference copy**. The 
 
 **On a phone:** the owner's account (main machine role) opens on **Overview**: the revenue of the period in large figures, orders, running low, below zero, revenue of 12 months, latest orders, best sellers, best customers; the **☰** button at the top left opens **Stock, Orders, Customers, Statistics** and **Sign out**; on those pages **‹** goes back to Overview. Staff and view-only accounts on a phone see Stock only. A tablet (iPad) gets the whole page, as on a computer.
 
-**Moving between pages:** on a phone or iPad **swipe left** for the next page and **swipe right** for the previous one (in the order of the menu); on a computer press **PgDn** / **PgUp**. It does nothing while you type in a box or while a window is open; a swipe on a wide table only scrolls the table.
+**Moving between pages:** on a phone or iPad **swipe left** for the next page and **swipe right** for the previous one (in the order of the menu); on a computer press **PgDn** / **PgUp**. It does nothing while a window is open. On a table wider than the screen a swipe scrolls the table first; once the table is at its end, the next swipe turns the page.
 
 **Accounts for staff and managers:** only the main machine's login (**maychinh**) can create them, on the web page; nobody else can: **Settings → Accounts → Create account…**, type the user name, pick the role (**Main machine**, **Staff** or **View only**), type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves.
 
