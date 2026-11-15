@@ -306,6 +306,8 @@
   "cloud.key": "Connection key",
   "cloud.user": "User name",
   "cloud.password": "Password",
+  "cloud.send_logs": "Send the usage log (names hidden) to help fix problems and improve the app",
+  "cloud.send_logs_hint": "The app sends to the Cloud the buttons you press, the screens you open and the errors it meets. Customer names, file names, phone numbers and paths are hidden before sending; what you type is never sent. Only the developer can read it; kept 30 days.",
   "cloud.sync_now": "Sync now",
   "cloud.last_push": "Last backup to the Cloud: {when}",
   "cloud.never": "never",

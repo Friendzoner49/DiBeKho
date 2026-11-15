@@ -497,4 +497,6 @@ Trên điện thoại chỉ xem Tồn kho.
 
 **Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò (**Máy chính**, **Nhân viên** hoặc **Chỉ xem**), gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc.
 
+**Nhật ký sử dụng:** app gửi lên Cloud các nút đã bấm, màn hình đã mở và lỗi gặp phải, để người phát triển sửa lỗi và cải thiện app. **Tên khách, tên file, số điện thoại, đường dẫn được che trước khi gửi**; chữ bạn gõ không bao giờ được gửi. Chỉ tài khoản **maychinh** xem được (trang web: **Cài đặt → Nhật ký**), các tài khoản chủ khác không thấy; giữ 30 ngày. Không muốn gửi: **Cài đặt → Cloud**, bỏ dấu ở **Gửi nhật ký sử dụng…**.
+
 <sub>Ảnh trong hướng dẫn dùng dữ liệu giả lập, không phải dữ liệu khách hàng thật.</sub>

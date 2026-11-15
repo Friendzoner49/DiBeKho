@@ -332,3 +332,6 @@ body.phone h1 { margin: 12px 0 8px; }
 .pc-total span { display: block; font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .pc-total small { font-size: 13px; color: var(--muted); }
 
+
+/* Cài đặt → Nhật ký (maychinh) */
+.logtext { max-height: calc(60vh / var(--z, 1)); overflow: auto; background: var(--surface-hover); border-radius: 8px; padding: 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }

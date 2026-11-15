@@ -231,6 +231,8 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 
 **Nhiều máy (và điện thoại, trình duyệt) dùng chung một bộ dữ liệu được không?** Được: mọi máy đăng nhập cùng dùng dữ liệu chung trên Cloud. Tài khoản nhân viên làm việc bình thường, thay đổi chờ chủ duyệt ở **Cần xử lý**. Cách dùng: [Hướng dẫn chi tiết, mục 15](docs/huong-dan-su-dung.md#15-tài-khoản-và-dữ-liệu-chung-trên-cloud).
 
+**App có gửi dữ liệu của tôi đi đâu không?** App gửi **nhật ký sử dụng đã che tên** (nút đã bấm, màn hình, lỗi; không có tên khách, tên file, số điện thoại, chữ bạn gõ) lên Cloud của cửa hàng để người phát triển sửa lỗi. Tắt ở **Cài đặt → Cloud**.
+
 **Trình duyệt Edge báo "DiBeKho-windows-setup.exe thường không được tải xuống" và huỷ tải?** Edge cảnh báo vì bộ cài chưa có chữ ký số (app an toàn). Cách nhanh nhất: tải bản **`.zip`** trong bảng [Các bản tải về](#các-bản-tải-về), mở nó rồi nháy đúp vào bộ cài bên trong. Hoặc giữ file đã bị chặn: trong danh sách tải xuống của Edge, rê chuột lên file → bấm nút **…** → chọn giữ lại (*Keep*) → **Hiển thị thêm** (*Show more*) → vẫn giữ lại (*Keep anyway*).
 
 **Chữ và nút quá nhỏ hoặc quá to?** **Cài đặt → Chung → Cỡ chữ và nút** (100–150%), tắt và mở lại app.

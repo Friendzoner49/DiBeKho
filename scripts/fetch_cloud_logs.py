@@ -1,9 +1,9 @@
-"""Download every main machine's activity log from the cloud (core/cloud/logs.py), with the cloud login saved on this
-computer (Cài đặt → Cloud). For the developer, to see what happened on a customer's machine.
+"""Download every account's activity log from the cloud (core/cloud/logs.py, cloud/supabase/017), with the cloud
+login saved on this computer: it must be maychinh (nobody else may read them). For the developer.
 
     python -X utf8 scripts/fetch_cloud_logs.py <folder>
 
-The logs hold customer and file names: keep the folder private, never commit it."""
+Names are hidden before the apps send them, but keep the folder private anyway, never commit it."""
 
 import sys
 from pathlib import Path

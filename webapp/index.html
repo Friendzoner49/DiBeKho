@@ -190,6 +190,7 @@
         <button data-stab="products" class="stab" data-i18n="settings.products"></button>
         <button data-stab="transfer" class="stab only-owner" data-i18n="settings.backup"></button>
         <button data-stab="accounts" class="stab only-admin" data-i18n="settings.accounts"></button>
+        <button data-stab="logs" class="stab only-admin" data-i18n="settings.logs"></button>
       </div>
       <div id="stab-general" class="spane">
         <dl class="info" id="settings-info"></dl>
@@ -232,6 +233,24 @@
         <p id="acc-msg" class="hint"></p>
         <div id="acc-table"></div>
       </div>
+      <div id="stab-logs" class="spane hidden only-admin">
+        <p class="hint" data-i18n="logs.hint"></p>
+        <div class="row wrap">
+          <button id="log-btn-open" data-i18n="logs.open"></button>
+          <button id="log-btn-reload" class="flat" data-i18n="logs.reload"></button>
+        </div>
+        <p id="log-msg" class="hint"></p>
+        <div id="log-table"></div>
+        <div id="log-view" class="hidden">
+          <h3 id="log-title"></h3>
+          <div class="row wrap">
+            <input id="log-filter" type="search" data-i18n-ph="logs.filter">
+            <label class="check"><input id="log-errors" type="checkbox"> <span data-i18n="logs.errors_only"></span></label>
+            <button id="log-btn-save" class="flat" data-i18n="logs.save"></button>
+          </div>
+          <pre id="log-text" class="logtext"></pre>
+        </div>
+      </div>
     </div>
   </section>
 </div>
@@ -259,6 +278,7 @@
 <script src="issue.js"></script>
 <script src="fx.js"></script>
 <script src="accounts.js"></script>
+<script src="logs.js"></script>
 <script src="schema.js"></script>
 <script src="package.js"></script>
 </body>

@@ -90,4 +90,5 @@ class FakeCloud:
 WEB_FILES = [*ALL_FILES, "cloud/supabase/009_web_rpc.sql", "cloud/supabase/010_web_receipt_new_products.sql",
              "cloud/supabase/011_accounts.sql", "cloud/supabase/012_web_settings.sql",
              "cloud/supabase/013_return_prices.sql", "cloud/supabase/014_drop_mirror.sql",
-             "cloud/supabase/015_web_issue.sql", "cloud/supabase/016_staff_push.sql"]
+             "cloud/supabase/015_web_issue.sql", "cloud/supabase/016_staff_push.sql",
+             "cloud/supabase/017_app_logs.sql"]

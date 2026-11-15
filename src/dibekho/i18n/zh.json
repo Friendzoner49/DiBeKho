@@ -306,6 +306,8 @@
   "cloud.key": "连接密钥",
   "cloud.user": "用户名",
   "cloud.password": "密码",
+  "cloud.send_logs": "发送使用日志（已隐藏名称），帮助修复问题和改进软件",
+  "cloud.send_logs_hint": "软件会把您点击的按钮、打开的页面和遇到的错误发送到云端。客户名称、文件名、电话号码和路径在发送前会被隐藏；您输入的文字永远不会发送。只有开发人员可以查看；保留 30 天。",
   "cloud.sync_now": "立即同步",
   "cloud.last_push": "最近一次备份到云端：{when}",
   "cloud.never": "从未",

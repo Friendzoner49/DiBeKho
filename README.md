@@ -246,6 +246,8 @@ The app writes what you do and every error into a log (1 MB and 7 days at most; 
 
 **Can several computers (and a phone or browser) share one set of data?** Yes: every computer that signs in works on the shared data on the Cloud. A staff account works as usual and its changes wait for the owner's approval in **To do**. How to use it: [User guide, section 15](docs/user-guide.md#15-account-and-shared-data-on-the-cloud).
 
+**Does the app send my data anywhere?** It sends an **anonymized usage log** (buttons pressed, screens, errors; no customer names, file names, phone numbers or typed text) to the shop's Cloud so the developer can fix problems. Switch it off in **Settings → Cloud**.
+
 **Edge says "DiBeKho-windows-setup.exe isn't commonly downloaded" and cancels the download?** Edge warns because the installer has no code signature (the app is safe). Quickest: download the **`.zip`** from [Downloads](#downloads), open it and double-click the installer inside. Or keep the blocked file: in Edge's download list, hover over it → click **…** → **Keep** → **Show more** → **Keep anyway**.
 
 **Text and buttons too small or too big?** **Settings → General → Text and button size** (100–150%), then close and reopen the app.

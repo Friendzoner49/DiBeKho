@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QGroupBox,
@@ -95,6 +96,11 @@ class CloudTab(QWidget):
         self.status = QLabel()
         self.status.setWordWrap(True)
         inner.addWidget(self.status)
+        self.send_logs = QCheckBox(t("cloud.send_logs"))
+        self.send_logs.setChecked(bool(getattr(ctx.cfg, "send_logs", True)))
+        self.send_logs.toggled.connect(self.set_send_logs)
+        inner.addWidget(self.send_logs)
+        inner.addWidget(hint_label(t("cloud.send_logs_hint")))
         lay.addStretch()
         ctx.changed.connect(self.refresh)
         self.refresh()
@@ -118,6 +124,11 @@ class CloudTab(QWidget):
         self.status.setText("\n".join(p for p in parts if p))
 
     # ---------------------------------------------------------------- actions
+
+    def set_send_logs(self, on: bool):
+        activity.log("click", f"send_logs {'on' if on else 'off'}")
+        self.ctx.cfg.send_logs = bool(on)
+        self.ctx.cfg.save()
 
     def _connect(self):
         """(client, access token) from the saved session; None after telling the user."""

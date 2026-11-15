@@ -306,6 +306,8 @@
   "cloud.key": "Mã kết nối",
   "cloud.user": "Tên đăng nhập",
   "cloud.password": "Mật khẩu",
+  "cloud.send_logs": "Gửi nhật ký sử dụng (đã che tên) để giúp sửa lỗi và cải thiện app",
+  "cloud.send_logs_hint": "App gửi lên Cloud các nút bạn bấm, màn hình đã mở và lỗi gặp phải. Tên khách, tên file, số điện thoại, đường dẫn được che trước khi gửi; chữ bạn gõ không bao giờ được gửi. Chỉ người phát triển xem được; giữ 30 ngày.",
   "cloud.sync_now": "Đồng bộ ngay",
   "cloud.last_push": "Lần sao lưu lên Cloud gần nhất: {when}",
   "cloud.never": "chưa lần nào",

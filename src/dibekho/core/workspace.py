@@ -122,6 +122,7 @@ class Config:
     cloud_key: str = ""
     cloud_user: str = ""
     cloud_refresh_token: str = ""
+    send_logs: bool = True  # send the anonymized activity log to the cloud for maychinh (core/cloud/logs.py)
     cloud_role: str = ""  # the account's role, kept so the app opens offline: desktop (owner) | editor (staff)
 
     @staticmethod

@@ -496,4 +496,6 @@ On a phone it only shows Stock.
 
 **Accounts for staff and managers:** only the main machine's login (**maychinh**) can create them, on the web page; nobody else can: **Settings → Accounts → Create account…**, type the user name, pick the role (**Main machine**, **Staff** or **View only**), type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves.
 
+**Usage log:** the app sends to the Cloud the buttons pressed, the screens opened and the errors met, so the developer can fix problems and improve the app. **Customer names, file names, phone numbers and paths are hidden before sending**; what you type is never sent. Only the **maychinh** login can read it (web page: **Settings → Logs**), other owner accounts cannot; kept 30 days. To stop it: **Settings → Cloud**, untick **Send the usage log…**.
+
 <sub>Screenshots use made-up data, not real customer data.</sub>
