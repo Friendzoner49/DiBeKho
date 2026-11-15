@@ -56,6 +56,8 @@
 }
 
 * { box-sizing: border-box; }
+/* a sideways swipe turns the page (app.js stepPage): the browser must not take it as Back / Forward */
+html, body { overscroll-behavior-x: none; }
 body { margin: 0; background: var(--background); color: var(--foreground);
        font: 16px/1.5 var(--app-font); -webkit-font-smoothing: antialiased; }
 .hidden { display: none !important; }

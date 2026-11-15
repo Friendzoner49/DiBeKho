@@ -413,33 +413,44 @@ function stepPage(step) {
 
 const pageMovesBlocked = () => $("app").classList.contains("hidden") || dlg.open || !$("ph-drawer").classList.contains("hidden");
 const typingIn = (el) => !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+/** A box where PgUp / PgDn does something of its own: a list, a text area, a number or a date. A one-line text box
+    (the filter) does nothing with them, and a box no longer on screen (the password box after signing in with Enter
+    keeps the focus, found on a real computer) does not count. */
+const keysOwnedBy = (el) => !!el && el.getClientRects().length > 0 && (el.isContentEditable ||
+  ["TEXTAREA", "SELECT"].includes(el.tagName) || (el.tagName === "INPUT" && ["number", "date", "range"].includes(el.type)));
 
 document.addEventListener("keydown", (e) => {
   if (!["PageDown", "PageUp"].includes(e.key) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-  if (pageMovesBlocked() || typingIn(e.target)) return;
+  if (pageMovesBlocked() || keysOwnedBy(document.activeElement)) return;
   e.preventDefault();
   stepPage(e.key === "PageDown" ? 1 : -1);
 });
 
-/** True when the touch is inside something that scrolls sideways (a wide table): the swipe is for that, not the page. */
-function scrollsSideways(el) {
+/** The boxes around the touch that scroll sideways (a wide table), with where each one stands. A swipe that scrolled
+    one of them was for the table; a swipe that moved none (the table is at its edge, or there is none) turns the page.
+    Found on a real iPad: the stock table is wider than the screen, and refusing every swipe that started on it left
+    the swipe doing nothing on most pages. */
+function sidewaysScrollers(el) {
+  const found = [];
   for (; el && el !== document.body; el = el.parentElement) {
     const x = getComputedStyle(el).overflowX;
-    if ((x === "auto" || x === "scroll") && el.scrollWidth > el.clientWidth + 1) return true;
+    if ((x === "auto" || x === "scroll") && el.scrollWidth > el.clientWidth + 1) found.push([el, el.scrollLeft]);
   }
-  return false;
+  return found;
 }
 
 let swipe = null;
 document.addEventListener("touchstart", (e) => {
   const t = e.touches[0];
-  swipe = e.touches.length === 1 && !pageMovesBlocked() && !typingIn(e.target) && !scrollsSideways(e.target)
-    ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  swipe = e.touches.length === 1 && !pageMovesBlocked() && !typingIn(e.target)
+    ? { x: t.clientX, y: t.clientY, at: Date.now(), scrollers: sidewaysScrollers(e.target), pageX: window.scrollX } : null;
 }, { passive: true });
 document.addEventListener("touchend", (e) => {
   if (!swipe) return;
   const t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y, quick = Date.now() - swipe.at < 800;
+  const scrolled = swipe.scrollers.some(([el, left]) => Math.abs(el.scrollLeft - left) > 2) || Math.abs(window.scrollX - swipe.pageX) > 2;
   swipe = null;
+  if (scrolled) return;
   if (quick && Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) stepPage(dx < 0 ? 1 : -1);
 }, { passive: true });
 document.addEventListener("touchcancel", () => { swipe = null; }, { passive: true });
