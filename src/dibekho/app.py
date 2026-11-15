@@ -104,6 +104,9 @@ def self_test() -> int:
         import ssl  # cloud sync talks HTTPS: TLS must ship in the build (dibekho.spec keeps OpenSSL)
 
         assert ssl.create_default_context() is not None
+        from dibekho.core import net  # a Mac build once had no root certificates: every https call failed
+
+        assert net.ca_count(net.ssl_context()) > 0, "no root certificates for HTTPS"
         ws = Workspace(Path(tmp) / APP_NAME)
         ws.ensure()
         for lang in LANGUAGES:

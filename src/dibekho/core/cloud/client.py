@@ -11,6 +11,8 @@ import urllib.request
 from datetime import datetime
 from urllib.parse import quote
 
+from dibekho.core import activity, net
+
 BUCKET = "backups"
 EMAIL_DOMAIN = "dibekho.local"
 TIMEOUT = 40  # seconds; the whole mirror is a few MB at most
@@ -116,11 +118,12 @@ class CloudClient:
                      "Content-Type": content_type},
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=net.ssl_context()) as resp:
                 return resp.read()
         except urllib.error.HTTPError as exc:
             raise CloudError(_http_message(exc)) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            activity.log("error", f"network {method} {path.split('?')[0]}: {type(exc).__name__}: {exc}")  # the real cause
             raise CloudError("Không kết nối được Cloud. Kiểm tra mạng rồi thử lại.") from exc
 
     def _request(self, url: str, body: dict | None, access_token: str | None, method: str):

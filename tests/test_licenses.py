@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def test_licenses_list_the_bundled_versions():
     text = license_text()
     assert (ROOT / "LICENSE").read_text(encoding="utf-8").strip() in text
-    for dist in ("PySide6", "openpyxl", "et-xmlfile", "pyinstaller"):
+    for dist in ("PySide6", "openpyxl", "et-xmlfile", "pyinstaller", "certifi"):
         assert f" {metadata.version(dist)}" in text, f"{dist}: run scripts/make_licenses.py"
     assert f"Python {sys.version_info[0]}.{sys.version_info[1]}." in text
     assert "GNU LESSER GENERAL PUBLIC LICENSE" in text and "Version 3, 29 June 2007" in text

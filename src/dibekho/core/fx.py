@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dibekho.core import workspace
+from dibekho.core import net, workspace
 
 URL = "https://api.fxratesapi.com/latest?base=CNY&currencies=VND"
 SOURCE = "FXRatesAPI"
@@ -66,7 +66,7 @@ def parse(data: dict, fetched: datetime | None = None) -> Rate:
 
 def _get(url: str, timeout: float) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": "DiBeKho", "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=net.ssl_context()) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 

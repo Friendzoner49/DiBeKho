@@ -23,7 +23,7 @@ class FakeResponse(io.BytesIO):
 def fake_urlopen(monkeypatch, handler):
     calls = []
 
-    def opener(req, timeout=None):
+    def opener(req, timeout=None, context=None):
         calls.append(req)
         return FakeResponse(json.dumps(handler(req)).encode())
 
@@ -53,7 +53,7 @@ def test_sign_in_posts_email_and_returns_tokens(monkeypatch):
 
 
 def test_wrong_password_is_a_friendly_error(monkeypatch):
-    def opener(req, timeout=None):
+    def opener(req, timeout=None, context=None):
         raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {},
                                      io.BytesIO(b'{"error_description":"Invalid login credentials"}'))
 
@@ -63,7 +63,7 @@ def test_wrong_password_is_a_friendly_error(monkeypatch):
 
 
 def test_network_down_is_a_friendly_error(monkeypatch):
-    def opener(req, timeout=None):
+    def opener(req, timeout=None, context=None):
         raise urllib.error.URLError("no route")
 
     monkeypatch.setattr(urllib.request, "urlopen", opener)

@@ -156,7 +156,7 @@ class _Resp(io.BytesIO):
 def _capture(monkeypatch, reply=b"[]"):
     seen = []
 
-    def opener(req, timeout=None):
+    def opener(req, timeout=None, context=None):
         seen.append(req)
         return _Resp(reply)
 

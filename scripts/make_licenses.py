@@ -32,6 +32,7 @@ qt = metadata.version("PySide6")
 xl = metadata.version("openpyxl")
 et = metadata.version("et-xmlfile")
 pi = metadata.version("pyinstaller")
+ca = metadata.version("certifi")
 
 head = f"""DiBeKho — licenses
 ==================
@@ -53,6 +54,8 @@ The installed app also contains the following software, each under its own licen
     replace them with your own build of the same version.
 - openpyxl {xl} — MIT License. https://foss.heptapod.net/openpyxl/openpyxl
 - et-xmlfile {et} — MIT License (with parts under the Python license). https://foss.heptapod.net/openpyxl/et_xmlfile
+- certifi {ca} — Mozilla Public License 2.0 (the root certificates for HTTPS, unmodified).
+  https://github.com/certifi/python-certifi
 - PyInstaller {pi} bootloader — GNU GPL v2 or later with the PyInstaller bootloader exception, which allows
   distributing programs built with it under any license. https://pyinstaller.org/
 """
@@ -66,6 +69,7 @@ text += section("GNU GPL v3 (the LGPL v3 above is a set of additional permission
 text += section(f"openpyxl {xl} — MIT License", dist_file("openpyxl", "LICENCE.rst"))
 text += section(f"et-xmlfile {et} — MIT License", dist_file("et-xmlfile", "LICENCE.rst")
                 + "\n\n" + dist_file("et-xmlfile", "LICENCE.python"))
+text += section(f"certifi {ca} — Mozilla Public License 2.0", dist_file("certifi", "LICENSE"))
 text += section(f"Python {py} — license", (Path(sys.base_prefix) / "LICENSE.txt").read_text(encoding="utf-8"))
 text += section(f"PyInstaller {pi} — license (see the bootloader exception)", dist_file("pyinstaller", "COPYING.txt"))
 

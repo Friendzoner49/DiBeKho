@@ -18,6 +18,8 @@ The installed app also contains the following software, each under its own licen
     replace them with your own build of the same version.
 - openpyxl 3.1.5 — MIT License. https://foss.heptapod.net/openpyxl/openpyxl
 - et-xmlfile 2.0.0 — MIT License (with parts under the Python license). https://foss.heptapod.net/openpyxl/et_xmlfile
+- certifi 2026.10.23 — Mozilla Public License 2.0 (the root certificates for HTTPS, unmodified).
+  https://github.com/certifi/python-certifi
 - PyInstaller 6.22.3 bootloader — GNU GPL v2 or later with the PyInstaller bootloader exception, which allows
   distributing programs built with it under any license. https://pyinstaller.org/
 
@@ -1256,6 +1258,32 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
+
+
+==============================================================================
+certifi 2026.10.23 — Mozilla Public License 2.0
+==============================================================================
+
+This package contains a modified version of ca-bundle.crt:
+
+ca-bundle.crt -- Bundle of CA Root Certificates
+
+This is a bundle of X.509 certificates of public Certificate Authorities
+(CA). These were automatically extracted from Mozilla's root certificates
+file (certdata.txt).  This file can be found in the mozilla source tree:
+https://hg.mozilla.org/mozilla-central/file/tip/security/nss/lib/ckfw/builtins/certdata.txt
+It contains the certificates in PEM format and therefore
+can be directly used with curl / libcurl / php_curl, or with
+an Apache+mod_ssl webserver for SSL client authentication.
+Just configure this file as the SSLCACertificateFile.#
+
+***** BEGIN LICENSE BLOCK *****
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at http://mozilla.org/MPL/2.0/.
+
+***** END LICENSE BLOCK *****
+@(#) $RCSfile: certdata.txt,v $ $Revision: 1.80 $ $Date: 2011/11/03 15:11:58 $
 
 
 ==============================================================================
