@@ -72,12 +72,17 @@ function customerRevenue(start, end) {
     if (d.kind !== "delivery" && !isReturn(d)) continue;
     const row = per.get(d.customer_id) || { id: d.customer_id, revenue: 0, orders: 0 };
     const sign = isReturn(d) ? -1 : 1;
-    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) row.revenue += sign * l.amount;
+    // one figure per customer: a note in yuan counts as dong at the rate kept with it (today's when it has none)
+    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) row.revenue += sign * l.amount * (isCny(d) ? d.fx_rate || rateNow() : 1);
     if (!isReturn(d)) row.orders += 1;
     per.set(d.customer_id, row);
   }
   return [...per.values()].filter((r) => r.orders || r.revenue).sort((a, b) => b.revenue - a.revenue);
 }
+
+/** The revenue of a period as ONE number of dong, for the figures and charts of this page: the notes in dong plus the
+    notes in yuan at the rates kept with them. The Thống kê page shows the two currencies apart. */
+const oneFigure = (m) => moneyValue(m.total, m.total_cny, m.approx) || 0;
 
 function monthsRevenue(today = todayLocal()) {
   const [y, m] = today.split("-").map(Number);
@@ -85,7 +90,7 @@ function monthsRevenue(today = todayLocal()) {
   for (let i = 11; i >= 0; i--) {
     const d = new Date(y, m - 1 - i, 1);
     const [s, e] = DibeStats.monthRange(d.getFullYear(), d.getMonth() + 1);
-    out.push({ y: d.getFullYear(), m: d.getMonth() + 1, total: DibeStats.money(statsModel(), s, e, {}).total || 0, running: i === 0 });
+    out.push({ y: d.getFullYear(), m: d.getMonth() + 1, total: oneFigure(DibeStats.money(statsModel(), s, e, {})), running: i === 0 });
   }
   return out;
 }
@@ -159,8 +164,9 @@ function renderDashboard() {
   const low = all.filter((p) => isLow(p) && stockOf(p.id).total >= 0), negative = all.filter((p) => stockOf(p.id).total < 0);
   const unplaced = unplacedOrders().length;
   $("dash-kpis").innerHTML =
-    kpi(tr("money.revenue"), `${esc(shortMoney(money.total))}${moneyInCny() ? "" : `<span class="unit"> ${esc(tr("money.unit"))}</span>`}`,
-        deltaLine(money.total || 0, hasBefore ? before.total || 0 : null, true), `${fmtMoney(money.total)}${moneyInCny() ? "" : " " + tr("money.unit")}`) +
+    kpi(tr("money.revenue"), `${esc(shortMoney(oneFigure(money)))}${moneyInCny() ? "" : `<span class="unit"> ${esc(tr("money.unit"))}</span>`}`,
+        deltaLine(oneFigure(money), hasBefore ? oneFigure(before) : null, true),
+        money.total_cny ? fmtBoth(money.total, money.total_cny, money.approx) : `${fmtMoney(money.total)}${moneyInCny() ? "" : " " + tr("money.unit")}`) +
     kpi(tr("col.orders"), esc(fmtQty(money.orders)), deltaLine(money.orders, hasBefore ? before.orders : null, false)) +
     kpi(tr("dash.k_low"), esc(fmtQty(low.length)), `<p class="kpi-sub">${esc(lowDefault ? tr("dash.k_low_sub", { level: fmtQty(lowDefault) }) : tr("settings.low_off"))}</p>`, "", "low") +
     kpi(tr("dash.k_negative"), esc(fmtQty(negative.length)), `<p class="kpi-sub">${esc(tr("dash.k_negative_sub"))}</p>`, "", "low");
@@ -171,9 +177,10 @@ function renderDashboard() {
   $("dash-months").innerHTML = monthsChart(monthsRevenue());
 
   const tops = DibeStats.topOut(model, start, end, {}, 200)
-    .sort((a, b) => (b.revenue || 0) - (a.revenue || 0) || b.qty_out - a.qty_out).slice(0, 5);
+    .map((r) => ({ ...r, figure: moneyValue(r.revenue, r.revenue_cny, r.revenue_approx) || 0 }))
+    .sort((a, b) => b.figure - a.figure || b.qty_out - a.qty_out).slice(0, 5);
   $("dash-products").innerHTML = panelHead(tr("dash.top_products"), "stats") + rankList(tops.map((r) => ({
-    name: productName(r), value: r.revenue || 0, figure: r.revenue ? shortMoney(r.revenue) : "—", title: fmtMoney(r.revenue),
+    name: productName(r), value: r.figure, figure: r.figure ? shortMoney(r.figure) : "—", title: fmtBoth(r.revenue, r.revenue_cny, r.revenue_approx),
     sub: tr("dash.sold", { qty: fmtQty(r.qty_out), unit: (productById[r.product_id] || {}).unit || "" }).trim(), open: `p:${r.product_id}`,
   })), tr("dash.none_sold"));
 
@@ -201,7 +208,7 @@ function renderDashboard() {
       const priced = (linesByDoc[d.id] || []).some((l) => l.amount !== null && l.amount !== undefined);
       return `<li class="click" data-open="d:${esc(d.id)}"><div class="line-main"><span class="line-name">${esc((customerById[d.customer_id] || {}).name || "—")}</span>` +
         `<span class="line-sub">${esc(fmtDay(d.doc_date))} · ${esc(d.code || "")} · ${esc(placeOf(d))}</span></div>` +
-        `<b class="line-fig" title="${esc(fmtMoney(amount))}">${priced ? esc(shortMoney(amount)) : "—"}</b></li>`;
+        `<b class="line-fig" title="${esc(fmtNative(amount, d))}">${priced ? esc(isCny(d) ? fmtCny(amount) : shortMoney(amount)) : "—"}</b></li>`;
     }).join("") + `</ul>`
     : `<p class="hint dash-empty">${esc(tr("dash.none_orders"))}</p>`);
 }

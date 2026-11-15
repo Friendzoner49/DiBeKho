@@ -16,7 +16,8 @@ NODE = shutil.which("node")
 AVAILABLE = NODE is not None and (PG_DIR / "node_modules" / "@electric-sql" / "pglite").exists()
 needs_pg = pytest.mark.skipif(not AVAILABLE, reason="PGlite not installed (cd tests/pg && npm install)")
 
-SUPABASE_FILES = ["cloud/supabase/001_init.sql", "cloud/supabase/007_core.sql"]
+# the tables the app syncs: 007 and the columns later files add to them (018: the currency of a note)
+SUPABASE_FILES = ["cloud/supabase/001_init.sql", "cloud/supabase/007_core.sql", "cloud/supabase/018_currency.sql"]
 
 
 def run(steps: list[dict], files: list[str] = SUPABASE_FILES) -> list[list[dict]]:

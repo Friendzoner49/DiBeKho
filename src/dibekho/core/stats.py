@@ -12,7 +12,7 @@ import calendar
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from dibekho.core.queries import SALE_OR_RETURN, SIGNED, returned_amount
+from dibekho.core.queries import CNY, SALE_OR_RETURN, returned_amounts, signed_sums
 
 IN_KINDS = ("receipt_in", "receipt_reverse")
 OUT_KINDS = ("delivery_out", "delivery_reverse")
@@ -66,7 +66,9 @@ class SummaryRow:
     adjust: float
     closing: float | None
     per_bucket: dict = field(default_factory=dict)  # label -> (in, out)
-    revenue: float | None = None  # goods sold in the period (None: no priced line)
+    revenue: float | None = None  # goods sold in the period, notes in dong (None: no priced line)
+    revenue_cny: float | None = None  # the same of the notes in yuan (never added to the dong)
+    revenue_approx: float | None = None  # revenue_cny as dong, at the rates kept with those notes
     stock_note: str = ""  # the note kept with the product (damaged, expired boxes...)
 
 
@@ -144,7 +146,7 @@ def summary(conn, start: date, end: date, filters: Filters | None = None, by: st
         ))
     revenue = _revenue(conn, start, end, f)
     for x in result:
-        x.revenue = revenue.get(x.product_id)
+        x.revenue, x.revenue_cny, x.revenue_approx = revenue.get(x.product_id, (None, None, None))
     if customer_filtered:
         result = [x for x in result if x.qty_out]
     if by != "none" and result:
@@ -152,19 +154,20 @@ def summary(conn, start: date, end: date, filters: Filters | None = None, by: st
     return result
 
 
-def _revenue(conn, start: date, end: date, f: Filters) -> dict[int, float]:
+def _revenue(conn, start: date, end: date, f: Filters) -> dict[int, tuple]:
+    """product id -> (dong, yuan, the yuan as dong)."""
     psql, pargs = f.product_sql()
     csql, cargs = f.customer_sql()
-    return dict(conn.execute(
+    return {r[0]: (r[1], r[2], r[3]) for r in conn.execute(
         f"""
-        SELECT l.product_id, SUM({SIGNED}) FROM document_lines l
+        SELECT l.product_id, {signed_sums()} FROM document_lines l
         JOIN documents d ON d.id = l.document_id JOIN products p ON p.id = l.product_id
         WHERE {SALE_OR_RETURN} AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND l.amount IS NOT NULL
           AND {psql} AND {csql}
         GROUP BY l.product_id
         """,
         [start.isoformat(), end.isoformat(), *pargs, *cargs],
-    ).fetchall())
+    ).fetchall()}
 
 
 @dataclass
@@ -174,11 +177,20 @@ class Money:
     fees: float | None  # other fees of those orders; None when products or groups are filtered (fees have none)
     unpriced: int      # orders with a line whose price is unknown
     returned: float = 0.0  # goods customers sent back in the period (already taken off total)
+    # the same amounts of the notes priced in yuan: never added to the dong above
+    goods_cny: float = 0.0
+    fees_cny: float | None = 0.0
+    returned_cny: float = 0.0
+    approx: float = 0.0  # total_cny as dong, at the rates kept with those notes (for "about ...")
 
     @property
     def total(self) -> float:
         """Revenue: the goods less what came back; fees are apart."""
         return self.goods - self.returned
+
+    @property
+    def total_cny(self) -> float:
+        return self.goods_cny - self.returned_cny
 
 
 def money(conn, start: date, end: date, filters: Filters | None = None) -> Money:
@@ -189,7 +201,9 @@ def money(conn, start: date, end: date, filters: Filters | None = None) -> Money
     csql, cargs = f.customer_sql()
     r = conn.execute(
         f"""
-        SELECT COUNT(DISTINCT d.id) AS orders, COALESCE(SUM(l.amount), 0) AS goods,
+        SELECT COUNT(DISTINCT d.id) AS orders, COALESCE(SUM(CASE WHEN NOT {CNY} THEN l.amount END), 0) AS goods,
+               COALESCE(SUM(CASE WHEN {CNY} THEN l.amount END), 0) AS goods_cny,
+               COALESCE(SUM(CASE WHEN {CNY} THEN l.amount * COALESCE(d.fx_rate, 0) END), 0) AS goods_approx,
                COUNT(DISTINCT CASE WHEN l.amount IS NULL THEN d.id END) AS unpriced
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id JOIN products p ON p.id = l.product_id
@@ -197,15 +211,17 @@ def money(conn, start: date, end: date, filters: Filters | None = None) -> Money
         """,
         [start.isoformat(), end.isoformat(), *pargs, *cargs],
     ).fetchone()
-    fees = None
+    fees = fees_cny = None
     if not (f.product_ids or f.categories):
-        fees = conn.execute(
-            f"""SELECT COALESCE(SUM(d.fee_amount), 0) FROM documents d WHERE d.kind = 'delivery'
+        fees, fees_cny = conn.execute(
+            f"""SELECT COALESCE(SUM(CASE WHEN NOT {CNY} THEN d.fee_amount END), 0),
+                       COALESCE(SUM(CASE WHEN {CNY} THEN d.fee_amount END), 0) FROM documents d WHERE d.kind = 'delivery'
                 AND d.status = 'active' AND d.doc_date BETWEEN ? AND ? AND {csql}""",
-            [start.isoformat(), end.isoformat(), *cargs]).fetchone()[0]
-    back = returned_amount(conn, f"d.doc_date BETWEEN ? AND ? AND {psql} AND {csql}",
-                           [start.isoformat(), end.isoformat(), *pargs, *cargs])
-    return Money(r["orders"], r["goods"], fees, r["unpriced"], back)
+            [start.isoformat(), end.isoformat(), *cargs]).fetchone()
+    back, back_cny, back_approx = returned_amounts(conn, f"d.doc_date BETWEEN ? AND ? AND {psql} AND {csql}",
+                                                   [start.isoformat(), end.isoformat(), *pargs, *cargs])
+    return Money(r["orders"], r["goods"], fees, r["unpriced"], back, r["goods_cny"], fees_cny, back_cny,
+                 r["goods_approx"] - back_approx)
 
 
 def _fill_buckets(conn, rows: list[SummaryRow], bks: list[Bucket], f: Filters) -> None:
@@ -265,7 +281,7 @@ def customer_product(conn, start: date, end: date, filters: Filters | None = Non
         SELECT c.name AS customer_name, p.code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
                SUM(CASE WHEN d.kind = 'delivery' THEN l.qty END) AS total_qty,
                COUNT(DISTINCT CASE WHEN d.kind = 'delivery' THEN d.id END) AS times,
-               MAX(CASE WHEN d.kind = 'delivery' THEN d.doc_date END) AS last_date, SUM({SIGNED}) AS revenue
+               MAX(CASE WHEN d.kind = 'delivery' THEN d.doc_date END) AS last_date, {signed_sums()}
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN products p ON p.id = l.product_id
@@ -298,7 +314,7 @@ def detail_lines(conn, start: date, end: date, filters: Filters | None = None):
                c.name AS customer_name, p.code AS product_code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit,
                COALESCE(x.note, (SELECT note FROM document_lines l WHERE l.document_id = d.id
                                  AND l.product_id = p.id LIMIT 1)) AS note,
-               x.unit_price, CASE WHEN m.kind = 'receipt_in' THEN -x.amount ELSE x.amount END AS amount
+               x.unit_price, CASE WHEN m.kind = 'receipt_in' THEN -x.amount ELSE x.amount END AS amount, d.currency
         FROM mv m
         LEFT JOIN ln x ON m.kind IN ('delivery_out', 'receipt_in') AND x.document_id = m.document_id AND x.product_id = m.product_id
                        AND x.n = m.n

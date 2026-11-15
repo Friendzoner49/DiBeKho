@@ -32,6 +32,8 @@ from dibekho.ui.common import (
     hint_label,
     info,
     make_table,
+    both_item,
+    currency_label,
     money_item,
     num_item,
     reread_whole_note,
@@ -43,7 +45,7 @@ from dibekho.ui.details import CustomerDialog, DocumentDialog
 from dibekho.ui.page import Page
 
 KINDS = ("delivery", "receipt", "stock_count", "transfer", "trial")
-GOODS_COL, FEES_COL = 6, 7  # table columns hidden when fixed_kind is set: always blank outside 'delivery'
+GOODS_COL, FEES_COL, CURRENCY_COL = 6, 7, 8  # table columns hidden when fixed_kind is set: always blank outside 'delivery'
 
 
 def _place(d) -> str:
@@ -86,6 +88,11 @@ class OrdersPage(Page):
         self.text.setPlaceholderText(t("orders.text_filter"))
         self.text.setClearButtonEnabled(True)
         self.closed = QCheckBox(t("orders.include_cancelled"))
+        # which money the order was paid in (user, 15/11/2026: tell the orders in yuan from those in dong)
+        self.currency = QComboBox()
+        self.currency.addItem(t("orders.currency_all"), "")
+        self.currency.addItem(t("orders.currency_vnd"), "VND")
+        self.currency.addItem(t("orders.currency_cny"), "CNY")
 
         self.kind_label = QLabel(t("orders.kind"))
         grid.addWidget(self.kind_label, 0, 0)
@@ -101,14 +108,18 @@ class OrdersPage(Page):
         grid.addWidget(QLabel(t("col.product")), 1, 3)
         grid.addWidget(self.product, 1, 4, 1, 2)
         grid.addWidget(self.closed, 1, 6)
-        grid.addWidget(self.text, 2, 0, 1, 7)
+        grid.addWidget(self.text, 2, 0, 1, 5)
+        self.currency_label = QLabel(t("col.currency"))
+        grid.addWidget(self.currency_label, 2, 5, Qt.AlignRight)
+        grid.addWidget(self.currency, 2, 6)
         grid.setColumnStretch(2, 1)
         grid.setColumnStretch(5, 1)
         self.layout_.addLayout(grid)
 
         if fixed_kind:
             self.kind.setCurrentIndex(max(self.kind.findData(fixed_kind), 0))
-            for w in (self.kind_label, self.kind, self.customer_label, self.customer):
+            for w in (self.kind_label, self.kind, self.customer_label, self.customer, self.currency_label,
+                      self.currency):
                 w.setVisible(False)
 
         top = QHBoxLayout()
@@ -120,19 +131,20 @@ class OrdersPage(Page):
             top.addWidget(edit)
         self.layout_.addLayout(top)
         self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.place"),
-                                 t("col.lines"), t("col.total_qty"), t("col.goods"), t("col.fees"), t("col.status"),
-                                 t("col.file")], stretch=2)
+                                 t("col.lines"), t("col.total_qty"), t("col.goods"), t("col.fees"), t("col.currency"),
+                                 t("col.status"), t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._context_menu)
         if fixed_kind:
             self.table.setColumnHidden(GOODS_COL, True)
             self.table.setColumnHidden(FEES_COL, True)
+            self.table.setColumnHidden(CURRENCY_COL, True)
         self.layout_.addWidget(self.table)
 
         for sig in (self.kind.currentIndexChanged, self.all_time.toggled, self.date_from.dateChanged,
                     self.date_to.dateChanged, self.customer.currentIndexChanged, self.product.currentIndexChanged,
-                    self.text.textChanged, self.closed.toggled):
+                    self.text.textChanged, self.closed.toggled, self.currency.currentIndexChanged):
             sig.connect(self._load)
 
     def refresh(self):
@@ -162,13 +174,18 @@ class OrdersPage(Page):
             customer_id=self.customer.currentData(), product_id=self.product.currentData(),
             include_closed=self.closed.isChecked(), text=self.text.text().strip(),
         )
+        want = self.currency.currentData() if self.kind.currentData() == "delivery" else ""
+        if want:
+            docs = [d for d in docs if (d["currency"] == "CNY") == (want == "CNY")]
         rows, colors = [], []
         for d in docs:
+            sale, cur, rate = d["kind"] == "delivery", d["currency"], d["fx_rate"]
             rows.append([date_item(d["doc_date"]), d["code"], d["customer_name"], _place(d),
                          num_item(d["line_count"]),
                          num_item(d["total_qty"]),
-                         money_item(d["goods_amount"]) if d["kind"] == "delivery" else "",
-                         money_item(d["fee_amount"]) if d["kind"] == "delivery" and d["fee_amount"] else "",
+                         money_item(d["goods_amount"], cur, rate) if sale else "",
+                         money_item(d["fee_amount"], cur, rate, approx=False) if sale and d["fee_amount"] else "",
+                         currency_label(cur) if sale and d["goods_amount"] is not None else "",
                          status_text(d["status"]), d["source_file"]])
             colors.append(GREY if d["status"] != "active" else None)
         fill_table(self.table, rows, ids=[d["id"] for d in docs])
@@ -239,7 +256,7 @@ class CustomersPage(Page):
         rows = queries.customers(self.ctx.conn, self.text.text().strip())
         fill_table(self.table,
                    [[c["name"], c["contact"], c["phone"], c["address"], num_item(c["order_count"]),
-                     money_item(c["revenue"]),
+                     both_item(c["revenue"], c["revenue_cny"], c["revenue_approx"]),
                      date_item(c["first_order"]), date_item(c["last_order"])] for c in rows],
                    ids=[c["id"] for c in rows])
 

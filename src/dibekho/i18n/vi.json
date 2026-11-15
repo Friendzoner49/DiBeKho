@@ -783,5 +783,13 @@
   "staff.not_for_staff": "Việc này chỉ tài khoản của chủ làm được.",
   "cloud.sync_started": "Đang đồng bộ trong nền. Trạng thái hiện ở dòng Cloud phía trên.",
   "login.other_queue": "Máy này còn {n} thay đổi của tài khoản «{user}» chưa lên Cloud.\n\nĐể gửi chúng: thoát, mở lại app và đăng nhập bằng «{user}». Hoặc bỏ các thay đổi đó (dữ liệu hiện tại được sao lưu trước vào thư mục sao-luu).",
-  "login.other_queue_drop": "Bỏ các thay đổi đó"
+  "login.other_queue_drop": "Bỏ các thay đổi đó",
+  "col.currency": "Loại tiền",
+  "orders.currency_all": "Tất cả",
+  "orders.currency_vnd": "₫ Đơn tiền Việt (VND)",
+  "orders.currency_cny": "¥ Đơn tiền tệ (CNY)",
+  "doc.in_cny": "Đơn này tính bằng nhân dân tệ (¥). Doanh thu tệ được cộng riêng, không cộng chung với tiền Việt.",
+  "doc.in_cny_rate": "Đơn này tính bằng nhân dân tệ (¥). Số trong ngoặc là quy đổi xấp xỉ theo tỷ giá lúc đọc phiếu: 1 ¥ ≈ {rate} ₫. Doanh thu tệ được cộng riêng, không cộng chung với tiền Việt.",
+  "col.revenue_cny": "Doanh thu (¥)",
+  "report.currency": "Loại tiền"
 }

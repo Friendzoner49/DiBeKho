@@ -155,6 +155,8 @@ The app writes an Excel file `output/phieu-xuat/PhieuXuat_A160.xlsx` to print or
 
 The **₫ | ¥** switch is at the bottom left. Click **¥**: every amount in the app (revenue, prices, totals, Statistics, order and customer details…) shows in yuan at **the market rate of the moment**, old orders included. Click **₫** to go back to dong. The data stays in VND and every exported file (Excel, data packages, stock issue notes) stays in VND; while ¥ is shown, the stock issue note takes prices in ¥ (section 3.5) but the file keeps ₫. The rate in use and its time are shown under the switch; the app fetches a new rate every 10 minutes while ¥ is shown, and when you click **⟳** or **⟳ Rescan notes** (F5). The rate is for reference only (not a bank's buy/sell price); without internet the app uses the last rate. The web page (with Cloud) has the same switch in the same place.
 
+**Orders sold in yuan.** A delivery note priced in yuan (price cells formatted as CNY/¥, or the total in words saying "nhân dân tệ" / 人民币) is taken as a **yuan order**: its amounts stay as printed, shown with **¥**, followed in brackets by the approximate value in ₫ at the rate when the app read the note, e.g. `¥4.800 (≈ 17.280.000 ₫)`. Yuan revenue is **kept apart**, never added to the dong: `2.100.000 ₫ + ¥4.800 (≈ 19.380.000 ₫)`. **Orders** has a **Currency** column and a **Currency** filter to list only the dong orders or only the yuan orders. Exported Excel files get a **Revenue (¥)** column when the period has yuan orders. Goods sent back from a yuan order come off the yuan revenue.
+
 ---
 
 ## 4. Stock, low stock and notes

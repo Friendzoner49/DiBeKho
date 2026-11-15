@@ -21,6 +21,19 @@ def _isolated_config_dir(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_exchange_rate_from_the_network(monkeypatch):
+    """Reading a note priced in yuan asks for the rate (core/fx.current): never the real network in a test."""
+    from dibekho.core import fx
+
+    def offline(url, timeout):
+        raise OSError("no network in tests")
+
+    monkeypatch.setattr(fx, "_get", offline)
+    monkeypatch.setattr(fx.Display, "rate", None)
+    monkeypatch.setattr(fx.Display, "currency", "vnd")
+
+
+@pytest.fixture(autouse=True)
 def _no_timers_left_behind():
     """Windows a test made stay alive (Qt owns them) and their timers kept firing in later tests, on a closed
     database. After each test every timer still running is stopped."""

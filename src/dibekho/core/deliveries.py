@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from dibekho import db
-from dibekho.core import catalog
+from dibekho.core import catalog, fx
 from dibekho.core.stock import (MAIN, Line, add_lines, close_document, insert_document, is_mixed, stock_count,
                                  stock_levels)
 from dibekho.core.text import clean, fmt_qty, match_key, nfc, normalize_code, normalize_phone, unaccent
@@ -182,6 +182,7 @@ def scan(conn, ws: Workspace, allow_partial: bool = False) -> ScanResult:
     from dibekho.core import receipts  # receipts imports this module
 
     receipts.backfill_return_prices(conn)  # after the notes have their prices: a return takes its price from them
+    backfill_currency(conn, ws)
     result.pending = pending_count(conn)
     return result
 
@@ -396,6 +397,7 @@ def set_money(conn, doc_id: int, note: DeliveryNote) -> None:
     fees = sum(a for _, a in note.fees) + sum(ln.amount or 0 for ln in note.lines if catalog.is_ignored(conn, ln.key))
     conn.execute("UPDATE documents SET fee_amount = ?, note_total = ?, prices_read = 1 WHERE id = ?",
                  (fees if priced else None, note.total, doc_id))
+    set_currency(conn, doc_id, note.currency if priced else "VND")
     free = list(note.lines)
     for row in conn.execute("SELECT id, line_no, qty, raw_name, raw_spec FROM document_lines WHERE document_id = ? "
                             "ORDER BY line_no", (doc_id,)).fetchall():
@@ -407,6 +409,53 @@ def set_money(conn, doc_id: int, note: DeliveryNote) -> None:
         free.remove(ln)
         conn.execute("UPDATE document_lines SET unit_price = ?, amount = ? WHERE id = ?",
                      (ln.unit_price, ln.amount, row["id"]))
+
+
+def set_currency(conn, doc_id: int, currency: str) -> None:
+    """The currency the note is priced in; a note in yuan keeps the rate of the moment it is read (only to show
+    'about … dong' next to its amounts), once."""
+    conn.execute("UPDATE documents SET currency = ? WHERE id = ? AND currency <> ?", (currency, doc_id, currency))
+    if currency == "CNY" and conn.execute("SELECT fx_rate FROM documents WHERE id = ?", (doc_id,)).fetchone()[0] is None:
+        rate = fx.current()
+        if rate is not None:
+            conn.execute("UPDATE documents SET fx_rate = ? WHERE id = ?", (rate.vnd_per_cny, doc_id))
+
+
+def backfill_currency(conn, ws: Workspace) -> int:
+    """Notes recorded before the currency was read (0.5.4 and earlier): look at their stored copies once. A note whose
+    copy is not on this computer stays undecided (counted as dong): the computer that has the file decides. Then the
+    customers' returns take the currency of the order they came back from, and a yuan note read without a rate gets
+    one when it is known. Returns the number of notes found to be in yuan."""
+    found = 0
+    for d in conn.execute("SELECT id, source_hash FROM documents WHERE kind = 'delivery' AND currency = '' "
+                          "AND source_hash <> ''").fetchall():
+        path = original_copy(ws, d["source_hash"])
+        if path is None:
+            continue
+        try:
+            currency = read_delivery_note(path).currency
+        except (OSError, NotDeliveryNote, DeliveryNoteError):
+            currency = "VND"
+        with db.transaction(conn):
+            set_currency(conn, d["id"], currency)
+        found += currency == "CNY"
+    from dibekho.core import receipts  # receipts imports this module
+
+    back = conn.execute("SELECT id, customer_id, ref_code, doc_date FROM documents WHERE kind = 'receipt' "
+                        "AND receipt_source = 'return' AND currency = ''").fetchall()
+    late = conn.execute("SELECT COUNT(*) FROM documents WHERE currency = 'CNY' AND fx_rate IS NULL").fetchone()[0]
+    if back or late:
+        with db.transaction(conn):
+            for d in back:
+                currency, rate = receipts.return_currency(conn, d["customer_id"], d["ref_code"] or "",
+                                                          date.fromisoformat(d["doc_date"]))
+                if currency:
+                    conn.execute("UPDATE documents SET currency = ?, fx_rate = ? WHERE id = ?", (currency, rate, d["id"]))
+            now = fx.current() if late else None
+            if now is not None:
+                conn.execute("UPDATE documents SET fx_rate = ? WHERE currency = 'CNY' AND fx_rate IS NULL",
+                             (now.vnd_per_cny,))
+    return found
 
 
 def backfill_prices(conn, ws: Workspace) -> int:

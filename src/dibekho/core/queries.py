@@ -17,14 +17,29 @@ _GOODS = "(SELECT SUM(x.amount) FROM document_lines x WHERE x.document_id = d.id
 # back, by the day of the return). SALE_OR_RETURN picks both kinds of document, SIGNED turns a line into +/- money.
 RETURNED = "(d.kind = 'receipt' AND d.receipt_source = 'return')"
 SALE_OR_RETURN = f"(d.kind = 'delivery' OR {RETURNED})"
-SIGNED = "(CASE WHEN d.kind = 'delivery' THEN l.amount ELSE -l.amount END)"
+# A note may be priced in yuan (documents.currency = 'CNY'; user, 15/11/2026): the two currencies are never added
+# together. Every sum comes three times: X in dong (notes in dong only), X_cny in yuan (notes in yuan only) and
+# X_approx = the yuan part as dong at the rate kept with each note (only for the "about ..." in brackets).
+CNY = "(d.currency = 'CNY')"
+_PLUS_MINUS = "(CASE WHEN d.kind = 'delivery' THEN l.amount ELSE -l.amount END)"
+SIGNED = f"(CASE WHEN NOT {CNY} THEN {_PLUS_MINUS} END)"
+SIGNED_CNY = f"(CASE WHEN {CNY} THEN {_PLUS_MINUS} END)"
+SIGNED_APPROX = f"({SIGNED_CNY} * COALESCE(d.fx_rate, 0))"
 
 
-def returned_amount(conn, where: str, args: list) -> float:
-    """Money of the returned goods among active documents d (lines l) matching where."""
-    return conn.execute(
-        f"SELECT COALESCE(SUM(l.amount), 0) FROM document_lines l JOIN documents d ON d.id = l.document_id "
-        f"JOIN products p ON p.id = l.product_id WHERE d.status = 'active' AND {RETURNED} AND {where}", args).fetchone()[0]
+def signed_sums(name: str = "revenue") -> str:
+    """'SUM(...) AS revenue, ... AS revenue_cny, ... AS revenue_approx' over lines l of documents d."""
+    return f"SUM({SIGNED}) AS {name}, SUM({SIGNED_CNY}) AS {name}_cny, SUM({SIGNED_APPROX}) AS {name}_approx"
+
+
+def returned_amounts(conn, where: str, args: list) -> tuple[float, float, float]:
+    """(dong, yuan, the yuan as dong) of the returned goods among active documents d (lines l) matching where."""
+    return tuple(conn.execute(
+        f"SELECT COALESCE(SUM(CASE WHEN NOT {CNY} THEN l.amount END), 0), "
+        f"COALESCE(SUM(CASE WHEN {CNY} THEN l.amount END), 0), "
+        f"COALESCE(SUM(CASE WHEN {CNY} THEN l.amount * COALESCE(d.fx_rate, 0) END), 0) "
+        f"FROM document_lines l JOIN documents d ON d.id = l.document_id "
+        f"JOIN products p ON p.id = l.product_id WHERE d.status = 'active' AND {RETURNED} AND {where}", args).fetchone())
 _UNPRICED = "(SELECT COUNT(*) FROM document_lines x WHERE x.document_id = d.id AND x.amount IS NULL)"
 _TOTAL = f"(CASE WHEN {_GOODS} IS NULL AND d.fee_amount IS NULL THEN NULL " \
          f"ELSE COALESCE({_GOODS}, 0) + COALESCE(d.fee_amount, 0) END)"
@@ -126,7 +141,11 @@ def customers(conn, text=""):
         f"""
         SELECT c.*, COUNT(d.id) AS order_count, MIN(d.doc_date) AS first_order, MAX(d.doc_date) AS last_order,
                (SELECT SUM({SIGNED}) FROM document_lines l JOIN documents d ON d.id = l.document_id
-                WHERE d.customer_id = c.id AND d.status = 'active' AND {SALE_OR_RETURN}) AS revenue
+                WHERE d.customer_id = c.id AND d.status = 'active' AND {SALE_OR_RETURN}) AS revenue,
+               (SELECT SUM({SIGNED_CNY}) FROM document_lines l JOIN documents d ON d.id = l.document_id
+                WHERE d.customer_id = c.id AND d.status = 'active' AND {SALE_OR_RETURN}) AS revenue_cny,
+               (SELECT SUM({SIGNED_APPROX}) FROM document_lines l JOIN documents d ON d.id = l.document_id
+                WHERE d.customer_id = c.id AND d.status = 'active' AND {SALE_OR_RETURN}) AS revenue_approx
         FROM customers c
         LEFT JOIN documents d ON d.customer_id = c.id AND d.kind = 'delivery' AND d.status = 'active'
         {where}
@@ -149,23 +168,35 @@ def customer(conn, customer_id: int):
     ).fetchone()
 
 
-def customer_money(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
-    """Orders, goods, fees and revenue ('total' = goods only; fees apart) of a customer in a period; unpriced = orders with a line
-    whose price is unknown (their known lines still count)."""
+def customer_money(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None) -> dict:
+    """Orders, goods, fees and revenue ('total' = goods only, less the returns; fees apart) of a customer in a period;
+    unpriced = orders with a line whose price is unknown (their known lines still count). These are the notes in dong;
+    'cny' holds the same four amounts of the notes in yuan (never added to the dong) and 'approx' the yuan revenue as
+    dong at the rates kept with those notes."""
     where, args = ["d.customer_id = ?", "d.kind = 'delivery'", "d.status = 'active'"], [customer_id]
     _period(where, args, date_from, date_to)
     back_where, back_args = ["d.customer_id = ?"], [customer_id]
     _period(back_where, back_args, date_from, date_to)
-    back = returned_amount(conn, " AND ".join(back_where), back_args)
-    return conn.execute(
+    back, back_cny, back_approx = returned_amounts(conn, " AND ".join(back_where), back_args)
+    r = conn.execute(
         f"""
-        SELECT COUNT(*) AS orders, SUM({_GOODS}) AS goods, SUM(d.fee_amount) AS fees,
-               CASE WHEN SUM({_GOODS}) IS NULL AND ? = 0 THEN NULL ELSE COALESCE(SUM({_GOODS}), 0) - ? END AS total,
-               SUM(CASE WHEN {_UNPRICED} > 0 THEN 1 ELSE 0 END) AS unpriced, ? AS returned
+        SELECT COUNT(*) AS orders, SUM(CASE WHEN {_UNPRICED} > 0 THEN 1 ELSE 0 END) AS unpriced,
+               SUM(CASE WHEN NOT {CNY} THEN {_GOODS} END) AS goods, SUM(CASE WHEN NOT {CNY} THEN d.fee_amount END) AS fees,
+               SUM(CASE WHEN {CNY} THEN {_GOODS} END) AS goods_cny, SUM(CASE WHEN {CNY} THEN d.fee_amount END) AS fees_cny,
+               SUM(CASE WHEN {CNY} THEN {_GOODS} * COALESCE(d.fx_rate, 0) END) AS goods_approx
         FROM documents d WHERE {' AND '.join(where)}
         """,
-        [back, back, back, *args],
+        args,
     ).fetchone()
+
+    def total(goods, returned):
+        return None if goods is None and not returned else (goods or 0) - returned
+
+    return {"orders": r["orders"], "unpriced": r["unpriced"], "goods": r["goods"], "fees": r["fees"],
+            "total": total(r["goods"], back), "returned": back,
+            "cny": {"goods": r["goods_cny"], "fees": r["fees_cny"], "total": total(r["goods_cny"], back_cny),
+                    "returned": back_cny},
+            "approx": (r["goods_approx"] or 0) - back_approx}
 
 
 def customer_lines(conn, customer_id: int, date_from: date | None = None, date_to: date | None = None):
@@ -174,7 +205,8 @@ def customer_lines(conn, customer_id: int, date_from: date | None = None, date_t
     _period(where, args, date_from, date_to)
     return conn.execute(
         f"""
-        SELECT d.id AS document_id, d.doc_date, d.code, d.fee_amount, l.product_id, l.qty, l.unit_price, l.amount,
+        SELECT d.id AS document_id, d.doc_date, d.code, d.fee_amount, d.currency, d.fx_rate, l.product_id, l.qty,
+               l.unit_price, l.amount,
                l.note, p.code AS product_code, p.name_vi, p.name_zh, p.spec, p.variant, p.unit
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
@@ -198,8 +230,11 @@ def customer_products(conn, customer_id: int, date_from: date | None = None, dat
                SUM(CASE WHEN {sold} THEN l.qty END) AS total_qty,
                COUNT(DISTINCT CASE WHEN {sold} THEN d.id END) AS times,
                MAX(CASE WHEN {sold} THEN d.doc_date END) AS last_date,
-               SUM({SIGNED}) AS revenue, MIN(CASE WHEN {sold} THEN l.unit_price END) AS min_price,
-               MAX(CASE WHEN {sold} THEN l.unit_price END) AS max_price
+               {signed_sums()},
+               MIN(CASE WHEN {sold} AND NOT {CNY} THEN l.unit_price END) AS min_price,
+               MAX(CASE WHEN {sold} AND NOT {CNY} THEN l.unit_price END) AS max_price,
+               MIN(CASE WHEN {sold} AND {CNY} THEN l.unit_price END) AS min_price_cny,
+               MAX(CASE WHEN {sold} AND {CNY} THEN l.unit_price END) AS max_price_cny
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN products p ON p.id = l.product_id
@@ -257,7 +292,7 @@ def product_top_customers(conn, product_id: int, limit=10):
         f"""
         SELECT c.id, c.name, SUM(CASE WHEN {sold} THEN l.qty END) AS total_qty,
                COUNT(DISTINCT CASE WHEN {sold} THEN d.id END) AS times,
-               MAX(CASE WHEN {sold} THEN d.doc_date END) AS last_date, SUM({SIGNED}) AS revenue
+               MAX(CASE WHEN {sold} THEN d.doc_date END) AS last_date, {signed_sums()}
         FROM document_lines l
         JOIN documents d ON d.id = l.document_id
         JOIN customers c ON c.id = d.customer_id

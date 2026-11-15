@@ -31,6 +31,7 @@ from dibekho.ui.common import (
     date_item,
     error,
     fill_table,
+    show_both,
     show_money,
     fit_window,
     fmt_date,
@@ -40,6 +41,7 @@ from dibekho.ui.common import (
     location_combo,
     location_name,
     make_table,
+    both_item,
     money_item,
     num_item,
     open_path,
@@ -162,8 +164,10 @@ class DocumentDialog(_Base):
         elif kind == "delivery":
             headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.qty"),
                        t("col.unit"), t("col.unit_price"), t("col.amount"), t("col.note")]
+            cur, rate = head["currency"], head["fx_rate"]
             rows = [[ln["code"], ln["name_vi"], ln["name_zh"], ln["spec"], ln["variant"], num_item(ln["qty"]), ln["unit"],
-                     money_item(ln["unit_price"]), money_item(ln["amount"]), ln["note"]] for ln in lines]
+                     money_item(ln["unit_price"], cur, rate, approx=False),
+                     money_item(ln["amount"], cur, rate, approx=False), ln["note"]] for ln in lines]
             if self.mixed:
                 headers.insert(5, t("col.place"))
                 taken: dict = {}  # product -> [(place, qty)]: a line taken from both places has no single place
@@ -190,12 +194,16 @@ class DocumentDialog(_Base):
             total = sum(ln["qty"] for ln in lines)
             self.layout_.addWidget(hint_label(t("doc.total", lines=len(lines), qty=fmt_qty(total))))
         if kind == "delivery" and head["order_total"] is not None:
-            self.layout_.addWidget(QLabel(t("doc.money", goods=show_money(head["goods_amount"] or 0),
-                                            fees=show_money(head["fee_amount"] or 0),
-                                            total=show_money(head["order_total"]))))
+            cur, rate = head["currency"], head["fx_rate"]
+            self.layout_.addWidget(QLabel(t("doc.money", goods=show_money(head["goods_amount"] or 0, cur, rate, False),
+                                            fees=show_money(head["fee_amount"] or 0, cur, rate, False),
+                                            total=show_money(head["order_total"], cur, rate))))
+            if cur == "CNY":
+                self.layout_.addWidget(hint_label(
+                    t("doc.in_cny_rate", rate=fmt_qty(round(rate))) if rate else t("doc.in_cny")))
             printed = head["note_total"]
             if printed is not None and abs(printed - head["order_total"]) >= 1:
-                self.layout_.addWidget(hint_label(t("doc.money_printed", total=show_money(printed))))
+                self.layout_.addWidget(hint_label(t("doc.money_printed", total=show_money(printed, cur, rate, False))))
         if kind == "delivery" and head["unpriced_lines"]:
             self.layout_.addWidget(hint_label(t("doc.unpriced", count=head["unpriced_lines"])))
         self.layout_.addWidget(hint_label(t("doc.hint_open_product")))
@@ -377,15 +385,20 @@ class CustomerDialog(_Base):
         self.date_to.setEnabled(not self.all_time.isChecked())
         start, end = self._range()
         money = queries.customer_money(self.ctx.conn, self.customer_id, start, end)
-        self.money.setText(t("cust.money_value", total=show_money(money["total"] or 0), orders=money["orders"],
-                             goods=show_money(money["goods"] or 0), fees=show_money(money["fees"] or 0))
-                           + (t("money.returned", returned=show_money(money["returned"])) if money["returned"] else ""))
+        yuan = money["cny"]
+        self.money.setText(t("cust.money_value", total=show_both(money["total"] or 0, yuan["total"], money["approx"]),
+                             orders=money["orders"],
+                             goods=show_both(money["goods"] or 0, yuan["goods"], brackets=False),
+                             fees=show_both(money["fees"] or 0, yuan["fees"], brackets=False))
+                           + (t("money.returned", returned=show_both(money["returned"], yuan["returned"], brackets=False))
+                              if money["returned"] or yuan["returned"] else ""))
         self.unpriced.setText(t("cust.unpriced", count=money["unpriced"]) if money["unpriced"] else "")
         self.unpriced.setVisible(bool(money["unpriced"]))
         prods = queries.customer_products(self.ctx.conn, self.customer_id, start, end)
         fill_table(self.products,
                    [[p["name_vi"], p["name_zh"], p["spec"], p["variant"], num_item(p["total_qty"]), p["unit"],
-                     money_item(p["revenue"]), _price_range(p["min_price"], p["max_price"]), num_item(p["times"]),
+                     both_item(p["revenue"], p["revenue_cny"], p["revenue_approx"]), _price_ranges(p),
+                     num_item(p["times"]),
                      date_item(p["last_date"])] for p in prods],
                    ids=[p["id"] for p in prods])
         self._fill_orders(start, end)
@@ -401,7 +414,7 @@ class CustomerDialog(_Base):
         for d in docs:
             head = QTreeWidgetItem([t("cust.order_head", date=fmt_date(d["doc_date"]), code=d["code"]), "", "",
                                     t("cust.order_lines", count=d["line_count"]), "", "",
-                                    show_money(d["goods_amount"]), ""])  # goods only: fees are apart
+                                    show_money(d["goods_amount"], d["currency"], d["fx_rate"]), ""])  # goods only
             head.setData(0, Qt.UserRole, d["id"])
             font = head.font(0)
             font.setBold(True)
@@ -411,13 +424,15 @@ class CustomerDialog(_Base):
             for ln in lines.get(d["id"], []):
                 name = " · ".join(x for x in (ln["name_vi"], ln["variant"]) if x)
                 child = QTreeWidgetItem([name, ln["name_zh"], ln["spec"], fmt_qty(ln["qty"]), ln["unit"],
-                                         show_money(ln["unit_price"]), show_money(ln["amount"]), ln["note"]])
+                                         show_money(ln["unit_price"], ln["currency"], ln["fx_rate"], False),
+                                         show_money(ln["amount"], ln["currency"], ln["fx_rate"], False), ln["note"]])
                 child.setData(0, Qt.UserRole, d["id"])
                 for c in (3, 5, 6):
                     child.setTextAlignment(c, right)
                 head.addChild(child)
             if d["fee_amount"]:
-                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", "", show_money(d["fee_amount"]), ""])
+                fee = QTreeWidgetItem([t("cust.fees"), "", "", "", "", "",
+                                       show_money(d["fee_amount"], d["currency"], d["fx_rate"], False), ""])
                 fee.setData(0, Qt.UserRole, d["id"])
                 fee.setTextAlignment(6, right)
                 head.addChild(fee)
@@ -449,11 +464,21 @@ class CustomerDialog(_Base):
             self.refresh()
 
 
-def _price_range(low, high) -> str:
+def _price_range(low, high, currency: str = "") -> str:
     """'1.200.000', or '1.100.000 – 1.200.000' when the price changed over the period."""
     if low is None:
         return show_money(None)
-    return show_money(low) if abs(high - low) < 0.5 else f"{show_money(low)} – {show_money(high)}"
+    one = show_money(low, currency, approx=False)
+    return one if abs(high - low) < 0.005 * max(abs(high), 1) or abs(high - low) < 0.005 \
+        else f"{one} – {show_money(high, currency, approx=False)}"
+
+
+def _price_ranges(p) -> str:
+    """The price range of a product a customer buys: the prices in dong and those in yuan apart."""
+    if p["min_price_cny"] is None:
+        return _price_range(p["min_price"], p["max_price"])
+    yuan = _price_range(p["min_price_cny"], p["max_price_cny"], "CNY")
+    return yuan if p["min_price"] is None else f"{_price_range(p['min_price'], p['max_price'])} · {yuan}"
 
 
 # ---- product ---------------------------------------------------------------
@@ -503,7 +528,8 @@ class ProductDialog(_Base):
                                      t("col.last_date")], stretch=0)
         tops = queries.product_top_customers(ctx.conn, product_id)
         fill_table(self.customers,
-                   [[c["name"], num_item(c["total_qty"]), money_item(c["revenue"]), num_item(c["times"]),
+                   [[c["name"], num_item(c["total_qty"]),
+                     both_item(c["revenue"], c["revenue_cny"], c["revenue_approx"]), num_item(c["times"]),
                      date_item(c["last_date"])]
                     for c in tops],
                    ids=[c["id"] for c in tops])

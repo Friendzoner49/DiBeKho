@@ -16,7 +16,8 @@ FROZEN = {
     "007_prices.sql": "63b810bdba6e3940",
     "008_locations.sql": "35075389d1804f68",
     "009_trial_use.sql": "5b76d3b8d7c916ed",
-    "010_sync.sql": "acb4f316db957610",  # cloud branch, not released yet
+    "010_sync.sql": "acb4f316db957610",
+    "011_currency.sql": "9d947730f299118d",
 }
 
 

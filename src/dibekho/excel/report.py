@@ -25,17 +25,35 @@ def _place(location_id) -> str:
     return t(f"loc.{LOCATION_CODES[location_id]}") if location_id in LOCATION_CODES else ""
 
 
-def _back(returned) -> str:
+MONEY_CNY = '"¥"#,##0.00'  # an amount of a note priced in yuan (documents.currency = 'CNY')
+
+
+def _dong(value) -> str:
+    return f"{round(value or 0):,}".replace(",", ".")
+
+
+def _both(vnd, cny=None, approx=None) -> str:
+    """'120.000.000', or with notes in yuan '120.000.000 ₫ + ¥4.800 (≈ 137.280.000 ₫)': the two currencies are never
+    one number (user, 15/11/2026); the bracket is the yuan as dong at the rates kept with those notes. The files do
+    not follow the ₫ | ¥ switch of the screen."""
+    if not cny:
+        return _dong(vnd)
+    yuan = "¥" + f"{round(cny, 2):,.2f}".rstrip("0").rstrip(".").replace(",", " ").replace(".", ",").replace(" ", ".")
+    about = f" (≈ {_dong((vnd or 0) + approx)} ₫)" if approx else ""
+    return (f"{_dong(vnd)} ₫ + {yuan}" if vnd else yuan) + about
+
+
+def _back(returned, returned_cny=None) -> str:
     """' · đã trừ hàng khách trả lại: …' when something came back in the period."""
-    return t("money.returned", returned=f"{round(returned):,}".replace(",", ".")) if returned else ""
+    return t("money.returned", returned=_both(returned, returned_cny)) if returned or returned_cny else ""
 
 
 def _money_line(m: stats.Money) -> str:
+    total = _both(m.total, m.total_cny, m.approx)
     if m.fees is None:
-        return t("stats.money_goods", goods=f"{round(m.total):,}".replace(",", "."), orders=m.orders) + _back(m.returned)
-    return t("stats.money", total=f"{round(m.total):,}".replace(",", "."),
-             goods=f"{round(m.goods):,}".replace(",", "."), fees=f"{round(m.fees):,}".replace(",", "."),
-             orders=m.orders) + _back(m.returned)
+        return t("stats.money_goods", goods=total, orders=m.orders) + _back(m.returned, m.returned_cny)
+    return t("stats.money", total=total, goods=_both(m.goods, m.goods_cny), fees=_both(m.fees, m.fees_cny),
+             orders=m.orders) + _back(m.returned, m.returned_cny)
 
 
 def export(path: Path, conn, start: date, end: date, filters: stats.Filters, by: str,
@@ -81,10 +99,12 @@ def _widths(ws, widths: list[int]) -> None:
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
-def _write(ws, r: int, values: list, money_cols=(), date_cols=()) -> None:
+def _write(ws, r: int, values: list, money_cols=(), date_cols=(), cny_cols=()) -> None:
     for col, v in enumerate(values, start=1):
         cell = ws.cell(row=r, column=col, value=v)
-        if col in money_cols:
+        if col in cny_cols:
+            cell.number_format = MONEY_CNY
+        elif col in money_cols:
             cell.number_format = MONEY
         elif col in date_cols:
             cell.number_format = "DD/MM/YYYY"
@@ -101,8 +121,9 @@ def _summary(wb, conn, start, end, filters, by, info):
     headers += [t("col.in"), t("col.out"), t("col.adjust")]
     if not customer_filtered:
         headers.append(t("col.closing"))
-    headers += [t("col.revenue"), t("col.stock_note")]
-    money_col = len(headers) - 1
+    yuan = any(row.revenue_cny for row in rows)  # notes priced in yuan: their revenue in a column of its own
+    headers += [t("col.revenue")] + ([t("col.revenue_cny")] if yuan else []) + [t("col.stock_note")]
+    money_col = len(headers) - 1 - yuan
     for label in labels:
         headers += [f"{t('col.in')} {label}", f"{t('col.out')} {label}"]
     ws, r = _sheet(wb, t("sheet.summary"), info, headers)
@@ -113,13 +134,14 @@ def _summary(wb, conn, start, end, filters, by, info):
         values += [row.qty_in, row.qty_out, row.adjust]
         if not customer_filtered:
             values.append(row.closing)
-        values += [row.revenue, row.stock_note or None]
+        values += [row.revenue] + ([row.revenue_cny] if yuan else []) + [row.stock_note or None]
         for label in labels:
             qin, qout = row.per_bucket.get(label, (0, 0))
             values += [qin or None, qout or None]
-        _write(ws, r, values, money_cols=(money_col,))
+        _write(ws, r, values, money_cols=(money_col,), cny_cols=(money_col + 1,) if yuan else ())
         r += 1
-    _widths(ws, [9, 45, 20, 16, 14, 8, 14] + [11] * (money_col - 8) + [14, 36] + [11] * (len(headers) - money_col - 1))
+    _widths(ws, [9, 45, 20, 16, 14, 8, 14] + [11] * (money_col - 8) + [14] * (1 + yuan) + [36]
+            + [11] * (len(headers) - money_col - 1 - yuan))
 
 
 def _details(wb, conn, start, end, filters, info):
@@ -135,6 +157,7 @@ def _details(wb, conn, start, end, filters, info):
                t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.unit"), t("col.qty_change"),
                t("col.unit_price"), t("col.amount"), t("col.note")]
     ws, r = _sheet(wb, t("sheet.details"), info, headers)
+    header_row = r - 1
     for m in stats.detail_lines(conn, start, end, filters):
         kind = kinds.get(m["kind"], m["kind"])
         if m["receipt_source"] == "return" and m["kind"] in ("receipt_in", "receipt_reverse"):
@@ -142,32 +165,40 @@ def _details(wb, conn, start, end, filters, info):
         values = [date.fromisoformat(m["occurred_on"]), kind, m["code"], m["customer_name"], _place(m["location_id"]),
                   m["product_code"], m["name_vi"], m["name_zh"], m["spec"], m["variant"], m["unit"], m["qty"],
                   m["unit_price"], m["amount"], m["note"]]
-        _write(ws, r, values, money_cols=(13, 14), date_cols=(1,))
+        yuan = m["currency"] == "CNY"  # the price cells of a note in yuan show ¥
+        if yuan and m["unit_price"] is not None:
+            values.append("CNY")
+            ws.cell(row=header_row, column=16, value=t("report.currency")).font = _BOLD
+        _write(ws, r, values, money_cols=(13, 14), date_cols=(1,), cny_cols=(13, 14) if yuan else ())
         r += 1
-    _widths(ws, [11, 16, 10, 30, 12, 9, 40, 20, 16, 14, 8, 10, 12, 14, 30])
+    _widths(ws, [11, 16, 10, 30, 12, 9, 40, 20, 16, 14, 8, 10, 12, 14, 30, 10])
 
 
 def _customers(wb, conn, start, end, filters, info):
     headers = [t("col.customer"), t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
                t("col.unit"), t("col.total_qty"), t("col.revenue"), t("col.times"), t("col.last_date")]
-    ws, r = _sheet(wb, t("sheet.customers"), info, headers)
-    for row in stats.customer_product(conn, start, end, filters):
+    rows = stats.customer_product(conn, start, end, filters)
+    yuan = any(row["revenue_cny"] for row in rows)
+    ws, r = _sheet(wb, t("sheet.customers"), info, headers + ([t("col.revenue_cny")] if yuan else []))
+    for row in rows:
         values = [row["customer_name"], row["code"], row["name_vi"], row["name_zh"], row["spec"], row["variant"],
                   row["unit"], row["total_qty"], row["revenue"], row["times"], date.fromisoformat(row["last_date"])]
-        _write(ws, r, values, money_cols=(9,), date_cols=(11,))
+        _write(ws, r, values + ([row["revenue_cny"]] if yuan else []), money_cols=(9,), date_cols=(11,), cny_cols=(12,))
         r += 1
-    _widths(ws, [32, 9, 40, 20, 16, 14, 8, 12, 14, 10, 12])
+    _widths(ws, [32, 9, 40, 20, 16, 14, 8, 12, 14, 10, 12, 14])
 
 
 def _top(wb, conn, start, end, filters, info):
     headers = [t("col.rank"), t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
                t("col.unit"), t("col.out"), t("col.revenue")]
-    ws, r = _sheet(wb, t("sheet.top"), info, headers)
-    for i, row in enumerate(stats.top_out(conn, start, end, filters, limit=50), start=1):
+    rows = stats.top_out(conn, start, end, filters, limit=50)
+    yuan = any(row.revenue_cny for row in rows)
+    ws, r = _sheet(wb, t("sheet.top"), info, headers + ([t("col.revenue_cny")] if yuan else []))
+    for i, row in enumerate(rows, start=1):
         _write(ws, r, [i, row.code, row.name_vi, row.name_zh, row.spec, row.variant, row.unit, row.qty_out,
-                       row.revenue], money_cols=(9,))
+                       row.revenue] + ([row.revenue_cny] if yuan else []), money_cols=(9,), cny_cols=(10,))
         r += 1
-    _widths(ws, [6, 9, 45, 20, 16, 14, 8, 12, 14])
+    _widths(ws, [6, 9, 45, 20, 16, 14, 8, 12, 14, 14])
 
 
 # ---- one customer ---------------------------------------------------------------------------------------------
@@ -179,12 +210,13 @@ def export_customer(path: Path, conn, customer_id: int, start: date | None, end:
     price range."""
     c = queries.customer(conn, customer_id)
     money = queries.customer_money(conn, customer_id, start, end)
-    fmt = lambda v: f"{round(v or 0):,}".replace(",", ".")  # noqa: E731
+    yuan = money["cny"]
     info = [
         t("report.customer", name=c["name"], phone=c["phone"] or "—"),
         t("report.period", period=period_label),
-        t("cust.money_value", total=fmt(money["total"]), orders=money["orders"], goods=fmt(money["goods"]),
-          fees=fmt(money["fees"])) + _back(money["returned"]),
+        t("cust.money_value", total=_both(money["total"], yuan["total"], money["approx"]), orders=money["orders"],
+          goods=_both(money["goods"], yuan["goods"]), fees=_both(money["fees"], yuan["fees"]))
+        + _back(money["returned"], yuan["returned"]),
         t("report.exported_at", at=datetime.now().strftime("%d/%m/%Y %H:%M")),
     ]
     wb = openpyxl.Workbook()
@@ -198,20 +230,21 @@ def export_customer(path: Path, conn, customer_id: int, start: date | None, end:
         lines.setdefault(ln["document_id"], []).append(ln)
     for d in reversed(queries.documents(conn, "delivery", start, end, customer_id=customer_id)):  # oldest first
         day = date.fromisoformat(d["doc_date"])
+        cny = (10, 11) if d["currency"] == "CNY" else ()  # an order priced in yuan: its price cells show ¥
         for ln in lines.get(d["id"], []):
             _write(ws, r, [day, d["code"], ln["product_code"], ln["name_vi"], ln["name_zh"], ln["spec"], ln["variant"],
                            ln["qty"], ln["unit"], ln["unit_price"], ln["amount"], ln["note"]],
-                   money_cols=(10, 11), date_cols=(1,))
+                   money_cols=(10, 11), date_cols=(1,), cny_cols=cny)
             r += 1
         _write(ws, r, [day, d["code"], None, t("report.order_total"), None, None, None, d["total_qty"], None, None,
-                       d["goods_amount"]], money_cols=(11,), date_cols=(1,))
+                       d["goods_amount"]], money_cols=(11,), date_cols=(1,), cny_cols=cny)
         for col in range(1, len(headers) + 1):
             ws.cell(row=r, column=col).font = _BOLD
             ws.cell(row=r, column=col).fill = _ORDER_FILL
         r += 1
         if d["fee_amount"]:  # apart, not in the revenue
             _write(ws, r, [day, d["code"], None, t("cust.fees"), None, None, None, None, None, None, d["fee_amount"]],
-                   money_cols=(11,), date_cols=(1,))
+                   money_cols=(11,), date_cols=(1,), cny_cols=cny)
             for col in range(1, len(headers) + 1):
                 ws.cell(row=r, column=col).font = Font(italic=True, color="777777")
             r += 1
@@ -220,13 +253,17 @@ def export_customer(path: Path, conn, customer_id: int, start: date | None, end:
     headers = [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.total_qty"),
                t("col.unit"), t("col.revenue"), t("report.price_low"), t("report.price_high"), t("col.times"),
                t("col.last_date")]
-    ws, r = _sheet(wb, t("sheet.customer_products"), info, headers)
-    for p in queries.customer_products(conn, customer_id, start, end):
+    prods = queries.customer_products(conn, customer_id, start, end)
+    extra = [t("col.revenue_cny"), t("report.price_low") + " (¥)", t("report.price_high") + " (¥)"] \
+        if any(p["min_price_cny"] is not None for p in prods) else []  # bought in yuan too: those amounts apart
+    ws, r = _sheet(wb, t("sheet.customer_products"), info, headers + extra)
+    for p in prods:
         _write(ws, r, [p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["total_qty"], p["unit"],
-                       p["revenue"], p["min_price"], p["max_price"], p["times"], date.fromisoformat(p["last_date"])],
-               money_cols=(8, 9, 10), date_cols=(12,))
+                       p["revenue"], p["min_price"], p["max_price"], p["times"], date.fromisoformat(p["last_date"])]
+               + ([p["revenue_cny"], p["min_price_cny"], p["max_price_cny"]] if extra else []),
+               money_cols=(8, 9, 10), date_cols=(12,), cny_cols=(13, 14, 15))
         r += 1
-    _widths(ws, [9, 40, 20, 16, 14, 10, 8, 15, 13, 13, 9, 12])
+    _widths(ws, [9, 40, 20, 16, 14, 10, 8, 15, 13, 13, 9, 12, 14, 13, 13])
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

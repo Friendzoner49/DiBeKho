@@ -37,7 +37,7 @@ from dibekho.ui.common import (
     fit_window,
     from_qdate,
     make_table,
-    money_item,
+    both_item,
     money_text,
     num_item,
     open_path,
@@ -319,7 +319,7 @@ class StatsPage(Page):
             cells += [num_item(r.qty_in or None), num_item(r.qty_out or None), num_item(r.adjust or None)]
             if not customer_filtered:
                 cells.append(num_item(r.closing))
-            cells += [money_item(r.revenue) if r.revenue is not None else "", r.stock_note]
+            cells += [_revenue_item(r), r.stock_note]
             for lb in labels:
                 qin, qout = r.per_bucket.get(lb, (0, 0))
                 cells += [num_item(qin or None), num_item(qout or None)]
@@ -337,7 +337,7 @@ class StatsPage(Page):
 
         top = sorted((r for r in rows if r.qty_out > 0), key=lambda r: r.qty_out, reverse=True)[:10]
         fill_table(self.top, [[i, r.name_vi, r.name_zh, r.spec, r.variant, num_item(r.qty_out), r.unit,
-                               money_item(r.revenue) if r.revenue is not None else ""]
+                               _revenue_item(r)]
                               for i, r in enumerate(top, 1)], ids=None)
         self._draw_chart(start, end, f)
 
@@ -415,3 +415,10 @@ class StatsPage(Page):
             return
         if ask(self, t("stats.exported", path=str(path))):
             open_path(path)
+
+
+def _revenue_item(r):
+    """The revenue cell of a product: dong and yuan side by side; blank when it has no priced line."""
+    if r.revenue is None and r.revenue_cny is None:
+        return ""
+    return both_item(r.revenue, r.revenue_cny, r.revenue_approx)

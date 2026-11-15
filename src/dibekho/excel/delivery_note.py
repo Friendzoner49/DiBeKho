@@ -111,6 +111,7 @@ class DeliveryNote:
     warnings: list[str] = field(default_factory=list)
     title: str = ""  # '销售单 PHIẾU GIAO HÀNG', '出库单 PHIẾU XUẤT KHO'; '' when the note has none
     letterhead: list[str] = field(default_factory=list)  # the lines above the title (company name, address)
+    currency: str = "VND"  # "CNY" when the note says its prices are yuan (read_delivery_note; _currency)
 
     @property
     def code_norm(self) -> str:
@@ -126,10 +127,39 @@ def read_delivery_note(path: Path | str) -> DeliveryNote:
         for ws in wb.worksheets:
             grid = _grid(ws)
             if _find_header_row(grid) is not None:
-                return _parse(grid)
+                note = _parse(grid)
+                note.currency = _currency(ws, grid)
+                return note
     finally:
         wb.close()
     raise NotDeliveryNote("Không thấy bảng hàng có cột 'Tên hàng' — không phải phiếu giao hàng.")
+
+
+# A note priced in yuan (user, 15/11/2026: order 155). The shop fills its usual form, whose headers still say VND, so
+# any sign of yuan wins: the price cells formatted as CNY / ¥, a price header naming it, or the total in words.
+_CNY_FORMAT = re.compile(r"CNY|RMB|[¥￥元]|人民币", re.IGNORECASE)
+_CNY_HEADER = re.compile(r"CNY|RMB|[¥￥]|人民币", re.IGNORECASE)
+_CNY_WORDS = ("nhan dan te", "人民币", "人民幣")
+
+
+def _currency(ws, grid) -> str:
+    header_row = _find_header_row(grid)
+    try:
+        columns = _map_columns(grid[header_row])
+    except DeliveryNoteError:
+        return "VND"
+    money = [c for c in (columns.get("price"), columns.get("amount")) if c is not None]
+    if any(_CNY_HEADER.search(_text(_cell(grid[header_row], c))) for c in money):
+        return "CNY"
+    for r in range(header_row + 1, len(grid)):
+        row = grid[r]
+        if any(isinstance(v, str) and any(w in unaccent(v) or w in v for w in _CNY_WORDS) for v in row):
+            return "CNY"
+        for c in money:
+            value = _cell(row, c)
+            if isinstance(value, (int, float)) and not isinstance(value, bool)                     and _CNY_FORMAT.search(ws.cell(row=r + 1, column=c + 1).number_format or ""):
+                return "CNY"
+    return "VND"
 
 
 def _grid(ws) -> list[list]:

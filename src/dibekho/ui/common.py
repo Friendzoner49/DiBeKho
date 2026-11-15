@@ -372,28 +372,46 @@ def num_item(value) -> SortItem:
     return item
 
 
-def show_money(value) -> str:
-    """An amount as the screens show it: dong, or yuan when the ₫ / ¥ switch says so (core/fx.Display)."""
-    return fx.show_money(value, i18n.language())
+def show_money(value, currency: str = "", rate=None, approx: bool = True) -> str:
+    """An amount as the screens show it: dong, or yuan when the ₫ / ¥ switch says so (core/fx.Display). An amount of
+    a note priced in yuan (currency 'CNY') shows its yuan, with 'about … dong' in brackets (core/fx.native_text)."""
+    return fx.native_text(value, currency or "", rate, i18n.language(), approx)
 
 
-def money_item(value) -> SortItem:
+def money_item(value, currency: str = "", rate=None, approx: bool = True) -> SortItem:
     """An amount (₫ or ¥ as the switch says); an unknown price shows '—' and sorts first (by its VND value)."""
-    item = SortItem(show_money(value), value)
+    key = fx.sort_value(None, value, (value or 0) * (rate or 0)) if currency == "CNY" and value is not None else value
+    item = SortItem(show_money(value, currency, rate, approx), key)
     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
     return item
+
+
+def show_both(vnd, cny, approx=None, brackets: bool = True) -> str:
+    """A sum over notes in dong and notes in yuan: the two are shown side by side, never added (core/fx.both_text)."""
+    return fx.both_text(vnd, cny, approx, i18n.language(), brackets)
+
+
+def both_item(vnd, cny, approx=None) -> SortItem:
+    item = SortItem(show_both(vnd, cny, approx), fx.sort_value(vnd, cny, approx))
+    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+    return item
+
+
+def currency_label(currency: str) -> str:
+    return "¥ CNY" if currency == "CNY" else "₫ VND"
 
 
 def money_text(m) -> str:
     """'Doanh thu 12.000.000 = tiền hàng … + phí khác …' for a stats.Money (fees unknown when products are
     filtered: fees belong to no product)."""
+    total = show_both(m.total, m.total_cny, m.approx)
     if m.fees is None:
-        text = t("stats.money_goods", goods=show_money(m.total), orders=m.orders)
+        text = t("stats.money_goods", goods=total, orders=m.orders)
     else:
-        text = t("stats.money", total=show_money(m.total), goods=show_money(m.goods), fees=show_money(m.fees),
-                 orders=m.orders)
-    if m.returned:
-        text += t("money.returned", returned=show_money(m.returned))
+        text = t("stats.money", total=total, goods=show_both(m.goods, m.goods_cny, brackets=False),
+                 fees=show_both(m.fees, m.fees_cny, brackets=False), orders=m.orders)
+    if m.returned or m.returned_cny:
+        text += t("money.returned", returned=show_both(m.returned, m.returned_cny, brackets=False))
     if m.unpriced:
         text += " · " + t("stats.unpriced", count=m.unpriced)
     return text

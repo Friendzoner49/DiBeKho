@@ -783,5 +783,13 @@
   "staff.not_for_staff": "只有店主账号可以执行此操作。",
   "cloud.sync_started": "正在后台同步。状态显示在上方的云端一栏。",
   "login.other_queue": "本机还有账号“{user}”的 {n} 项更改尚未上传到云端。\n\n要发送这些更改：退出后重新打开应用，用“{user}”登录。或者放弃这些更改（当前数据会先备份到 sao-luu 文件夹）。",
-  "login.other_queue_drop": "放弃这些更改"
+  "login.other_queue_drop": "放弃这些更改",
+  "col.currency": "币种",
+  "orders.currency_all": "全部",
+  "orders.currency_vnd": "₫ 越南盾订单 (VND)",
+  "orders.currency_cny": "¥ 人民币订单 (CNY)",
+  "doc.in_cny": "此订单以人民币（¥）计价。人民币收入单独合计，不与越南盾相加。",
+  "doc.in_cny_rate": "此订单以人民币（¥）计价。括号内为按读取单据时的汇率折算的约数：1 ¥ ≈ {rate} ₫。人民币收入单独合计，不与越南盾相加。",
+  "col.revenue_cny": "收入 (¥)",
+  "report.currency": "币种"
 }

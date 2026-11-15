@@ -783,5 +783,13 @@
   "staff.not_for_staff": "Only the owner's account can do this.",
   "cloud.sync_started": "Syncing in the background. The state shows in the Cloud line at the top.",
   "login.other_queue": "This computer still has {n} changes of the account “{user}” that are not on the Cloud.\n\nTo send them: quit, open the app again and sign in as “{user}”. Or give them up (the current data is backed up first into the sao-luu folder).",
-  "login.other_queue_drop": "Give them up"
+  "login.other_queue_drop": "Give them up",
+  "col.currency": "Currency",
+  "orders.currency_all": "All",
+  "orders.currency_vnd": "₫ Orders in dong (VND)",
+  "orders.currency_cny": "¥ Orders in yuan (CNY)",
+  "doc.in_cny": "This order is priced in yuan (¥). Yuan revenue is kept apart, never added to the dong.",
+  "doc.in_cny_rate": "This order is priced in yuan (¥). The amount in brackets is approximate, at the rate when the note was read: ¥1 ≈ {rate} ₫. Yuan revenue is kept apart, never added to the dong.",
+  "col.revenue_cny": "Revenue (¥)",
+  "report.currency": "Currency"
 }

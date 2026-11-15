@@ -75,6 +75,41 @@ function fmtMoney(n) {
   return "¥" + (Number(n) / FX.rate.vnd_per_cny).toLocaleString(numLocale(), { maximumFractionDigits: 2 });
 }
 
+/* A note priced in yuan (documents.currency = "CNY", user 15/11/2026): its amounts show as printed, in yuan, and are
+   never added to the dong. While the switch is on dong, "about ... dong" follows in brackets at the rate kept with the
+   note (today's when it has none); on yuan everything is yuan already. The same rules as core/fx.py. */
+const isCny = (d) => !!d && d.currency === "CNY";
+const fmtCny = (n) => "¥" + Number(n).toLocaleString(numLocale(), { maximumFractionDigits: 2 });
+const rateNow = () => (FX.rate ? FX.rate.vnd_per_cny : 0);
+
+/** An amount of ONE note, in the note's own currency. */
+function fmtNative(n, d, approx = true) {
+  if (n === null || n === undefined || !isCny(d)) return fmtMoney(n);
+  const rate = d.fx_rate || rateNow();
+  return fmtCny(n) + (approx && rate && !moneyInCny() ? ` (≈ ${fmtVnd(Math.round(n * rate))} ₫)` : "");
+}
+
+/** A sum over notes of both currencies: "120.000.000 ₫ + ¥4.800 (≈ 137.280.000 ₫)". */
+function fmtBoth(vnd, cny, approx, brackets = true) {
+  if (!cny) return fmtMoney(vnd);
+  if (moneyInCny()) return fmtCny((vnd || 0) / FX.rate.vnd_per_cny + cny);
+  const about = approx || cny * rateNow();
+  const tail = brackets && about ? ` (≈ ${fmtVnd(Math.round((vnd || 0) + about))} ₫)` : "";
+  return (vnd ? `${fmtVnd(vnd)} ₫ + ${fmtCny(cny)}` : fmtCny(cny)) + tail;
+}
+
+/** One number for such a sum, in dong (to sort by, and for the Tổng quan charts). */
+const moneyValue = (vnd, cny, approx) => (vnd === null || vnd === undefined) && !cny ? null : (vnd || 0) + (approx || (cny || 0) * rateNow());
+
+/** Adds a line amount of document d to {vnd, cny, approx}. */
+function addMoney(acc, d, amount) {
+  if (isCny(d)) { acc.cny = (acc.cny || 0) + amount; acc.approx = (acc.approx || 0) + amount * (d.fx_rate || 0); }
+  else acc.vnd = (acc.vnd || 0) + amount;
+  return acc;
+}
+const noMoney = () => ({ vnd: null, cny: null, approx: null });
+const currencyName = (d) => (isCny(d) ? "¥ CNY" : "₫ VND");
+
 // the cloud keeps UTC in updated_at: show the viewer's own clock, like the app
 function fmtTime(iso) {
   const d = new Date(iso);
@@ -440,7 +475,10 @@ function renderOrders() {
     kindSel.value = "delivery";
   }
   const kind = kindSel.value, f = $("orders-filter").value, withClosed = $("orders-closed").checked;
+  const cur = kind === "delivery" ? $("orders-currency").value : "";  // orders in dong / in yuan (user, 15/11/2026)
+  $("orders-currency").closest("label").hidden = kind !== "delivery";
   const items = data.documents.filter((d) => (kind === "all" || d.kind === kind) && (withClosed || d.status === "active") &&
+      (!cur || isCny(d) === (cur === "CNY")) &&
       (!f || matches(f, `${d.code} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name} ${d.note}`)))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
   buildTable("orders-table", [
@@ -450,7 +488,9 @@ function renderOrders() {
     { label: tr("col.who"), get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
     { label: tr("col.place"), get: placeOf },
     { label: tr("col.status"), get: (d) => statusName(d.status) },
-    { label: tr("col.note_total"), get: (d) => d.note_total, num: true, cls: "num", html: (d) => fmtMoney(d.note_total) },
+    { label: tr("col.note_total"), get: (d) => moneyValue(isCny(d) ? null : d.note_total, isCny(d) ? d.note_total : 0, isCny(d) ? d.note_total * (d.fx_rate || 0) : 0),
+      num: true, cls: "num", html: (d) => esc(fmtNative(d.note_total, d)) },
+    ...(kind === "delivery" ? [{ label: tr("col.currency"), get: (d) => (d.note_total === null || d.note_total === undefined ? "" : currencyName(d)) }] : []),
   ], items, { select: "one", open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : "") });
   $("orders-count").textContent = tr("orders.count", { n: items.length });
 }
@@ -465,12 +505,14 @@ function renderCustomers() {
   for (const d of data.documents) {
     if ((d.kind !== "delivery" && !isReturn(d)) || d.status !== "active" || !d.customer_id) continue;
     const sign = isReturn(d) ? -1 : 1;  // goods the customer sent back come off the revenue
-    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = (revenue[d.customer_id] || 0) + sign * l.amount;
+    for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = addMoney(revenue[d.customer_id] || noMoney(), d, sign * l.amount);
   }
+  const rev = (c) => revenue[c.id] || noMoney();
   buildTable("customers-table", [
     { label: tr("col.customer"), get: (c) => c.name }, { label: tr("col.contact"), get: (c) => c.contact },
     { label: tr("col.phone"), get: (c) => c.phone }, { label: tr("col.address"), get: (c) => c.address },
-    { label: tr("col.revenue"), get: (c) => revenue[c.id] ?? null, num: true, cls: "num", html: (c) => fmtMoney(revenue[c.id]) },
+    { label: tr("col.revenue"), get: (c) => moneyValue(rev(c).vnd, rev(c).cny, rev(c).approx), num: true, cls: "num",
+      html: (c) => esc(fmtBoth(rev(c).vnd, rev(c).cny, rev(c).approx)) },
   ], items, { open: (c) => showCustomer(c.id) });
 }
 

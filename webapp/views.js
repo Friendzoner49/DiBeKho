@@ -142,15 +142,16 @@ function orderDetailHtml(d) {
                                 [tr("detail.ref_code"), d.ref_code]] : []),
     [d.kind === "receipt" ? tr("col.into") : d.kind === "transfer" ? tr("detail.transfer") : tr("detail.taken_from"), placeOf(d)],
     [tr("col.note"), d.note],
-    ...(d.fee_amount ? [[tr("detail.fees"), fmtMoney(d.fee_amount)]] : []),
-    ...(d.note_total !== null && d.note_total !== undefined ? [[tr("detail.note_total"), fmtMoney(d.note_total)]] : []),
+    ...(d.fee_amount ? [[tr("detail.fees"), fmtNative(d.fee_amount, d, false)]] : []),
+    ...(d.note_total !== null && d.note_total !== undefined ? [[tr("detail.note_total"), fmtNative(d.note_total, d)]] : []),
+    ...(isCny(d) ? [[tr("col.currency"), d.fx_rate ? tr("detail.in_cny_rate", { rate: fmtVnd(Math.round(d.fx_rate)) }) : tr("detail.in_cny")]] : []),
     ...(d.source_file ? [[tr("detail.file"), d.source_file]] : []),
   ].filter(([, v]) => v !== "" && v !== null && v !== undefined);
   const rows = lines.map((l) => {
     const p = productById[l.product_id] || {};
     return `<tr><td>${esc(p.code || "?")}</td><td>${esc(pn(p))} ${esc(pnOther(p))}</td>` +
            `<td>${esc(p.spec || "")}</td>${perLine ? `<td>${esc(placeName(l.location_id))}</td>` : ""}<td class="num">${fmtQty(l.qty)}</td>` +
-           `<td class="num">${fmtMoney(l.unit_price)}</td><td class="num">${fmtMoney(l.amount)}</td>` +
+           `<td class="num">${esc(fmtNative(l.unit_price, d, false))}</td><td class="num">${esc(fmtNative(l.amount, d, false))}</td>` +
            `<td>${esc(l.note)}</td></tr>`;
   });
   const head = [tr("col.code"), tr("col.product"), tr("col.spec"), ...(perLine ? [tr("col.place")] : []), tr("col.qty_short"),
@@ -220,7 +221,7 @@ function showProduct(id) {
       `<td class="num strong">${fmtQty(m.balance)}</td><td>${esc(m.status && m.status !== "active" ? tr(`status.${m.status}_long`) : "")}</td></tr>`), 5);
   $("ph-top").innerHTML = top.length ? plainTable([tr("col.customer"), tr("col.total_qty"), tr("col.orders"), tr("col.last"), tr("col.revenue")],
     top.map((t) => `<tr><td>${esc(t.name)}</td><td class="num">${fmtQty(t.qty)}</td><td class="num">${t.times}</td>` +
-      `<td>${esc(t.last)}</td><td class="num">${fmtMoney(t.revenue)}</td></tr>`), 1) : `<p class="hint">${esc(tr("product.no_orders"))}</p>`;
+      `<td>${esc(t.last)}</td><td class="num">${esc(fmtBoth(t.money.vnd, t.money.cny, t.money.approx))}</td></tr>`), 1) : `<p class="hint">${esc(tr("product.no_orders"))}</p>`;
   csvButton(box, `LichSu_${p.code}.csv`, headers,
     history.map((m) => [m.occurred_on, moveName(m.kind), m.code, m.who, placeName(m.location_id), m.qty, m.balance]));
 }
@@ -232,15 +233,15 @@ function topCustomersOfProduct(productId, limit = 10) {
     if (l.product_id !== productId) continue;
     const d = docs.get(l.document_id);
     if (!d || (d.kind !== "delivery" && !isReturn(d)) || d.status !== "active" || !customerById[d.customer_id]) continue;
-    const row = per.get(d.customer_id) || { name: customerById[d.customer_id].name, qty: 0, docs: new Set(), last: "", revenue: null };
+    const row = per.get(d.customer_id) || { name: customerById[d.customer_id].name, qty: 0, docs: new Set(), last: "", money: noMoney() };
     if (isReturn(d)) {  // sent back: only the money comes off (queries.product_top_customers)
-      if (l.amount !== null && l.amount !== undefined) row.revenue = (row.revenue || 0) - l.amount;
+      if (l.amount !== null && l.amount !== undefined) addMoney(row.money, d, -l.amount);
       per.set(d.customer_id, row);
       continue;
     }
     row.qty += l.qty; row.docs.add(d.id);
     if (d.doc_date > row.last) row.last = d.doc_date;
-    if (l.amount !== null && l.amount !== undefined) row.revenue = (row.revenue || 0) + l.amount;
+    if (l.amount !== null && l.amount !== undefined) addMoney(row.money, d, l.amount);
     per.set(d.customer_id, row);
   }
   return [...per.values()].filter((r) => r.docs.size).map((r) => ({ ...r, times: r.docs.size })).sort((a, b) => b.qty - a.qty).slice(0, limit);
@@ -251,37 +252,40 @@ function topCustomersOfProduct(productId, limit = 10) {
 function customerStats(id, from, to) {
   const docs = data.documents.filter((d) => d.customer_id === id && d.kind === "delivery" && d.status === "active" &&
                                            (!from || d.doc_date >= from) && (!to || d.doc_date <= to));
-  let goods = 0, fees = 0, unpriced = 0;
+  // the notes in dong and the notes in yuan apart ({vnd, cny, approx}), like queries.customer_money
+  const goods = { vnd: 0, cny: 0, approx: 0 }, fees = { vnd: 0, cny: 0, approx: 0 }, returned = { vnd: 0, cny: 0, approx: 0 };
+  let unpriced = 0;
   const perProduct = new Map();
   for (const d of docs) {
-    fees += d.fee_amount || 0;
+    addMoney(fees, d, d.fee_amount || 0);
     const lines = linesByDoc[d.id] || [];
     if (lines.some((l) => l.amount === null || l.amount === undefined)) unpriced += 1;
     for (const l of lines) {
-      if (l.amount !== null && l.amount !== undefined) goods += l.amount;
-      const row = perProduct.get(l.product_id) || { qty: 0, docs: new Set(), last: "", revenue: null, min: null, max: null };
+      if (l.amount !== null && l.amount !== undefined) addMoney(goods, d, l.amount);
+      const row = perProduct.get(l.product_id) || { qty: 0, docs: new Set(), last: "", money: noMoney(), min: null, max: null, minCny: null, maxCny: null };
       row.qty += l.qty; row.docs.add(d.id);
       if (d.doc_date > row.last) row.last = d.doc_date;
-      if (l.amount !== null && l.amount !== undefined) row.revenue = (row.revenue || 0) + l.amount;
+      if (l.amount !== null && l.amount !== undefined) addMoney(row.money, d, l.amount);
       if (l.unit_price !== null && l.unit_price !== undefined) {
-        row.min = row.min === null ? l.unit_price : Math.min(row.min, l.unit_price);
-        row.max = row.max === null ? l.unit_price : Math.max(row.max, l.unit_price);
+        const [lo, hi] = isCny(d) ? ["minCny", "maxCny"] : ["min", "max"];  // a price in yuan is not compared with one in dong
+        row[lo] = row[lo] === null ? l.unit_price : Math.min(row[lo], l.unit_price);
+        row[hi] = row[hi] === null ? l.unit_price : Math.max(row[hi], l.unit_price);
       }
       perProduct.set(l.product_id, row);
     }
   }
   // goods this customer sent back in the period: their money comes off the revenue, per product too
-  let returned = 0;
   for (const d of data.documents) {
     if (d.customer_id !== id || !isReturn(d) || d.status !== "active" || (from && d.doc_date < from) || (to && d.doc_date > to)) continue;
     for (const l of linesByDoc[d.id] || []) {
       if (l.amount === null || l.amount === undefined) continue;
-      returned += l.amount;
+      addMoney(returned, d, l.amount);
       const row = perProduct.get(l.product_id);
-      if (row) row.revenue = (row.revenue || 0) - l.amount;
+      if (row) addMoney(row.money, d, -l.amount);
     }
   }
-  return { returned, total: goods - returned, docs: docs.sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true })),
+  const total = { vnd: goods.vnd - returned.vnd, cny: goods.cny - returned.cny, approx: goods.approx - returned.approx };
+  return { returned, total, docs: docs.sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true })),
            goods, fees, unpriced, perProduct };
 }
 
@@ -296,9 +300,9 @@ function showCustomer(id, from, to) {
     `<dt>${esc(tr("col.address"))}</dt><dd>${esc(c.address)}</dd></dl>` +
     `<div class="grid period"><label>${esc(tr("st.from"))} <input id="cd-from" type="date" value="${esc(from || "")}"></label>` +
     `<label>${esc(tr("st.to"))} <input id="cd-to" type="date" value="${esc(to || "")}"></label></div>` +
-    `<div class="cards">${stat(tr("col.orders"), s.docs.length)}${stat(tr("money.revenue"), fmtMoney(s.total))}` +
-    (s.returned ? stat(tr("money.returned"), fmtMoney(s.returned)) : "") +
-    `${stat(tr("detail.fees"), fmtMoney(s.fees))}${stat(tr("money.unpriced"), s.unpriced)}</div>` +
+    `<div class="cards">${stat(tr("col.orders"), s.docs.length)}${stat(tr("money.revenue"), esc(fmtBoth(s.total.vnd, s.total.cny, s.total.approx)))}` +
+    (s.returned.vnd || s.returned.cny ? stat(tr("money.returned"), esc(fmtBoth(s.returned.vnd, s.returned.cny, 0, false))) : "") +
+    `${stat(tr("detail.fees"), esc(fmtBoth(s.fees.vnd, s.fees.cny, 0, false)))}${stat(tr("money.unpriced"), s.unpriced)}</div>` +
     `<h3>${esc(tr("customer.products"))}</h3><div id="cd-products"></div><h3>${esc(tr("customer.orders"))}</h3><div id="cd-orders"></div>`);
   for (const input of ["cd-from", "cd-to"]) {
     $(input).addEventListener("change", () => showCustomer(id, $("cd-from").value || null, $("cd-to").value || null));
@@ -307,21 +311,24 @@ function showCustomer(id, from, to) {
     .sort((a, b) => b.qty - a.qty);
   const heads = [tr("col.code"), tr("col.product"), tr("col.total_qty"), tr("col.orders"), tr("col.last"), tr("col.revenue"),
                  tr("col.price_low"), tr("col.price_high")];
+  // a product bought in dong and in yuan shows both prices
+  const price = (vnd, cny) => [vnd === null ? "" : fmtMoney(vnd), cny === null ? "" : fmtCny(cny)].filter(Boolean).join(" · ");
   $("cd-products").innerHTML = prodRows.length ? plainTable(heads,
     prodRows.map((r) => `<tr><td>${esc(r.p.code)}</td><td>${esc(pn(r.p))} ${esc(pnOther(r.p))} ${esc(r.p.spec)}</td>` +
       `<td class="num">${fmtQty(r.qty)}</td><td class="num">${r.times}</td><td>${esc(r.last)}</td>` +
-      `<td class="num">${fmtMoney(r.revenue)}</td><td class="num">${fmtMoney(r.min)}</td><td class="num">${fmtMoney(r.max)}</td></tr>`), 2)
+      `<td class="num">${esc(fmtBoth(r.money.vnd, r.money.cny, r.money.approx))}</td><td class="num">${esc(price(r.min, r.minCny))}</td>` +
+      `<td class="num">${esc(price(r.max, r.maxCny))}</td></tr>`), 2)
     : `<p class="hint">${esc(tr("customer.none"))}</p>`;
   $("cd-orders").innerHTML = plainTable([tr("col.date"), tr("col.code"), tr("col.goods"), tr("col.fees"), ""],
     s.docs.map((d) => {
       const goods = (linesByDoc[d.id] || []).reduce((a, l) => a + (l.amount || 0), 0);
       return `<tr class="click" data-doc="${esc(d.id)}"><td>${esc(d.doc_date)}</td><td>${esc(d.code)}</td>` +
-             `<td class="num">${fmtMoney(goods)}</td><td class="num">${fmtMoney(d.fee_amount)}</td><td class="hint">${esc(tr("customer.open"))}</td></tr>`;
+             `<td class="num">${esc(fmtNative(goods, d))}</td><td class="num">${esc(fmtNative(d.fee_amount, d, false))}</td><td class="hint">${esc(tr("customer.open"))}</td></tr>`;
     }), 2);
   for (const tr_ of $("cd-orders").querySelectorAll("tr[data-doc]")) tr_.addEventListener("dblclick", () => showOrder(tr_.dataset.doc));
   csvButton(box, `KhachHang_${c.name.replace(/[^\p{L}\p{N}]+/gu, "_")}.csv`,
-    [tr("col.code"), tr("col.product"), tr("col.spec"), ...heads.slice(2)],
-    prodRows.map((r) => [r.p.code, pn(r.p), r.p.spec, r.qty, r.times, r.last, r.revenue, r.min, r.max]));
+    [tr("col.code"), tr("col.product"), tr("col.spec"), ...heads.slice(2), tr("col.revenue_cny"), `${tr("col.price_low")} (¥)`, `${tr("col.price_high")} (¥)`],
+    prodRows.map((r) => [r.p.code, pn(r.p), r.p.spec, r.qty, r.times, r.last, r.money.vnd, r.min, r.max, r.money.cny, r.minCny, r.maxCny]));
 }
 
 /* ---------------------------------------------------------------- statistics */
@@ -415,10 +422,10 @@ function drawStats() {
   const money = S.money(model, start, end, f);
   const stat = (label, value) => `<div class="stat"><span>${esc(label)}</span><b>${value}</b></div>`;
   $("st-summary").innerHTML =
-    `<div class="cards">${stat(tr("money.revenue"), fmtMoney(money.total))}` +
-    (money.returned ? stat(tr("money.returned"), fmtMoney(money.returned)) : "") +
+    `<div class="cards">${stat(tr("money.revenue"), esc(fmtBoth(money.total, money.total_cny, money.approx)))}` +
+    (money.returned || money.returned_cny ? stat(tr("money.returned"), esc(fmtBoth(money.returned, money.returned_cny, 0, false))) : "") +
     stat(tr("col.orders"), money.orders) +
-    (money.fees === null ? "" : stat(tr("detail.fees"), fmtMoney(money.fees))) +
+    (money.fees === null ? "" : stat(tr("detail.fees"), esc(fmtBoth(money.fees, money.fees_cny, 0, false)))) +
     `${stat(tr("money.unpriced"), money.unpriced)}</div>` +
     `<p class="hint">${esc(tr("st.range_note", { start, end }))}` +
     `${$("st-scope").value === "customer" ? " " + esc(tr("st.customer_note")) : ""}</p>`;
@@ -432,7 +439,8 @@ function drawStats() {
     { label: tr("col.out"), get: (r) => r.qty_out, num: true, cls: "num", html: (r) => fmtQty(r.qty_out) },
     { label: tr("col.adjust"), get: (r) => r.adjust, num: true, cls: "num", html: (r) => fmtQty(r.adjust) },
     { label: tr("col.closing"), get: (r) => r.closing, num: true, cls: "num strong", html: (r) => (r.closing === null ? "—" : fmtQty(r.closing)) },
-    { label: tr("col.revenue"), get: (r) => r.revenue, num: true, cls: "num", html: (r) => fmtMoney(r.revenue) },
+    { label: tr("col.revenue"), get: (r) => r.revenue, num: true, cls: "num", html: (r) => esc(fmtBoth(r.revenue, r.revenue_cny, r.revenue_approx)) },
+    ...(rows.some((r) => r.revenue_cny) ? [{ label: tr("col.revenue_cny"), get: (r) => r.revenue_cny, num: true, cls: "num", html: (r) => (r.revenue_cny ? esc(fmtCny(r.revenue_cny)) : "") }] : []),
     { label: tr("col.stock_note"), get: (r) => r.stock_note },
     ...bucketLabels.flatMap((b) => [
       { label: tr("st.bucket_in", { b }), get: (r) => r.per_bucket[b][0], num: true, cls: "num qty", html: (r) => fmtQty(r.per_bucket[b][0]) },
@@ -447,7 +455,7 @@ function drawStats() {
   const top = S.topOut(model, start, end, f, 10);
   $("st-top").innerHTML = `<h3>${esc(tr("st.top"))}</h3>` + (top.length ? plainTable([tr("col.code"), tr("col.product"), tr("col.out"), tr("col.revenue")],
     top.map((r) => `<tr><td>${esc(r.code)}</td><td>${esc(productName(r))}</td><td class="num strong">${fmtQty(r.qty_out)}</td>` +
-      `<td class="num">${fmtMoney(r.revenue)}</td></tr>`), 2) : `<p class="hint">${esc(tr("st.top_none"))}</p>`);
+      `<td class="num">${esc(fmtBoth(r.revenue, r.revenue_cny, r.revenue_approx))}</td></tr>`), 2) : `<p class="hint">${esc(tr("st.top_none"))}</p>`);
 }
 
 /** Outgoing quantity per day as SVG bars (classes are styled in style.css: the page's CSP forbids inline styles). */

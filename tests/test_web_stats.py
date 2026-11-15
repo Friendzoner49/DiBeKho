@@ -74,6 +74,18 @@ def _build(conn):
                                      [stock.Line(a, 2, unit_price=100.0, amount=200.0), stock.Line(c, 1)],
                                      code="HV003", code_norm="HV003", customer_id=c1)
         conn.execute("UPDATE documents SET receipt_source = 'return', prices_read = 1 WHERE id = ?", (back,))
+        # an order priced in yuan (currency CNY, read at 3,600 dong a yuan) with a fee, and goods sent back from it:
+        # its money is never added to the dong (revenue_cny / *_cny), only shown as "about" (approx)
+        yuan = stock.insert_document(conn, "delivery", date(2026, 10, 22),
+                                     [stock.Line(b, 3, unit_price=20.0, amount=60.0),
+                                      stock.Line(c, 1, unit_price=45.0, amount=45.0)],
+                                     code="7", code_norm="7", customer_id=c2)
+        conn.execute("UPDATE documents SET currency = 'CNY', fx_rate = 3600, fee_amount = 5 WHERE id = ?", (yuan,))
+        yuan_back = stock.insert_document(conn, "receipt", date(2026, 10, 27),
+                                          [stock.Line(b, 1, unit_price=20.0, amount=20.0)],
+                                          code="HV004", code_norm="HV004", customer_id=c2)
+        conn.execute("UPDATE documents SET receipt_source = 'return', prices_read = 1, currency = 'CNY', fx_rate = 3600 "
+                     "WHERE id = ?", (yuan_back,))
         # November
         stock.stock_count(conn, date(2026, 11, 2), {(b, stock.MAIN): 70, (c, stock.OFFICE): 1})
         stock.insert_document(conn, "delivery", date(2026, 11, 5), [stock.Line(c, 8, unit_price=210.0, amount=1680.0)],
@@ -139,7 +151,8 @@ def test_web_statistics_match_the_app(conn, tmp_path):
         for pid, py in py_rows.items():
             row = js_rows[pid]
             for field, js_field in (("opening", "opening"), ("qty_in", "qty_in"), ("qty_out", "qty_out"),
-                                    ("adjust", "adjust"), ("closing", "closing"), ("revenue", "revenue")):
+                                    ("adjust", "adjust"), ("closing", "closing"), ("revenue", "revenue"),
+                                    ("revenue_cny", "revenue_cny"), ("revenue_approx", "revenue_approx")):
                 _close(row[js_field], getattr(py, field), f"{label}: product {pid} {field}")
             assert set(row["per_bucket"]) == set(py.per_bucket), f"{label}: buckets of product {pid}"
             for bucket, (qin, qout) in py.per_bucket.items():
@@ -147,7 +160,8 @@ def test_web_statistics_match_the_app(conn, tmp_path):
                 _close(row["per_bucket"][bucket][1], qout, f"{label}: {pid} {bucket} out")
 
         money = stats.money(conn, start, end, filters)
-        for field in ("orders", "goods", "fees", "unpriced", "returned", "total"):
+        for field in ("orders", "goods", "fees", "unpriced", "returned", "total", "goods_cny", "fees_cny",
+                      "returned_cny", "total_cny", "approx"):
             _close(js["money"][field], getattr(money, field), f"{label}: money {field}")
 
         py_top = [(r.product_id, r.qty_out) for r in stats.top_out(conn, start, end, filters)]
@@ -168,5 +182,8 @@ def test_the_fixture_really_exercises_the_tricky_parts(conn):
     assert october[ids["a"]].qty_out == 18 and october[ids["a"]].revenue == 1460  # the cancelled one cancels out; 200 came back
     assert october[ids["c"]].adjust == -2  # trial use is an adjustment, not an out
     assert stats.money(conn, date(2026, 10, 1), date(2026, 10, 31)).fees == 30
+    money = stats.money(conn, date(2026, 10, 1), date(2026, 10, 31))
+    assert (money.goods_cny, money.fees_cny, money.returned_cny, money.total_cny) == (105, 5, 20, 85)  # the order in yuan
+    assert money.approx == 85 * 3600 and october[ids["b"]].revenue == 200 and october[ids["b"]].revenue_cny == 40
     assert stats.money(conn, date(2026, 10, 1), date(2026, 10, 31)).unpriced == 1  # the line without a price
     assert ids["old"] in {r.product_id for r in stats.summary(conn, date(2026, 12, 1), date(2026, 12, 31))}

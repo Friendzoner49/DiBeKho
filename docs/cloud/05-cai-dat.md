@@ -27,6 +27,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 14. `cloud/supabase/015_web_issue.sql` — **Phiếu xuất kho** lưu trên web bằng tài khoản chủ (`desktop`) trừ tồn ngay: hàm `web_issue` ghi phiếu `delivery` mã **W** + số đơn lớn nhất + 1, khách (tìm theo SĐT rồi tên), dòng có giá, biến động từng nơi; app đọc file `PhieuXuat_W….xlsx` của phiếu đó thì chỉ nối vào phiếu đã có, không trừ lần hai. Chạy sau 009, chạy lại được.
 15. `cloud/supabase/016_staff_push.sql` — **tài khoản nhân viên dùng app** (15/11/2026): máy đăng nhập vai trò `editor` không ghi thẳng; gửi cả hàng đợi vào bảng `push_requests` (`push_request_send`, một yêu cầu mỗi tài khoản + máy), chủ xem `push_requests_pending` và `push_request_decide` (duyệt = ghi đúng lô đó qua `sync_push` dưới tên máy nhân viên; dòng nào trên Cloud đã đổi sau `base_rev` hoặc trùng mã → `stale`, đóng với lý do `__stale__`, máy nhân viên tự gộp rồi gửi lại). `web_issue` cho một mặt hàng ở nhiều dòng. Chạy sau 015 (chạy lại 009/015 thì chạy lại 016).
 16. `cloud/supabase/017_app_logs.sql` — **nhật ký sử dụng** (15/11/2026): mọi tài khoản gửi nhật ký đã che tên, chỉ `maychinh` đọc (Cài đặt → Nhật ký trên web). Chạy sau 011 và 016.
+17. `cloud/supabase/018_currency.sql` — **loại tiền của phiếu** (15/11/2026, app 0.5.5 / schema 11): thêm cột `documents.currency` (`VND` | `CNY` | rỗng = chưa xem, tính là ₫) và `documents.fx_rate` (tỷ giá lúc đọc phiếu, chỉ để hiện số xấp xỉ). **Chạy trước khi dùng app 0.5.5**: app gửi hai cột này khi đồng bộ.
 
 ## 3. Tạo tài khoản
 

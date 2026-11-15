@@ -91,11 +91,14 @@
         unit: p.unit, category: p.category, stock_note: p.stock_note,
         opening: customerFiltered ? null : opening, qty_in: qtyIn, qty_out: qtyOut, adjust,
         closing: customerFiltered ? null : opening + qtyIn - qtyOut + adjust,
-        per_bucket: {}, revenue: null,
+        per_bucket: {}, revenue: null, revenue_cny: null, revenue_approx: null,
       });
     }
     const revenue = revenueByProduct(data, start, end, f);
-    for (const r of rows) r.revenue = revenue.has(r.product_id) ? revenue.get(r.product_id) : null;
+    for (const r of rows) {
+      const m = revenue.get(r.product_id);
+      if (m) { r.revenue = m.vnd; r.revenue_cny = m.cny; r.revenue_approx = m.approx; }
+    }
     let result = customerFiltered ? rows.filter((r) => r.qty_out) : rows;
     if (by && by !== "none" && result.length) fillBuckets(data, result, buckets(start, end, by), f, docById);
     return result;
@@ -103,6 +106,19 @@
 
   /** A receipt of goods a customer sent back: its lines carry the money given back (stats.py, queries.RETURNED). */
   function isReturn(d) { return d.kind === "receipt" && d.receipt_source === "return"; }
+
+  /** A note priced in yuan (documents.currency, app migration 011): its money is never added to the dong. Every sum
+      is kept three ways, like core/queries.py: vnd (notes in dong), cny (notes in yuan) and approx (the yuan as dong
+      at the rate kept with each note, for "about ..."); null = no priced line of that currency. */
+  function isCny(d) { return !!d && d.currency === "CNY"; }
+  function addMoney(acc, d, amount) {
+    if (isCny(d)) {
+      acc.cny = (acc.cny || 0) + amount;
+      acc.approx = (acc.approx || 0) + amount * (d.fx_rate || 0);
+    } else acc.vnd = (acc.vnd || 0) + amount;
+    return acc;
+  }
+  const noMoney = () => ({ vnd: null, cny: null, approx: null });
 
   function revenueByProduct(data, start, end, f) {
     const docById = new Map(data.documents.map((d) => [d.id, d]));
@@ -113,7 +129,7 @@
       if (!d || !p || (d.kind !== "delivery" && !isReturn(d)) || d.status !== "active") continue;
       if (d.doc_date < start || d.doc_date > end || l.amount === null || l.amount === undefined) continue;
       if (!productMatches(p, f) || !customerMatches(d, f)) continue;
-      out.set(l.product_id, (out.get(l.product_id) || 0) + (isReturn(d) ? -l.amount : l.amount));  // goods sent back come off
+      out.set(l.product_id, addMoney(out.get(l.product_id) || noMoney(), d, isReturn(d) ? -l.amount : l.amount));  // goods sent back come off
     }
     return out;
   }
@@ -136,31 +152,34 @@
   // ---- money ---------------------------------------------------------------------------------------------------
 
   /** Revenue of the period = goods less what customers sent back (total); fees apart (null when products or groups
-      are filtered). goods = sold, returned = sent back. */
+      are filtered). goods = sold, returned = sent back. These are the notes in dong; goods_cny, fees_cny,
+      returned_cny and total_cny are the same of the notes in yuan, approx = total_cny as dong at the notes' rates. */
   function money(data, start, end, filters) {
     const f = filters || {};
     const docById = new Map(data.documents.map((d) => [d.id, d]));
     const productById = new Map(data.products.map((p) => [p.id, p]));
     const orders = new Set(), unpriced = new Set();
-    let goods = 0, returned = 0;
+    const sold = { vnd: 0, cny: 0, approx: 0 }, back = { vnd: 0, cny: 0, approx: 0 };
     for (const l of data.lines) {
       const d = docById.get(l.document_id), p = productById.get(l.product_id);
       if (!d || !p || d.status !== "active") continue;
       if (d.doc_date < start || d.doc_date > end || !productMatches(p, f) || !customerMatches(d, f)) continue;
-      if (isReturn(d)) { returned += l.amount || 0; continue; }
+      if (isReturn(d)) { addMoney(back, d, l.amount || 0); continue; }
       if (d.kind !== "delivery") continue;
       orders.add(d.id);
-      if (l.amount === null || l.amount === undefined) unpriced.add(d.id); else goods += l.amount;
+      if (l.amount === null || l.amount === undefined) unpriced.add(d.id); else addMoney(sold, d, l.amount);
     }
-    let fees = null;
+    let fees = null, feesCny = null;
     if (!has(f.productIds) && !has(f.categories)) {
-      fees = 0;
+      fees = 0; feesCny = 0;
       for (const d of data.documents) {
         if (d.kind === "delivery" && d.status === "active" && d.doc_date >= start && d.doc_date <= end &&
-            customerMatches(d, f)) fees += d.fee_amount || 0;
+            customerMatches(d, f)) { if (isCny(d)) feesCny += d.fee_amount || 0; else fees += d.fee_amount || 0; }
       }
     }
-    return { orders: orders.size, goods, fees, unpriced: unpriced.size, returned, total: goods - returned };
+    return { orders: orders.size, goods: sold.vnd, fees, unpriced: unpriced.size, returned: back.vnd, total: sold.vnd - back.vnd,
+             goods_cny: sold.cny, fees_cny: feesCny, returned_cny: back.cny, total_cny: sold.cny - back.cny,
+             approx: sold.approx - back.approx };
   }
 
   function topOut(data, start, end, filters, limit) {

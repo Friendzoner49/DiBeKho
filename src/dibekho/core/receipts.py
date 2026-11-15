@@ -178,6 +178,28 @@ def return_price(conn, customer_id: int | None, product_id: int | None, ref_code
     return row[0] if row else None
 
 
+def return_currency(conn, customer_id: int | None, ref_code: str = "", on: date | None = None) -> tuple[str, float | None]:
+    """(currency, rate) of the money a customer gets back: those of the order the goods came back from (ref_code),
+    else of their latest priced order up to the day of the return (where return_price looks). ('', None) when that
+    order's currency is not known yet; ('VND', None) when there is no such order."""
+    if not customer_id:
+        return "VND", None
+    base = ("SELECT d.currency, d.fx_rate FROM documents d WHERE d.kind = 'delivery' AND d.status = 'active' "
+            "AND d.customer_id = ?")
+    order = " ORDER BY d.doc_date DESC, d.id DESC LIMIT 1"
+    row = None
+    if clean(ref_code):
+        row = conn.execute(base + " AND d.code = ?" + order, (customer_id, clean(ref_code))).fetchone()
+    if row is None:
+        base += " AND EXISTS (SELECT 1 FROM document_lines l WHERE l.document_id = d.id AND l.unit_price IS NOT NULL)"
+        args: list = [customer_id]
+        if on:
+            base += " AND d.doc_date <= ?"
+            args.append(on.isoformat())
+        row = conn.execute(base + order, args).fetchone()
+    return (row[0], row[1]) if row else ("VND", None)
+
+
 def line_amount(qty: float, unit_price: float | None) -> float | None:
     return None if unit_price is None else round(qty * unit_price, 2)
 
@@ -323,6 +345,9 @@ def save(conn, data: ReceiptInput, replaces: int | None = None, ws: Workspace | 
                      "WHERE id = ?", (data.source, supplier_id,
                                       clean(data.ref_code) if data.source == RETURN else "",
                                       1 if data.source == RETURN else 0, doc_id))
+        if data.source == RETURN:
+            currency, rate = return_currency(conn, customer_id, data.ref_code, data.doc_date)
+            conn.execute("UPDATE documents SET currency = ?, fx_rate = ? WHERE id = ?", (currency, rate, doc_id))
         db.log(conn, "receipt_edited" if replaces else "receipt_entered", f"{code} #{doc_id}")
     return doc_id
 

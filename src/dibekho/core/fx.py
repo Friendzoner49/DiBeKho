@@ -81,6 +81,18 @@ def fetch(timeout: float = TIMEOUT, get=_get) -> Rate:
     return rate
 
 
+def current(timeout: float = 4) -> Rate | None:
+    """The rate to keep with a note priced in yuan when it is read (documents.fx_rate): the one on screen or cached when
+    fresh, else asked now; when the network does not answer, the last one known (None: never had one)."""
+    rate = Display.rate or cached()
+    if is_fresh(rate):
+        return rate
+    try:
+        return fetch(timeout, get=lambda url, t: _get(url, t))  # through the module: tests switch the network off
+    except (OSError, ValueError):
+        return rate
+
+
 def save(rate: Rate) -> None:
     try:
         path = _path()
@@ -120,6 +132,51 @@ def show_money(value, lang: str = "vi") -> str:
     if not Display.in_cny():
         return f"{round(float(value)):,}".replace(",", ".")
     return cny_text(float(value) / Display.rate.vnd_per_cny, lang)
+
+
+def _dong(value: float) -> str:
+    return f"{round(float(value)):,}".replace(",", ".")
+
+
+def _rate_now() -> float | None:
+    return Display.rate.vnd_per_cny if Display.rate is not None else None
+
+
+def native_text(value, currency: str = "", rate: float | None = None, lang: str = "vi", approx: bool = True) -> str:
+    """An amount of ONE note, in the note's own currency (documents.currency). A note in dong shows as show_money
+    does. A note in yuan always shows its yuan as printed ('¥4.800'); while the switch is on dong, 'about … dong'
+    follows in brackets, at the rate kept with the note (rate; today's when it has none)."""
+    if value is None or currency != "CNY":
+        return show_money(value, lang)
+    text = cny_text(float(value), lang)
+    rate = rate or _rate_now()
+    if Display.in_cny() or not approx or not rate:
+        return text
+    return f"{text} (≈ {_dong(float(value) * rate)} ₫)"
+
+
+def both_text(vnd, cny, approx=None, lang: str = "vi", brackets: bool = True) -> str:
+    """A sum over notes of both currencies (user, 15/11/2026: never one number): '120.000.000 ₫ + ¥4.800
+    (≈ 137.280.000 ₫)'. vnd = the notes in dong, cny = the notes in yuan, approx = cny as dong at the notes' rates
+    (today's rate when unknown). While the switch is on yuan everything shows as one yuan amount, as the rest of the
+    screen does. No yuan at all -> exactly show_money(vnd)."""
+    if not cny:
+        return show_money(vnd, lang)
+    if Display.in_cny():
+        return cny_text((vnd or 0) / Display.rate.vnd_per_cny + cny, lang)
+    if not approx and _rate_now():
+        approx = cny * _rate_now()
+    yuan = cny_text(float(cny), lang)
+    if not vnd:
+        return yuan + (f" (≈ {_dong(approx)} ₫)" if approx and brackets else "")
+    return f"{_dong(vnd)} ₫ + {yuan}" + (f" (≈ {_dong(vnd + approx)} ₫)" if approx and brackets else "")
+
+
+def sort_value(vnd, cny=None, approx=None):
+    """One number to sort such sums by (dong; the yuan at the notes' rates, else today's)."""
+    if vnd is None and not cny:
+        return None
+    return (vnd or 0) + (approx or (cny or 0) * (_rate_now() or 0))
 
 
 def cny_text(cny: float, lang: str = "vi") -> str:
