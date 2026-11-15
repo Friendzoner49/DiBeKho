@@ -120,3 +120,27 @@ def test_the_cloud_refuses_two_live_documents_with_one_code(conn):
     with pytest.raises(AssertionError, match="documents_code_unique"):
         run(_load_steps(conn, snap) + [{"sql": replica.cloud_insert_sql(conn, SYNCED[5]),
                                         "params": [json.dumps([twin]), "dev-b"]}])
+
+
+def test_an_older_app_pushing_an_order_keeps_its_currency_on_the_cloud(conn):
+    """0.5.3/0.5.4 (a Mac, a staff machine) push documents without currency/fx_rate (cloud 018): the cloud keeps the
+    yuan of an order it has, a new row gets '' (counted as dong), and the push is not refused."""
+    from tests.pgdb import ALL_FILES
+
+    _shop(conn)
+    snap = replica.snapshot(conn)
+    order = next(r for r in snap["documents"] if r["code"] == "7")
+    old = {k: v for k, v in order.items() if k not in ("currency", "fx_rate")}
+    new = {**old, "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd", "code": "9", "code_norm": "9"}
+    out = run(_load_steps(conn, snap) + [
+        {"sql": "insert into auth.users(id) values ($1)", "params": [OWNER]},
+        {"sql": "insert into public.profiles(user_id, role) values ($1, 'desktop')", "params": [OWNER]},
+        {"sql": "update public.documents set currency = 'CNY', fx_rate = 3600 where code = '7'"},
+        {"sql": "select public.sync_push('old-mac', public.core_max_rev(), $1::jsonb) r",
+         "params": [json.dumps({"documents": [{**old, "note": "pushed by 0.5.4"}, new]})], "sub": OWNER},
+        {"sql": "select code, note, currency, fx_rate from public.documents where code in ('7', '9') order by code"},
+    ], files=ALL_FILES)
+    assert out[-2][0]["r"]["ok"] is True
+    seven, nine = out[-1]
+    assert (seven["note"], seven["currency"], seven["fx_rate"]) == ("pushed by 0.5.4", "CNY", 3600)
+    assert (nine["currency"], nine["fx_rate"]) == ("", None)

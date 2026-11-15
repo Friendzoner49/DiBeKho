@@ -81,16 +81,11 @@ def fetch(timeout: float = TIMEOUT, get=_get) -> Rate:
     return rate
 
 
-def current(timeout: float = 4) -> Rate | None:
-    """The rate to keep with a note priced in yuan when it is read (documents.fx_rate): the one on screen or cached when
-    fresh, else asked now; when the network does not answer, the last one known (None: never had one)."""
-    rate = Display.rate or cached()
-    if is_fresh(rate):
-        return rate
-    try:
-        return fetch(timeout, get=lambda url, t: _get(url, t))  # through the module: tests switch the network off
-    except (OSError, ValueError):
-        return rate
+def known() -> Rate | None:
+    """The rate to keep with a note priced in yuan when it is read (documents.fx_rate): the one the ₫ | ¥ switch got,
+    else the last one kept on this computer. Never the network: notes are read inside a transaction on the screen's
+    thread (the switch asks for a new rate in the background; deliveries.fill_rates gives it to the notes after)."""
+    return Display.rate or cached()
 
 
 def save(rate: Rate) -> None:

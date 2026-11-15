@@ -632,6 +632,7 @@ $("search-input").addEventListener("input", renderSearch);
 $("orders-kind").addEventListener("change", renderOrders);
 $("orders-filter").addEventListener("input", renderOrders);
 $("orders-closed").addEventListener("change", renderOrders);
+$("orders-currency").addEventListener("change", renderOrders);
 $("customers-filter").addEventListener("input", renderCustomers);
 $("catalog-filter").addEventListener("input", renderCatalog);
 $("login-btn").addEventListener("click", signIn);

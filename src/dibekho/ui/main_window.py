@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import APP_NAME, __version__
-from dibekho.core import activity, deliveries, inbox
+from dibekho.core import activity, deliveries, fx, inbox
 from dibekho.core.cloud import approval
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import sync as cloud_sync
@@ -126,6 +126,7 @@ class MainWindow(QMainWindow):
         from dibekho.ui.currency_switch import CurrencySwitch
 
         self.currency = CurrencySwitch(ctx, left)
+        self.currency._got.connect(self._rate_arrived)  # after the switch keeps it
         self.currency.changed.connect(ctx.notify)
         left_lay.addWidget(self.currency)
         body = QWidget()
@@ -161,6 +162,27 @@ class MainWindow(QMainWindow):
         self._update_sync()
         QTimer.singleShot(2500, self.sync.start)
 
+    def _currencies(self):
+        """Notes recorded before 0.5.5 get their currency (deliveries.backfill_currency): an owner's machine only. A note
+        in yuan read while no rate was known asks the ₫ | ¥ switch for one (in the background); it is given to the
+        notes when it arrives."""
+        if approval.is_staff(self.ctx.cfg):
+            return
+        try:
+            deliveries.backfill_currency(self.ctx.conn, self.ctx.ws)
+            if deliveries.needs_rate(self.ctx.conn) and fx.Display.rate is None:
+                self.currency.refresh()
+        except Exception as exc:  # never in the way of the scan
+            activity.log("error", f"currency: {type(exc).__name__}: {exc}")
+
+    def _rate_arrived(self, *args):
+        if not approval.is_staff(self.ctx.cfg) and fx.Display.rate is not None:
+            try:
+                if deliveries.fill_rates(self.ctx.conn):
+                    self.ctx.changed.emit()
+            except Exception as exc:
+                activity.log("error", f"currency: {type(exc).__name__}: {exc}")
+
     def rescan(self, quiet: bool = False, allow_partial: bool = False):
         """Scan phieu-giao-hang/ and refresh everything. quiet=True: only notify if something changed.
         allow_partial=True after 'Apply': waiting notes are imported with their approved lines."""
@@ -171,6 +193,7 @@ class MainWindow(QMainWindow):
             error(self, t("main.scan_failed", error=str(exc)))
             return None
         self._last = result
+        self._currencies()
         if result.imported or result.pending:
             activity.log("scan", f"read {len(result.imported)}: {', '.join(result.imported)} · waiting {result.pending}"
                          if result.imported else f"waiting {result.pending}")

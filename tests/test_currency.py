@@ -75,6 +75,7 @@ def test_the_document_keeps_its_currency_and_the_rate_of_the_moment(conn, ws, mo
     assert head["goods_amount"] == 4800 and [ln["amount"] for ln in lines] == [4500, 300]
     monkeypatch.setattr(fx.Display, "rate", rate(9999))
     deliveries.scan(conn, ws)
+    deliveries.backfill_currency(conn, ws)
     assert doc(conn, "155")["fx_rate"] == 3600  # kept: the bracket does not move with today's rate
 
 
@@ -141,20 +142,22 @@ def test_a_note_whose_copy_is_elsewhere_waits_and_a_late_rate_is_filled(conn, ws
     deliveries.original_copy(ws, dong["source_hash"]).unlink()  # this computer does not have the file
     monkeypatch.setattr(fx.Display, "rate", None)
     deliveries.backfill_currency(conn, ws)
-    assert doc(conn, "156")["currency"] == "" and doc(conn, "155")["fx_rate"] is None  # offline, never had a rate
+    assert doc(conn, "156")["currency"] == "" and doc(conn, "155")["fx_rate"] is None  # no rate on this computer
+    assert deliveries.needs_rate(conn)
     assert queries.customer_money(conn, dong["customer_id"])["goods"] == 2100000  # undecided counts as dong
-    monkeypatch.setattr(fx.Display, "rate", rate(3555))
-    deliveries.backfill_currency(conn, ws)
-    assert doc(conn, "155")["fx_rate"] == 3555
+    monkeypatch.setattr(fx.Display, "rate", rate(3555))  # the switch got one
+    assert deliveries.fill_rates(conn) == 1 and doc(conn, "155")["fx_rate"] == 3555
+    assert not deliveries.needs_rate(conn) and deliveries.fill_rates(conn) == 0
 
 
-def test_the_rate_is_asked_when_none_is_fresh(monkeypatch):
-    answer = {"success": True, "base": "CNY", "timestamp": 1794700000, "rates": {"VND": 3611.5}}
-    monkeypatch.setattr(fx, "_get", lambda url, timeout: answer)
-    assert fx.current().vnd_per_cny == 3611.5
-    monkeypatch.setattr(fx, "_get", lambda url, timeout: (_ for _ in ()).throw(OSError("down")))
-    monkeypatch.setattr(fx.Display, "rate", fx.Rate(3500, datetime(2026, 1, 1), datetime(2026, 1, 1)))
-    assert fx.current().vnd_per_cny == 3500  # the network is down: the last one known
+def test_reading_notes_never_asks_the_network(conn, ws, monkeypatch):
+    """The rate kept with a yuan note is the switch's or the one cached on this computer: no request while scanning."""
+    asked = []
+    monkeypatch.setattr(fx, "_get", lambda url, timeout: asked.append(url))
+    fx.save(fx.Rate(3520, datetime(2026, 11, 1), datetime(2026, 11, 1)))
+    yuan_note(ws.deliveries / "a.xlsx", code="155", lines=[MEMBRANE])
+    known(conn, ws)
+    assert doc(conn, "155")["fx_rate"] == 3520 and asked == []
 
 
 def test_goods_sent_back_from_an_order_in_yuan_come_off_the_yuan(conn, ws, monkeypatch):
@@ -268,4 +271,21 @@ def test_the_orders_list_tells_yuan_orders_from_dong_orders(app, ws, monkeypatch
     cust = CustomerDialog(ctx, yuan["customer_id"], win)
     assert "2.100.000 ₫ + ¥4.800 (≈ 19.380.000 ₫)" in cust.money.text()
     cust.deleteLater()
+    win.deleteLater()
+
+
+def test_a_staff_machine_leaves_old_notes_alone(app, ws, monkeypatch):
+    """backfill_currency would rewrite documents nobody touched: on a staff login they would all go for approval."""
+    from tests.test_locations import window
+
+    ctx, win = window(ws)
+    shop(ctx.conn, ws, monkeypatch)
+    with db.transaction(ctx.conn):
+        ctx.conn.execute("UPDATE documents SET currency = ''")
+    ctx.cfg.cloud_role = "editor"
+    win.rescan(quiet=True)
+    assert {r[0] for r in ctx.conn.execute("SELECT currency FROM documents")} == {""}
+    ctx.cfg.cloud_role = "desktop"
+    win.rescan(quiet=True)
+    assert doc(ctx.conn, "155")["currency"] == "CNY"
     win.deleteLater()
