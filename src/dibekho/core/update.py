@@ -101,7 +101,7 @@ def pick(release_json: dict, platform: str = sys.platform, local: str = __versio
 def latest(timeout: float = 8.0, platform: str = sys.platform) -> Release | None:
     """The newer release for this computer, or None. Raises OSError/ValueError when GitHub cannot be read."""
     with _open(releases_url(), timeout, {"Accept": "application/vnd.github+json"}) as resp:
-        return pick(json.loads(resp.read().decode("utf-8")), platform)
+        return pick(json.loads(resp.read().decode("utf-8-sig")), platform)  # -sig: a byte-order mark is ignored
 
 
 def download_dir() -> Path:

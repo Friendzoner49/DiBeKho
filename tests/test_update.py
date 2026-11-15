@@ -111,3 +111,14 @@ def test_the_installer_starts_without_the_packed_apps_loader_variables(monkeypat
 
 def test_running_from_source_never_installs():
     assert not update.can_install()  # pytest runs from the source code
+
+
+def test_latest_reads_the_answer_even_with_a_byte_order_mark(served, monkeypatch):
+    import json
+
+    base, site = served
+    body = json.dumps(_release(tag="v9.9.9")).encode("utf-8")
+    (site / "release.json").write_bytes(b"\xef\xbb\xbf" + body)  # a trial file written by PowerShell had one
+    monkeypatch.setenv("DIBEKHO_UPDATE_URL", f"{base}/release.json")
+    rel = update.latest(platform="win32")
+    assert rel is not None and rel.version == "9.9.9"
