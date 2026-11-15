@@ -495,10 +495,12 @@ Dữ liệu trên Cloud (giống trang web) là **bản chuẩn**. App là nơi 
 
 **Trang web:** mở địa chỉ chủ gửi, đăng nhập bằng tên và mật khẩu của bạn. Chọn **Tiếng Việt** hoặc **中文** ngay ở trang đăng nhập (đổi lại ở góc phải trên hoặc **Cài đặt → Chung**). Màn hình xếp **giống app** (cùng tên nút, cùng chỗ). Trang web **chỉ để xem**: mọi việc ghi dữ liệu (hàng về, kiểm kê, sửa mặt hàng…) làm trên app. Trên web còn có:
 - **Tổng quan** (chỉ tài khoản vai trò máy chính, mở ra là thấy trang này): doanh thu và số đơn của kỳ so với cùng kỳ trước, hàng sắp hết, tồn âm, doanh thu 12 tháng, mặt hàng bán chạy, khách mua nhiều, đơn gần nhất. Bấm một dòng để xem chi tiết.
-- **📤 Phiếu xuất kho…** (vai trò máy chính và nhân viên): giống trên app. Tài khoản chủ bấm lưu là **trừ tồn ngay** (mã W…, trang tự tải lại) và tải file Excel về để in; tài khoản nhân viên chỉ tạo file, bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn (mục 3.5).
+- **📤 Phiếu xuất kho…** (vai trò máy chính và nhân viên): giống trên app. Tài khoản chủ bấm lưu là **trừ tồn ngay** (mã W…, trang tự tải lại) và tải file Excel về để in; tài khoản nhân viên chỉ tạo file, bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn (mục 3.5). Gõ tên chưa có trong danh sách là thành **★ mặt hàng mới**; khi trang đang ở **中文**, tên gõ vào là tên tiếng Trung và phải ghi thêm **tên tiếng Việt** ở ô ngay dưới.
 - Công tắc **₫ | ¥** ở góc trái dưới (mục 3.6) và **Cài đặt → Sao lưu → Xuất dữ liệu** (tải toàn bộ dữ liệu chung về thành gói `.dibekho`).
 
 **Trên điện thoại:** tài khoản chủ (vai trò máy chính) mở ra là **Tổng quan**: doanh thu của kỳ viết số to, số đơn, hàng sắp hết, tồn âm, doanh thu 12 tháng, đơn gần nhất, bán chạy, khách mua nhiều; nút **☰** ở góc trái mở **Tồn kho, Đơn hàng, Khách hàng, Thống kê** và **Đăng xuất**; ở các trang đó bấm **‹** để về Tổng quan. Tài khoản nhân viên và chỉ xem trên điện thoại chỉ xem Tồn kho. Máy tính bảng (iPad) có trang đầy đủ như máy tính.
+
+**Chuyển nhanh giữa các trang:** trên điện thoại hoặc iPad **vuốt sang trái** để sang trang sau, **vuốt sang phải** để về trang trước (theo thứ tự trong menu); trên máy tính bấm **PgDn** / **PgUp**. Khi đang gõ chữ trong một ô, hoặc đang mở một hộp thoại, thao tác này không chuyển trang; vuốt trên một bảng rộng thì chỉ cuộn bảng.
 
 **Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò (**Máy chính**, **Nhân viên** hoặc **Chỉ xem**), gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc.
 

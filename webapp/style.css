@@ -185,6 +185,7 @@ td.yellow input:hover, table.edit input:hover { border-color: var(--border-stron
 td.yellow input:focus, table.edit input:focus { background: var(--surface); border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring-focus); }
 table.edit td { padding: 4px 6px; }
 table.edit input.ix-product { min-width: 300px; }
+table.edit input.ix-new-vi { display: block; min-width: 300px; margin-top: 4px; }
 table.edit input.ix-price { min-width: 110px; }
 table.edit input.ix-note { min-width: 140px; }
 table.edit th { white-space: normal; min-width: 70px; }

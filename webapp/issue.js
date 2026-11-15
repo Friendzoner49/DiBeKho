@@ -45,7 +45,8 @@ function letterhead() {
 
 function issueRowHtml() {
   return `<tr class="ix-row"><td><input class="ix-product" list="products-dl" placeholder="${esc(tr("issue.pick_ph"))}">` +
-    `<div class="ix-newtag hint hidden">${esc(tr("issue.new_tag"))}</div></td>` +
+    `<div class="ix-newtag hint hidden">${esc(tr("issue.new_tag"))}</div>` +
+    `<input class="ix-new-vi hidden" placeholder="${esc(tr("issue.vi_name_ph"))}"></td>` +
     `<td><span class="ix-spec"></span><input class="ix-new-spec hidden" placeholder="${esc(tr("col.spec"))}"></td>` +
     `<td><span class="ix-unit"></span><input class="ix-new-unit hidden" placeholder="${esc(tr("col.unit"))}"></td>` +
     `<td class="num ix-have" data-place="1"></td><td class="yellow"><input class="qty ix-qty" data-place="1" inputmode="decimal"></td>` +
@@ -118,6 +119,7 @@ function openIssueForm() {
       tr_.querySelector(".ix-spec").textContent = p ? [p.spec, p.variant].filter(Boolean).join(" · ") : "";
       tr_.querySelector(".ix-unit").textContent = p ? p.unit || "" : "";
       for (const sel of [".ix-newtag", ".ix-new-spec", ".ix-new-unit"]) tr_.querySelector(sel).classList.toggle("hidden", !isNew);
+      tr_.querySelector(".ix-new-vi").classList.toggle("hidden", !(isNew && LANG === "zh"));
       let qty = 0;
       for (const place of [1, 2]) {
         const have = tr_.querySelector(`.ix-have[data-place="${place}"]`);
@@ -178,9 +180,17 @@ function readIssueForm() {
     if (!label) fail(tr("issue.unknown_product", { text: "?" }));
     const p = productFromLabel(label);
     const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
-    const fresh = p ? null : { name_vi: clean(label), spec: clean(tr_.querySelector(".ix-new-spec").value),
+    // on the Chinese page the typed name is the Chinese one, and the Vietnamese name must be typed too (user,
+    // 15/11/2026: every product keeps a Vietnamese name, as in the app and on the cloud)
+    const zh = LANG === "zh";
+    const fresh = p ? null : { name_vi: zh ? clean(tr_.querySelector(".ix-new-vi").value) : clean(label),
+                               name_zh: zh ? clean(label) : "", spec: clean(tr_.querySelector(".ix-new-spec").value),
                                unit: clean(tr_.querySelector(".ix-new-unit").value) };
-    const name = p ? productName(p) : "★ " + fresh.name_vi;
+    const name = p ? productName(p) : "★ " + clean(label);
+    if (fresh && !fresh.name_vi && ((main || 0) + (office || 0) > 0)) {
+      tr_.querySelector(".ix-new-vi").focus();
+      fail(tr("issue.need_vi_name", { product: clean(label) }));
+    }
     if ([main, office, price].some((v) => Number.isNaN(v))) fail(tr("issue.not_number", { product: name }));
     if ([main, office, price].some((v) => v !== null && v < 0)) fail(tr("issue.negative", { product: name }));
     if (!((main || 0) + (office || 0) > 0)) continue;
@@ -197,9 +207,11 @@ async function saveIssue() {
   // a new product that is in the catalog already: use that one (the app's issues.same_as_existing)
   for (const ln of f.lines) {
     if (!ln.new) continue;
-    const same = activeProducts().find((p) => unaccent(p.name_vi).replace(/\s/g, "") === unaccent(ln.new.name_vi).replace(/\s/g, "") &&
-      (!ln.new.spec || unaccent(p.spec).replace(/\s/g, "") === unaccent(ln.new.spec).replace(/\s/g, "")));
-    if (same && confirm(tr("issue.looks_existing", { name: ln.new.name_vi, product: productName(same), code: same.code }))) {
+    const key = (x) => unaccent(x).replace(/\s/g, "");
+    const same = activeProducts().find((p) => (key(p.name_vi) === key(ln.new.name_vi) ||
+        (ln.new.name_zh && key(p.name_zh) === key(ln.new.name_zh))) &&
+      (!ln.new.spec || key(p.spec) === key(ln.new.spec)));
+    if (same && confirm(tr("issue.looks_existing", { name: ln.label.replace(/^★ /, ""), product: productName(same), code: same.code }))) {
       Object.assign(ln, { product: same, product_id: same.id, new: null, label: productName(same) });
       ln.row.querySelector(".ix-product").value = productLabel(same);
     }

@@ -396,6 +396,54 @@ function showPage(name) {
   window.scrollTo(0, 0);
 }
 
+/* Going to the next or previous page (user, 15/11/2026): a swipe left / right on a touch screen, PgDn / PgUp on a
+   computer, in the order of the menu (the owner's phone: its menu; a staff phone has the stock only). Never while a
+   window or the phone menu is open, while typing, or when the swipe scrolls a wide table sideways. */
+function pageOrder() {
+  if (PHONE) return ownerPhone() ? PHONE_PAGES : [];
+  return [...document.querySelectorAll(".nav")].filter((b) => b.offsetParent !== null).map((b) => b.dataset.page);
+}
+
+function stepPage(step) {
+  const order = pageOrder();
+  const at = page === "detail" ? backTo : ["orders", "customers", "stats"].includes(page) && !order.includes(page) ? "search" : page;
+  const next = order[order.indexOf(at) + step];
+  if (order.includes(at) && next) showPage(next);
+}
+
+const pageMovesBlocked = () => $("app").classList.contains("hidden") || dlg.open || !$("ph-drawer").classList.contains("hidden");
+const typingIn = (el) => !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+
+document.addEventListener("keydown", (e) => {
+  if (!["PageDown", "PageUp"].includes(e.key) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (pageMovesBlocked() || typingIn(e.target)) return;
+  e.preventDefault();
+  stepPage(e.key === "PageDown" ? 1 : -1);
+});
+
+/** True when the touch is inside something that scrolls sideways (a wide table): the swipe is for that, not the page. */
+function scrollsSideways(el) {
+  for (; el && el !== document.body; el = el.parentElement) {
+    const x = getComputedStyle(el).overflowX;
+    if ((x === "auto" || x === "scroll") && el.scrollWidth > el.clientWidth + 1) return true;
+  }
+  return false;
+}
+
+let swipe = null;
+document.addEventListener("touchstart", (e) => {
+  const t = e.touches[0];
+  swipe = e.touches.length === 1 && !pageMovesBlocked() && !typingIn(e.target) && !scrollsSideways(e.target)
+    ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+}, { passive: true });
+document.addEventListener("touchend", (e) => {
+  if (!swipe) return;
+  const t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y, quick = Date.now() - swipe.at < 800;
+  swipe = null;
+  if (quick && Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) stepPage(dx < 0 ? 1 : -1);
+}, { passive: true });
+document.addEventListener("touchcancel", () => { swipe = null; }, { passive: true });
+
 /* Each part draws on its own: one that fails (odd data) says so at the top instead of leaving every page after it blank
    (user, 13/11/2026: Thống kê stayed empty). */
 function renderAll() {
