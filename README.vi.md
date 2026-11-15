@@ -80,7 +80,9 @@ Mọi bản đều nằm ở trang [**Tải về (Releases)**](https://github.co
 
 ### Cập nhật bản mới
 
-Tải bản mới như trên rồi **cài đè** lên bản cũ (Mac: kéo vào Applications, chọn **Thay thế**). Dữ liệu trong `Tài liệu/DiBeKho` giữ nguyên, không mất gì.
+**Từ bản 0.5.7 app tự báo khi có bản mới**: mở app vài giây là app kiểm tra; có bản mới thì hỏi **Cập nhật ngay?** → **Có**. Windows: app tự tải, tự đóng, cài đè rồi mở lại. Mac: app tải và mở cửa sổ cài đặt, bạn kéo DiBeKho vào Applications, chọn **Thay thế**. Tắt/bật hoặc kiểm tra bằng tay: **Cài đặt → Chung → Bản mới**.
+
+Bản cũ hơn 0.5.7 (hoặc muốn tự làm): tải bản mới như trên rồi **cài đè** lên bản cũ (Mac: kéo vào Applications, chọn **Thay thế**). Dữ liệu trong `Tài liệu/DiBeKho` giữ nguyên, không mất gì.
 
 > Mọi máy cùng dùng dữ liệu chung nên **cài cùng bản mới nhất** (cả máy chủ lẫn máy nhân viên). Gói dữ liệu `.dibekho`: bản mới mở được gói của bản cũ (app tự chuyển đổi), bản cũ không mở được gói của bản mới.
 

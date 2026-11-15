@@ -55,6 +55,7 @@ Phía trên cùng có các nút dùng chung:
 - Tên dài bị cắt? Rê chuột lên ô để xem đủ, hoặc kéo mép tiêu đề cột cho rộng ra.
 - Lăn chuột để cuộn trang **không bao giờ** làm đổi lựa chọn hay con số trong bảng.
 - Chữ quá nhỏ? **Cài đặt → Chung → Cỡ chữ và nút**, chọn 130% hoặc 150%, tắt và mở lại app.
+- Bản mới: từ 0.5.7 app tự kiểm tra khi mở và hỏi **Cập nhật ngay?** (dữ liệu giữ nguyên). Tắt/bật hoặc kiểm tra bằng tay: **Cài đặt → Chung → Bản mới**.
 
 ---
 
@@ -146,7 +147,7 @@ Dùng khi giao hàng cho khách mà chưa có file phiếu giao hàng: app tạo
 
 1. Bấm **📤 Phiếu xuất kho…** ở thanh trên cùng.
 2. Chọn khách trong danh sách (điện thoại, địa chỉ tự điền), hoặc gõ tên khách mới.
-3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng** và/hoặc **Lấy ở Văn phòng** (lấy ở cả hai nơi thì ghi cả hai ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ. Một mặt hàng bán **hai mức giá** (số lượng khác nhau giá khác nhau)? Ghi nó ở **hai dòng**, mỗi dòng một giá.
+3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng** và/hoặc **Lấy ở Văn phòng** (lấy ở cả hai nơi thì ghi cả hai ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ. Một mặt hàng bán **hai mức giá** (số lượng khác nhau giá khác nhau)? Ghi nó ở **hai dòng**, mỗi dòng một giá. Hàng **chưa có trong danh mục**: bấm vào ô mặt hàng → **★ Mặt hàng mới (chưa có trong kho)…**, ghi tên, quy cách, đơn vị. Lưu phiếu thì mặt hàng được thêm vào danh mục và tồn của nó thành **số âm**; khi hàng về, nhập ở **Hàng về** (chọn đúng mặt hàng đó) là tồn tự cân lại. Nếu tên trông giống mặt hàng đã có, app hỏi có dùng mặt hàng đó không, để khỏi tạo trùng.
 4. **Đơn giá** tự điền theo đơn gần nhất của khách (khách mới: đơn gần nhất của mặt hàng đó). Sửa lại nếu giá khác. Công tắc góc trái dưới đang ở **¥** thì cột ghi **Đơn giá (¥)**: gõ giá bằng nhân dân tệ, app đổi sang ₫ theo tỷ giá lúc mở phiếu (hộp hỏi trước khi lưu hiện cả hai).
 5. Bấm **Lưu phiếu** → xem lại → **Có**. Tồn kho bị trừ **ngay**, đơn có trong **Đơn hàng** và doanh thu của khách.
 
@@ -497,7 +498,7 @@ Dữ liệu trên Cloud (giống trang web) là **bản chuẩn**. App là nơi 
 - **📤 Phiếu xuất kho…** (vai trò máy chính và nhân viên): giống trên app. Tài khoản chủ bấm lưu là **trừ tồn ngay** (mã W…, trang tự tải lại) và tải file Excel về để in; tài khoản nhân viên chỉ tạo file, bỏ file vào thư mục phiếu giao hàng của máy chính thì app mới trừ tồn (mục 3.5).
 - Công tắc **₫ | ¥** ở góc trái dưới (mục 3.6) và **Cài đặt → Sao lưu → Xuất dữ liệu** (tải toàn bộ dữ liệu chung về thành gói `.dibekho`).
 
-Trên điện thoại chỉ xem Tồn kho.
+**Trên điện thoại:** tài khoản chủ (vai trò máy chính) mở ra là **Tổng quan**: doanh thu của kỳ viết số to, số đơn, hàng sắp hết, tồn âm, doanh thu 12 tháng, đơn gần nhất, bán chạy, khách mua nhiều; nút **☰** ở góc trái mở **Tồn kho, Đơn hàng, Khách hàng, Thống kê** và **Đăng xuất**; ở các trang đó bấm **‹** để về Tổng quan. Tài khoản nhân viên và chỉ xem trên điện thoại chỉ xem Tồn kho. Máy tính bảng (iPad) có trang đầy đủ như máy tính.
 
 **Tài khoản cho nhân viên, người quản lý:** tài khoản **maychinh** (máy chính) tự tạo ngay trên trang web; các tài khoản khác không làm được: **Cài đặt → Tài khoản → Tạo tài khoản…**, gõ tên đăng nhập, chọn vai trò (**Máy chính**, **Nhân viên** hoặc **Chỉ xem**), gõ mật khẩu. Ở đó cũng **Đổi vai trò…**, **Đặt lại mật khẩu…** và **Thu hồi quyền…** khi ai đó nghỉ việc.
 

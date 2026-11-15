@@ -55,6 +55,7 @@ At the top are 3 buttons:
 - A long name is cut off? Hover over the cell, or drag the edge of the column header.
 - Scrolling with the mouse wheel **never** changes a choice or a number.
 - Text too small? **Settings → General → Text and button size**, choose 130% or 150%, then restart the app.
+- New version: from 0.5.7 the app checks when it opens and asks **Update now?** (your data is kept). Turn it off or check by hand: **Settings → General → New version**.
 
 ---
 
@@ -146,7 +147,7 @@ Use it when goods leave for a customer and there is no delivery note file yet: t
 
 1. Click **📤 Stock issue note…** in the top bar.
 2. Pick the customer from the list (phone and address fill in), or type a new name.
-3. On each row: click to pick a product, then type how many to **Take from Main warehouse** and/or **Take from Office** (both may be filled). The **In …** columns show what each place has; asking for more turns the number red. One product sold at **two prices** (another quantity, another price)? Put it on **two rows**, one price each.
+3. On each row: click to pick a product, then type how many to **Take from Main warehouse** and/or **Take from Office** (both may be filled). The **In …** columns show what each place has; asking for more turns the number red. One product sold at **two prices** (another quantity, another price)? Put it on **two rows**, one price each. Goods **not in the catalog yet**: click the product cell → **★ New product (not in the catalog)…**, type the name, packing and unit. Saving the note adds it to the catalog and its stock goes **below zero**; when the goods arrive, enter them in **Goods in** (pick that same product) and the stock balances again. If the name looks like a product you already have, the app asks whether to use that one instead of making a duplicate.
 4. The **Unit price** comes from the customer's latest order (a new customer: the product's latest order). Change it if the price is different. With the switch at the bottom left on **¥**, the column says **Unit price (¥)**: type the price in yuan, the app turns it into ₫ at the rate of the moment the window opened (the question before saving shows both).
 5. Click **Save** → check → **Yes**. The stock goes down **at once**; the order appears in **Orders** and in the customer's revenue.
 
@@ -496,7 +497,7 @@ The data on the Cloud (the same as the web page) is **the reference copy**. The 
 - **📤 Stock issue note…** (main-machine role and staff): like the app's. With the owner's account, saving **takes the stock at once** (code W…, the page reloads) and downloads the Excel file to print; with a staff account it only makes the file, and the stock goes down once that file is in the main machine's delivery notes folder (section 3.5).
 - The **₫ | ¥** switch at the bottom left (section 3.6) and **Settings → Backup → Export data** (all the shared data as one `.dibekho` package).
 
-On a phone it only shows Stock.
+**On a phone:** the owner's account (main machine role) opens on **Overview**: the revenue of the period in large figures, orders, running low, below zero, revenue of 12 months, latest orders, best sellers, best customers; the **☰** button at the top left opens **Stock, Orders, Customers, Statistics** and **Sign out**; on those pages **‹** goes back to Overview. Staff and view-only accounts on a phone see Stock only. A tablet (iPad) gets the whole page, as on a computer.
 
 **Accounts for staff and managers:** only the main machine's login (**maychinh**) can create them, on the web page; nobody else can: **Settings → Accounts → Create account…**, type the user name, pick the role (**Main machine**, **Staff** or **View only**), type the password. The same tab has **Change role…**, **Reset password…** and **Take access away…** for when someone leaves.
 

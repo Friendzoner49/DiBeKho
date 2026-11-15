@@ -82,7 +82,9 @@ Every file is on the [**Downloads (Releases)**](https://github.com/Friendzoner49
 
 ### Updating
 
-Download the new version as above and **install it over the old one** (Mac: drag into Applications and choose **Replace**). Your data in `Documents/DiBeKho` is kept.
+**From version 0.5.7 the app tells you when a new version is out**: a few seconds after it opens it checks, and asks **Update now?** → **Yes**. Windows: the app downloads it, closes, installs over itself and opens again. Mac: the app downloads it and opens the installer window; drag DiBeKho into Applications and choose **Replace**. Turn it off or check by hand: **Settings → General → New version**.
+
+Older than 0.5.7 (or to do it yourself): download the new version as above and **install it over the old one** (Mac: drag into Applications and choose **Replace**). Your data in `Documents/DiBeKho` is kept.
 
 > Every computer shares the same data, so **install the same latest version on all of them** (the owner's and the staff's). `.dibekho` data packages: a newer app opens a package from an older one (it converts it automatically), an older app cannot open one from a newer version.
 
