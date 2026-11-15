@@ -791,5 +791,7 @@
   "doc.in_cny": "Đơn này tính bằng nhân dân tệ (¥). Doanh thu tệ được cộng riêng, không cộng chung với tiền Việt.",
   "doc.in_cny_rate": "Đơn này tính bằng nhân dân tệ (¥). Số trong ngoặc là quy đổi xấp xỉ theo tỷ giá lúc đọc phiếu: 1 ¥ ≈ {rate} ₫. Doanh thu tệ được cộng riêng, không cộng chung với tiền Việt.",
   "col.revenue_cny": "Doanh thu (¥)",
-  "report.currency": "Loại tiền"
+  "report.currency": "Loại tiền",
+  "col.goods_vnd": "Tiền hàng (VND)",
+  "col.goods_cny": "Tiền hàng (CNY)"
 }

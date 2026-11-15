@@ -108,7 +108,6 @@ function addMoney(acc, d, amount) {
   return acc;
 }
 const noMoney = () => ({ vnd: null, cny: null, approx: null });
-const currencyName = (d) => (isCny(d) ? "¥ CNY" : "₫ VND");
 
 // the cloud keeps UTC in updated_at: show the viewer's own clock, like the app
 function fmtTime(iso) {
@@ -488,9 +487,11 @@ function renderOrders() {
     { label: tr("col.who"), get: (d) => (customerById[d.customer_id] || {}).name || d.supplier_name },
     { label: tr("col.place"), get: placeOf },
     { label: tr("col.status"), get: (d) => statusName(d.status) },
-    { label: tr("col.note_total"), get: (d) => moneyValue(isCny(d) ? null : d.note_total, isCny(d) ? d.note_total : 0, isCny(d) ? d.note_total * (d.fx_rate || 0) : 0),
-      num: true, cls: "num", html: (d) => esc(fmtNative(d.note_total, d)) },
-    ...(kind === "delivery" ? [{ label: tr("col.currency"), get: (d) => (d.note_total === null || d.note_total === undefined ? "" : currencyName(d)) }] : []),
+    // a note priced in dong and one priced in yuan in two columns (user, 15/11/2026: one column read as one sum)
+    { label: tr("col.total_vnd"), get: (d) => (isCny(d) ? null : d.note_total), num: true, cls: "num",
+      html: (d) => (isCny(d) ? "" : esc(fmtNative(d.note_total, d))) },
+    { label: tr("col.total_cny"), get: (d) => (isCny(d) ? d.note_total : null), num: true, cls: "num",
+      html: (d) => (isCny(d) ? esc(fmtNative(d.note_total, d)) : "") },
   ], items, { select: "one", open: (d) => showOrder(d.id), rowClass: (d) => (d.status !== "active" ? "closed" : "") });
   $("orders-count").textContent = tr("orders.count", { n: items.length });
 }

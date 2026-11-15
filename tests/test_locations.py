@@ -657,7 +657,7 @@ def test_orders_page_fixed_kind_hides_filters_and_offers_to_edit(app, ws, monkey
     assert page.kind.currentData() == "transfer"
     for w in (page.kind_label, page.kind, page.customer_label, page.customer):
         assert not w.isVisible()
-    assert page.table.isColumnHidden(orders_mod.GOODS_COL) and page.table.isColumnHidden(orders_mod.FEES_COL)
+    assert all(page.table.isColumnHidden(c) for c in (orders_mod.GOODS_COL, orders_mod.GOODS_CNY_COL, orders_mod.FEES_COL))
     assert page.table.rowCount() == 1 and page.table.item(0, 1).text() == "CH001"
 
     # nothing selected: a clear message, not a crash

@@ -791,5 +791,7 @@
   "doc.in_cny": "This order is priced in yuan (¥). Yuan revenue is kept apart, never added to the dong.",
   "doc.in_cny_rate": "This order is priced in yuan (¥). The amount in brackets is approximate, at the rate when the note was read: ¥1 ≈ {rate} ₫. Yuan revenue is kept apart, never added to the dong.",
   "col.revenue_cny": "Revenue (¥)",
-  "report.currency": "Currency"
+  "report.currency": "Currency",
+  "col.goods_vnd": "Goods (VND)",
+  "col.goods_cny": "Goods (CNY)"
 }

@@ -791,5 +791,7 @@
   "doc.in_cny": "此订单以人民币（¥）计价。人民币收入单独合计，不与越南盾相加。",
   "doc.in_cny_rate": "此订单以人民币（¥）计价。括号内为按读取单据时的汇率折算的约数：1 ¥ ≈ {rate} ₫。人民币收入单独合计，不与越南盾相加。",
   "col.revenue_cny": "收入 (¥)",
-  "report.currency": "币种"
+  "report.currency": "币种",
+  "col.goods_vnd": "货款（越南盾）",
+  "col.goods_cny": "货款（人民币）"
 }

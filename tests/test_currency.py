@@ -2,6 +2,8 @@
 note itself, the document keeps its currency and the rate of the moment, and no sum ever adds yuan to dong: every
 revenue number comes in dong, in yuan, and the yuan as 'about … dong' for the brackets."""
 
+import hashlib
+import time
 from datetime import date, datetime
 
 import openpyxl
@@ -251,9 +253,9 @@ def test_the_orders_list_tells_yuan_orders_from_dong_orders(app, ws, monkeypatch
     cell = lambda r, c: page.table.item(r, c).text()  # noqa: E731
     by_code = {cell(r, 1): r for r in range(page.table.rowCount())}
     assert set(by_code) == {"155", "156"}
-    assert cell(by_code["155"], orders_mod.CURRENCY_COL) == "¥ CNY" and cell(by_code["156"], orders_mod.CURRENCY_COL) == "₫ VND"
-    assert cell(by_code["155"], orders_mod.GOODS_COL) == "¥4.800 (≈ 17.280.000 ₫)"
-    assert cell(by_code["156"], orders_mod.GOODS_COL) == "2.100.000"
+    assert cell(by_code["155"], orders_mod.GOODS_CNY_COL) == "¥4.800 (≈ 17.280.000 ₫)"
+    assert cell(by_code["155"], orders_mod.GOODS_COL) == ""  # never in the dong column
+    assert cell(by_code["156"], orders_mod.GOODS_COL) == "2.100.000" and cell(by_code["156"], orders_mod.GOODS_CNY_COL) == ""
 
     page.currency.setCurrentIndex(page.currency.findData("CNY"))
     assert [cell(r, 1) for r in range(page.table.rowCount())] == ["155"]
@@ -289,3 +291,64 @@ def test_a_staff_machine_leaves_old_notes_alone(app, ws, monkeypatch):
     win.rescan(quiet=True)
     assert doc(ctx.conn, "155")["currency"] == "CNY"
     win.deleteLater()
+
+
+class CopiesOnCloud:
+    """The cloud bucket of kept notes (a real client raises CloudError for a file it does not have)."""
+
+    def __init__(self, files):
+        self.files, self.asked = files, []
+
+    def storage_download(self, name, token):
+        from dibekho.core.cloud.client import CloudError
+
+        self.asked.append(name)
+        if name not in self.files:
+            raise CloudError("not found")
+        return self.files[name]
+
+
+def test_a_mac_signed_in_fetches_the_notes_it_lacks_and_reads_their_currency(app, ws, monkeypatch):
+    """User, 15/11/2026: on a Mac the database came from the cloud, the stored copies did not, so order 155 stayed
+    in the dong column. The owner's window downloads the copies of the undecided notes once, then reads them."""
+    from dibekho.ui import main_window
+    from tests.test_locations import window
+
+    ctx, win = window(ws)
+    yuan, dong = shop(ctx.conn, ws, monkeypatch)
+    with db.transaction(ctx.conn):
+        ctx.conn.execute("UPDATE documents SET currency = '', fx_rate = NULL")
+    bucket = {}
+    for d in (yuan, dong):
+        copy = deliveries.original_copy(ws, d["source_hash"])
+        bucket[f"phieu-goc/{copy.name}"] = copy.read_bytes()
+        copy.unlink()  # this computer does not have the files
+    bucket.pop(f"phieu-goc/{dong['source_hash']}.xlsx")  # one the bucket does not have either
+    assert sorted(deliveries.missing_copies(ctx.conn, ws)) == sorted(f"{d['source_hash']}.xlsx" for d in (yuan, dong))
+    cloud = CopiesOnCloud(bucket)
+    monkeypatch.setattr(main_window.cloud_sync, "session", lambda cfg, timeout=None: (cloud, "tok"))
+    win.rescan(quiet=True)
+    for _ in range(200):
+        app.processEvents()
+        if doc(ctx.conn, "155")["currency"]:
+            break
+        time.sleep(0.02)
+    assert doc(ctx.conn, "155")["currency"] == "CNY" and doc(ctx.conn, "155")["fx_rate"] == 3600
+    assert doc(ctx.conn, "156")["currency"] == ""  # its copy is nowhere: stays undecided
+    asked = len(cloud.asked)
+    win.rescan(quiet=True)  # once per run: no second round of downloads
+    app.processEvents()
+    assert len(cloud.asked) == asked
+    win.deleteLater()
+
+
+def test_fetching_named_notes_skips_a_bad_name_and_a_damaged_file(ws):
+    from dibekho.core.cloud import backup as cloud_backup
+
+    good = b"phieu 1"
+    name = f"{hashlib.sha256(good).hexdigest()}.xlsx"
+    bad = f"{hashlib.sha256(b'other').hexdigest()}.xlsx"
+    cloud = CopiesOnCloud({f"phieu-goc/{name}": good, f"phieu-goc/{bad}": b"tampered"})
+    assert cloud_backup.fetch_named(ws, cloud, "tok", [name, bad, "../x.xlsx"]) == (1, 2)
+    assert (ws.originals / name).read_bytes() == good and not (ws.originals / bad).exists()
+    assert "phieu-goc/../x.xlsx" not in cloud.asked

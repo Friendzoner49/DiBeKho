@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from dibekho import APP_NAME, __version__
 from dibekho.core import activity, deliveries, fx, inbox
 from dibekho.core.cloud import approval
+from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import inbox as inbox_mod
 from dibekho.core.cloud import sync as cloud_sync
 from dibekho.core.cloud import twoway
@@ -44,6 +45,7 @@ INBOX_POLL = 180_000  # ms between looks at the staff requests sent from the web
 CLOSE_TIMEOUT = 8  # s per cloud request while closing the app
 CLOSE_SLOW = 12  # s: when signing in already took this long, the full backup waits for next time
 CLOSE_ORIGINALS = 4  # s: kept delivery notes uploaded while closing; the rest go next time
+COPIES_SECONDS = 120  # s: kept notes fetched in the background to read their currency; the rest on the next run
 
 
 class MainWindow(QMainWindow):
@@ -53,6 +55,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.ctx = ctx
         self._pulling = False
+        self._copies_asked = False  # the stored copies of undecided notes were asked from the cloud this run
         self._bg_done.connect(self._bg_finished)
         self.setWindowTitle(f"{APP_NAME} {__version__}")
         fit_window(self, 1280, 800)
@@ -172,8 +175,46 @@ class MainWindow(QMainWindow):
             deliveries.backfill_currency(self.ctx.conn, self.ctx.ws)
             if deliveries.needs_rate(self.ctx.conn) and fx.Display.rate is None:
                 self.currency.refresh()
+            self._fetch_copies()
         except Exception as exc:  # never in the way of the scan
             activity.log("error", f"currency: {type(exc).__name__}: {exc}")
+
+    def _fetch_copies(self):
+        """Undecided notes whose stored copy is only on the cloud (a Mac signed in for the first time: the database
+        came down, the files did not; user, 15/11/2026: order 155 still showed as dong): download them in the
+        background, once per run, then read their currency."""
+        if self._copies_asked:
+            return
+        names = deliveries.missing_copies(self.ctx.conn, self.ctx.ws)
+        if not names:
+            return
+        self._copies_asked = True
+        cfg, ws = self.ctx.cfg, self.ctx.ws
+
+        def work():
+            pair = cloud_sync.session(cfg, timeout=10)
+            if pair is None:
+                return None
+            client, token = pair
+            return cloud_backup.fetch_named(ws, client, token, names, max_seconds=COPIES_SECONDS)
+
+        def then(result, err):
+            if err is not None:
+                activity.log("error", f"currency copies: {err}")
+                return
+            if not result:
+                return
+            activity.log("cloud", f"currency copies: {result[0]} downloaded, {result[1]} not found")
+            if result[0]:
+                try:
+                    if deliveries.backfill_currency(self.ctx.conn, self.ctx.ws) and self._safe():
+                        self.ctx.notify()
+                    if deliveries.needs_rate(self.ctx.conn) and fx.Display.rate is None:
+                        self.currency.refresh()
+                except Exception as exc:
+                    activity.log("error", f"currency: {type(exc).__name__}: {exc}")
+
+        self._in_background(work, then)
 
     def _rate_arrived(self, *args):
         if not approval.is_staff(self.ctx.cfg) and fx.Display.rate is not None:

@@ -422,7 +422,8 @@ def set_currency(conn, doc_id: int, currency: str) -> None:
 
 def backfill_currency(conn, ws: Workspace) -> int:
     """Notes recorded before the currency was read (0.5.4 and earlier): look at their stored copies once. A note whose
-    copy is not on this computer stays undecided (counted as dong): the computer that has the file decides. Then the
+    copy is not on this computer stays undecided (counted as dong) until it is fetched from the cloud
+    (missing_copies) or the computer that has the file decides. Then the
     customers' returns take the currency of the order they came back from, and a yuan note read without a rate gets
     one when it is known. Returns the number of notes found to be in yuan.
     Run by the main window after a scan, on an owner's machine only: on a staff machine every document it touches
@@ -453,6 +454,15 @@ def backfill_currency(conn, ws: Workspace) -> int:
                     conn.execute("UPDATE documents SET currency = ?, fx_rate = ? WHERE id = ?", (currency, rate, d["id"]))
     fill_rates(conn)
     return found
+
+
+def missing_copies(conn, ws: Workspace) -> list[str]:
+    """Stored copies (<sha256>.xlsx) of the notes whose currency is still undecided that this computer lacks: after a
+    first sign-in the database comes from the cloud but the copies do not (the main window fetches them, then
+    backfill_currency reads them)."""
+    rows = conn.execute("SELECT DISTINCT source_hash FROM documents WHERE kind = 'delivery' AND currency = '' "
+                        "AND source_hash <> ''").fetchall()
+    return [f"{r[0]}.xlsx" for r in rows if original_copy(ws, r[0]) is None]
 
 
 def needs_rate(conn) -> bool:

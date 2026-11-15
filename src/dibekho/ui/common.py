@@ -397,10 +397,6 @@ def both_item(vnd, cny, approx=None) -> SortItem:
     return item
 
 
-def currency_label(currency: str) -> str:
-    return "¥ CNY" if currency == "CNY" else "₫ VND"
-
-
 def money_text(m) -> str:
     """'Doanh thu 12.000.000 = tiền hàng … + phí khác …' for a stats.Money (fees unknown when products are
     filtered: fees belong to no product)."""

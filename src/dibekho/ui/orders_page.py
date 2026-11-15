@@ -33,7 +33,6 @@ from dibekho.ui.common import (
     info,
     make_table,
     both_item,
-    currency_label,
     money_item,
     num_item,
     reread_whole_note,
@@ -45,7 +44,9 @@ from dibekho.ui.details import CustomerDialog, DocumentDialog
 from dibekho.ui.page import Page
 
 KINDS = ("delivery", "receipt", "stock_count", "transfer", "trial")
-GOODS_COL, FEES_COL, CURRENCY_COL = 6, 7, 8  # table columns hidden when fixed_kind is set: always blank outside 'delivery'
+# table columns hidden when fixed_kind is set: always blank outside 'delivery'. The goods of a note priced in dong
+# and of one priced in yuan stand in two columns (user, 15/11/2026: one column read as one sum)
+GOODS_COL, GOODS_CNY_COL, FEES_COL = 6, 7, 8
 
 
 def _place(d) -> str:
@@ -131,15 +132,14 @@ class OrdersPage(Page):
             top.addWidget(edit)
         self.layout_.addLayout(top)
         self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.place"),
-                                 t("col.lines"), t("col.total_qty"), t("col.goods"), t("col.fees"), t("col.currency"),
+                                 t("col.lines"), t("col.total_qty"), t("col.goods_vnd"), t("col.goods_cny"), t("col.fees"),
                                  t("col.status"), t("col.file")], stretch=2)
         self.table.doubleClicked.connect(self.open_doc)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._context_menu)
         if fixed_kind:
-            self.table.setColumnHidden(GOODS_COL, True)
-            self.table.setColumnHidden(FEES_COL, True)
-            self.table.setColumnHidden(CURRENCY_COL, True)
+            for col in (GOODS_COL, GOODS_CNY_COL, FEES_COL):
+                self.table.setColumnHidden(col, True)
         self.layout_.addWidget(self.table)
 
         for sig in (self.kind.currentIndexChanged, self.all_time.toggled, self.date_from.dateChanged,
@@ -180,12 +180,13 @@ class OrdersPage(Page):
         rows, colors = [], []
         for d in docs:
             sale, cur, rate = d["kind"] == "delivery", d["currency"], d["fx_rate"]
+            yuan = cur == "CNY"
             rows.append([date_item(d["doc_date"]), d["code"], d["customer_name"], _place(d),
                          num_item(d["line_count"]),
                          num_item(d["total_qty"]),
-                         money_item(d["goods_amount"], cur, rate) if sale else "",
+                         money_item(d["goods_amount"], cur, rate) if sale and not yuan else "",
+                         money_item(d["goods_amount"], cur, rate) if sale and yuan else "",
                          money_item(d["fee_amount"], cur, rate, approx=False) if sale and d["fee_amount"] else "",
-                         currency_label(cur) if sale and d["goods_amount"] is not None else "",
                          status_text(d["status"]), d["source_file"]])
             colors.append(GREY if d["status"] != "active" else None)
         fill_table(self.table, rows, ids=[d["id"] for d in docs])

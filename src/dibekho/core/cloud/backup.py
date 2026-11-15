@@ -181,9 +181,20 @@ def fetch_originals(ws: Workspace, client: CloudClient, token: str) -> tuple[int
     except CloudError:
         return 0, 0
     have = {f.name for f in transfer.original_files(ws)}
+    return fetch_named(ws, client, token, sorted(names - have))
+
+
+def fetch_named(ws: Workspace, client: CloudClient, token: str, names, max_seconds: float | None = None) -> tuple[int, int]:
+    """Download these kept notes (<sha256>.xlsx) into data/phieu-goc, stopping after max_seconds. A file whose content
+    does not match its name, or that the bucket does not have, counts as failed. -> (downloaded, failed)."""
     ws.originals.mkdir(parents=True, exist_ok=True)
-    done = failed = 0
-    for name in sorted(names - have):
+    started, done, failed = time.monotonic(), 0, 0
+    for name in names:
+        if max_seconds is not None and time.monotonic() - started > max_seconds:
+            break
+        if not transfer.ORIGINAL_NAME.fullmatch(name):
+            failed += 1
+            continue
         try:
             data = client.storage_download(f"{ORIGINALS}/{name}", token)
         except CloudError:
