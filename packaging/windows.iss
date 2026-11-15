@@ -40,6 +40,8 @@ Name: "{autodesktop}\DiBeKho"; Filename: "{app}\DiBeKho.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\DiBeKho.exe"; Description: "{cm:LaunchProgram,DiBeKho}"; Flags: nowait postinstall skipifsilent
+; an update started from the app (core/update.py, /SILENT): open the new version again by itself
+Filename: "{app}\DiBeKho.exe"; Flags: nowait skipifnotsilent
 
 [UninstallDelete]
 ; the tiny per-machine config (workspace path + language)

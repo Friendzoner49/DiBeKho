@@ -163,6 +163,17 @@ class SettingsPage(Page):
         self.scale.setCurrentIndex(current)
         self.scale.currentIndexChanged.connect(self.change_scale)
         form.addRow(t("settings.ui_scale") + ":", self.scale)
+        # a newer version: looked for when the app opens (per machine), or on demand (ui/updater.py)
+        update_row = QHBoxLayout()
+        self.check_updates = QCheckBox(t("update.auto"))
+        self.check_updates.setChecked(bool(getattr(ctx.cfg, "check_updates", True)))
+        self.check_updates.toggled.connect(self.set_check_updates)
+        update_now = QPushButton(t("update.check_now"))
+        update_now.clicked.connect(self.check_update_now)
+        update_row.addWidget(self.check_updates)
+        update_row.addWidget(update_now)
+        update_row.addStretch()
+        form.addRow(t("update.row") + ":", update_row)
 
         folder_row = QHBoxLayout()
         self.folder = QLabel(str(ctx.ws.root))
@@ -477,6 +488,15 @@ class SettingsPage(Page):
             db.set_meta(self.ctx.conn, "low_stock_default", str(int(value)))
             db.log(self.ctx.conn, "low_stock_default", fmt_qty(value))
         self.ctx.notify()
+
+    def set_check_updates(self, on: bool):
+        self.ctx.cfg.check_updates = bool(on)
+        self.ctx.cfg.save()
+
+    def check_update_now(self):
+        from dibekho.ui import updater
+
+        updater.check_now(self, self.window())
 
     def change_scale(self):
         self.ctx.cfg.ui_scale = self.scale.currentData()

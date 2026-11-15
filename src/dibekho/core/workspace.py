@@ -124,6 +124,7 @@ class Config:
     cloud_refresh_token: str = ""
     send_logs: bool = True  # send the anonymized activity log to the cloud for maychinh (core/cloud/logs.py)
     cloud_role: str = ""  # the account's role, kept so the app opens offline: desktop (owner) | editor (staff)
+    check_updates: bool = True  # look for a newer version when the app opens (core/update.py), per machine
 
     @staticmethod
     def path() -> Path:

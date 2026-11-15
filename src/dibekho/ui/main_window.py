@@ -164,6 +164,9 @@ class MainWindow(QMainWindow):
         ctx.changed.connect(self._update_sync)
         self._update_sync()
         QTimer.singleShot(2500, self.sync.start)
+        from dibekho.ui import updater
+
+        updater.check_on_start(self)  # a newer version, looked for in the background (core/update.py)
 
     def _currencies(self):
         """Notes recorded before 0.5.5 get their currency (deliveries.backfill_currency): an owner's machine only. A note
