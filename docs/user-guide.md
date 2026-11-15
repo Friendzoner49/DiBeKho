@@ -449,7 +449,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 | Go back to a day before | **Settings → Data transfer and backups**, choose the backup, **Restore selected** |
 | Excel export says the file is open | Close the Excel file with that name and export again |
 | To do says a quantity cannot be read ("không đọc được số lượng") | The note's quantity cell has words or thousands dots ("3 thùng", "1.500"). Open the note, write only the number (1500 or 2,5), save, then **⟳ Rescan notes** |
-| A note priced in yuan sits in the **Goods (VND)** column | Open the order → **Reread the whole note**. A computer that has just signed in for the first time needs about a minute to download the original notes from the Cloud, then it sees the yuan order by itself |
+| A note priced in yuan sits in the **Goods (VND)** column | Wait about a minute after the first sign-in (the app downloads the original notes from the Cloud), then click **⟳ Rescan notes**. Still in VND: open the app on the owner's computer (the one that has the original note); it corrects the order and sends it to every computer through the Cloud |
 | On opening: the Cloud cannot be reached | The first sign-in on a computer needs the internet: check the connection (turn the VPN off/on) and click **Sign in** again |
 | To do says "File Excel đời cũ (.xls)" | Open the file in Excel → **Save As** *Excel Workbook (.xlsx)* → **⟳ Rescan notes** |
 | On opening: "DiBeKho's data was not found" | The workspace is on a USB stick / network drive that is not plugged in, or the folder was renamed. Plug it in or rename it back, then open the app. Choose **Create new data** only to start over |

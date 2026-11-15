@@ -221,7 +221,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 | Mở app báo "Không thấy dữ liệu của DiBeKho" | Cắm lại ổ USB / ổ mạng chứa thư mục làm việc, hoặc đổi lại tên thư mục, rồi mở lại app. Chỉ bấm **Tạo dữ liệu mới** khi muốn bắt đầu lại từ đầu |
 | Mở app báo "DiBeKho đang mở rồi" | App đã mở ở cửa sổ khác: tìm trên thanh tác vụ (Windows) hoặc Dock (Mac) |
 | Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** (thay dữ liệu cho mọi máy, chỉ tài khoản chủ) |
-| Phiếu ghi giá bằng nhân dân tệ nhưng đơn nằm ở cột **Tiền hàng (VND)** | Mở đơn → **Đọc lại cả phiếu**: app đọc lại và nhận ra đơn tệ. Máy mới đăng nhập cần khoảng một phút để tải các phiếu gốc từ Cloud rồi tự nhận ra |
+| Phiếu ghi giá bằng nhân dân tệ nhưng đơn nằm ở cột **Tiền hàng (VND)** | Đợi khoảng một phút sau lần đăng nhập đầu (app tải phiếu gốc từ Cloud) rồi bấm **⟳ Quét lại phiếu**. Vẫn chưa đổi: mở app trên máy của chủ (máy có file phiếu gốc); app ở đó tự sửa và gửi lên Cloud cho mọi máy |
 | Mở app báo chưa kết nối được Cloud | Lần đầu đăng nhập trên một máy cần có mạng: kiểm tra mạng (tắt/bật VPN) rồi bấm **Đăng nhập** lại. Đã đăng nhập rồi thì mất mạng vẫn làm việc được, có mạng lại app tự gửi |
 
 ## Câu hỏi thường gặp

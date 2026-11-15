@@ -224,7 +224,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 | On opening: "DiBeKho is already open" | The app is open in another window: look in the taskbar (Windows) or the Dock (Mac) |
 | A product was deleted by mistake | **Settings → Data transfer and backups → Restore a deleted product…** |
 | You want to go back to an earlier day | **Settings → Data transfer and backups**, pick a backup, **Restore selected** (replaces the data for every computer, owner accounts only) |
-| A note priced in yuan sits in the **Goods (VND)** column | Open the order → **Reread the whole note**: the app reads it again and sees it is in yuan. A computer that has just signed in needs about a minute to download the original notes from the Cloud, then it sees it by itself |
+| A note priced in yuan sits in the **Goods (VND)** column | Wait about a minute after the first sign-in (the app downloads the original notes from the Cloud), then click **⟳ Rescan notes**. Still in VND: open the app on the owner's computer (the one that has the original note); it corrects the order and sends it to every computer through the Cloud |
 | On opening: the Cloud cannot be reached | The first sign-in on a computer needs the internet: check the connection (turn the VPN off/on) and click **Sign in** again. Once signed in, the app works offline and sends everything when the connection is back |
 
 ### Sending the log when something goes wrong

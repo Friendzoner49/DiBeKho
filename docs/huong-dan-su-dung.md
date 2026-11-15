@@ -450,7 +450,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 | Mở file gốc báo lỗi | File đang mở trong Excel: đóng Excel rồi thử lại |
 | Xuất Excel báo file đang mở | Đóng file Excel cùng tên rồi xuất lại |
 | Cần xử lý báo "không đọc được số lượng" | Ô Số lượng của phiếu có chữ hoặc dấu chấm nghìn (vd. "3 thùng", "1.500"). Mở file phiếu, chỉ ghi số (1500 hoặc 2,5), lưu lại rồi bấm **⟳ Quét lại phiếu** |
-| Phiếu ghi giá bằng nhân dân tệ nhưng đơn nằm ở cột **Tiền hàng (VND)** | Mở đơn → **Đọc lại cả phiếu**. Máy vừa đăng nhập lần đầu cần khoảng một phút để tải phiếu gốc từ Cloud rồi tự nhận ra đơn tệ |
+| Phiếu ghi giá bằng nhân dân tệ nhưng đơn nằm ở cột **Tiền hàng (VND)** | Đợi khoảng một phút sau lần đăng nhập đầu (app tải phiếu gốc từ Cloud) rồi bấm **⟳ Quét lại phiếu**. Vẫn chưa đổi: mở app trên máy của chủ (máy có file phiếu gốc); app ở đó tự sửa và gửi lên Cloud cho mọi máy |
 | Mở app báo chưa kết nối được Cloud | Lần đầu đăng nhập trên một máy cần có mạng: kiểm tra mạng (tắt/bật VPN), bấm **Đăng nhập** lại |
 | Cần xử lý báo "File Excel đời cũ (.xls)" | Mở file bằng Excel → **Lưu thành** (Save As) kiểu *Excel Workbook (.xlsx)* → **⟳ Quét lại phiếu** |
 | Mở app báo "Không thấy dữ liệu của DiBeKho" | Thư mục làm việc nằm trên ổ USB / ổ mạng chưa cắm, hoặc đã bị đổi tên. Cắm lại hoặc đổi lại tên cũ rồi mở app. Chỉ bấm **Tạo dữ liệu mới** khi muốn bắt đầu lại từ đầu |
