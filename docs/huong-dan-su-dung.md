@@ -72,7 +72,8 @@ Chỉ làm một lần, theo thứ tự.
 
 | Bạn đang có | Làm thế này |
 |---|---|
-| File `.dibekho` xuất từ máy khác đang dùng DiBeKho | Chép file vào thư mục `input/` → mục **Cần xử lý** → **Nhập dữ liệu**. Xong, bỏ qua bước 3 |
+| Cửa hàng đã có dữ liệu trên Cloud (máy thứ hai, máy nhân viên, máy mới) | Không cần làm gì: đăng nhập ở bước 1 là app tải dữ liệu chung về. Bỏ qua bước 2 và 3 |
+| File `.dibekho` xuất từ máy khác đang dùng DiBeKho | Chép file vào thư mục `input/` → mục **Cần xử lý** → **Nhập dữ liệu** (chỉ tài khoản chủ; thay dữ liệu chung cho mọi máy). Xong, bỏ qua bước 3 |
 | File Excel thống kê tồn kho hằng tháng | Màn hình **Tồn kho** → **Nhập danh mục từ Excel…** → chọn file → xem bảng (nháy đúp ô để sửa, bỏ tick dòng không cần) → giữ tick **Ghi số tồn kho trong file… tính đến ngày**, chọn ngày → **Nhập các dòng đã chọn** |
 | Chưa có gì | Bỏ qua. Mặt hàng sẽ được tạo dần khi đọc phiếu giao hàng ([mục 3](#3-hằng-ngày-đọc-phiếu-giao-hàng)) |
 
@@ -337,7 +338,7 @@ Gộp rồi thì không tách lại được: xem kỹ trước khi bấm.
 
 **Tra cứu → Danh sách đơn hàng**: mọi phiếu, mới nhất trước.
 - Lọc theo **Loại phiếu** (Phiếu giao hàng, Phiếu hàng về, Phiếu kiểm kê, Phiếu chuyển hàng), khoảng ngày, khách, mặt hàng; tick **Gồm cả phiếu đã huỷ** để xem cả phiếu đã huỷ.
-- Cột **Nơi**: nơi lấy hàng / nơi nhập ("(?)" = chưa chọn nơi). Cột **Tiền hàng** và **Phí riêng**.
+- Cột **Nơi**: nơi lấy hàng / nơi nhập ("(?)" = chưa chọn nơi). Tiền hàng của đơn tiền Việt ở cột **Tiền hàng (VND)**, của đơn tệ ở cột **Tiền hàng (CNY)** (kèm số ≈ ₫); cột **Phí riêng**. Ô lọc **Loại tiền** để xem riêng đơn tiền Việt hoặc đơn tệ.
 - **Nhấn chuột phải vào một đơn** (phiếu giao hàng đang hiệu lực) → **Đọc lại cả phiếu**: xem mục 12.
 
 **Nháy đúp một đơn** để mở chi tiết:
@@ -385,10 +386,10 @@ App không còn nút Hoàn tác. Làm nhầm thì sửa đúng chỗ:
 
 **Sao lưu tự động:** mỗi ngày khi mở app, giữ **10 bản gần nhất** trong `sao-luu/`, bản nào quá **30 ngày** cũng tự xoá để đỡ tốn dung lượng (app tự dọn lại mỗi 2 tuần). Trong **Cài đặt → Chuyển dữ liệu và sao lưu**:
 - **Sao lưu ngay**: tạo một bản sao lưu lúc này.
-- **Khôi phục bản đã chọn**: quay về hẳn dữ liệu của ngày đó.
+- **Khôi phục bản đã chọn**: quay về hẳn dữ liệu của ngày đó. ⚠ Thay dữ liệu chung cho **mọi máy**: chỉ tài khoản chủ, cần có mạng (mục 15).
 - **Khôi phục mặt hàng đã xoá…**: lỡ xoá nhầm một mặt hàng? App dò trong các bản sao lưu, liệt kê mặt hàng nào không còn trong danh mục hiện tại để bạn chọn khôi phục (còn trong bản sao lưu nào đó trong 30 ngày gần nhất). Nếu mặt hàng đó đã được tạo lại bằng tay, app sẽ hỏi có muốn **gộp thành 1** (chuyển mọi phiếu về mã nhỏ hơn) hay **giữ riêng**.
 
-**Làm lại từ đầu:** **Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước):
+**Làm lại từ đầu:** **Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước; chỉ tài khoản chủ, áp dụng cho **mọi máy**):
 - **Đặt lại tồn kho (giữ mặt hàng)…**: giữ danh mục và tên đã học; xoá phiếu, hàng về, kiểm kê, khách; đọc lại mọi phiếu ngay. Các đơn đọc lại phải **chọn nơi lấy hàng lại**.
 - **Xoá toàn bộ dữ liệu…**: app như vừa cài.
 
@@ -417,12 +418,11 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 
 ## 13. Chuyển sang máy khác
 
-Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản mới nhất** (bản cũ không đọc được dữ liệu của bản mới).
+**Thêm máy, đổi máy, máy cho nhân viên:** cài app (cùng bản mới nhất với các máy khác) rồi **đăng nhập**. App tự tải toàn bộ dữ liệu chung từ Cloud về, kể cả các file phiếu gốc; không cần chép file nào. Nhiều máy làm việc cùng lúc được (mục 15).
 
-**Cách 1 — Gói dữ liệu (đầy đủ nhất):** đơn hàng, khách, tồn từng nơi, ghi chú, mức báo động, lịch sử…
-1. Máy đang dùng: **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu**. File `.dibekho` xuất hiện trong `output/`.
-2. Gửi file đó (USB, Zalo, email…), chép vào thư mục `input/` của máy kia.
-3. Máy kia: **Cần xử lý → Nhập dữ liệu**. Dữ liệu cũ trên máy đó được sao lưu trước rồi mới bị thay **toàn bộ**.
+**Cách 1 — Gói dữ liệu `.dibekho` (đầy đủ nhất):** đơn hàng, khách, tồn từng nơi, ghi chú, mức báo động, lịch sử… Dùng để lưu trữ, hoặc nạp dữ liệu từ một máy chưa dùng Cloud.
+1. **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu**. File `.dibekho` xuất hiện trong `output/`.
+2. Nạp gói: chép file vào thư mục `input/` → **Cần xử lý → Nhập dữ liệu**. ⚠ Dữ liệu chung của **mọi máy** bị thay **toàn bộ** bằng nội dung gói: chỉ tài khoản chủ làm được, app hỏi trước, sao lưu trước, cần có mạng.
 
 **Cách 2 — Dữ liệu gốc bằng Excel** (danh mục, khách hàng, số tồn, ghi chú; **không** có đơn hàng):
 - **Xuất dữ liệu gốc…** tạo file Excel 3 trang: Mặt hàng, Khách hàng, Tồn kho. Trang **Tồn kho** có các cột Tồn, Kho tổng, Văn phòng, Ghi chú tồn kho.
@@ -450,6 +450,8 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng cài **bản 
 | Mở file gốc báo lỗi | File đang mở trong Excel: đóng Excel rồi thử lại |
 | Xuất Excel báo file đang mở | Đóng file Excel cùng tên rồi xuất lại |
 | Cần xử lý báo "không đọc được số lượng" | Ô Số lượng của phiếu có chữ hoặc dấu chấm nghìn (vd. "3 thùng", "1.500"). Mở file phiếu, chỉ ghi số (1500 hoặc 2,5), lưu lại rồi bấm **⟳ Quét lại phiếu** |
+| Phiếu ghi giá bằng nhân dân tệ nhưng đơn nằm ở cột **Tiền hàng (VND)** | Mở đơn → **Đọc lại cả phiếu**. Máy vừa đăng nhập lần đầu cần khoảng một phút để tải phiếu gốc từ Cloud rồi tự nhận ra đơn tệ |
+| Mở app báo chưa kết nối được Cloud | Lần đầu đăng nhập trên một máy cần có mạng: kiểm tra mạng (tắt/bật VPN), bấm **Đăng nhập** lại |
 | Cần xử lý báo "File Excel đời cũ (.xls)" | Mở file bằng Excel → **Lưu thành** (Save As) kiểu *Excel Workbook (.xlsx)* → **⟳ Quét lại phiếu** |
 | Mở app báo "Không thấy dữ liệu của DiBeKho" | Thư mục làm việc nằm trên ổ USB / ổ mạng chưa cắm, hoặc đã bị đổi tên. Cắm lại hoặc đổi lại tên cũ rồi mở app. Chỉ bấm **Tạo dữ liệu mới** khi muốn bắt đầu lại từ đầu |
 | Mở app báo "DiBeKho đang mở rồi" | App đã mở ở một cửa sổ khác: tìm trên thanh tác vụ (Windows) hoặc Dock (Mac) |

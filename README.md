@@ -28,7 +28,7 @@ You drop Excel delivery notes into a folder. The app reads them, takes the goods
 - 📦 **See the stock** of every product, split between the **main warehouse** and the **office**; below 30 the row turns orange ("running low — order more"), negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
 - 📤 **Stock issue note:** pick the customer and the goods, taken from the Main warehouse, the Office or both; the stock goes down at once and an Excel file shaped like a delivery note is written ([details](docs/user-guide.md#35-stock-issue-note)).
-- 💱 **Amounts in dong or yuan:** the **₫ | ¥** switch at the bottom left shows every amount in yuan at today's market rate (files stay in VND). A note priced in yuan is recognised as a yuan order: its revenue is kept apart from the dong, with the approximate value in ₫ in brackets.
+- 💱 **Amounts in dong or yuan:** the **₫ | ¥** switch at the bottom left shows every amount in yuan at today's market rate (files stay in VND). A note priced in yuan is recognised as a yuan order: its revenue is kept apart from the dong, with the approximate value in ₫ in brackets; in Orders, yuan orders have their own **Goods (CNY)** column.
 - 🔢 **Stock count** per place (main warehouse, office): type what you counted, the app records the difference. **Transfer** goods between the two.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
 - 💰 **Revenue per customer:** goods only (shipping apart), the products they buy most, every order with unit prices and amounts, for any period.
@@ -84,7 +84,7 @@ Every file is on the [**Downloads (Releases)**](https://github.com/Friendzoner49
 
 Download the new version as above and **install it over the old one** (Mac: drag into Applications and choose **Replace**). Your data in `Documents/DiBeKho` is kept.
 
-> When two computers pass data to each other, **both must have the latest version**. A newer app reads data from an older one (it converts it automatically), but an older app cannot read data from a newer one.
+> Every computer shares the same data, so **install the same latest version on all of them** (the owner's and the staff's). `.dibekho` data packages: a newer app opens a package from an older one (it converts it automatically), an older app cannot open one from a newer version.
 
 ### Uninstalling
 
@@ -94,6 +94,8 @@ Download the new version as above and **install it over the old one** (Mac: drag
 ## Your first day
 
 Do these 4 steps once, in this order.
+
+> **Your shop already uses DiBeKho on another computer** (a second computer, a staff computer, a new one replacing an old one)? Only **step 1**: once you sign in, the app downloads all the shared data from the Cloud; skip steps 2 and 3. Steps 2–3 are only for **the owner's computer the very first time**: while the Cloud is empty the owner must sign in first, and the data on the owner's computer becomes the shared data.
 
 **1. Open the app.** Choose the language and the **working folder** (the default `Documents/DiBeKho` is fine) and click **Start**. Do not choose a folder inside OneDrive, iCloud or Google Drive: cloud syncing can damage the data. Then **sign in** with the account and password the owner gave you: the app connects to the shared data by itself.
 
@@ -164,6 +166,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 
 - **Stock:** columns **Main warehouse**, **Office** and the total (the **Stock** column sticks to the left edge once you scroll past it, so the running total stays visible). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Settings → Products → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
 - **Search** (**Ctrl+F**, on a Mac **⌘F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
+- **Order list**: the goods of dong orders and of yuan orders stand in two columns, **Goods (VND)** and **Goods (CNY)**; the **Currency** filter shows one kind only.
 - Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Reread the whole note** (right-click an order in the order list to do this straight from there), **Cancel document**.
 - Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period. **Export to Excel…** saves exactly that (every order with its prices, the products bought) to a file in `output/`.
 - Prices come from the unit price / amount columns of the note. A note without a price leaves the cell empty (—) and it is not counted in revenue.
@@ -176,17 +179,17 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 
 **Settings → Products**:
 - **Add product**, **Edit product…** (or double-click a row): name, packing, type/colour, category.
-- **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other. Every note, stock figure and learned name goes to the one with the smaller code; the other disappears. Made a mistake? Click **↶ Undo** right after.
+- **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other. Every note, stock figure and learned name goes to the one with the smaller code; the other disappears. A merge cannot be split again, so check before you click.
 - **Delete product** only works for a product that no note uses. A product already in use can be made *inactive* instead (hidden from lists, old notes unchanged). The code of a deleted product is never given out again.
 - Long names: drag a column border wider, or hover over a cell to read the whole name.
 
 ### 7. Moving to another computer
 
-Only **one computer** works at a time, and both need the same app version (see [Updating](#updating)).
+**Adding or replacing a computer:** install the app on the new computer and **sign in**. The app downloads all the shared data from the Cloud; no files to copy. Several computers can work at the same time; changes go to the Cloud about every minute.
 
-1. On the computer in use: **Settings → Data transfer and backups → Export data**. A `.dibekho` file appears in `output/`.
-2. Send that file (USB, Zalo, e-mail…) and copy it into the `input/` folder of the other computer.
-3. On the other computer: **To do → Import data**. Its current data is backed up first, then replaced.
+**`.dibekho` data package** (one file holding all the data, to keep an archive or to load older data):
+1. **Settings → Data transfer and backups → Export data**. A `.dibekho` file appears in `output/`.
+2. To load a package: copy it into the `input/` folder, then **To do → Import data**. ⚠ This **replaces the shared data for every computer**: only an owner account can do it; the app asks first, backs up first, and needs the internet.
 
 **Master data in Excel** (products, customers and stock; **no** orders):
 - **Settings → Data transfer and backups → Export master data…** makes one Excel file with 3 sheets: Products, Customers, Stock.
@@ -195,11 +198,11 @@ Only **one computer** works at a time, and both need the same app version (see [
 
 ### 8. Backups
 
-The app backs up once a day when it starts, keeps the newest 10 copies in `sao-luu/`, and drops anything over 30 days old. **Settings → Data transfer and backups** has **Back up now**, **Restore selected**, and **Restore a deleted product…** (for a product deleted by mistake).
+The app backs up once a day when it starts, keeps the newest 10 copies in `sao-luu/`, and drops anything over 30 days old. **Settings → Data transfer and backups** has **Back up now**, **Restore selected**, and **Restore a deleted product…** (for a product deleted by mistake). The owner's computer also sends a backup to the Cloud whenever the app closes (**Settings → Cloud → Restore from cloud…**). Restoring a backup replaces the shared data for every computer (owner accounts only).
 
 ### 9. Starting over
 
-**Settings → General → Reset data** (the app always backs up first):
+**Settings → General → Reset data** (the app always backs up first; owner accounts only, and it applies to **every computer** sharing the data):
 - **Reset stock (keep products)…**: keeps the catalog and learned names; removes notes, goods in, stock counts and customers; reads every note again right away.
 - **Delete all data…**: the app is as freshly installed (only language, size and working folder are kept).
 
@@ -220,7 +223,9 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 | On opening: "DiBeKho's data was not found" | Plug in the USB stick / network drive holding the workspace, or rename the folder back, then open the app again. Choose **Create new data** only to start over |
 | On opening: "DiBeKho is already open" | The app is open in another window: look in the taskbar (Windows) or the Dock (Mac) |
 | A product was deleted by mistake | **Settings → Data transfer and backups → Restore a deleted product…** |
-| You want to go back to an earlier day | **Settings → Data transfer and backups**, pick a backup, **Restore selected** |
+| You want to go back to an earlier day | **Settings → Data transfer and backups**, pick a backup, **Restore selected** (replaces the data for every computer, owner accounts only) |
+| A note priced in yuan sits in the **Goods (VND)** column | Open the order → **Reread the whole note**: the app reads it again and sees it is in yuan. A computer that has just signed in needs about a minute to download the original notes from the Cloud, then it sees it by itself |
+| On opening: the Cloud cannot be reached | The first sign-in on a computer needs the internet: check the connection (turn the VPN off/on) and click **Sign in** again. Once signed in, the app works offline and sends everything when the connection is back |
 
 ### Sending the log when something goes wrong
 
@@ -235,6 +240,8 @@ The app writes what you do and every error into a log (1 MB and 7 days at most; 
 > ⚠ The log contains customer names and file names. Send it only to whoever looks after the app; never post it publicly.
 
 ## FAQ
+
+**What about a note priced in Chinese yuan?** The app recognises it (price cells formatted as CNY/¥, or the total in words saying "nhân dân tệ"): the amounts stay in yuan, with the approximate value in ₫ at the rate when the note was read, e.g. `¥4.800 (≈ 17.280.000 ₫)`. Yuan revenue is never added to the dong.
 
 **If I drop the same note in twice, is it subtracted twice?** No. The app recognises a note by the file's content, even after it is renamed or moved to another folder.
 

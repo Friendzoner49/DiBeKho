@@ -28,7 +28,7 @@ Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc 
 - 📦 **Xem tồn kho** từng mặt hàng, chia theo **Kho tổng** và **Văn phòng**; hàng dưới 30 tô cam kèm ghi "Sắp hết — nên đặt hàng", tồn âm tô đỏ; **ghi chú** cho từng mặt hàng (thùng lỗi, in lệch, hết hạn…).
 - 📥 **Nhập hàng về** trong một cửa sổ: từ cửa khẩu / công ty mẹ, hoặc khách trả lại.
 - 📤 **Phiếu xuất kho:** chọn khách và hàng, lấy ở Kho tổng, Văn phòng hoặc cả hai; app trừ tồn ngay và tạo file Excel giống phiếu giao hàng ([chi tiết](docs/huong-dan-su-dung.md#35-phiếu-xuất-kho)).
-- 💱 **Xem tiền bằng VND hoặc nhân dân tệ:** công tắc **₫ | ¥** ở góc trái dưới đổi mọi số tiền sang nhân dân tệ theo tỷ giá thị trường hôm nay (file xuất ra vẫn ghi VND). Phiếu ghi giá bằng tệ được nhận là đơn tệ: doanh thu tệ cộng riêng, kèm số quy đổi xấp xỉ ra ₫ trong ngoặc.
+- 💱 **Xem tiền bằng VND hoặc nhân dân tệ:** công tắc **₫ | ¥** ở góc trái dưới đổi mọi số tiền sang nhân dân tệ theo tỷ giá thị trường hôm nay (file xuất ra vẫn ghi VND). Phiếu ghi giá bằng tệ được nhận là đơn tệ: doanh thu tệ cộng riêng, kèm số quy đổi xấp xỉ ra ₫ trong ngoặc; trong Đơn hàng, đơn tệ nằm ở cột riêng **Tiền hàng (CNY)**.
 - 🔢 **Kiểm kê** từng nơi (Kho tổng, Văn phòng): gõ số đếm thực tế, app ghi phần chênh lệch. **Chuyển hàng** giữa hai nơi.
 - 🔎 **Tra cứu** mặt hàng, khách, số điện thoại, mã phiếu; gõ không dấu hay tiếng Trung đều được.
 - 💰 **Doanh thu theo khách:** tiền hàng (phí vận chuyển tính riêng), mặt hàng khách hay mua, từng đơn với đơn giá và thành tiền, lọc theo khoảng thời gian.
@@ -82,7 +82,7 @@ Mọi bản đều nằm ở trang [**Tải về (Releases)**](https://github.co
 
 Tải bản mới như trên rồi **cài đè** lên bản cũ (Mac: kéo vào Applications, chọn **Thay thế**). Dữ liệu trong `Tài liệu/DiBeKho` giữ nguyên, không mất gì.
 
-> Hai máy chuyển dữ liệu cho nhau thì **cả hai phải cùng cài bản mới nhất**. Máy bản mới nhận được dữ liệu từ máy bản cũ (app tự chuyển đổi), nhưng máy bản cũ không nhận được dữ liệu từ máy bản mới.
+> Mọi máy cùng dùng dữ liệu chung nên **cài cùng bản mới nhất** (cả máy chủ lẫn máy nhân viên). Gói dữ liệu `.dibekho`: bản mới mở được gói của bản cũ (app tự chuyển đổi), bản cũ không mở được gói của bản mới.
 
 ### Gỡ cài đặt
 
@@ -92,6 +92,8 @@ Tải bản mới như trên rồi **cài đè** lên bản cũ (Mac: kéo vào 
 ## Ngày đầu tiên
 
 Làm 4 bước này một lần, theo thứ tự.
+
+> **Cửa hàng đã dùng DiBeKho ở máy khác** (máy thứ hai, máy nhân viên, máy mới thay máy cũ)? Chỉ cần **bước 1**: đăng nhập xong, app tự tải toàn bộ dữ liệu chung từ Cloud về, bỏ qua bước 2 và 3. Bước 2–3 chỉ dành cho **máy của chủ khi bắt đầu lần đầu**: Cloud còn trống thì máy chủ phải đăng nhập trước, dữ liệu trên máy chủ trở thành dữ liệu chung.
 
 **1. Mở app.** Chọn ngôn ngữ và **thư mục làm việc** (để mặc định `Tài liệu/DiBeKho` là được), bấm **Bắt đầu**. Không chọn thư mục nằm trong OneDrive, iCloud hay Google Drive: đồng bộ đám mây có thể làm hỏng dữ liệu. Sau đó **đăng nhập** bằng tài khoản và mật khẩu chủ cấp: app tự nối với dữ liệu chung.
 
@@ -162,6 +164,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 
 - **Tồn kho:** cột **Kho tổng**, **Văn phòng** và tổng (cột **Tồn** tự dính vào mép trái khi kéo bảng sang ngang, để vẫn thấy tổng tồn). Dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **cam** = dưới mức báo động (mặc định **30**, đổi ở **Cài đặt → Danh mục mặt hàng → Báo động khi tồn dưới**). Tick **Chỉ hiện hàng sắp hết** để có danh sách cần đặt. Nháy đúp ô **Ghi chú tồn kho** để ghi chú; nháy đúp chỗ khác để xem lịch sử nhập, xuất và số ở từng nơi.
 - **Tra cứu** (phím **Ctrl+F**, trên Mac **⌘F**): một ô tìm cho mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**.
+- **Danh sách đơn hàng**: tiền hàng của đơn tiền Việt và đơn tệ nằm ở hai cột riêng **Tiền hàng (VND)** và **Tiền hàng (CNY)**; ô lọc **Loại tiền** để xem riêng từng loại.
 - Mở **một đơn hàng**: khách, các dòng hàng với **Đơn giá** và **Thành tiền**, tiền hàng + phí khác = tổng tiền, **Mở file gốc**, **Đọc lại cả phiếu** (nhấn chuột phải vào tên đơn ở danh sách đơn hàng để làm nhanh cho cả đơn), **Huỷ phiếu**.
 - Mở **một khách hàng**: **Doanh thu**, các mặt hàng khách hay mua (doanh thu, giá bán), và **từng đơn với giá đầy đủ bên dưới**. Bỏ tick **Mọi thời gian** rồi chọn **Từ … đến …** để xem khách mua gì, giá bao nhiêu trong khoảng thời gian đó. Bấm **Xuất Excel…** để lưu đúng nội dung đó (từng đơn với giá, các mặt hàng đã mua) ra file trong `output/`.
 - Giá lấy từ cột đơn giá / thành tiền trên phiếu. Phiếu không ghi giá thì ô đó để trống (—) và không tính vào doanh thu.
@@ -174,17 +177,17 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 
 **Cài đặt → Danh mục mặt hàng**:
 - **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên, quy cách, loại/màu, nhóm hàng.
-- **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Làm nhầm thì bấm **↶ Hoàn tác** ngay.
+- **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Gộp rồi không tách lại được, nên xem kỹ trước khi bấm.
 - **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - Tên dài: kéo mép tiêu đề cột cho rộng ra, hoặc rê chuột lên ô để xem đủ tên.
 
 ### 7. Chuyển sang máy khác
 
-Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng một phiên bản app (xem [Cập nhật bản mới](#cập-nhật-bản-mới)).
+**Thêm máy hoặc đổi máy:** cài app trên máy mới và **đăng nhập**. App tự tải toàn bộ dữ liệu chung từ Cloud về; không cần chép file. Nhiều máy cùng làm việc một lúc được, thay đổi tự gửi lên Cloud khoảng mỗi phút.
 
-1. Ở máy đang dùng: **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu**. Một file `.dibekho` xuất hiện trong `output/`.
-2. Gửi file đó (USB, Zalo, email…) và chép vào thư mục `input/` của máy kia.
-3. Ở máy kia: **Cần xử lý → Nhập dữ liệu**. Dữ liệu cũ trên máy đó được sao lưu trước rồi mới bị thay.
+**Gói dữ liệu `.dibekho`** (một file chứa toàn bộ dữ liệu, dùng để lưu trữ hoặc nạp dữ liệu cũ vào):
+1. **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu**. Một file `.dibekho` xuất hiện trong `output/`.
+2. Nạp gói: chép file vào thư mục `input/`, rồi **Cần xử lý → Nhập dữ liệu**. ⚠ Việc này **thay toàn bộ dữ liệu chung cho mọi máy**: chỉ tài khoản chủ làm được, app hỏi trước, sao lưu trước và cần có mạng.
 
 **Dữ liệu gốc bằng Excel** (danh mục mặt hàng, khách hàng, số tồn; **không** có đơn hàng):
 - **Cài đặt → Chuyển dữ liệu và sao lưu → Xuất dữ liệu gốc…** tạo một file Excel 3 trang: Mặt hàng, Khách hàng, Tồn kho.
@@ -193,11 +196,11 @@ Mỗi lúc chỉ **một máy** làm việc. Hai máy phải cùng một phiên 
 
 ### 8. Sao lưu
 
-App tự sao lưu mỗi ngày khi mở, giữ 10 bản gần nhất trong thư mục `sao-luu/` và tự xoá bản quá 30 ngày. Trong **Cài đặt → Chuyển dữ liệu và sao lưu** có **Sao lưu ngay**, **Khôi phục bản đã chọn** và **Khôi phục mặt hàng đã xoá…** (lỡ xoá nhầm một mặt hàng).
+App tự sao lưu mỗi ngày khi mở, giữ 10 bản gần nhất trong thư mục `sao-luu/` và tự xoá bản quá 30 ngày. Trong **Cài đặt → Chuyển dữ liệu và sao lưu** có **Sao lưu ngay**, **Khôi phục bản đã chọn** và **Khôi phục mặt hàng đã xoá…** (lỡ xoá nhầm một mặt hàng). Máy của chủ còn gửi bản sao lưu lên Cloud mỗi khi tắt app (**Cài đặt → Cloud → Khôi phục từ Cloud…**). Khôi phục một bản sao lưu là thay dữ liệu chung cho mọi máy (chỉ tài khoản chủ).
 
 ### 9. Làm lại từ đầu
 
-**Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước):
+**Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước; chỉ tài khoản chủ, và áp dụng cho **mọi máy** dùng dữ liệu chung):
 - **Đặt lại tồn kho (giữ mặt hàng)…**: giữ danh mục và tên đã học; xoá phiếu, hàng về, kiểm kê, khách; đọc lại mọi phiếu ngay.
 - **Xoá toàn bộ dữ liệu…**: app như vừa cài (chỉ giữ ngôn ngữ, cỡ chữ, thư mục làm việc).
 
@@ -217,7 +220,9 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 | Cần xử lý báo "không đọc được số lượng" hoặc "File Excel đời cũ (.xls)" | Sửa ô Số lượng chỉ còn số (1500 hoặc 2,5), hoặc mở file bằng Excel và **Lưu thành** .xlsx, rồi bấm **⟳ Quét lại phiếu** |
 | Mở app báo "Không thấy dữ liệu của DiBeKho" | Cắm lại ổ USB / ổ mạng chứa thư mục làm việc, hoặc đổi lại tên thư mục, rồi mở lại app. Chỉ bấm **Tạo dữ liệu mới** khi muốn bắt đầu lại từ đầu |
 | Mở app báo "DiBeKho đang mở rồi" | App đã mở ở cửa sổ khác: tìm trên thanh tác vụ (Windows) hoặc Dock (Mac) |
-| Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** |
+| Muốn quay về hẳn một ngày trước | **Cài đặt → Chuyển dữ liệu và sao lưu**, chọn bản sao lưu, **Khôi phục bản đã chọn** (thay dữ liệu cho mọi máy, chỉ tài khoản chủ) |
+| Phiếu ghi giá bằng nhân dân tệ nhưng đơn nằm ở cột **Tiền hàng (VND)** | Mở đơn → **Đọc lại cả phiếu**: app đọc lại và nhận ra đơn tệ. Máy mới đăng nhập cần khoảng một phút để tải các phiếu gốc từ Cloud rồi tự nhận ra |
+| Mở app báo chưa kết nối được Cloud | Lần đầu đăng nhập trên một máy cần có mạng: kiểm tra mạng (tắt/bật VPN) rồi bấm **Đăng nhập** lại. Đã đăng nhập rồi thì mất mạng vẫn làm việc được, có mạng lại app tự gửi |
 
 ## Câu hỏi thường gặp
 
@@ -228,6 +233,8 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 **Tồn kho bị âm?** App không chặn, vì phiếu ghi việc đã xảy ra. Tồn âm thường do thiếu phiếu hàng về hoặc chưa kiểm kê.
 
 **Đổi ngôn ngữ?** **Cài đặt → Chung → Ngôn ngữ**.
+
+**Phiếu ghi giá bằng nhân dân tệ thì sao?** App tự nhận ra (ô giá định dạng CNY/¥, hoặc dòng tổng tiền bằng chữ ghi "nhân dân tệ"): số tiền giữ nguyên bằng tệ, kèm số quy đổi xấp xỉ ra ₫ theo tỷ giá lúc đọc phiếu, ví dụ `¥4.800 (≈ 17.280.000 ₫)`. Doanh thu tệ không bao giờ cộng chung với tiền Việt.
 
 **Nhiều máy (và điện thoại, trình duyệt) dùng chung một bộ dữ liệu được không?** Được: mọi máy đăng nhập cùng dùng dữ liệu chung trên Cloud. Tài khoản nhân viên làm việc bình thường, thay đổi chờ chủ duyệt ở **Cần xử lý**. Cách dùng: [Hướng dẫn chi tiết, mục 15](docs/huong-dan-su-dung.md#15-tài-khoản-và-dữ-liệu-chung-trên-cloud).
 

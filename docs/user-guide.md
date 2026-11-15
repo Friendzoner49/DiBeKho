@@ -72,7 +72,8 @@ Do this once, in order.
 
 | You have | Do this |
 |---|---|
-| A `.dibekho` file exported from another computer running DiBeKho | Copy it into the `input/` folder → **To do** → **Import data**. Done; skip step 3 |
+| Your shop's data is already on the Cloud (a second computer, a staff computer, a new computer) | Nothing: signing in at step 1 brings the shared data down. Skip steps 2 and 3 |
+| A `.dibekho` file exported from another computer running DiBeKho | Copy it into the `input/` folder → **To do** → **Import data** (owner accounts only; replaces the shared data for every computer). Done; skip step 3 |
 | The monthly stock spreadsheet (Excel) | **Stock** page → **Import catalog from Excel…** → choose the file → check the preview (double-click a cell to edit, untick rows you don't need) → keep **Use the stock in the file (column F)… as of** ticked and pick the date → **Import selected rows** |
 | Nothing yet | Skip. Products are created as delivery notes are read ([section 3](#3-every-day-reading-delivery-notes)) |
 
@@ -337,7 +338,7 @@ A merge cannot be split again: check before clicking.
 
 **Search → Order list**: every document, newest first.
 - Filter by **Document type** (delivery notes, goods in, stock counts, transfers), dates, customer, product; tick **Include cancelled** to see cancelled ones.
-- **Place** column: where goods were taken from / put in ("(?)" = not chosen yet). **Goods** and **Fees (apart)** columns.
+- **Place** column: where goods were taken from / put in ("(?)" = not chosen yet). The goods of a dong order are in the **Goods (VND)** column, those of a yuan order in **Goods (CNY)** (with the ≈ ₫ value); **Fees (apart)** column. The **Currency** filter lists only dong orders or only yuan orders.
 - **Right-click an order** (an active delivery note) → **Reread the whole note**: see section 12.
 
 **Double-click an order** for its details:
@@ -385,10 +386,10 @@ The app has no Undo button any more. Fix a mistake where it is:
 
 **Automatic backups:** every day when the app opens, the newest **10** are kept in `sao-luu/`, and anything over **30 days** old is dropped to save space (the app also tidies itself up every two weeks). In **Settings → Data transfer and backups**:
 - **Back up now**.
-- **Restore selected**: go back to that day's data.
+- **Restore selected**: go back to that day's data. ⚠ It replaces the shared data for **every computer**: owner accounts only, internet needed (section 15).
 - **Restore a deleted product…**: deleted a product by mistake? The app looks through the backups for one no longer in the catalog (it must still be in a backup from the last 30 days). If it was already re-created by hand, the app offers to **merge them into one** (every document moves onto the smaller code) or **keep them separate**.
 
-**Start over:** **Settings → General → Reset data** (always backed up first):
+**Start over:** **Settings → General → Reset data** (always backed up first; owner accounts only, applies to **every computer**):
 - **Reset stock (keep products)…**: keeps the catalog and learned names; clears notes, goods in, counts, customers; reads every note again. The orders read again need their **places chosen again**.
 - **Delete all data…**: the app as just installed.
 
@@ -417,12 +418,11 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 
 ## 13. Moving to another computer
 
-Only **one computer** works at a time. Both must run the **latest version** (an older version cannot read a newer one's data).
+**Adding a computer, replacing one, a computer for staff:** install the app (the same latest version as the others) and **sign in**. The app downloads all the shared data from the Cloud, the original notes included; no files to copy. Several computers can work at the same time (section 15).
 
-**Option 1 — Data package (everything):** orders, customers, stock per place, notes, alert level, history…
-1. Computer in use: **Settings → Data transfer and backups → Export data**. A `.dibekho` file appears in `output/`.
-2. Send it (USB, chat app, email…) and copy it into the other computer's `input/` folder.
-3. Other computer: **To do → Import data**. Its old data is backed up, then **replaced entirely**.
+**Option 1 — `.dibekho` data package (everything):** orders, customers, stock per place, notes, alert level, history… For an archive, or to load the data of a computer that never used the Cloud.
+1. **Settings → Data transfer and backups → Export data**. A `.dibekho` file appears in `output/`.
+2. To load it: copy it into the `input/` folder → **To do → Import data**. ⚠ The shared data of **every computer** is **replaced entirely** by the package: owner accounts only; the app asks first, backs up first, and needs the internet.
 
 **Option 2 — Master data in Excel** (catalog, customers, stock, notes; **no** orders):
 - **Export master data…** creates an Excel file with 3 sheets: Products, Customers, Stock. The **Stock** sheet has Stock, Main warehouse, Office and Stock note columns.
@@ -449,6 +449,8 @@ Only **one computer** works at a time. Both must run the **latest version** (an 
 | Go back to a day before | **Settings → Data transfer and backups**, choose the backup, **Restore selected** |
 | Excel export says the file is open | Close the Excel file with that name and export again |
 | To do says a quantity cannot be read ("không đọc được số lượng") | The note's quantity cell has words or thousands dots ("3 thùng", "1.500"). Open the note, write only the number (1500 or 2,5), save, then **⟳ Rescan notes** |
+| A note priced in yuan sits in the **Goods (VND)** column | Open the order → **Reread the whole note**. A computer that has just signed in for the first time needs about a minute to download the original notes from the Cloud, then it sees the yuan order by itself |
+| On opening: the Cloud cannot be reached | The first sign-in on a computer needs the internet: check the connection (turn the VPN off/on) and click **Sign in** again |
 | To do says "File Excel đời cũ (.xls)" | Open the file in Excel → **Save As** *Excel Workbook (.xlsx)* → **⟳ Rescan notes** |
 | On opening: "DiBeKho's data was not found" | The workspace is on a USB stick / network drive that is not plugged in, or the folder was renamed. Plug it in or rename it back, then open the app. Choose **Create new data** only to start over |
 | On opening: "DiBeKho is already open" | The app is open in another window: look in the taskbar (Windows) or the Dock (Mac) |
