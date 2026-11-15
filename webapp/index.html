@@ -45,6 +45,27 @@
   </aside>
 
   <section class="main">
+    <!-- the owner's phone (customer, 15/11/2026, evon wireframe B): one header, ☰ on Tổng quan, ‹ back on the others -->
+    <div class="phone-head">
+      <button id="ph-menu" class="iconbtn" data-i18n-title="phone.menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button id="ph-back" class="iconbtn" data-i18n-title="phone.back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+      <h1 id="ph-title"></h1>
+      <button id="ph-reload" class="iconbtn" data-i18n-title="top.reload"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+    </div>
+    <div id="ph-drawer" class="hidden">
+      <div class="ph-scrim" id="ph-scrim"></div>
+      <nav class="ph-nav">
+        <div class="brand side-brand"><img src="logo.png" alt="" width="32" height="32"> DiBeKho</div>
+        <button data-ph="dashboard" data-i18n="nav.dashboard"></button>
+        <button data-ph="stock" data-i18n="nav.stock"></button>
+        <button data-ph="orders" data-i18n="nav.orders"></button>
+        <button data-ph="customers" data-i18n="nav.customers"></button>
+        <button data-ph="stats" data-i18n="nav.stats"></button>
+        <span class="spacer"></span>
+        <p id="ph-who" class="hint"></p>
+        <button id="ph-logout" data-i18n="top.logout"></button>
+      </nav>
+    </div>
     <div class="topbar">
       <button id="reload" data-i18n="top.reload"></button>
       <button id="issue-new" class="only-maker not-phone" data-i18n="issue.button"></button>
@@ -66,7 +87,7 @@
       <div id="dash-kpis" class="kpis"></div>
       <div id="dash-banner"></div>
       <div class="dash-grid">
-        <section class="panel wide"><h2 data-i18n="dash.revenue_12"></h2><div id="dash-months"></div></section>
+        <section class="panel wide" id="dash-months-panel"><div class="panel-head"><h2 data-i18n="dash.revenue_12"></h2><button class="flat see-all only-owner-phone" data-go="stats" data-i18n="phone.to_stats"></button></div><div id="dash-months"></div></section>
         <section class="panel" id="dash-products"></section>
         <section class="panel" id="dash-customers"></section>
         <section class="panel" id="dash-low"></section>

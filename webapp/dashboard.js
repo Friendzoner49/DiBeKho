@@ -130,6 +130,22 @@ function monthsChart(months) {
     `<p class="hint">${esc(tr("dash.running_note"))}</p>`;
 }
 
+/** The same 12 months on the owner's phone: HTML columns that fit 360px with their value on top, in millions of
+    dong (thousands of yuan while the switch shows yuan), the unit said once under the chart. */
+function monthsBars(months) {
+  const max = Math.max(1, ...months.map((x) => x.total));
+  const unit = moneyInCny() ? FX.rate.vnd_per_cny * 1000 : 1e6;
+  const cols = months.map((x) => {
+    const label = LANG === "zh" ? `${x.m}月` : String(x.m);
+    const v = Math.round(x.total / unit);
+    const h = Math.max(x.total > 0 ? 2 : 0, Math.round((x.total / max) * 96));
+    return `<div class="pbar${x.running ? " running" : ""}" title="${esc(`${label}/${x.y}: ${fmtMoney(x.total)}`)}">` +
+      `<b>${esc(String(v))}</b><i data-h="${h}"></i><span>${esc(label)}</span></div>`;
+  }).join("");
+  return `<div class="pbars" role="img" aria-label="${esc(tr("dash.revenue_12"))}">${cols}</div>` +
+    `<p class="hint">${esc(tr(moneyInCny() ? "phone.unit_cny" : "phone.unit_vnd"))} · ${esc(tr("phone.running"))}</p>`;
+}
+
 /** A ranked list: name, a bar of its share of the first, the figure on the right. */
 function rankList(rows, empty) {
   if (!rows.length) return `<p class="hint dash-empty">${esc(empty)}</p>`;
@@ -163,7 +179,18 @@ function renderDashboard() {
   const all = activeProducts();
   const low = all.filter((p) => isLow(p) && stockOf(p.id).total >= 0), negative = all.filter((p) => stockOf(p.id).total < 0);
   const unplaced = unplacedOrders().length;
-  $("dash-kpis").innerHTML =
+  $("dash-kpis").classList.toggle("kpis", !ownerPhone());
+  if (ownerPhone()) {
+    // the owner's phone (evon wireframe B): the revenue in full and large first, the three counts under it
+    const total = oneFigure(money);
+    $("dash-kpis").innerHTML = `<section class="hero"><p class="hint">${esc(tr("phone.revenue_of", { start: fmtDay(start), end: fmtDay(end) }))}</p>` +
+      `<p class="hero-big">${esc(fmtMoney(total))}${moneyInCny() ? "" : `<small> ${esc(tr("money.unit"))}</small>`}</p>` +
+      (money.total_cny ? `<p class="hint">${esc(fmtBoth(money.total, money.total_cny, money.approx))}</p>` : "") +
+      deltaLine(total, hasBefore ? oneFigure(before) : null, true) +
+      `<div class="hero-mini"><div data-go="orders" role="button" tabindex="0"><b>${esc(fmtQty(money.orders))}</b><span>${esc(tr("col.orders"))}</span></div>` +
+      `<div data-go="low" role="button" tabindex="0"><b>${esc(fmtQty(low.length))}</b><span>${esc(tr("dash.k_low"))}</span></div>` +
+      `<div data-go="low" role="button" tabindex="0" class="${negative.length ? "neg" : ""}"><b>${esc(fmtQty(negative.length))}</b><span>${esc(tr("dash.k_negative"))}</span></div></div></section>`;
+  } else $("dash-kpis").innerHTML =
     kpi(tr("money.revenue"), `${esc(shortMoney(oneFigure(money)))}${moneyInCny() ? "" : `<span class="unit"> ${esc(tr("money.unit"))}</span>`}`,
         deltaLine(oneFigure(money), hasBefore ? oneFigure(before) : null, true),
         money.total_cny ? fmtBoth(money.total, money.total_cny, money.approx) : `${fmtMoney(money.total)}${moneyInCny() ? "" : " " + tr("money.unit")}`) +
@@ -174,23 +201,26 @@ function renderDashboard() {
   $("dash-banner").innerHTML = unplaced
     ? `<p class="banner click" data-go="pending" role="button" tabindex="0">${esc(tr("dash.unplaced", { n: unplaced }))}</p>` : "";
 
-  $("dash-months").innerHTML = monthsChart(monthsRevenue());
+  $("dash-months").innerHTML = ownerPhone() ? monthsBars(monthsRevenue()) : monthsChart(monthsRevenue());
+  // heights through the CSSOM: the page's CSP (style-src 'self') refuses style="" written in the markup
+  for (const i of $("dash-months").querySelectorAll(".pbar i")) i.style.height = `${i.dataset.h}px`;
+  const few = ownerPhone() ? 3 : null;  // the owner's phone: three rows a list, "Xem tất cả" for the rest
 
   const tops = DibeStats.topOut(model, start, end, {}, 200)
     .map((r) => ({ ...r, figure: moneyValue(r.revenue, r.revenue_cny, r.revenue_approx) || 0 }))
-    .sort((a, b) => b.figure - a.figure || b.qty_out - a.qty_out).slice(0, 5);
+    .sort((a, b) => b.figure - a.figure || b.qty_out - a.qty_out).slice(0, few || 5);
   $("dash-products").innerHTML = panelHead(tr("dash.top_products"), "stats") + rankList(tops.map((r) => ({
     name: productName(r), value: r.figure, figure: r.figure ? shortMoney(r.figure) : "—", title: fmtBoth(r.revenue, r.revenue_cny, r.revenue_approx),
     sub: tr("dash.sold", { qty: fmtQty(r.qty_out), unit: (productById[r.product_id] || {}).unit || "" }).trim(), open: `p:${r.product_id}`,
   })), tr("dash.none_sold"));
 
-  const custs = customerRevenue(start, end).slice(0, 5);
+  const custs = customerRevenue(start, end).slice(0, few || 5);
   $("dash-customers").innerHTML = panelHead(tr("dash.top_customers"), "customers") + rankList(custs.map((r) => ({
     name: (customerById[r.id] || {}).name || "?", value: Math.max(0, r.revenue), figure: shortMoney(r.revenue), title: fmtMoney(r.revenue),
     sub: tr("dash.orders_n", { n: r.orders }), open: `c:${r.id}`,
   })), tr("dash.none_customers"));
 
-  const short = all.filter(isLow).sort((a, b) => stockOf(a.id).total - stockOf(b.id).total).slice(0, 6);
+  const short = all.filter(isLow).sort((a, b) => stockOf(a.id).total - stockOf(b.id).total).slice(0, few || 6);
   $("dash-low").innerHTML = panelHead(tr("dash.low"), short.length ? "low" : "") + (short.length
     ? `<ul class="lines">` + short.map((p) => {
       const s = stockOf(p.id);
@@ -201,7 +231,7 @@ function renderDashboard() {
     : `<p class="hint dash-empty">${esc(lowDefault ? tr("dash.none_low") : tr("settings.low_off"))}</p>`);
 
   const recent = data.documents.filter((d) => d.kind === "delivery" && d.status === "active")
-    .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.created_at).localeCompare(String(a.created_at))).slice(0, 6);
+    .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.created_at).localeCompare(String(a.created_at))).slice(0, few || 6);
   $("dash-recent").innerHTML = panelHead(tr("dash.recent"), recent.length ? "orders" : "") + (recent.length
     ? `<ul class="lines">` + recent.map((d) => {
       const amount = (linesByDoc[d.id] || []).reduce((a, l) => a + (l.amount || 0), 0);

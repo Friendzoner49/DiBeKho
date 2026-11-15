@@ -309,8 +309,8 @@ label.check input:focus, .scroll:focus { outline: none; }  /* evon I13 */
 body.phone .only-phone { display: inline-flex; }
 body.phone .side, body.phone .not-phone, body.phone .only-maker, body.phone .only-owner, body.phone .only-admin,
 body.phone #freshness { display: none !important; }
-body.phone .page:not(#page-stock) { display: none !important; }
-body.phone #page-stock { display: block !important; }
+body.phone:not(.owner-phone) .page:not(#page-stock) { display: none !important; }
+body.phone:not(.owner-phone) #page-stock { display: block !important; }
 body.phone .topbar { flex-wrap: wrap; gap: 4px 8px; padding-top: env(safe-area-inset-top); }  /* iPhone: below the clock */
 body.phone #reload, body.phone #logout-phone { height: 40px; min-height: 40px; padding: 0 12px; white-space: nowrap;
                                                display: inline-flex; align-items: center; }
@@ -332,6 +332,64 @@ body.phone h1 { margin: 12px 0 8px; }
 .pc-total span { display: block; font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .pc-total small { font-size: 13px; color: var(--muted); }
 
+/* ===== điện thoại của chủ (app.js ownerPhone; khách 15/11/2026, evon wireframe B): Tổng quan, Tồn kho, Đơn hàng,
+   Khách hàng, Thống kê; một thanh đầu (☰ ở Tổng quan, ‹ ở trang khác), menu trượt từ trái ===== */
+.phone-head, .only-owner-phone { display: none; }
+body.owner-phone .only-owner-phone { display: inline-flex; }
+body.owner-phone .topbar, body.owner-phone #dash-range, body.owner-phone .dash-head h1, body.owner-phone #page-stock > h1,
+body.owner-phone #page-orders > .backbar, body.owner-phone #page-customers > .backbar, body.owner-phone #page-stats > .backbar,
+body.owner-phone #page-orders > .hint, body.owner-phone #page-customers > .hint { display: none !important; }
+body.owner-phone .phone-head { display: flex; align-items: center; gap: 4px; position: sticky; top: 0; z-index: 20;
+  margin: 0 -12px; padding: calc(env(safe-area-inset-top) + 4px) 4px 4px; background: var(--background); }
+body.owner-phone[data-page="detail"] .phone-head { display: none; }
+.phone-head h1 { flex: 1; min-width: 0; margin: 0; font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iconbtn { width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent;
+  display: inline-grid; place-items: center; color: var(--foreground); flex: none; }
+.iconbtn[hidden] { display: none; }
+.iconbtn:hover { background: var(--button-hover); }
+.iconbtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#ph-drawer { position: fixed; inset: 0; z-index: 60; }
+.ph-scrim { position: absolute; inset: 0; background: rgb(0 0 0 / 0.32); animation: ph-fade .16s ease-out; }
+.ph-nav { position: absolute; top: 0; bottom: 0; left: 0; width: min(300px, 82vw); background: var(--surface); display: flex; flex-direction: column;
+  gap: 4px; padding: calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px); box-shadow: var(--elevation-modal);
+  animation: ph-slide .2s ease-out; }
+.ph-nav .side-brand { margin: 0 8px 12px; }
+.ph-nav button { height: 48px; justify-content: flex-start; text-align: left; padding: 0 14px; border: 0; background: transparent; font-size: 16px; }
+.ph-nav button.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+.ph-nav .spacer { flex: 1; }
+.ph-nav #ph-who { margin: 0 14px 4px; }
+.ph-nav #ph-logout { border: 1px solid var(--border-strong); justify-content: center; text-align: center; }
+body.owner-phone #load-error:empty { display: none; }
+@keyframes ph-fade { from { opacity: 0; } }
+@keyframes ph-slide { from { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .ph-scrim, .ph-nav { animation: none; } }
+.hero { background: var(--surface); border-radius: var(--radius); box-shadow: var(--elevation-card); padding: 16px; }
+.hero > .hint { margin: 0; }
+.hero-big { margin: 2px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; line-height: 1.2; }
+.hero-big small { font-size: 20px; color: var(--muted); font-weight: 500; }
+.hero-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.hero-mini div { background: var(--background); border-radius: var(--radius-sm); padding: 8px 10px; min-width: 0; cursor: pointer; }
+.hero-mini b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.hero-mini span { display: block; font-size: 13px; color: var(--muted); line-height: 1.3; }
+.hero-mini .neg b { color: var(--danger); }
+.pbars { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 136px; }
+.pbar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.pbar b { font-size: 11px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pbar i { width: 100%; border-radius: 4px 4px 0 0; background: var(--primary); }
+.pbar.running i { background: rgb(31 111 178 / 0.45); }
+.pbar span { font-size: 11px; color: var(--muted); margin-top: 3px; }
+body.owner-phone .dash-grid { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 12px; }
+body.owner-phone .dash-grid > *, body.owner-phone #dash-kpis { min-width: 0; }
+body.owner-phone .dash-head { margin-top: 4px; }
+body.owner-phone #dash-months-panel { order: 1; } body.owner-phone #dash-recent { order: 2; } body.owner-phone #dash-products { order: 3; }
+body.owner-phone #dash-customers { order: 4; } body.owner-phone #dash-low { order: 5; }
+body.owner-phone .panel { padding: 14px 16px; }
+.day-head { margin: 14px 0 6px; font-size: 14px; font-weight: 600; color: var(--muted); }
+body.owner-phone #orders-table .panel, body.owner-phone #customers-table .panel { padding: 2px 16px; }
+body.owner-phone ul.lines li { min-height: 52px; }
+ul.lines li.closed .line-name, ul.lines li.closed .line-fig { color: var(--muted); }
+.tag-off { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--secondary); color: #55555a; font-size: 12px; }
+.line-fig small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; text-align: right; }
 
 /* Cài đặt → Nhật ký (maychinh) */
 .logtext { max-height: calc(60vh / var(--z, 1)); overflow: auto; background: var(--surface-hover); border-radius: 8px; padding: 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }

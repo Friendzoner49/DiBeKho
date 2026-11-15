@@ -264,15 +264,21 @@ async function showApp() {
   setRole(prof ? prof.role : "", (prof && prof.display_name) || (user.email || "").split("@")[0],
           (user.email || "").toLowerCase() === ACCOUNT_ADMIN);
   loadSharedScale();
-  showPage(isOwner() && !PHONE ? "dashboard" : "stock");  // the manager opens on the overview (customer, 14/11/2026)
+  showPage(isOwner() ? "dashboard" : "stock");  // the manager opens on the overview (customer, 14/11/2026), phone too (15/11)
   await loadAll();
 }
 
 /* Phones only look at the stock table (user's decision 12/11/2026): no menu, no windows, nothing to edit. Decided once
    when the page opens: a touch screen (no mouse) whose short side is small. A phone turned sideways is still a phone;
-   a computer with a small screen or a narrow window is not; a tablet or a computer gets the whole page. */
-const PHONE = window.matchMedia("(pointer: coarse)").matches && Math.min(window.screen.width, window.screen.height) <= 760;
+   a computer with a small screen or a narrow window is not; a tablet or a computer gets the whole page.
+   The owner's phone (role desktop, customer's request 15/11/2026, evon wireframe B) also has Tổng quan, Đơn hàng,
+   Khách hàng and Thống kê: one header (☰ on Tổng quan opens the menu, ‹ on the others goes back to it). A test may
+   force the phone layout with ?phone=1 (a desktop browser has a mouse). */
+const PHONE = new URLSearchParams(location.search).get("phone") === "1" ||
+  (window.matchMedia("(pointer: coarse)").matches && Math.min(window.screen.width, window.screen.height) <= 760);
 if (PHONE) document.body.classList.add("phone");
+const ownerPhone = () => PHONE && isOwner();
+const PHONE_PAGES = ["dashboard", "stock", "orders", "customers", "stats"];
 
 function setRole(role, name, accountAdmin = false) {
   userRole = role || "";
@@ -281,8 +287,24 @@ function setRole(role, name, accountAdmin = false) {
   document.body.classList.toggle("account-admin", role === "desktop" && !!accountAdmin);
   document.body.classList.toggle("maker", canMakeIssue());
   if (userRole) document.body.classList.add(`role-${userRole}`);
+  document.body.classList.toggle("owner-phone", ownerPhone());
   $("who").textContent = `${userName} (${tr(`role.short_${userRole || "none"}`)})`;
+  $("ph-who").textContent = $("who").textContent;
 }
+
+function phoneMenu(open) {
+  $("ph-drawer").classList.toggle("hidden", !open);
+  if (open) $("ph-drawer").querySelector(`[data-ph="${page}"]`)?.focus();
+}
+$("ph-menu").addEventListener("click", () => phoneMenu(true));
+$("ph-scrim").addEventListener("click", () => phoneMenu(false));
+$("ph-back").addEventListener("click", () => showPage("dashboard"));
+$("ph-reload").addEventListener("click", loadAll);
+$("ph-drawer").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ph]");
+  if (b) { phoneMenu(false); showPage(b.dataset.ph); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("ph-drawer").classList.contains("hidden")) phoneMenu(false); });
 
 /* ---------------------------------------------------------------- data */
 
@@ -358,8 +380,16 @@ let backTo = "stock";
 
 function showPage(name) {
   if (name === "dashboard" && !isOwner()) name = "stock";  // only the main machine's role has the overview
+  if (ownerPhone() && name !== "detail" && !PHONE_PAGES.includes(name)) name = "dashboard";
+  if (ownerPhone()) {
+    $("ph-title").textContent = name === "detail" ? "" : tr(`nav.${name}`);
+    $("ph-menu").hidden = name !== "dashboard";
+    $("ph-back").hidden = name === "dashboard";
+    for (const b of document.querySelectorAll("[data-ph]")) b.classList.toggle("active", b.dataset.ph === name);
+  }
   if (name !== "detail") backTo = name;
   page = name;
+  document.body.dataset.page = name;
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("hidden", p.id !== `page-${name}`));
   const top = ["orders", "customers", "stats"].includes(name) ? "search" : name === "detail" ? null : name;
   if (top) document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.page === top));
@@ -481,6 +511,11 @@ function renderOrders() {
       (!cur || isCny(d) === (cur === "CNY")) &&
       (!f || matches(f, `${d.code} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name} ${d.note}`)))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || String(b.code).localeCompare(String(a.code), "vi", { numeric: true }));
+  if (ownerPhone()) {
+    renderOrdersPhone(items);
+    $("orders-count").textContent = tr("orders.count", { n: items.length });
+    return;
+  }
   buildTable("orders-table", [
     { label: tr("col.date"), get: (d) => d.doc_date },
     ...(kind === "all" ? [{ label: tr("col.kind"), get: (d) => kindName(d.kind) }] : []),
@@ -497,6 +532,43 @@ function renderOrders() {
   $("orders-count").textContent = tr("orders.count", { n: items.length });
 }
 
+/** The owner's phone (evon wireframe B): one white block of rows per day, newest first; who on top, code and place
+    under it, the amount on the right (a yuan note in yuan, about how many dong under it). */
+const PHONE_ROWS = 150;
+function renderOrdersPhone(items) {
+  const today = todayLocal(), yesterday = isoDay(new Date(Date.now() - 864e5));
+  const dayName = (d) => (d === today ? tr("phone.today") : d === yesterday ? tr("phone.yesterday") : fmtDay(d));
+  const groups = [];
+  for (const d of items.slice(0, PHONE_ROWS)) {
+    if (!groups.length || groups[groups.length - 1].day !== d.doc_date) groups.push({ day: d.doc_date, docs: [] });
+    groups[groups.length - 1].docs.push(d);
+  }
+  const row = (d) => {
+    const who = (customerById[d.customer_id] || {}).name || d.supplier_name || "—";
+    const sub = [d.kind === "delivery" ? "" : kindName(d.kind), d.code, placeOf(d),
+                 tr("phone.lines_n", { n: (linesByDoc[d.id] || []).length })].filter(Boolean).map(esc).join(" · ");
+    const priced = d.note_total !== null && d.note_total !== undefined;
+    const money = !priced ? "" : isCny(d)
+      ? `${esc(fmtCny(d.note_total))}${moneyInCny() || !(d.fx_rate || rateNow()) ? "" : `<small>≈ ${esc(shortNumber(d.note_total * (d.fx_rate || rateNow())))} ₫</small>`}`
+      : esc(fmtMoney(d.note_total) + (moneyInCny() ? "" : " ₫"));
+    return `<li class="click${d.status !== "active" ? " closed" : ""}" data-open="${esc(d.id)}"><div class="line-main"><span class="line-name">${esc(who)}</span>` +
+      `<span class="line-sub">${sub}${d.status !== "active" ? ` · <span class="tag-off">${esc(statusName(d.status))}</span>` : ""}</span></div>` +
+      `<b class="line-fig">${money}</b></li>`;
+  };
+  $("orders-table").innerHTML = items.length
+    ? groups.map((g) => `<p class="day-head">${esc(dayName(g.day))}</p><section class="panel"><ul class="lines">${g.docs.map(row).join("")}</ul></section>`).join("") +
+      (items.length > PHONE_ROWS ? `<p class="hint">${esc(tr("phone.more", { shown: PHONE_ROWS, n: items.length }))}</p>` : "")
+    : `<p class="hint dash-empty">${esc(tr("dash.none_orders"))}</p>`;
+}
+$("orders-table").addEventListener("click", (e) => {
+  const li = ownerPhone() && e.target.closest("li[data-open]");
+  if (li) showOrder(li.dataset.open);
+});
+$("customers-table").addEventListener("click", (e) => {
+  const li = ownerPhone() && e.target.closest("li[data-open]");
+  if (li) showCustomer(li.dataset.open);
+});
+
 /* ---------------------------------------------------------------- Khách hàng */
 
 function renderCustomers() {
@@ -510,6 +582,19 @@ function renderCustomers() {
     for (const l of linesByDoc[d.id] || []) if (l.amount !== null && l.amount !== undefined) revenue[d.customer_id] = addMoney(revenue[d.customer_id] || noMoney(), d, sign * l.amount);
   }
   const rev = (c) => revenue[c.id] || noMoney();
+  if (ownerPhone()) {
+    // the owner's phone: who bought the most first, the name in full, the revenue on the right
+    const value = (c) => moneyValue(rev(c).vnd, rev(c).cny, rev(c).approx) || 0;
+    const orders = {};
+    for (const d of data.documents) if (d.kind === "delivery" && d.status === "active" && d.customer_id) orders[d.customer_id] = (orders[d.customer_id] || 0) + 1;
+    const sorted = items.slice().sort((a, b) => value(b) - value(a) || a.name.localeCompare(b.name, "vi"));
+    $("customers-table").innerHTML = sorted.length ? `<section class="panel"><ul class="lines">` + sorted.map((c) =>
+      `<li class="click" data-open="${esc(c.id)}"><div class="line-main"><span class="line-name">${esc(c.name)}</span>` +
+      `<span class="line-sub">${esc([tr("phone.orders_n", { n: orders[c.id] || 0 }), c.phone].filter(Boolean).join(" · "))}</span></div>` +
+      `<b class="line-fig">${esc(value(c) ? shortMoney(value(c)) : "—")}</b></li>`).join("") + `</ul></section>`
+      : `<p class="hint dash-empty">${esc(tr("dash.none_customers"))}</p>`;
+    return;
+  }
   buildTable("customers-table", [
     { label: tr("col.customer"), get: (c) => c.name }, { label: tr("col.contact"), get: (c) => c.contact },
     { label: tr("col.phone"), get: (c) => c.phone }, { label: tr("col.address"), get: (c) => c.address },
