@@ -8,6 +8,9 @@ The same product may stand on several lines: another quantity, another price (us
 While the ₫ | ¥ switch shows yuan, the prices are typed in yuan (user, 15/11/2026) at the rate the window opened
 with; the note and the data keep dong: a typed price is turned into whole dong, a suggested price left untouched
 keeps its exact dong.
+
+A row may be '★ Mặt hàng mới' (customer, 15/11/2026): a product not in the catalog yet, made on save (core/issues.py),
+its stock goes below zero until the goods come in (Hàng về).
 """
 
 from datetime import date
@@ -20,6 +23,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QTableWidget,
     QVBoxLayout,
@@ -64,6 +68,7 @@ def _spin(maximum: float, width: int) -> NoWheelSpin:
 class _Row:
     def __init__(self):
         self.product_id: int | None = None
+        self.new = None  # receipts.NewProduct: not in the catalog yet, made on save
         self.button = QPushButton()
         self.qty_main = _spin(1e7, 100)
         self.qty_office = _spin(1e7, 100)
@@ -168,7 +173,7 @@ class IssueForm(QDialog):
             from_qdate(self.date.date()), self.customer.currentText().split(" · ")[0].strip(),
             phone=self.phone.text(), contact=self.contact.text(), address=self.address.text(),
             lines=[IssueLineInput(r.product_id, r.qty_main.value(), r.qty_office.value(),
-                                  self._price_vnd(r), r.note.text()) for r in self.rows])
+                                  self._price_vnd(r), r.note.text(), new=r.new) for r in self.rows])
 
     def _price_vnd(self, row: _Row) -> float | None:
         """The row's price in dong, as it is saved."""
@@ -232,6 +237,8 @@ class IssueForm(QDialog):
         self._update_summary()
 
     def _label(self, row: _Row) -> str:
+        if row.new:
+            return "★ " + row.new.label()
         p = self.products.get(row.product_id) if row.product_id else None
         return catalog.long_label(p) if p else ""
 
@@ -243,8 +250,8 @@ class IssueForm(QDialog):
         row.button.setStyleSheet("text-align: left; padding-left: 6px;" +
                                  (f"color: {theme_color('hint')};" if not text else ""))
         p = self.products.get(row.product_id) if row.product_id else None
-        self.table.cellWidget(i, SPEC).setText(p["spec"] if p else "")
-        self.table.cellWidget(i, UNIT).setText(p["unit"] if p else "")
+        self.table.cellWidget(i, SPEC).setText(row.new.spec if row.new else (p["spec"] if p else ""))
+        self.table.cellWidget(i, UNIT).setText(row.new.unit if row.new else (p["unit"] if p else ""))
         price = self._price_vnd(row)
         amount = row.qty() * price if price else None
         self.table.cellWidget(i, AMOUNT).setText(self._money(amount) if amount else "")
@@ -264,8 +271,12 @@ class IssueForm(QDialog):
                 if label is None:
                     continue
                 have = self.levels.get((r.product_id, loc), 0.0) if r.product_id in self.products else None
+                if r.new:
+                    have = 0.0  # a new product has nothing yet
                 label.setText("" if have is None else fmt_qty(have))
-                over = have is not None and asked.get((r.product_id, loc), 0.0) > have
+                taken = (r.qty_main if loc == MAIN else r.qty_office).value() if r.new else \
+                    asked.get((r.product_id, loc), 0.0)
+                over = have is not None and taken > have
                 label.setStyleSheet(f"color: {RED.name()};" if over else "")
 
     def _fill_price(self, row: _Row):
@@ -279,6 +290,47 @@ class IssueForm(QDialog):
         self._show_row(row)
 
     def _choose(self, row: _Row):
+        """Pick a product of the catalog, or describe a new one (as in Hàng về)."""
+        menu = QMenu(self)
+        pick = menu.addAction(t("receipt_form.pick_existing"))
+        new = menu.addAction(t("receipt_form.pick_new"))
+        edit_new = menu.addAction(t("receipt_form.edit_new")) if row.new else None
+        clear = menu.addAction(t("receipt_form.clear_row")) if (row.product_id or row.new) else None
+        chosen = self._open_menu(menu, row)
+        if chosen is None:
+            return
+        if chosen is pick:
+            self._pick_existing(row)
+        elif chosen in (new, edit_new):
+            from dibekho.ui.receipt_form import NewProductDialog
+
+            dlg = NewProductDialog(self.ctx, row.new, self)
+            if dlg.exec() == QDialog.Accepted and dlg.result_product:
+                self._set_new(row, dlg.result_product)
+        elif chosen is clear:
+            row.product_id, row.new, row.price_typed = None, None, False
+            row.price.setValue(0)
+            self._show_row(row)
+
+    def _open_menu(self, menu: QMenu, row: _Row):
+        """The menu under the row's button; a method of its own so tests can answer it (patching QMenu.exec does
+        not reach PySide once the method was looked up)."""
+        return menu.exec(row.button.mapToGlobal(row.button.rect().bottomLeft()))
+
+    def _set_new(self, row: _Row, new):
+        row.product_id, row.new = None, new
+        row.price_typed = False
+        row.price.setValue(0)
+        self._show_row(row)
+        self._after_pick(row)
+
+    def _after_pick(self, row: _Row):
+        if row is self.rows[-1]:
+            self.add_row()
+        row.qty_main.setFocus()
+        row.qty_main.selectAll()
+
+    def _pick_existing(self, row: _Row):
         from dibekho.ui.pending_page import ProductPicker
 
         product_id = ProductPicker(self.ctx, self).choose()
@@ -289,15 +341,15 @@ class IssueForm(QDialog):
             if p is None:
                 return
             self.products[product_id] = p
-        if product_id != row.product_id:
+        self._set_existing(row, product_id)
+        self._after_pick(row)
+
+    def _set_existing(self, row: _Row, product_id: int):
+        if product_id != row.product_id or row.new:
             row.price_typed = False
-        row.product_id = product_id
+        row.product_id, row.new = product_id, None
         self._fill_price(row)
         self._show_row(row)
-        if row is self.rows[-1]:
-            self.add_row()
-        row.qty_main.setFocus()
-        row.qty_main.selectAll()
 
     def _update_summary(self):
         data = self.data()
@@ -311,14 +363,21 @@ class IssueForm(QDialog):
     def _confirm_text(self, data: IssueInput) -> str:
         lines = []
         for ln in data.filled():
-            p = self.products[ln.product_id]
+            if ln.new:
+                name, unit = "★ " + ln.new.label(), ln.new.unit
+            else:
+                p = self.products[ln.product_id]
+                name, unit = catalog.long_label(p), p["unit"]
             parts = [f"{location_name(loc)} {fmt_qty(q)}" for loc, q in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office))
                      if q]
             money = f" × {self._both(ln.unit_price)}" if ln.unit_price else ""
-            lines.append(f"• {catalog.long_label(p)}: {' + '.join(parts)} {p['unit']}".rstrip() + money)
+            lines.append(f"• {name}: {' + '.join(parts)} {unit}".rstrip() + money)
         total = sum(ln.qty * ln.unit_price for ln in data.filled() if ln.unit_price)
-        return t("issue.confirm", date=data.doc_date.strftime("%d/%m/%Y"), customer=data.customer_name,
+        text = t("issue.confirm", date=data.doc_date.strftime("%d/%m/%Y"), customer=data.customer_name,
                  lines="\n".join(lines), money=self._both(total))
+        if any(ln.new for ln in data.filled()):
+            text += "\n\n" + t("issue.confirm_new")
+        return text
 
     def _both(self, vnd: float) -> str:
         """Before saving the user sees what is written: yuan as typed and the dong the note will carry."""
@@ -335,6 +394,13 @@ class IssueForm(QDialog):
                 texts.append("• " + t(key, **values))
             error(self, t("issue.cannot_save") + "\n\n" + "\n".join(dict.fromkeys(texts)))
             return
+        for ln, existing in issues.same_as_existing(self.ctx.conn, data):
+            if ask(self, t("receipt_form.already_in_catalog", new=ln.new.label(), code=existing["code"],
+                           product=catalog.long_label(existing))):
+                self.products.setdefault(existing["id"], existing)
+                for row in [r for r in self.rows if r.new is not None and issues.new_key(r.new) == issues.new_key(ln.new)]:
+                    self._set_existing(row, existing["id"])
+        data = self.data()
         short = issues.short_of(self.ctx.conn, data)
         if short:
             text = "\n".join(t("issue.short_line", product=catalog.long_label(self.products[pid]),

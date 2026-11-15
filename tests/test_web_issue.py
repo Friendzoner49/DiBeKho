@@ -141,3 +141,22 @@ def test_a_web_file_dropped_in_the_folder_takes_each_place_once(conn, ws, goods,
     assert deliveries.pending_count(conn) == 0 and deliveries.unplaced_count(conn) == 0
     deliveries.scan(conn, ws)  # read again: nothing more is taken
     assert stock_levels(conn, by_location=True) == levels
+
+
+def test_a_staff_web_file_with_a_new_product_waits_in_pending(conn, ws, goods, tmp_path):
+    """A new product typed on the web by staff (customer, 15/11/2026): the row has no code, so the app asks for it in
+    Cần xử lý (Tạo mới) and records the rest of the note once that is done."""
+    paint, sand = goods
+    lines = [{"product_id": None, "new": {"name_vi": "Băng keo mới", "spec": "5cm", "unit": "cuộn"}, "qty_main": 3,
+              "qty_office": 0, "unit_price": 10000, "note": ""}]
+    src = tmp_path / "rows.json"
+    src.write_text(json.dumps({"products": {}, "lines": lines}, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "rows_out.json"
+    _node("rows", src, out)
+    rows = json.loads(out.read_text(encoding="utf-8"))
+    assert rows[0]["code"] == "" and rows[0]["name_vi"] == "Băng keo mới" and rows[0]["amount"] == 30000
+    _web_file({"code": "W90", "doc_date": "2026-11-15", "customer": "Công ty A", "phone": "", "contact": "",
+               "address": ""}, rows, ws.deliveries / "PhieuXuat_W90.xlsx")
+    deliveries.scan(conn, ws)
+    assert deliveries.pending_count(conn) == 1
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0

@@ -262,15 +262,17 @@ const DBK_XLSX = (() => {
 
   /** The table of the file, as core/issues.note_rows: one row per product, like a delivery note; where it is taken
       from goes in the hidden 'Lấy từ kho' column. lines [{product_id, qty_main, qty_office, unit_price (null = no
-      price), note}]. The unit is only for the window's summary, it is not in the file. */
+      price), note, new?}]. The unit is only for the window's summary, it is not in the file. A line whose product is not
+      in the catalog yet carries new {name_vi, spec, unit} and no product_id: the row has no code, so the app reads it
+      by name (Cần xử lý → Tạo mới) unless the owner's cloud call made the product first. */
   function noteRows(productById, lines) {
     return lines.map((ln) => {
-      const p = productById[ln.product_id];
+      const p = (ln.product_id && productById[ln.product_id]) || ln.new;
       const nameVi = [p.name_vi, p.variant].filter(Boolean).join(" ");
       const places = [[1, ln.qty_main], [2, ln.qty_office]].filter(([, q]) => q > 0);
       const qty = (ln.qty_main || 0) + (ln.qty_office || 0);
       const amount = ln.unit_price === null || ln.unit_price === undefined ? null : Math.round(qty * ln.unit_price * 100) / 100;
-      return { code: p.code, name_vi: nameVi, name_zh: p.name_zh || "", spec: p.spec || "", unit: p.unit || "", qty, places,
+      return { code: p.code || "", name_vi: nameVi, name_zh: p.name_zh || "", spec: p.spec || "", unit: p.unit || "", qty, places,
                unit_price: ln.unit_price ?? null, amount, note: String(ln.note || "").replace(/\s+/g, " ").trim() };
     });
   }

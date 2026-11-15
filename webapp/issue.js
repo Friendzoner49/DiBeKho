@@ -5,7 +5,10 @@
    delivery note; the same file read twice is never counted twice. A product may stand on several lines (another
    quantity, another price). While the ₫ / ¥ switch shows yuan the prices are typed in yuan at the rate the window
    opened with (user, 15/11/2026); the file keeps VND: a typed price becomes whole dong, a suggested price left
-   untouched keeps its exact dong. */
+   untouched keeps its exact dong.
+   A name typed that is not in the list is a new product (★, customer's request 15/11/2026): its packing and unit are
+   typed on the row; the owner's note makes it on the cloud with the note (019) and its stock goes below zero until
+   the goods come in; a staff file carries the name only and the app asks for it in Cần xử lý → Tạo mới. */
 
 "use strict";
 
@@ -41,8 +44,10 @@ function letterhead() {
 }
 
 function issueRowHtml() {
-  return `<tr class="ix-row"><td><input class="ix-product" list="products-dl" placeholder="${esc(tr("issue.pick_ph"))}"></td>` +
-    `<td class="ix-spec"></td><td class="ix-unit"></td>` +
+  return `<tr class="ix-row"><td><input class="ix-product" list="products-dl" placeholder="${esc(tr("issue.pick_ph"))}">` +
+    `<div class="ix-newtag hint hidden">${esc(tr("issue.new_tag"))}</div></td>` +
+    `<td><span class="ix-spec"></span><input class="ix-new-spec hidden" placeholder="${esc(tr("col.spec"))}"></td>` +
+    `<td><span class="ix-unit"></span><input class="ix-new-unit hidden" placeholder="${esc(tr("col.unit"))}"></td>` +
     `<td class="num ix-have" data-place="1"></td><td class="yellow"><input class="qty ix-qty" data-place="1" inputmode="decimal"></td>` +
     `<td class="num ix-have" data-place="2"></td><td class="yellow"><input class="qty ix-qty" data-place="2" inputmode="decimal"></td>` +
     `<td><input class="qty ix-price" inputmode="decimal"></td><td class="num ix-amount"></td>` +
@@ -89,6 +94,7 @@ function openIssueForm() {
       question: tr("issue.discard") });
 
   const rowProduct = (tr_) => productFromLabel(tr_.querySelector(".ix-product").value);
+  const rowIsNew = (tr_) => !rowProduct(tr_) && !!tr_.querySelector(".ix-product").value.trim();
   const fillPrice = (tr_) => {
     const price = tr_.querySelector(".ix-price");
     if (price.dataset.typed) return;  // the user's own price is kept
@@ -108,22 +114,23 @@ function openIssueForm() {
       }
     }
     for (const tr_ of $("ix-lines").querySelectorAll("tr")) {
-      const p = rowProduct(tr_);
+      const p = rowProduct(tr_), isNew = rowIsNew(tr_);
       tr_.querySelector(".ix-spec").textContent = p ? [p.spec, p.variant].filter(Boolean).join(" · ") : "";
       tr_.querySelector(".ix-unit").textContent = p ? p.unit || "" : "";
+      for (const sel of [".ix-newtag", ".ix-new-spec", ".ix-new-unit"]) tr_.querySelector(sel).classList.toggle("hidden", !isNew);
       let qty = 0;
       for (const place of [1, 2]) {
         const have = tr_.querySelector(`.ix-have[data-place="${place}"]`);
         const box = tr_.querySelector(`.ix-qty[data-place="${place}"]`);
         const asked = parseQty(box.value);
-        have.textContent = p ? fmtQty(stockOf(p.id)[place] || 0) : "";
-        const over = p && asked > 0 && taken[`${p.id}|${place}`] > (stockOf(p.id)[place] || 0);
+        have.textContent = p ? fmtQty(stockOf(p.id)[place] || 0) : isNew ? "0" : "";
+        const over = (isNew && asked > 0) || (p && asked > 0 && taken[`${p.id}|${place}`] > (stockOf(p.id)[place] || 0));
         have.classList.toggle("over", !!over);
         box.closest("td").classList.toggle("bad", Number.isNaN(asked));
         if (asked > 0) qty += asked;
       }
       const price = issuePriceVnd(tr_.querySelector(".ix-price"));
-      const amount = p && qty > 0 && price !== null && !Number.isNaN(price) ? Math.round(qty * price * 100) / 100 : null;
+      const amount = (p || isNew) && qty > 0 && price !== null && !Number.isNaN(price) ? Math.round(qty * price * 100) / 100 : null;
       tr_.querySelector(".ix-amount").textContent = amount === null ? "" : issueMoney(amount);
       if (amount !== null) { total += amount; priced = true; }
     }
@@ -141,7 +148,7 @@ function openIssueForm() {
     if (tr_ && e.target.classList.contains("ix-product")) {
       fillPrice(tr_);
       const rows = $("ix-lines").querySelectorAll("tr");
-      if (rowProduct(tr_) && tr_ === rows[rows.length - 1]) $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
+      if ((rowProduct(tr_) || rowIsNew(tr_)) && tr_ === rows[rows.length - 1]) $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
     }
     refresh();
   });
@@ -168,13 +175,17 @@ function readIssueForm() {
     const [main, office] = [".ix-qty[data-place='1']", ".ix-qty[data-place='2']"].map((s) => parseQty(tr_.querySelector(s).value));
     const price = issuePriceVnd(tr_.querySelector(".ix-price"));
     if (!label && main === null && office === null) continue;
+    if (!label) fail(tr("issue.unknown_product", { text: "?" }));
     const p = productFromLabel(label);
-    if (!p) fail(tr("issue.unknown_product", { text: label || "?" }));
-    if ([main, office, price].some((v) => Number.isNaN(v))) fail(tr("issue.not_number", { product: productName(p) }));
-    if ([main, office, price].some((v) => v !== null && v < 0)) fail(tr("issue.negative", { product: productName(p) }));
+    const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
+    const fresh = p ? null : { name_vi: clean(label), spec: clean(tr_.querySelector(".ix-new-spec").value),
+                               unit: clean(tr_.querySelector(".ix-new-unit").value) };
+    const name = p ? productName(p) : "★ " + fresh.name_vi;
+    if ([main, office, price].some((v) => Number.isNaN(v))) fail(tr("issue.not_number", { product: name }));
+    if ([main, office, price].some((v) => v !== null && v < 0)) fail(tr("issue.negative", { product: name }));
     if (!((main || 0) + (office || 0) > 0)) continue;
-    lines.push({ product: p, product_id: p.id, qty_main: main || 0, qty_office: office || 0, unit_price: price,
-                 note: tr_.querySelector(".ix-note").value });
+    lines.push({ product: p, product_id: p ? p.id : null, new: fresh, label: name, row: tr_, qty_main: main || 0,
+                 qty_office: office || 0, unit_price: price, note: tr_.querySelector(".ix-note").value });
   }
   if (!lines.length) fail(tr("issue.need_lines"));
   return { date, customer, phone: $("ix-phone").value.replace(/\s+/g, " ").trim(),
@@ -183,8 +194,19 @@ function readIssueForm() {
 
 async function saveIssue() {
   const f = readIssueForm();
+  // a new product that is in the catalog already: use that one (the app's issues.same_as_existing)
+  for (const ln of f.lines) {
+    if (!ln.new) continue;
+    const same = activeProducts().find((p) => unaccent(p.name_vi).replace(/\s/g, "") === unaccent(ln.new.name_vi).replace(/\s/g, "") &&
+      (!ln.new.spec || unaccent(p.spec).replace(/\s/g, "") === unaccent(ln.new.spec).replace(/\s/g, "")));
+    if (same && confirm(tr("issue.looks_existing", { name: ln.new.name_vi, product: productName(same), code: same.code }))) {
+      Object.assign(ln, { product: same, product_id: same.id, new: null, label: productName(same) });
+      ln.row.querySelector(".ix-product").value = productLabel(same);
+    }
+  }
   const short = [], asked = new Map();  // the lines of one product count together
   for (const ln of f.lines) {
+    if (!ln.product) continue;  // a new product has nothing yet: it goes below zero, the user was told
     for (const [place, qty] of [[1, ln.qty_main], [2, ln.qty_office]]) {
       if (!(qty > 0)) continue;
       const key = `${ln.product.id}|${place}`;
@@ -197,24 +219,33 @@ async function saveIssue() {
   }
   if (short.length && !confirm(`${tr("issue.short_ask")}\n\n${short.join("\n")}`)) return false;
   if (f.date > todayLocal() && !confirm(tr("issue.future_ask"))) return false;
-  const rows = DBK_XLSX.noteRows(productById, f.lines);
+  let rows = DBK_XLSX.noteRows(productById, f.lines);
   const total = rows.reduce((a, r) => a + (r.amount || 0), 0);
   // before saving the user sees what is written: yuan as typed and the dong the note carries
   const both = (vnd) => (issueRate ? `${issueMoney(vnd)} = ${fmtVnd(vnd)} ₫` : fmtVnd(vnd));
-  const summary = rows.map((r, i) => `• ${r.code} ${productName(productById[f.lines[i].product_id])}: ${fmtQty(r.qty)} ${r.unit} · ` +
+  const summary = rows.map((r, i) => `• ${r.code ? r.code + " " : ""}${f.lines[i].label}: ${fmtQty(r.qty)} ${r.unit} · ` +
     r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${both(r.amount)}` : "")).join("\n");
-  if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: both(total) })}`)) return false;
+  const fresh = f.lines.some((ln) => ln.new) ? `\n\n${tr(isOwner() ? "issue.confirm_new" : "issue.confirm_new_staff")}` : "";
+  if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: both(total) })}${fresh}`)) return false;
   let code;
   if (isOwner()) {
     // the owner's note is recorded on the cloud at once and takes the stock (user, 14/11/2026: the web is the
-    // reference data); the server hands out the code (W + next order number) under the write lock
-    const lines = f.lines.map((ln) => ({ product_id: ln.product_id, qty_main: ln.qty_main, qty_office: ln.qty_office,
-                                         unit_price: ln.unit_price, note: ln.note }));
+    // reference data); the server hands out the code (W + next order number) under the write lock, and makes the
+    // new products (019)
+    const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
+                                         qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
     const { data: made, error } = await sb.rpc("web_issue", { p: { doc_date: f.date, customer: f.customer, phone: f.phone,
                                                                   contact: f.contact, address: f.address, lines } });
     if (error) fail(error.message || String(error));
     code = made.code;
+    if (f.lines.some((ln) => ln.new)) {
+      // the file carries the codes of the products just made: the app then reads every row by its code
+      await loadAll();
+      const ids = made.product_ids || [];
+      const known = f.lines.map((ln, i) => (ids[i] && productById[ids[i]] ? { ...ln, product_id: ids[i], new: null } : ln));
+      rows = DBK_XLSX.noteRows(productById, known);
+    }
   } else {
     code = DBK_XLSX.nextCode(data.documents.filter((d) => d.kind === "delivery").map((d) => d.code));
   }

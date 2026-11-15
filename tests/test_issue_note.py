@@ -158,6 +158,43 @@ def test_problems_and_prices(conn, ws, goods):
     assert issues.last_price(conn, "Khách khác", paint) == 500000
 
 
+def test_new_products_are_made_once_and_go_below_zero(conn, ws, goods):
+    """★ Mặt hàng mới on a note (customer, 15/11/2026): one product for two rows of it (two prices), no stock warning."""
+    from dibekho.core.receipts import NewProduct
+
+    paint, sand = goods
+    tape = NewProduct("Băng keo mới", spec="5cm", unit="cuộn")
+    data = IssueInput(date(2026, 11, 14), "Công ty A", lines=[
+        IssueLineInput(None, qty_main=3, unit_price=10000, new=tape),
+        IssueLineInput(None, qty_office=2, unit_price=9000, new=NewProduct("Băng  keo MỚI", spec="5cm", unit="cuộn")),
+        IssueLineInput(sand, qty_main=1)])
+    assert issues.problems(conn, data) == [] and issues.short_of(conn, data) == []
+    assert issues.same_as_existing(conn, data) == []
+    doc_id, _ = issues.save(conn, ws, data)
+    made = conn.execute("SELECT id FROM products WHERE name_vi LIKE 'Băng keo%'").fetchall()
+    assert len(made) == 1
+    assert places(conn, made[0][0]) == (-3, -2)
+    assert conn.execute("SELECT COUNT(*) FROM document_lines WHERE document_id = ?", (doc_id,)).fetchone()[0] == 3
+    assert deliveries.pending_count(conn) == 0
+    nameless = IssueInput(date(2026, 11, 14), "A", lines=[IssueLineInput(None, 1, new=NewProduct(" "))])
+    assert [k for k, _ in issues.problems(conn, nameless)] == ["receipt_form.new_needs_name"]
+    looks = IssueInput(date(2026, 11, 14), "A", lines=[IssueLineInput(None, 1, new=NewProduct("Sơn chống thấm",
+                                                                                              spec="20KG/thùng"))])
+    assert issues.same_as_existing(conn, looks)[0][1]["id"] == paint
+
+
+def test_a_note_that_fails_leaves_no_new_product(conn, ws, goods, monkeypatch):
+    from dibekho.core.receipts import NewProduct
+
+    paint, sand = goods
+    monkeypatch.setattr(issues, "write_issue_note", lambda *a, **k: (_ for _ in ()).throw(OSError("đĩa đầy")))
+    data = IssueInput(date(2026, 11, 14), "Công ty A", lines=[IssueLineInput(None, 2, new=NewProduct("Hàng lạ"))])
+    with pytest.raises(OSError):
+        issues.save(conn, ws, data)
+    assert conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
+
+
 def test_customer_notes_without_the_new_columns_read_as_before(tmp_path):
     note = read_delivery_note(make_note(tmp_path / "a.xlsx"))
     assert all(ln.product_code == "" and ln.places == () for ln in note.lines)

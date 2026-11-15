@@ -10,6 +10,9 @@ Files:
   package read it again like the other notes.
 A wrong note is deleted (delete(), from the order's window: Huỷ phiếu → Xoá hẳn) and typed again.
 
+A line may be a product not in the catalog yet (★ Mặt hàng mới, customer's request 15/11/2026): it is created on
+save, its stock goes below zero, and the next Hàng về of that product (picked from the catalog) brings it back.
+
 Codes (user's choice 14/11/2026): A + the number after the highest order number so far (orders up to 159 -> A160);
 the web page writes W160 (webapp/xlsx.js nextCode), so the app and the web never take the same code. The shop's own
 notes (160) stay apart too: '160' and 'A160' are different codes (text.normalize_code keeps the letter).
@@ -22,8 +25,10 @@ from datetime import date
 from pathlib import Path
 
 from dibekho import db
+from dibekho.core import catalog
+from dibekho.core.receipts import NewProduct
 from dibekho.core.stock import MAIN, OFFICE, stock_levels
-from dibekho.core.text import clean
+from dibekho.core.text import clean, unaccent
 from dibekho.core.workspace import Workspace
 from dibekho.excel.issue_note import IssueHead, IssueRow, write_issue_note
 
@@ -42,6 +47,7 @@ class IssueLineInput:
     qty_office: float = 0.0
     unit_price: float | None = None
     note: str = ""
+    new: NewProduct | None = None  # not in the catalog yet: created on save (product_id stays None)
 
     @property
     def qty(self) -> float:
@@ -58,7 +64,12 @@ class IssueInput:
     lines: list[IssueLineInput] = field(default_factory=list)
 
     def filled(self) -> list[IssueLineInput]:
-        return [ln for ln in self.lines if ln.product_id and ln.qty > 0]
+        return [ln for ln in self.lines if (ln.product_id or ln.new) and ln.qty > 0]
+
+
+def new_key(n: NewProduct) -> tuple:
+    """Two rows with the same new product (another price) make one product, not two."""
+    return tuple(unaccent(clean(x)).replace(" ", "") for x in (n.name_vi, n.spec, n.variant))
 
 
 def next_code(codes, prefix: str = PREFIX) -> str:
@@ -81,9 +92,25 @@ def problems(conn, data: IssueInput) -> list[tuple[str, dict]]:
     if not data.filled():
         found.append(("issue.need_lines", {}))
     for ln in data.filled():
-        if (ln.qty_main or 0) < 0 or (ln.qty_office or 0) < 0 or (ln.unit_price or 0) < 0:
-            found.append(("issue.negative", {"id": ln.product_id}))
+        if ln.new and not clean(ln.new.name_vi):
+            found.append(("receipt_form.new_needs_name", {}))
+        elif (ln.qty_main or 0) < 0 or (ln.qty_office or 0) < 0 or (ln.unit_price or 0) < 0:
+            found.append(("issue.negative", {"product": ln.new.label()} if ln.new else {"id": ln.product_id}))
     return found
+
+
+def same_as_existing(conn, data: IssueInput) -> list[tuple[IssueLineInput, object]]:
+    """New products that may already be in the catalog: the user should pick those instead (catalog 9.13), else
+    the next Hàng về goes to the existing product and the new one stays below zero."""
+    out, seen = [], set()
+    for ln in data.filled():
+        if ln.new and new_key(ln.new) not in seen:
+            seen.add(new_key(ln.new))
+            found = catalog.find_possible_duplicates(conn, ln.new.name_vi, ln.new.name_zh, ln.new.spec,
+                                                     ln.new.variant)
+            if found:
+                out.append((ln, found[0]))
+    return out
 
 
 def short_of(conn, data: IssueInput) -> list[tuple[int, int, float, float]]:
@@ -93,6 +120,8 @@ def short_of(conn, data: IssueInput) -> list[tuple[int, int, float, float]]:
     levels = stock_levels(conn, by_location=True)
     asked: dict[tuple[int, int], float] = {}
     for ln in data.filled():
+        if not ln.product_id:
+            continue  # a new product has nothing in stock: it goes below zero, the user knows
         for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
             if qty:
                 asked[(ln.product_id, loc)] = asked.get((ln.product_id, loc), 0.0) + qty
@@ -141,10 +170,37 @@ def _free(path: Path) -> Path:
 
 def save(conn, ws: Workspace, data: IssueInput) -> tuple[int, Path]:
     """Write the note and record it. Returns (document id, the user's copy). Raises ValueError on a problem."""
-    from dibekho.core import deliveries  # imported here: deliveries -> receipts -> ... must not loop back
-
     if problems(conn, data):
         raise ValueError("Phiếu xuất kho chưa đủ thông tin.")
+    created = _create_new_products(conn, data)
+    try:
+        return _save(conn, ws, data)
+    except BaseException:
+        # the note was not recorded: the products made for it go too (they are in no document)
+        with db.transaction(conn):
+            for pid in created:
+                catalog.delete_product(conn, pid)
+        raise
+
+
+def _create_new_products(conn, data: IssueInput) -> list[int]:
+    """Create the ★ new products of the note (one per name + packing + type) and put their ids on the lines."""
+    made: dict[tuple, int] = {}
+    with db.transaction(conn):
+        for ln in data.filled():
+            if ln.new and not ln.product_id:
+                key = new_key(ln.new)
+                if key not in made:
+                    n = ln.new
+                    made[key] = catalog.create_product(conn, n.name_vi, n.name_zh, n.spec, unit=n.unit,
+                                                       category=n.category, variant=n.variant)
+                ln.product_id = made[key]
+    return list(made.values())
+
+
+def _save(conn, ws: Workspace, data: IssueInput) -> tuple[int, Path]:
+    from dibekho.core import deliveries
+
     code = new_code(conn)
     head = IssueHead(code, data.doc_date, clean(data.customer_name), clean(data.phone), clean(data.contact),
                      clean(data.address), deliveries.letterhead(conn))

@@ -29,6 +29,17 @@ def dong_again():
     fx.Display.currency, fx.Display.rate = "vnd", None
 
 
+@pytest.fixture(autouse=True)
+def menu(monkeypatch):
+    """The product button opens a menu (catalog / ★ new product): the test says which entry is clicked."""
+    import dibekho.ui.issue_form as form_mod
+
+    choice = ["receipt_form.pick_existing"]
+    monkeypatch.setattr(form_mod.IssueForm, "_open_menu",
+                        lambda self, menu, row: next(x for x in menu.actions() if x.text() == i18n.t(choice[0])))
+    return choice
+
+
 def type_in(box, text):
     box.setFocus()
     box.lineEdit().selectAll()
@@ -138,6 +149,79 @@ def test_prices_typed_in_yuan_are_saved_in_dong(app, ws, monkeypatch):
     assert form.rows[0].price.value() == 100
     type_in(form.rows[0].qty_main, "1")
     assert form.data().filled()[0].unit_price == 385000
+    ctx.close()
+
+
+def test_a_product_not_in_the_catalog_goes_out_below_zero_and_the_goods_in_balance_it(app, ws, monkeypatch, menu):
+    """Customer, 15/11/2026: a note may carry goods not in the catalog yet; the stock goes below zero and the next
+    Hàng về of that product brings it back to the right number."""
+    import dibekho.ui.issue_form as form_mod
+    from dibekho.core import receipts
+    from dibekho.core.receipts import NewProduct, ReceiptInput, ReceiptLineInput
+    from dibekho.ui.receipt_form import NewProductDialog
+
+    i18n.set_language("vi")
+    asked = []
+    monkeypatch.setattr(form_mod, "ask", lambda parent, text, *a, **k: asked.append(text) or True)
+    monkeypatch.setattr(form_mod, "error", lambda parent, text: pytest.fail(text))
+    monkeypatch.setattr(form_mod, "open_path", lambda *a: None)
+
+    def described(self):
+        self.result_product = NewProduct("Màng chống thấm mới", "新防水卷材", "1m×10m", unit="cuộn", category="Màng")
+        return 1
+
+    monkeypatch.setattr(NewProductDialog, "exec", described)
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, paint = _shop(ws, "vi")
+    form = IssueForm(ctx)
+    form.customer.setCurrentIndex(1)
+    menu[0] = "receipt_form.pick_new"
+    form.rows[0].button.click()
+    assert form.rows[0].button.text().startswith("★ Màng chống thấm mới")
+    assert form.table.cellWidget(0, form_mod.HAVE_MAIN).text() == "0"
+    type_in(form.rows[0].qty_main, "4")
+    type_in(form.rows[0].price, "300000")
+    form.save_btn.click()
+    assert form.saved_doc is not None
+    assert i18n.t("issue.confirm_new") in asked[-2]
+    new = ctx.conn.execute("SELECT * FROM products WHERE name_vi = 'Màng chống thấm mới'").fetchone()
+    assert (new["code"], new["unit"], new["spec"]) == ("SP002", "cuộn", "1m×10m")
+    assert stock_levels(ctx.conn, by_location=True)[(new["id"], MAIN)] == -4
+    assert deliveries.pending_count(ctx.conn) == 0  # read back by its code: nothing waits in Cần xử lý
+    assert _lines(ctx.conn) == [(4, 300000, 1200000)]
+
+    receipts.save(ctx.conn, ReceiptInput(date(2026, 11, 16), receipts.SUPPLIER, supplier_name="Công ty mẹ",
+                                         lines=[ReceiptLineInput(10, new["id"])]), ws=ctx.ws)
+    assert stock_levels(ctx.conn, by_location=True)[(new["id"], MAIN)] == 6
+    ctx.close()
+
+
+def test_a_new_product_that_is_already_in_the_catalog_uses_the_existing_one(app, ws, monkeypatch, menu):
+    import dibekho.ui.issue_form as form_mod
+    from dibekho.core.receipts import NewProduct
+    from dibekho.ui.receipt_form import NewProductDialog
+
+    i18n.set_language("vi")
+    monkeypatch.setattr(form_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(form_mod, "open_path", lambda *a: None)
+
+    def described(self):
+        self.result_product = NewProduct("Sơn chống thấm", "防水涂料", "20KG/thùng", unit="thùng")
+        return 1
+
+    monkeypatch.setattr(NewProductDialog, "exec", described)
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, paint = _shop(ws, "vi")
+    form = IssueForm(ctx)
+    form.customer.setCurrentIndex(1)
+    menu[0] = "receipt_form.pick_new"
+    form.rows[0].button.click()
+    type_in(form.rows[0].qty_main, "5")
+    form.save_btn.click()
+    assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 1
+    assert stock_levels(ctx.conn, by_location=True)[(paint, MAIN)] == 45
     ctx.close()
 
 

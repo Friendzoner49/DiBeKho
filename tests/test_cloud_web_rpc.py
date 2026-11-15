@@ -430,3 +430,26 @@ def test_the_owner_s_stock_issue_note_on_the_web_takes_the_stock_at_once(shop):
     assert before.get((b, stock.OFFICE), 0) - after[(b, stock.OFFICE)] == 2  # W77 and W78 took one each
     from dibekho.core import issues
     assert issues.new_code(s) == "A79"  # the app goes on after the web's numbers
+
+
+def test_the_owner_s_web_issue_note_may_carry_a_new_product(shop):
+    """cloud 019 (customer, 15/11/2026): a product not in the catalog is made with the note, once for two lines of it
+    (another price); its stock goes below zero; the answer gives each line's product so the file carries its code."""
+    s, _, call, cloud = shop
+    a = _pid(s, "SP001")
+    new = {"name_vi": "Băng keo mới", "spec": "5cm", "unit": "cuộn"}
+    p = {"doc_date": "2026-11-15", "customer": "Khách Mẫu", "phone": "", "contact": "", "address": "", "lines": [
+        {"new": new, "qty_main": 3, "qty_office": 0, "unit_price": 10000, "note": ""},
+        {"product_id": _uid(s, "products", a), "qty_main": 0, "qty_office": 0, "unit_price": None, "note": ""},
+        {"new": {**new, "name_vi": "Băng  keo MỚI"}, "qty_main": 0, "qty_office": 2, "unit_price": 9000, "note": ""}]}
+    made = call("web_issue", p=(p, "jsonb"))
+    ids = made["product_ids"]
+    assert ids[1] is None and ids[0] == ids[2]
+    with pytest.raises(PgError, match="phải có tên"):
+        call("web_issue", p=({**p, "lines": [{"new": {"name_vi": " "}, "qty_main": 1}]}, "jsonb"))
+    _pull(s, cloud)
+    made_p = s.execute("SELECT * FROM products WHERE name_vi = 'Băng keo mới'").fetchall()
+    assert len(made_p) == 1 and made_p[0]["unit"] == "cuộn"
+    levels = stock.stock_levels(s, by_location=True)
+    assert (levels[(made_p[0]["id"], stock.MAIN)], levels[(made_p[0]["id"], stock.OFFICE)]) == (-3, -2)
+    assert s.execute("SELECT COUNT(*) FROM products WHERE name_vi LIKE 'Băng%'").fetchone()[0] == 1  # the failed note made none
