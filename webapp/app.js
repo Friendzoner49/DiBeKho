@@ -144,8 +144,9 @@ function productName(p) {
   return [pn(p), p.spec, p.variant].filter(Boolean).join(" · ");
 }
 
+/** The picker's line (Phiếu xuất kho): the name in the page's language first, the other name last. */
 function productLabel(p) {
-  return [p.code, p.name_vi, p.spec, p.variant, p.name_zh].filter(Boolean).join(" · ");
+  return [p.code, pn(p), p.spec, p.variant, pnOther(p)].filter(Boolean).join(" · ");
 }
 
 const stockOf = (id) => stockByProduct[id] || { total: 0, 1: 0, 2: 0 };

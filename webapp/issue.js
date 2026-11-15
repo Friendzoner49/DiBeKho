@@ -201,7 +201,7 @@ async function saveIssue() {
   const total = rows.reduce((a, r) => a + (r.amount || 0), 0);
   // before saving the user sees what is written: yuan as typed and the dong the note carries
   const both = (vnd) => (issueRate ? `${issueMoney(vnd)} = ${fmtVnd(vnd)} ₫` : fmtVnd(vnd));
-  const summary = rows.map((r) => `• ${r.code} ${r.name_vi}: ${fmtQty(r.qty)} ${r.unit} · ` +
+  const summary = rows.map((r, i) => `• ${r.code} ${productName(productById[f.lines[i].product_id])}: ${fmtQty(r.qty)} ${r.unit} · ` +
     r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${both(r.amount)}` : "")).join("\n");
   if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: both(total) })}`)) return false;
