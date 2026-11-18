@@ -329,3 +329,32 @@ def test_editing_a_customer_from_its_detail_window(app, ws, monkeypatch):
     assert (c["name"], c["phone"], c["tax_code"]) == ("Công ty A (mới)", "0900 000 001", "0101234567")
     dlg.close()
     ctx.close()
+
+
+def test_a_tax_code_typed_the_first_time_is_kept_for_the_customer(app, ws, monkeypatch):
+    """User, 18/11/2026: an MST belongs to the customer; typed on the issue note for a customer who has none, it is
+    added to that customer (one already there is left alone: change it in Sửa thông tin khách hàng)."""
+    import dibekho.ui.issue_form as form_mod
+    import dibekho.ui.pending_page as pending_mod
+
+    i18n.set_language("vi")
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(form_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(form_mod, "error", lambda parent, text: pytest.fail(text))
+    monkeypatch.setattr(form_mod, "open_path", lambda *a: None)
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, paint = _shop(ws, "vi")
+    monkeypatch.setattr(pending_mod.ProductPicker, "choose", lambda self: paint)
+    form = IssueForm(ctx)
+    form.customer.setCurrentIndex(1)
+    assert form.tax_code.text() == "" and form.email.text() == ""
+    form.tax_code.setText("0101234567")
+    form.email.setText("a@example.com")
+    form.rows[0].button.click()
+    type_in(form.rows[0].qty_main, "1")
+    form.save_btn.click()
+    assert form.saved_doc is not None
+    c = ctx.conn.execute("SELECT * FROM customers").fetchall()
+    assert len(c) == 1 and (c[0]["name"], c[0]["tax_code"], c[0]["email"]) == ("Công ty A", "0101234567", "a@example.com")
+    ctx.close()

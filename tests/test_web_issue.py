@@ -110,7 +110,7 @@ def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path):
     assert w.title == a.title == "出库单"
 
     def cells(ws):
-        return {(c.row, c.column): (c.value, c.font.name, c.font.sz, bool(c.font.b), c.border.left.style,
+        return {(c.row, c.column): (c.value, c.font.name, c.font.sz, bool(c.font.b), tuple(getattr(getattr(c.border, x), "style", None) for x in ("left", "right", "top", "bottom")),
                                     c.alignment.horizontal, bool(c.alignment.wrap_text), bool(c.alignment.shrink_to_fit), c.number_format)
                 for row in ws.iter_rows() for c in row if c.has_style or c.value is not None}
 
@@ -123,6 +123,8 @@ def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path):
     assert (w.page_setup.orientation, w.page_setup.scale, w.page_setup.paperSize) == \
         (a.page_setup.orientation, a.page_setup.scale, int(a.page_setup.paperSize)) == ("landscape", 67, 9)
     assert w.print_area == a.print_area
+    assert (w.print_options.horizontalCentered, w.page_margins.bottom) == (a.print_options.horizontalCentered,
+                                                                           a.page_margins.bottom) == (True, 0)
     assert w["A1"].value == "CÔNG TY MẪU 样本公司" and w["A4"].value == "出库单 PHIẾU XUẤT KHO"
 
 

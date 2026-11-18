@@ -214,14 +214,13 @@ def test_the_note_has_the_grid_of_a_delivery_note(conn, ws, goods):
     assert (sheet["A1"].value, sheet["A2"].value, sheet["A4"].value) == ("CÔNG TY MẪU", "Số 1 Đường Mẫu",
                                                                          "出库单 PHIẾU XUẤT KHO")
     assert [sheet.cell(row=9, column=c).value.split("\n")[-1] for c in range(1, 8)] == [
-        "STT", "Tên hàng", "QUY CÁCH", "Số lượng", "VND", "VND", "Ghi chú"]
+        "STT", "Tên hàng", "QUY CÁCH ", "Số lượng", "VND", "VND", "Ghi chú"]
     assert sheet.column_dimensions["H"].hidden and sheet.column_dimensions["I"].hidden
     assert sheet.print_area == "'出库单'!$A$1:$G$13"
     assert sheet["B12"].value == "SÁU TRIỆU BẢY TRĂM BỐN MƯƠI NGHÌN VIỆT NAM ĐỒNG"
     assert sheet["F12"].value == 6740000 and sheet["D12"].value.endswith("15")
     merged = set(map(str, sheet.merged_cells.ranges))
-    assert {"A5:B7", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "C7:E7", "F7:G7", "A8:E8", "B12:C12",
-            "A13:C13"} <= merged
+    assert {"A5:B7", "C5:E5", "F5:G5", "C7:E7", "F7:G7", "A8:E8", "B12:C12", "A13:C13"} <= merged
 
 
 def test_empty_phone_and_contact_keep_their_label_and_read_as_empty(tmp_path):
@@ -379,3 +378,24 @@ def test_a_web_issue_file_dropped_in_the_folder_links_to_the_note_already_record
     assert result.imported == [] and places(conn, sand) == before
     assert tuple(conn.execute("SELECT document_id, status FROM scanned_files").fetchone()) == (doc, "imported")
     assert deliveries.pending_count(conn) == 0
+
+
+def test_the_note_follows_the_template_of_18_11(tmp_path):
+    """The user's template (MST / email row): fonts, widths, heights, the line under the address, the print setup."""
+    import openpyxl
+
+    from dibekho.excel.issue_note import IssueHead, IssueRow, write_issue_note
+
+    path = write_issue_note(tmp_path / "x.xlsx", IssueHead("A1", date(2026, 6, 22), "Công ty A", tax_code="0101"),
+                            [IssueRow("SP001", "Sơn", "", "", 1, [(MAIN, 1)])])
+    ws = openpyxl.load_workbook(path).active
+    assert ws["A5"].value == "客户名称 ( Tên khách hàng ):  Công ty A"
+    assert {a: ws[a].font.name for a in ("A5", "F5", "F6", "F7", "A11", "D11", "C5", "C6", "C7", "A8")} == {
+        "A5": "宋体", "F5": "宋体", "F6": "宋体", "F7": "宋体", "A11": "宋体", "D11": "宋体",
+        "C5": "Times New Roman", "C6": "Times New Roman", "C7": "Times New Roman", "A8": "Times New Roman"}
+    assert [ws.column_dimensions[c].width for c in "ABCDEFG"] == [17.0, 62.6640625, 38.33203125, 13.0, 34.6640625,
+                                                                 25.0, 25.83203125]
+    assert [ws.row_dimensions[r].height for r in range(1, 13)] == [61.0, 41.0, 9.0, 40.0, 54.0, 54.0, 44.25, 32.0,
+                                                                  54.0, 152.0, 83.0, 43.75]
+    assert all(ws.cell(8, c).border.bottom.style == "thin" for c in range(1, 8))
+    assert ws.print_options.horizontalCentered and ws.page_margins.bottom == 0

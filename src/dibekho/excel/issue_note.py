@@ -36,9 +36,9 @@ LABELS = {
     "email": "email邮箱：",
     "contact": "联系人( Người liên hệ )：",
     "date": "送货日期 ( Ngày giao hàng )：",
-    "address": "地址( Địa chỉ): ",
+    "address": "地址( Địa chỉ):  ",
 }
-HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
+HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
            "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"]
 PLACES = {1: "Kho tổng 总仓", 2: "Văn phòng 办公室"}
 WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)"
@@ -47,12 +47,13 @@ SIGN_FROM = "送货单位及经手人（盖章）：Người giao hàng"
 SIGN_TO = "收货单位及经手人（盖章）：Người nhận hàng"
 SHEET = "出库单"
 HEADER_ROW = 9  # 8 before 18/11/2026 (no MST / email row); the reader finds the header by its label either way
-WIDTHS = [17.1, 62.8, 20.2, 13.0, 34.8, 25.1, 25.8, 12.0, 24.0]  # A..I; H and I hidden
+WIDTHS = [17.0, 62.6640625, 38.33203125, 13.0, 34.6640625, 25.0, 25.83203125, 12.0, 24.0]  # A..I; H, I hidden
 HIDDEN = (8, 9)
-HEIGHTS = {1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 54.0, 7: 44.25, 8: 31.9, HEADER_ROW: 40.15}
-LINE_HEIGHT, TOTAL_HEIGHT, SIGN_HEIGHT = 38.0, 76.5, 82.9
+HEIGHTS = {1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, HEADER_ROW: 54.0}
+LINE_HEIGHT, TOTAL_HEIGHT, SIGN_HEIGHT = 152.0, 83.0, 43.75  # the template of 18/11/2026
 MONEY = '[$VND]\\ #,##0'
-TNR = "Times New Roman"  # every cell, as the shop's note shows (Chinese falls back to a CJK font)
+TNR = "Times New Roman"  # most cells, as the shop's note shows (Chinese falls back to a CJK font)
+SONG = "宋体"  # SimSun: the customer, the code, e-mail and date labels, the two total labels (the template's own)
 
 _DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
 _UNITS = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
@@ -89,7 +90,7 @@ class Cell:
     value: object
     font: str = TNR
     size: float = 15
-    border: bool = False
+    border: bool | str = False  # True: a box; "bottom": the line under the address row
     align: str = "center"  # horizontal
     wrap: bool = True
     money: bool = False
@@ -178,16 +179,18 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
     put(1, 1, letter[0] or None, size=20)
     put(2, 1, letter[1] or None, size=20)
     put(4, 1, TITLE, size=24)
-    put(5, 1, LABELS["customer"] + "\n" + head.customer, size=20, align="left")
-    put(5, 3, LABELS["phone"] + head.phone, size=14, align="left")
-    put(5, 6, LABELS["code"] + head.code, size=14, align="left")
-    put(6, 3, LABELS["tax_code"] + head.tax_code, size=14, align="left")
-    put(6, 6, LABELS["email"] + head.email, size=14, align="left")
-    put(7, 3, LABELS["contact"] + head.contact, size=14, align="left")
-    put(7, 6, LABELS["date"] + head.doc_date.strftime("%d-%m-%Y"), size=14, align="left")
-    put(8, 1, LABELS["address"] + head.address, size=14, align="left")
-    sh.merges += ["A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "C7:E7", "F7:G7",
-                  "A8:E8"]
+    # the customer block cell for cell as the template of 18/11/2026: fonts, wrapping, merges (row 6 is not merged)
+    put(5, 1, LABELS["customer"] + " " + head.customer, font=SONG, size=20, align="left")
+    put(5, 3, LABELS["phone"] + head.phone, size=14, align="left", wrap=False)
+    put(5, 6, LABELS["code"] + head.code, font=SONG, size=14, align="left")
+    put(6, 3, LABELS["tax_code"] + head.tax_code, size=14, align="left", wrap=False)
+    put(6, 6, LABELS["email"] + head.email, font=SONG, size=14, align="left")
+    put(7, 3, LABELS["contact"] + head.contact, size=14, align="left", wrap=False)
+    put(7, 6, LABELS["date"] + head.doc_date.strftime("%d-%m-%Y"), font=SONG, size=14, align="left", wrap=False)
+    put(8, 1, LABELS["address"] + head.address, size=14, align="left", border="bottom")
+    for c in range(2, 8):
+        put(8, c, None, size=14, align="left", border="bottom")
+    sh.merges += ["A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C7:E7", "F7:G7", "A8:E8"]
     for c, text in enumerate(HEADERS, start=1):
         put(HEADER_ROW, c, text, border=c <= 7)
     r = HEADER_ROW
@@ -212,10 +215,10 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
             money_total += ln.amount
             priced = True
     r += 1
-    put(r, 1, WORDS_LABEL, border=True)
+    put(r, 1, WORDS_LABEL, font=SONG, border=True)
     put(r, 2, vnd_words(money_total) if priced else None, border=True)
     put(r, 3, None, border=True)
-    put(r, 4, QTY_LABEL + number_text(qty_total), border=True)
+    put(r, 4, QTY_LABEL + number_text(qty_total), font=SONG, border=True)
     put(r, 5, None, border=True)
     put(r, 6, money_total if priced else None, size=18, border=True, money=True, wrap=False)
     put(r, 7, None, border=True)
@@ -239,13 +242,14 @@ def write_issue_note(path: Path, head: IssueHead, rows: list[IssueRow]) -> Path:
     ws.title = SHEET
     thin = Side(style="thin")
     box = Border(left=thin, right=thin, top=thin, bottom=thin)
+    under = Border(bottom=thin)
     for (r, c), cell in sorted(sh.cells.items()):
         x = ws.cell(row=r, column=c, value=cell.value)
         x.font = Font(name=cell.font, size=cell.size, bold=True)
         x.alignment = Alignment(horizontal=cell.align, vertical="center", wrap_text=cell.wrap or None,
                                 shrink_to_fit=cell.money or None)  # a big amount shrinks, never shows ####
         if cell.border:
-            x.border = box
+            x.border = under if cell.border == "bottom" else box
         if cell.money:
             x.number_format = MONEY
     for m in sh.merges:
@@ -262,7 +266,8 @@ def write_issue_note(path: Path, head: IssueHead, rows: list[IssueRow]) -> Path:
     ws.page_setup.scale = 67
     ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=False)
     ws.page_margins.left = ws.page_margins.right = 0.0
-    ws.page_margins.top = ws.page_margins.bottom = 0.393700787401575
+    ws.page_margins.top, ws.page_margins.bottom = 0.393700787401575, 0.0
+    ws.print_options.horizontalCentered = True
     ws.print_area = f"A1:G{sh.last_row}"
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

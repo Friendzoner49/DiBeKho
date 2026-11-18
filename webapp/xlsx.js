@@ -22,9 +22,9 @@ const DBK_XLSX = (() => {
     email: "email邮箱：",
     contact: "联系人( Người liên hệ )：",
     date: "送货日期 ( Ngày giao hàng )：",
-    address: "地址( Địa chỉ): ",
+    address: "地址( Địa chỉ):  ",
   };
-  const HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
+  const HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
                    "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"];
   const PLACES = { 1: "Kho tổng 总仓", 2: "Văn phòng 办公室" };
   const WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)";
@@ -33,12 +33,13 @@ const DBK_XLSX = (() => {
   const SIGN_TO = "收货单位及经手人（盖章）：Người nhận hàng";
   const SHEET = "出库单";
   const HEADER_ROW = 9;  // 8 before 18/11/2026 (no MST / email row)
-  const WIDTHS = [17.1, 62.8, 20.2, 13.0, 34.8, 25.1, 25.8, 12.0, 24.0];  // A..I; H and I hidden
+  const WIDTHS = [17.0, 62.6640625, 38.33203125, 13.0, 34.6640625, 25.0, 25.83203125, 12.0, 24.0];  // A..I; H, I hidden
   const HIDDEN = [8, 9];
-  const HEIGHTS = { 1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 54.0, 7: 44.25, 8: 31.9, [HEADER_ROW]: 40.15 };
-  const LINE_HEIGHT = 38.0, TOTAL_HEIGHT = 76.5, SIGN_HEIGHT = 82.9;
+  const HEIGHTS = { 1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, [HEADER_ROW]: 54.0 };
+  const LINE_HEIGHT = 152.0, TOTAL_HEIGHT = 83.0, SIGN_HEIGHT = 43.75;  // the template of 18/11/2026
   const MONEY = "[$VND]\\ #,##0";
   const TNR = "Times New Roman";
+  const SONG = "宋体";  // issue_note.SONG: the cells the template sets in SimSun
   const DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
   const UNITS = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
 
@@ -102,15 +103,17 @@ const DBK_XLSX = (() => {
     put(2, 1, letter[1] || null, { size: 20 });
     put(4, 1, TITLE, { size: 24 });
     const [y, m, d] = String(head.doc_date).split("-");
-    put(5, 1, `${LABELS.customer}\n${head.customer}`, { size: 20, align: "left" });
-    put(5, 3, LABELS.phone + (head.phone || ""), { size: 14, align: "left" });
-    put(5, 6, LABELS.code + head.code, { size: 14, align: "left" });
-    put(6, 3, LABELS.tax_code + (head.tax_code || ""), { size: 14, align: "left" });
-    put(6, 6, LABELS.email + (head.email || ""), { size: 14, align: "left" });
-    put(7, 3, LABELS.contact + (head.contact || ""), { size: 14, align: "left" });
-    put(7, 6, `${LABELS.date}${pad(d)}-${pad(m)}-${y}`, { size: 14, align: "left" });
-    put(8, 1, LABELS.address + (head.address || ""), { size: 14, align: "left" });
-    merges.push("A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "C7:E7", "F7:G7", "A8:E8");
+    // the customer block cell for cell as the template of 18/11/2026 (issue_note.issue_sheet)
+    put(5, 1, `${LABELS.customer} ${head.customer}`, { font: SONG, size: 20, align: "left" });
+    put(5, 3, LABELS.phone + (head.phone || ""), { size: 14, align: "left", wrap: false });
+    put(5, 6, LABELS.code + head.code, { font: SONG, size: 14, align: "left" });
+    put(6, 3, LABELS.tax_code + (head.tax_code || ""), { size: 14, align: "left", wrap: false });
+    put(6, 6, LABELS.email + (head.email || ""), { font: SONG, size: 14, align: "left" });
+    put(7, 3, LABELS.contact + (head.contact || ""), { size: 14, align: "left", wrap: false });
+    put(7, 6, `${LABELS.date}${pad(d)}-${pad(m)}-${y}`, { font: SONG, size: 14, align: "left", wrap: false });
+    put(8, 1, LABELS.address + (head.address || ""), { size: 14, align: "left", border: "bottom" });
+    for (let c = 2; c <= 7; c++) put(8, c, null, { size: 14, align: "left", border: "bottom" });
+    merges.push("A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C7:E7", "F7:G7", "A8:E8");
     HEADERS.forEach((text, i) => put(HEADER_ROW, i + 1, text, { border: i < 7 }));
     let r = HEADER_ROW, qtyTotal = 0, moneyTotal = 0, priced = false;
     rows.forEach((ln, i) => {
@@ -132,10 +135,10 @@ const DBK_XLSX = (() => {
       if (ln.amount !== null && ln.amount !== undefined) { moneyTotal += ln.amount; priced = true; }
     });
     r += 1;
-    put(r, 1, WORDS_LABEL, { border: true });
+    put(r, 1, WORDS_LABEL, { font: SONG, border: true });
     put(r, 2, priced ? vndWords(moneyTotal) : null, { border: true });
     put(r, 3, null, { border: true });
-    put(r, 4, QTY_LABEL + numberText(qtyTotal), { border: true });
+    put(r, 4, QTY_LABEL + numberText(qtyTotal), { font: SONG, border: true });
     put(r, 5, null, { border: true });
     put(r, 6, priced ? moneyTotal : null, { size: 18, border: true, money: true, wrap: false });
     put(r, 7, null, { border: true });
@@ -173,7 +176,7 @@ const DBK_XLSX = (() => {
       if (!xfIndex.has(key)) {
         const f = fontOf(cell.font, cell.size);
         xfIndex.set(key, xfs.length + 1);
-        xfs.push(`<xf numFmtId="${cell.money ? 164 : 0}" fontId="${f}" fillId="0" borderId="${cell.border ? 1 : 0}" xfId="0"` +
+        xfs.push(`<xf numFmtId="${cell.money ? 164 : 0}" fontId="${f}" fillId="0" borderId="${cell.border === "bottom" ? 2 : cell.border ? 1 : 0}" xfId="0"` +
           `${cell.money ? ' applyNumberFormat="1"' : ""} applyFont="1"${cell.border ? ' applyBorder="1"' : ""} applyAlignment="1">` +
           `<alignment horizontal="${cell.align}" vertical="center"${cell.wrap ? ' wrapText="1"' : ""}${cell.money ? ' shrinkToFit="1"' : ""}/></xf>`);
       }
@@ -184,8 +187,8 @@ const DBK_XLSX = (() => {
       `<numFmts count="1"><numFmt numFmtId="164" formatCode="${xml(MONEY)}"/></numFmts>` +
       `<fonts count="${fonts.length + 1}"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>${fonts.join("")}</fonts>` +
       '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
-      `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>${side("left")}${side("right")}` +
-      `${side("top")}${side("bottom")}<diagonal/></border></borders>` +
+      `<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border>${side("left")}${side("right")}` +
+      `${side("top")}${side("bottom")}<diagonal/></border><border><left/><right/><top/>${side("bottom")}<diagonal/></border></borders>` +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
       `<cellXfs count="${xfs.length + 1}"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>${xfs.join("")}</cellXfs>` +
       '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
@@ -215,7 +218,8 @@ const DBK_XLSX = (() => {
     const merges = `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`;
     return `${HEAD}<worksheet ${NS} xmlns:r="${REL}"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><cols>${cols}</cols>` +
       `<sheetData>${rowsXml}</sheetData>${merges}` +
-      '<pageMargins left="0" right="0" top="0.393700787401575" bottom="0.393700787401575" header="0.3" footer="0.3"/>' +
+      '<printOptions horizontalCentered="1"/>' +
+      '<pageMargins left="0" right="0" top="0.393700787401575" bottom="0" header="0.3" footer="0.3"/>' +
       '<pageSetup paperSize="9" scale="67" orientation="landscape"/></worksheet>';
   }
 
