@@ -8,7 +8,8 @@ Layout (fixed, so the file reads back whatever the interface language was):
   products : STT | code | name_vi | name_zh | spec | variant | unit | category | created | active
   (files from before 28/10/2026 have a 'min_stock' column between created and active; the per-product
   alarm level was dropped, so it is read past and ignored -- see _read())
-  customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app)
+  customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app) | MST | email
+  (MST and email from 18/11/2026; an older file without them leaves the app's values as they are)
   sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock
             (| Kho tổng | Văn phòng | note, from 0.4.0: the two places are shown only, the import reads the total
             stock and the note).
@@ -145,6 +146,8 @@ class MasterCustomer:
     phone: str = ""
     contact: str = ""
     address: str = ""
+    tax_code: str | None = None  # None: a file from before 18/11/2026 has no such column (the app keeps its own)
+    email: str | None = None
 
 
 # ---- write -------------------------------------------------------------------
@@ -168,11 +171,12 @@ def export(path: Path, conn) -> Path:
         "SELECT c.*, (SELECT COUNT(*) FROM documents d WHERE d.customer_id = c.id AND d.kind = 'delivery' "
         "AND d.status = 'active') AS orders FROM customers c ORDER BY c.name"
     ).fetchall()
-    rows = [[i, c["name"], c["phone"], c["contact"], c["address"], c["orders"]] for i, c in enumerate(customers, 1)]
+    rows = [[i, c["name"], c["phone"], c["contact"], c["address"], c["orders"], c["tax_code"], c["email"]]
+            for i, c in enumerate(customers, 1)]
     _sheet(ws2, t("master.title_customers"),
            [t("master.col_no"), t("col.customer"), t("col.phone"), t("col.contact"), t("col.address"),
-            t("master.col_orders")],
-           rows, [5, 36, 15, 18, 48, 9])
+            t("master.col_orders"), t("col.tax_code"), t("col.email")],
+           rows, [5, 36, 15, 18, 48, 9, 16, 28])
 
     ws3 = wb.create_sheet(t("master.sheet_stock"))
     levels = stock_levels(conn)
@@ -263,11 +267,15 @@ def _read(wb):
             r, clean(row[1]), name_vi, clean(row[3]), clean(row[4]), clean(row[5]), clean(row[6]), clean(row[7]),
             _created(row[8]), _active(row[active_idx]),
         ))
+    # MST and Email (from 18/11/2026) come after the order count; an older file has neither column
+    has_tax = len([h for h in (clean(c.value) for c in sheets[1][HEADER_ROW]) if h]) >= 8
     for r, row in enumerate(sheets[1].iter_rows(min_row=HEADER_ROW + 1, values_only=True), HEADER_ROW + 1):
-        row = list(row) + [None] * 6
+        row = list(row) + [None] * 8
         name, phone = clean(row[1]), clean(row[2])
         if name or phone:
-            customers.append(MasterCustomer(r, name, phone, clean(row[3]), clean(row[4])))
+            customers.append(MasterCustomer(r, name, phone, clean(row[3]), clean(row[4]),
+                                            clean(_whole(row[6])) if has_tax else None,
+                                            clean(row[7]) if has_tax else None))
     stock = []
     if len(sheets) > 2 and str(sheets[2]["A1"].value or "").startswith(MARKER):
         stock = _read_stock(sheets[2], products)
@@ -360,6 +368,11 @@ def _stock_value(value) -> float | None:
         return parse_number(clean(value))
     except ValueError:
         return None
+
+
+def _whole(value):
+    """A tax code typed as a number: 101234567.0 -> 101234567 (not '101234567.0')."""
+    return int(value) if isinstance(value, float) and value.is_integer() else value
 
 
 def _created(value) -> str:

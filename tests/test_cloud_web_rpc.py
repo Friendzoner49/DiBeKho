@@ -408,7 +408,7 @@ def test_the_owner_s_stock_issue_note_on_the_web_takes_the_stock_at_once(shop):
     a, b = _pid(s, "SP001"), _pid(s, "SP002")
     before = stock.stock_levels(s, by_location=True)
     p = {"doc_date": "2026-11-14", "customer": "Cty khác tên", "phone": "+84 900 000 001", "contact": "Anh B",
-         "address": "", "lines": [
+         "address": "", "tax_code": "0101234567", "email": "a@example.com", "lines": [
              {"product_id": _uid(s, "products", a), "qty_main": 3, "qty_office": 2, "unit_price": 100000, "note": "sáng"},
              {"product_id": _uid(s, "products", b), "qty_main": 0, "qty_office": 1, "unit_price": None, "note": ""}]}
     with pytest.raises(PgError, match="chủ"):
@@ -423,7 +423,10 @@ def test_the_owner_s_stock_issue_note_on_the_web_takes_the_stock_at_once(shop):
         "delivery", "active", 1, "Công ty A", 500000)
     lines = s.execute("SELECT line_no, qty, unit_price, amount, location_id, note FROM document_lines "
                       "WHERE document_id = ? ORDER BY line_no", (doc["id"],)).fetchall()
-    assert [tuple(r) for r in lines] == [(9, 5, 100000, 500000, None, "sáng"), (10, 1, None, None, 2, "")]
+    # cloud 020: an existing customer gets the MST and e-mail where empty
+    assert tuple(s.execute("SELECT tax_code, email FROM customers WHERE id = ?", (doc["customer_id"],)).fetchone()) == (
+        "0101234567", "a@example.com")
+    assert [tuple(r) for r in lines] == [(10, 5, 100000, 500000, None, "sáng"), (11, 1, None, None, 2, "")]
     after = stock.stock_levels(s, by_location=True)
     assert before[(a, stock.MAIN)] - after[(a, stock.MAIN)] == 3
     assert before.get((a, stock.OFFICE), 0) - after[(a, stock.OFFICE)] == 2

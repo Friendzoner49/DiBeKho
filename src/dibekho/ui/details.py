@@ -315,12 +315,20 @@ class CustomerDialog(_Base):
         self.customer_id = customer_id
         c = queries.customer(ctx.conn, customer_id)
         self.setWindowTitle(c["name"])
-        self.layout_.addWidget(title_label(c["name"]))
+        head = QHBoxLayout()
+        self.title = title_label(c["name"])
+        head.addWidget(self.title, 1)
+        edit = QPushButton(t("cust.edit_button"))
+        edit.setToolTip(t("cust.edit_tip"))
+        edit.clicked.connect(self.edit_info)
+        head.addWidget(edit)
+        self.layout_.addLayout(head)
 
         form = QFormLayout()
-        form.addRow(t("col.contact") + ":", _selectable(c["contact"]))
-        form.addRow(t("col.phone") + ":", _selectable(c["phone"]))
-        form.addRow(t("col.address") + ":", _selectable(c["address"]))
+        self.fields = {key: _selectable(c[key]) for key in ("contact", "phone", "address", "tax_code", "email")}
+        for key, label in (("contact", "col.contact"), ("phone", "col.phone"), ("address", "col.address"),
+                           ("tax_code", "col.tax_code"), ("email", "col.email")):
+            form.addRow(t(label) + ":", self.fields[key])
         form.addRow(t("cust.summary") + ":", QLabel(t("cust.summary_value", count=c["order_count"],
                                                          first=fmt_date(c["first_order"]),
                                                          last=fmt_date(c["last_order"]))))
@@ -374,6 +382,17 @@ class CustomerDialog(_Base):
         self.layout_.addWidget(box2, 3)
         self.add_close()
         self.refresh()
+
+    def edit_info(self):
+        from dibekho.ui.customer_form import edit_customer
+
+        if not edit_customer(self.ctx, self, self.customer_id):
+            return
+        c = queries.customer(self.ctx.conn, self.customer_id)
+        self.setWindowTitle(c["name"])
+        self.title.setText(c["name"])
+        for key, label in self.fields.items():
+            label.setText(c[key] or "—")
 
     def _range(self):
         if self.all_time.isChecked():

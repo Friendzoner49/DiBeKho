@@ -135,8 +135,8 @@ def customers(conn, text=""):
     if text:
         like = f"%{unaccent(text)}%"
         where = "WHERE unaccent(c.name) LIKE ? OR unaccent(c.contact) LIKE ? OR c.phone_norm LIKE ? " \
-                "OR unaccent(c.address) LIKE ?"
-        args = [like, like, f"%{''.join(ch for ch in text if ch.isdigit()) or '#'}%", like]
+                "OR unaccent(c.address) LIKE ? OR unaccent(c.tax_code) LIKE ? OR unaccent(c.email) LIKE ?"
+        args = [like, like, f"%{''.join(ch for ch in text if ch.isdigit()) or '#'}%", like, like, like]
     return conn.execute(
         f"""
         SELECT c.*, COUNT(d.id) AS order_count, MIN(d.doc_date) AS first_order, MAX(d.doc_date) AS last_order,
@@ -331,6 +331,7 @@ def search(conn, text: str, limit=50) -> dict:
         """
         SELECT * FROM customers
         WHERE unaccent(name) LIKE ?1 OR unaccent(contact) LIKE ?1 OR unaccent(address) LIKE ?1
+           OR unaccent(tax_code) LIKE ?1 OR unaccent(email) LIKE ?1
            OR (?2 <> '' AND phone_norm LIKE '%' || ?2 || '%')
         ORDER BY name LIMIT ?3
         """,

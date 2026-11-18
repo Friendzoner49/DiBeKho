@@ -297,7 +297,8 @@ function showCustomer(id, from, to) {
   const box = openDetail(
     backBar(c.name) +
     `<dl class="info"><dt>${esc(tr("col.contact"))}</dt><dd>${esc(c.contact)}</dd><dt>${esc(tr("col.phone"))}</dt><dd>${esc(c.phone)}</dd>` +
-    `<dt>${esc(tr("col.address"))}</dt><dd>${esc(c.address)}</dd></dl>` +
+    `<dt>${esc(tr("col.address"))}</dt><dd>${esc(c.address)}</dd>` +
+    `<dt>${esc(tr("col.tax_code"))}</dt><dd>${esc(c.tax_code || "")}</dd><dt>${esc(tr("col.email"))}</dt><dd>${esc(c.email || "")}</dd></dl>` +
     `<div class="grid period"><label>${esc(tr("st.from"))} <input id="cd-from" type="date" value="${esc(from || "")}"></label>` +
     `<label>${esc(tr("st.to"))} <input id="cd-to" type="date" value="${esc(to || "")}"></label></div>` +
     `<div class="cards">${stat(tr("col.orders"), s.docs.length)}${stat(tr("money.revenue"), esc(fmtBoth(s.total.vnd, s.total.cny, s.total.approx)))}` +

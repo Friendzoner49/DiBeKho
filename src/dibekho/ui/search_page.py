@@ -49,8 +49,8 @@ class SearchPage(Page):
         split = QSplitter(Qt.Vertical)
         self.products = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
                                     t("col.stock"), t("col.unit")], stretch=1)
-        self.customers = make_table([t("col.customer"), t("col.contact"), t("col.phone"), t("col.address")],
-                                    stretch=3)
+        self.customers = make_table([t("col.customer"), t("col.contact"), t("col.phone"), t("col.address"),
+                                     t("col.tax_code"), t("col.email")], stretch=3)
         self.documents = make_table([t("col.date"), t("orders.kind"), t("col.doc_code"), t("col.customer"),
                                      t("col.status"), t("col.file")], stretch=3)
         self.boxes = []
@@ -73,7 +73,8 @@ class SearchPage(Page):
                                     num_item(p["stock"]),
                                     p["unit"]] for p in res["products"]],
                    ids=[p["id"] for p in res["products"]])
-        fill_table(self.customers, [[c["name"], c["contact"], c["phone"], c["address"]] for c in res["customers"]],
+        fill_table(self.customers, [[c["name"], c["contact"], c["phone"], c["address"], c["tax_code"], c["email"]]
+                                    for c in res["customers"]],
                    ids=[c["id"] for c in res["customers"]])
         fill_table(self.documents, [[date_item(d["doc_date"]), kind_text(d["kind"]), d["code"], d["customer_name"],
                                      status_text(d["status"]), d["source_file"]] for d in res["documents"]],

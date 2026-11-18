@@ -18,6 +18,8 @@ const DBK_XLSX = (() => {
     customer: "客户名称 ( Tên khách hàng ): ",
     phone: "联系电话 ( Điện thoại liên hệ ): ",
     code: "订货单号 ( Mã đơn hàng )：",
+    tax_code: "MST 税号： ",
+    email: "email邮箱：",
     contact: "联系人( Người liên hệ )：",
     date: "送货日期 ( Ngày giao hàng )：",
     address: "地址( Địa chỉ): ",
@@ -30,10 +32,10 @@ const DBK_XLSX = (() => {
   const SIGN_FROM = "送货单位及经手人（盖章）：Người giao hàng";
   const SIGN_TO = "收货单位及经手人（盖章）：Người nhận hàng";
   const SHEET = "出库单";
-  const HEADER_ROW = 8;
+  const HEADER_ROW = 9;  // 8 before 18/11/2026 (no MST / email row)
   const WIDTHS = [17.1, 62.8, 20.2, 13.0, 34.8, 25.1, 25.8, 12.0, 24.0];  // A..I; H and I hidden
   const HIDDEN = [8, 9];
-  const HEIGHTS = { 1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 44.25, 7: 31.9, [HEADER_ROW]: 40.15 };
+  const HEIGHTS = { 1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 54.0, 7: 44.25, 8: 31.9, [HEADER_ROW]: 40.15 };
   const LINE_HEIGHT = 38.0, TOTAL_HEIGHT = 76.5, SIGN_HEIGHT = 82.9;
   const MONEY = "[$VND]\\ #,##0";
   const TNR = "Times New Roman";
@@ -103,10 +105,12 @@ const DBK_XLSX = (() => {
     put(5, 1, `${LABELS.customer}\n${head.customer}`, { size: 20, align: "left" });
     put(5, 3, LABELS.phone + (head.phone || ""), { size: 14, align: "left" });
     put(5, 6, LABELS.code + head.code, { size: 14, align: "left" });
-    put(6, 3, LABELS.contact + (head.contact || ""), { size: 14, align: "left" });
-    put(6, 6, `${LABELS.date}${pad(d)}-${pad(m)}-${y}`, { size: 14, align: "left" });
-    put(7, 1, LABELS.address + (head.address || ""), { size: 14, align: "left" });
-    merges.push("A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B6", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "A7:E7");
+    put(6, 3, LABELS.tax_code + (head.tax_code || ""), { size: 14, align: "left" });
+    put(6, 6, LABELS.email + (head.email || ""), { size: 14, align: "left" });
+    put(7, 3, LABELS.contact + (head.contact || ""), { size: 14, align: "left" });
+    put(7, 6, `${LABELS.date}${pad(d)}-${pad(m)}-${y}`, { size: 14, align: "left" });
+    put(8, 1, LABELS.address + (head.address || ""), { size: 14, align: "left" });
+    merges.push("A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "C7:E7", "F7:G7", "A8:E8");
     HEADERS.forEach((text, i) => put(HEADER_ROW, i + 1, text, { border: i < 7 }));
     let r = HEADER_ROW, qtyTotal = 0, moneyTotal = 0, priced = false;
     rows.forEach((ln, i) => {

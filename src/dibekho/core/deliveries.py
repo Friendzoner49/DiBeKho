@@ -349,7 +349,11 @@ def _import(conn, ws: Workspace, path: Path, rel: str, h: str, note: DeliveryNot
     copy = ws.originals / f"{h}.xlsx"
     if not copy.exists():
         shutil.copy2(path, copy)
-    customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
+    # the same file read again keeps its customer (the user may have renamed them since: no twin under the old name)
+    known = conn.execute("SELECT customer_id FROM documents WHERE kind = 'delivery' AND source_hash = ? "
+                         "AND customer_id IS NOT NULL ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+    customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address,
+                                          note.tax_code, note.email, known=known[0] if known else None)
     lines = _note_lines(conn, note)
     # a note read again (same file) or its edited version (replaces) keeps the place chosen for it; a new one
     # waits for the user in Cần xử lý, its goods taken from Kho tổng meanwhile, so the total is right at once.
@@ -813,7 +817,8 @@ def backfill_customers(conn, ws: Workspace) -> int:
         except (OSError, NotDeliveryNote, DeliveryNoteError):
             note = None
         if note is not None and note.customer_name:
-            customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address)
+            customer_id = catalog.upsert_customer(conn, note.customer_name, note.phone, note.contact, note.address,
+                                                  note.tax_code, note.email)
             conn.execute("UPDATE documents SET customer_id = ? WHERE id = ?", (customer_id, d["id"]))
             fixed += 1
     return fixed

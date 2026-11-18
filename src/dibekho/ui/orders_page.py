@@ -246,11 +246,12 @@ class CustomersPage(Page):
         bar.addWidget(merge)
         self.layout_.addLayout(bar)
         self.table = make_table([t("col.customer"), t("col.contact"), t("col.phone"), t("col.address"),
-                                 t("col.orders"), t("col.revenue"), t("col.first_order"), t("col.last_order")],
+                                 t("col.orders"), t("col.revenue"), t("col.first_order"), t("col.last_order"),
+                                 t("col.tax_code"), t("col.email")],
                                 stretch=3)
         self.table.setSelectionMode(self.table.SelectionMode.ExtendedSelection)
         self.table.doubleClicked.connect(
-            lambda idx: CustomerDialog(self.ctx, row_id(self.table, idx.row()), self).exec())
+            lambda idx: (CustomerDialog(self.ctx, row_id(self.table, idx.row()), self).exec(), self.refresh()))
         self.layout_.addWidget(self.table)
 
     def refresh(self):
@@ -258,7 +259,8 @@ class CustomersPage(Page):
         fill_table(self.table,
                    [[c["name"], c["contact"], c["phone"], c["address"], num_item(c["order_count"]),
                      both_item(c["revenue"], c["revenue_cny"], c["revenue_approx"]),
-                     date_item(c["first_order"]), date_item(c["last_order"])] for c in rows],
+                     date_item(c["first_order"]), date_item(c["last_order"]), c["tax_code"], c["email"]]
+                    for c in rows],
                    ids=[c["id"] for c in rows])
 
     def merge_selected(self):

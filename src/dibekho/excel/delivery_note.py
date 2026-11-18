@@ -35,6 +35,12 @@ HEADER_LABELS_ZH = {
     "date": "送货日期",
     "address": "地址",
 }
+# the tax code and e-mail of the new template (customer, 18/11/2026: 'MST 税号：', 'email邮箱：'), looked for at the
+# start of a cell (a bare 'mst' inside a product name is not a label) or by their Chinese words; matched on unaccent()
+EXTRA_HEAD_LABELS = {
+    "tax_code": re.compile(r"^\s*(mst|ma so thue)(?![a-z])|税号"),
+    "email": re.compile(r"^\s*e-?mail|邮箱"),
+}
 # what may follow a Chinese label before its value: '( Tên khách hàng )', ':', '：'
 _LEADING_LABEL_REST = re.compile(r"^\s*(\([^)]*\)|（[^）]*）)?\s*[:：]?\s*")
 COLUMN_LABELS = {
@@ -60,7 +66,7 @@ PRICE_LABELS = {
 }
 END_MARKERS = ("tong cong", "nguoi giao hang")
 # the title row of a note; the lines above it are the shop's letterhead (company name, address)
-OPTIONAL_FIELDS = ("phone", "contact", "address")
+OPTIONAL_FIELDS = ("phone", "contact", "address", "tax_code", "email")
 TITLE_MARKERS = ("phieu giao hang", "phieu xuat kho", "销售单", "出库单")
 TOTAL_MARKER = "tong cong"
 _COLON = re.compile(r"[:：]")
@@ -111,6 +117,8 @@ class DeliveryNote:
     warnings: list[str] = field(default_factory=list)
     title: str = ""  # '销售单 PHIẾU GIAO HÀNG', '出库单 PHIẾU XUẤT KHO'; '' when the note has none
     letterhead: list[str] = field(default_factory=list)  # the lines above the title (company name, address)
+    tax_code: str = ""  # MST (new template, 18/11/2026); '' on older notes
+    email: str = ""
     currency: str = "VND"  # "CNY" when the note says its prices are yuan (read_delivery_note; _currency)
 
     @property
@@ -267,6 +275,8 @@ def _parse(grid) -> DeliveryNote:
         phone=clean(_text(head.get("phone"))),
         contact=clean(_text(head.get("contact"))),
         address=clean(_text(head.get("address"))),
+        tax_code=clean(_number_text(head.get("tax_code"))),
+        email=clean(_text(head.get("email"))),
         lines=lines,
         skipped_rows=skipped,
         fees=fees,
@@ -312,7 +322,24 @@ def _read_header_fields(rows) -> dict:
                     continue
                 rest = _LEADING_LABEL_REST.sub("", text.lstrip()[len(label):])
                 found[key] = clean(rest) or _neighbour_value(rows, r, c, key)
+    for r, row in enumerate(rows):
+        for c, value in enumerate(row):
+            text = _text(value)
+            for key, pattern in EXTRA_HEAD_LABELS.items():
+                m = None if key in found else pattern.search(unaccent(text))
+                if m is None:
+                    continue
+                colon = _COLON.search(text, m.end())
+                rest = text[colon.end():] if colon else ""
+                found[key] = clean(rest) or _neighbour_value(rows, r, c, key)
     return found
+
+
+def _number_text(value) -> str:
+    """A tax code typed as a number in its own cell: 101234567.0 -> '101234567' (a lost leading zero cannot come back)."""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return _text(value)
 
 
 def _value_after_label(text: str, label: str):
@@ -343,7 +370,8 @@ def _neighbour_value(rows, r: int, c: int, key: str = ""):
 def _is_label(value) -> bool:
     text = _text(value)
     return (any(label in unaccent(text) for label in HEADER_LABELS.values())
-            or any(label in text for label in HEADER_LABELS_ZH.values()))
+            or any(label in text for label in HEADER_LABELS_ZH.values())
+            or any(pattern.search(unaccent(text)) for pattern in EXTRA_HEAD_LABELS.values()))
 
 
 def _map_columns(header) -> dict:

@@ -213,14 +213,15 @@ def test_the_note_has_the_grid_of_a_delivery_note(conn, ws, goods):
     sheet = openpyxl.load_workbook(path).active
     assert (sheet["A1"].value, sheet["A2"].value, sheet["A4"].value) == ("CÔNG TY MẪU", "Số 1 Đường Mẫu",
                                                                          "出库单 PHIẾU XUẤT KHO")
-    assert [sheet.cell(row=8, column=c).value.split("\n")[-1] for c in range(1, 8)] == [
+    assert [sheet.cell(row=9, column=c).value.split("\n")[-1] for c in range(1, 8)] == [
         "STT", "Tên hàng", "QUY CÁCH", "Số lượng", "VND", "VND", "Ghi chú"]
     assert sheet.column_dimensions["H"].hidden and sheet.column_dimensions["I"].hidden
-    assert sheet.print_area == "'出库单'!$A$1:$G$12"
-    assert sheet["B11"].value == "SÁU TRIỆU BẢY TRĂM BỐN MƯƠI NGHÌN VIỆT NAM ĐỒNG"
-    assert sheet["F11"].value == 6740000 and sheet["D11"].value.endswith("15")
+    assert sheet.print_area == "'出库单'!$A$1:$G$13"
+    assert sheet["B12"].value == "SÁU TRIỆU BẢY TRĂM BỐN MƯƠI NGHÌN VIỆT NAM ĐỒNG"
+    assert sheet["F12"].value == 6740000 and sheet["D12"].value.endswith("15")
     merged = set(map(str, sheet.merged_cells.ranges))
-    assert {"A5:B6", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "A7:E7", "B11:C11", "A12:C12"} <= merged
+    assert {"A5:B7", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "C7:E7", "F7:G7", "A8:E8", "B12:C12",
+            "A13:C13"} <= merged
 
 
 def test_empty_phone_and_contact_keep_their_label_and_read_as_empty(tmp_path):
@@ -241,7 +242,7 @@ def test_an_edited_quantity_drops_the_split_and_the_app_asks_where(conn, ws, goo
     doc_id, _ = issues.save(conn, ws, note_for(paint, sand))
     scanned = next(ws.deliveries_done.glob("PhieuXuat_*.xlsx"))
     wb = openpyxl.load_workbook(scanned)
-    wb.active["D9"] = 12
+    wb.active["D10"] = 12
     wb.save(scanned)
     deliveries.scan(conn, ws)
     row = conn.execute("SELECT hash FROM scanned_files WHERE status = 'changed'").fetchone()
@@ -285,7 +286,7 @@ def test_a_row_retyped_to_another_product_is_read_by_its_new_name(conn, ws, good
         deliveries.map_line(conn, sand_key, sand)
     scanned = next(ws.deliveries_done.glob("PhieuXuat_*.xlsx"))
     wb = openpyxl.load_workbook(scanned)
-    wb.active["B9"], wb.active["C9"] = wb.active["B10"].value, wb.active["C10"].value  # row 1 now says: the sand
+    wb.active["B10"], wb.active["C10"] = wb.active["B11"].value, wb.active["C11"].value  # row 1 now says: the sand
     wb.save(scanned)
     note = read_delivery_note(scanned)
     assert note.lines[0].product_code == "" and note.lines[0].places == ()

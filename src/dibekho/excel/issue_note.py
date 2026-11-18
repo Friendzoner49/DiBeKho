@@ -32,6 +32,8 @@ LABELS = {
     "customer": "客户名称 ( Tên khách hàng ): ",
     "phone": "联系电话 ( Điện thoại liên hệ ): ",
     "code": "订货单号 ( Mã đơn hàng )：",
+    "tax_code": "MST 税号： ",
+    "email": "email邮箱：",
     "contact": "联系人( Người liên hệ )：",
     "date": "送货日期 ( Ngày giao hàng )：",
     "address": "地址( Địa chỉ): ",
@@ -44,10 +46,10 @@ QTY_LABEL = "页小计 \n( Tổng số lượng ):\n"
 SIGN_FROM = "送货单位及经手人（盖章）：Người giao hàng"
 SIGN_TO = "收货单位及经手人（盖章）：Người nhận hàng"
 SHEET = "出库单"
-HEADER_ROW = 8
+HEADER_ROW = 9  # 8 before 18/11/2026 (no MST / email row); the reader finds the header by its label either way
 WIDTHS = [17.1, 62.8, 20.2, 13.0, 34.8, 25.1, 25.8, 12.0, 24.0]  # A..I; H and I hidden
 HIDDEN = (8, 9)
-HEIGHTS = {1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 44.25, 7: 31.9, HEADER_ROW: 40.15}
+HEIGHTS = {1: 61.15, 2: 40.9, 3: 9.0, 4: 40.15, 5: 54.0, 6: 54.0, 7: 44.25, 8: 31.9, HEADER_ROW: 40.15}
 LINE_HEIGHT, TOTAL_HEIGHT, SIGN_HEIGHT = 38.0, 76.5, 82.9
 MONEY = '[$VND]\\ #,##0'
 TNR = "Times New Roman"  # every cell, as the shop's note shows (Chinese falls back to a CJK font)
@@ -77,6 +79,8 @@ class IssueHead:
     phone: str = ""
     contact: str = ""
     address: str = ""
+    tax_code: str = ""
+    email: str = ""
     letterhead: list[str] = field(default_factory=list)  # company name, address (from the shop's delivery notes)
 
 
@@ -177,10 +181,13 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
     put(5, 1, LABELS["customer"] + "\n" + head.customer, size=20, align="left")
     put(5, 3, LABELS["phone"] + head.phone, size=14, align="left")
     put(5, 6, LABELS["code"] + head.code, size=14, align="left")
-    put(6, 3, LABELS["contact"] + head.contact, size=14, align="left")
-    put(6, 6, LABELS["date"] + head.doc_date.strftime("%d-%m-%Y"), size=14, align="left")
-    put(7, 1, LABELS["address"] + head.address, size=14, align="left")
-    sh.merges += ["A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B6", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "A7:E7"]
+    put(6, 3, LABELS["tax_code"] + head.tax_code, size=14, align="left")
+    put(6, 6, LABELS["email"] + head.email, size=14, align="left")
+    put(7, 3, LABELS["contact"] + head.contact, size=14, align="left")
+    put(7, 6, LABELS["date"] + head.doc_date.strftime("%d-%m-%Y"), size=14, align="left")
+    put(8, 1, LABELS["address"] + head.address, size=14, align="left")
+    sh.merges += ["A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C6:E6", "F6:G6", "C7:E7", "F7:G7",
+                  "A8:E8"]
     for c, text in enumerate(HEADERS, start=1):
         put(HEADER_ROW, c, text, border=c <= 7)
     r = HEADER_ROW

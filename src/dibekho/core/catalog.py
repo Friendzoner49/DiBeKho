@@ -500,19 +500,24 @@ def _ranked(conn, name: str, spec: str) -> list:
     return sorted((x for x in scored if x[0] > 0), key=lambda x: -x[0])
 
 
-def upsert_customer(conn, name, phone="", contact="", address="") -> int | None:
+def upsert_customer(conn, name, phone="", contact="", address="", tax_code="", email="",
+                    known: int | None = None) -> int | None:
+    """The customer of a note: found by phone, then by name, else added; empty fields are filled from the note.
+    known: the customer the same file was recorded under before (read again): kept even if the user renamed them."""
     name, phone_norm = clean(name), normalize_phone(phone)
     if not name and not phone_norm:
         return None
-    row = None
-    if phone_norm:
+    row = conn.execute("SELECT * FROM customers WHERE id = ?", (known,)).fetchone() if known else None
+    if row is not None and not (row["phone_norm"] and normalize_phone(row["name"]) == row["phone_norm"]):
+        name = ""  # their name is the user's now (a name that is only the phone number still gives way below)
+    if row is None and phone_norm:
         row = conn.execute("SELECT * FROM customers WHERE phone_norm = ?", (phone_norm,)).fetchone()
     if row is None and name:
         row = conn.execute("SELECT * FROM customers WHERE unaccent(name) = ?", (unaccent(name),)).fetchone()
     if row is None:
         cur = conn.execute(
-            "INSERT INTO customers(name, contact, phone, phone_norm, address) VALUES(?,?,?,?,?)",
-            (name or phone, clean(contact), clean(phone), phone_norm, clean(address)),
+            "INSERT INTO customers(name, contact, phone, phone_norm, address, tax_code, email) VALUES(?,?,?,?,?,?,?)",
+            (name or phone, clean(contact), clean(phone), phone_norm, clean(address), clean(tax_code), clean(email)),
         )
         return cur.lastrowid
     # keep existing data, fill in what was missing; a name that is only the phone number (the note had
@@ -523,10 +528,46 @@ def upsert_customer(conn, name, phone="", contact="", address="") -> int | None:
         "UPDATE customers SET contact = CASE WHEN contact = '' THEN ? ELSE contact END, "
         "phone = CASE WHEN phone = '' THEN ? ELSE phone END, "
         "phone_norm = CASE WHEN phone_norm = '' THEN ? ELSE phone_norm END, "
-        "address = CASE WHEN address = '' THEN ? ELSE address END WHERE id = ?",
-        (clean(contact), clean(phone), phone_norm, clean(address), row["id"]),
+        "address = CASE WHEN address = '' THEN ? ELSE address END, "
+        "tax_code = CASE WHEN tax_code = '' THEN ? ELSE tax_code END, "
+        "email = CASE WHEN email = '' THEN ? ELSE email END WHERE id = ?",
+        (clean(contact), clean(phone), phone_norm, clean(address), clean(tax_code), clean(email), row["id"]),
     )
     return row["id"]
+
+
+CUSTOMER_FIELDS = ("name", "phone", "contact", "address", "tax_code", "email")
+
+
+def customer_owning_phone(conn, phone, other_than: int | None = None):
+    """Another customer with this phone number (the user is told to merge them instead), or None."""
+    phone_norm = normalize_phone(phone)
+    if not phone_norm:
+        return None
+    return conn.execute("SELECT * FROM customers WHERE phone_norm = ? AND id IS NOT ? ORDER BY id",
+                        (phone_norm, other_than)).fetchone()
+
+
+def customer_named(conn, name, other_than: int | None = None):
+    """Another customer with this name (accents and case aside), or None."""
+    return conn.execute("SELECT * FROM customers WHERE unaccent(name) = ? AND id IS NOT ? ORDER BY id",
+                        (unaccent(clean(name)), other_than)).fetchone()
+
+
+def update_customer(conn, customer_id: int, **values) -> None:
+    """Change what the user typed in 'Sửa thông tin khách hàng' (CUSTOMER_FIELDS). The name cannot be empty.
+    A note read later only fills empty fields (upsert_customer), so it never undoes an edit."""
+    fields = {k: clean(values[k]) for k in CUSTOMER_FIELDS if k in values}
+    if "name" in fields and not fields["name"]:
+        raise ValueError("Tên khách hàng không được để trống.")
+    if "phone" in fields:
+        fields["phone_norm"] = normalize_phone(fields["phone"])
+    if not fields:
+        return
+    sets = ", ".join(f"{k} = ?" for k in fields)
+    conn.execute(f"UPDATE customers SET {sets} WHERE id = ?", (*fields.values(), customer_id))
+    db.touch(conn)
+    db.log(conn, "customer_edited", f"#{customer_id}")
 
 
 
@@ -541,6 +582,13 @@ def merge_customers(conn, ids: list[int], name: str) -> int:
         raise ValueError("Chọn từ 2 khách hàng trở lên và nhập tên khách hàng chung.")
     existing = conn.execute("SELECT id FROM customers WHERE unaccent(name) = ?", (unaccent(name),)).fetchone()
     keep_id = existing["id"] if existing else min(ids)
+    # the tax code and e-mail of the survivor, or else the first one found among the others
+    for col in ("tax_code", "email"):
+        if not conn.execute(f"SELECT {col} FROM customers WHERE id = ?", (keep_id,)).fetchone()[0]:
+            other = conn.execute(f"SELECT {col} FROM customers WHERE id IN ({','.join('?' * len(ids))}) "
+                                 f"AND {col} <> '' ORDER BY id LIMIT 1", ids).fetchone()
+            if other:
+                conn.execute(f"UPDATE customers SET {col} = ? WHERE id = ?", (other[0], keep_id))
     for cid in ids:
         if cid != keep_id:
             conn.execute("UPDATE documents SET customer_id = ? WHERE customer_id = ?", (keep_id, cid))
@@ -623,13 +671,16 @@ def import_master(conn, products, customers, stock=(), stock_date=None, note="")
             if row is None and c.name:
                 row = conn.execute("SELECT id FROM customers WHERE unaccent(name) = ?", (unaccent(c.name),)).fetchone()
             values = (c.name or c.phone, clean(c.contact), clean(c.phone), phone_norm, clean(c.address))
+            # a file made before 18/11/2026 has no MST / Email columns (None): what the app has stays
+            extra = {k: clean(v) for k, v in (("tax_code", c.tax_code), ("email", c.email)) if v is not None}
             if row is None:
-                conn.execute("INSERT INTO customers(name, contact, phone, phone_norm, address) VALUES(?,?,?,?,?)",
-                             values)
+                conn.execute("INSERT INTO customers(name, contact, phone, phone_norm, address, tax_code, email) "
+                             "VALUES(?,?,?,?,?,?,?)", (*values, extra.get("tax_code", ""), extra.get("email", "")))
                 result["customers_new"] += 1
             else:
-                conn.execute("UPDATE customers SET name = ?, contact = ?, phone = ?, phone_norm = ?, address = ? "
-                             "WHERE id = ?", (*values, row["id"]))
+                more = "".join(f", {k} = ?" for k in extra)
+                conn.execute("UPDATE customers SET name = ?, contact = ?, phone = ?, phone_norm = ?, address = ?"
+                             f"{more} WHERE id = ?", (*values, *extra.values(), row["id"]))
                 result["customers_updated"] += 1
         db.touch(conn)
         db.log(conn, "master_import", f"{result['products_new']}+{result['products_updated']} products, "

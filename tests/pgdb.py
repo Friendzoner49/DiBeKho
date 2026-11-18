@@ -17,7 +17,8 @@ AVAILABLE = NODE is not None and (PG_DIR / "node_modules" / "@electric-sql" / "p
 needs_pg = pytest.mark.skipif(not AVAILABLE, reason="PGlite not installed (cd tests/pg && npm install)")
 
 # the tables the app syncs: 007 and the columns later files add to them (018: the currency of a note)
-SUPABASE_FILES = ["cloud/supabase/001_init.sql", "cloud/supabase/007_core.sql", "cloud/supabase/018_currency.sql"]
+SUPABASE_FILES = ["cloud/supabase/001_init.sql", "cloud/supabase/007_core.sql", "cloud/supabase/018_currency.sql",
+                  "cloud/supabase/020_customer_tax_email.sql"]
 
 
 def run(steps: list[dict], files: list[str] = SUPABASE_FILES) -> list[list[dict]]:
@@ -92,4 +93,5 @@ WEB_FILES = [*ALL_FILES, "cloud/supabase/009_web_rpc.sql", "cloud/supabase/010_w
              "cloud/supabase/011_accounts.sql", "cloud/supabase/012_web_settings.sql",
              "cloud/supabase/013_return_prices.sql", "cloud/supabase/014_drop_mirror.sql",
              "cloud/supabase/015_web_issue.sql", "cloud/supabase/016_staff_push.sql",
-             "cloud/supabase/017_app_logs.sql", "cloud/supabase/019_issue_new_products.sql"]
+             "cloud/supabase/017_app_logs.sql", "cloud/supabase/019_issue_new_products.sql",
+             "cloud/supabase/020_customer_tax_email.sql"]  # 020 again: it replaces 019's web_issue

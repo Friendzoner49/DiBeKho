@@ -175,7 +175,8 @@ def test_code_of_a_receipt_undone_is_not_given_again(conn, ws):
 
 
 # migration 007 (prices): a database written by 0.3.0 or earlier has none of these
-LOCATIONS_DROP = ("DROP INDEX ix_movements_location", "DROP TABLE locations", "UPDATE stock_movements SET location_id = NULL",
+LOCATIONS_DROP = ("ALTER TABLE customers DROP COLUMN tax_code", "ALTER TABLE customers DROP COLUMN email",  # 012
+                  "DROP INDEX ix_movements_location", "DROP TABLE locations", "UPDATE stock_movements SET location_id = NULL",
                   "ALTER TABLE document_lines DROP COLUMN location_id", "ALTER TABLE documents DROP COLUMN location_id",
                   "ALTER TABLE documents DROP COLUMN to_location_id", "ALTER TABLE documents DROP COLUMN location_set",
                   "ALTER TABLE products DROP COLUMN stock_note")

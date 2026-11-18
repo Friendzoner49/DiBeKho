@@ -227,7 +227,7 @@ def test_a_period_without_yuan_exports_as_before(conn, ws, monkeypatch, tmp_path
 def test_a_database_of_0_5_4_is_upgraded(tmp_path):
     conn = db.connect(tmp_path / "kho.sqlite")
     cols = {r[1] for r in conn.execute("PRAGMA table_info(documents)")}
-    assert {"currency", "fx_rate"} <= cols and db.schema_version() == 11
+    assert {"currency", "fx_rate"} <= cols and db.schema_version() >= 11
     conn.close()
 
 

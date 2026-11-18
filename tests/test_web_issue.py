@@ -90,13 +90,15 @@ def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path):
     data = _input(paint, sand)
     rows = issues.note_rows(conn, data)
     head = IssueHead("PX261114-093015", data.doc_date, data.customer_name, data.phone, data.contact, data.address,
-                     ["CÔNG TY MẪU 样本公司", "Số 1 Đường Mẫu"])
+                     tax_code="0101234567", email="a@example.com", letterhead=["CÔNG TY MẪU 样本公司", "Số 1 Đường Mẫu"])
     app_file = write_issue_note(tmp_path / "app.xlsx", head, rows)
     web_file = _web_file({"code": head.code, "doc_date": "2026-11-14", "customer": head.customer, "phone": head.phone,
-                          "contact": head.contact, "address": head.address, "letterhead": head.letterhead},
+                          "contact": head.contact, "address": head.address, "tax_code": head.tax_code,
+                          "email": head.email, "letterhead": head.letterhead},
                          [dataclasses.asdict(r) for r in rows], tmp_path / "web.xlsx")
     app_note, web_note = read_delivery_note(app_file), read_delivery_note(web_file)
     assert web_note == app_note
+    assert (web_note.tax_code, web_note.email) == ("0101234567", "a@example.com")
     assert (web_note.code, web_note.customer_name, web_note.doc_date) == ("PX261114-093015", "Công ty A", date(2026, 11, 14))
     assert [(ln.product_code, ln.places, ln.qty, ln.unit_price) for ln in web_note.lines] == [
         ("SP001", ((MAIN, 10), (OFFICE, 3)), 13, 512500.5), ("SP002", ((MAIN, 2.5),), 2.5, None)]

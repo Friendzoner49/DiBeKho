@@ -80,10 +80,12 @@ function openIssueForm() {
     `<p class="hint">${esc(tr("issue.hint"))}${issueRate ? " " + esc(tr("issue.cny_hint", { rate: Math.round(issueRate).toLocaleString("vi-VN") })) : ""}</p>
      <div class="form2">
        <label>${esc(tr("issue.date"))}</label><input id="ix-date" type="date" value="${esc(todayLocal())}">
-       <label>${esc(tr("col.customer"))}</label><input id="ix-customer" list="customers-dl" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}">
+       <label>${esc(tr("col.customer"))}</label><div class="row"><input id="ix-customer" class="grow" list="customers-dl" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}"><button id="ix-new-customer" class="flat" title="${esc(tr("issue.new_customer_tip"))}">${esc(tr("issue.new_customer"))}</button></div>
        <label>${esc(tr("col.phone"))}</label><input id="ix-phone" autocomplete="off">
        <label>${esc(tr("col.contact"))}</label><input id="ix-contact" autocomplete="off">
        <label>${esc(tr("col.address"))}</label><input id="ix-address" autocomplete="off">
+       <label>${esc(tr("col.tax_code"))}</label><input id="ix-tax" autocomplete="off">
+       <label>${esc(tr("col.email"))}</label><input id="ix-email" type="email" autocomplete="off">
      </div>
      <div class="scroll tall"><table class="edit"><thead><tr>${heads.map((h, i) =>
        `<th class="${i === 4 || i === 6 ? "yellow" : i === 3 || i === 5 || i === 8 ? "num" : ""}">${esc(h)}</th>`).join("")}</tr></thead>
@@ -143,7 +145,7 @@ function openIssueForm() {
     const tr_ = e.target.closest("tr.ix-row");
     if (e.target.id === "ix-customer") {
       const c = data.customers.find((x) => x.name === e.target.value.replace(/\s+/g, " ").trim());
-      if (c) for (const [id, v] of [["ix-phone", c.phone], ["ix-contact", c.contact], ["ix-address", c.address]]) if (!$(id).value.trim()) $(id).value = v || "";
+      if (c) for (const [id, v] of [["ix-phone", c.phone], ["ix-contact", c.contact], ["ix-address", c.address], ["ix-tax", c.tax_code], ["ix-email", c.email]]) if (!$(id).value.trim()) $(id).value = v || "";
       for (const row of $("ix-lines").querySelectorAll("tr")) fillPrice(row);
     }
     if (tr_ && e.target.classList.contains("ix-price")) e.target.dataset.typed = e.target.value.trim() ? "1" : "";
@@ -155,6 +157,15 @@ function openIssueForm() {
     refresh();
   });
   body.addEventListener("click", (e) => {
+    if (e.target.id === "ix-new-customer") {
+      // a customer not in the list yet (customer's request 18/11/2026): empty boxes for every detail, saved with the note
+      for (const id of ["ix-customer", "ix-phone", "ix-contact", "ix-address", "ix-tax", "ix-email"]) $(id).value = "";
+      $("ix-customer").placeholder = tr("issue.new_customer_ph");
+      $("ix-customer").focus();
+      for (const row of $("ix-lines").querySelectorAll("tr")) fillPrice(row);
+      refresh();
+      return;
+    }
     if (!e.target.classList.contains("ix-remove")) return;
     const rows = $("ix-lines").querySelectorAll("tr");
     if (rows.length > 1) e.target.closest("tr").remove();
@@ -199,7 +210,8 @@ function readIssueForm() {
   }
   if (!lines.length) fail(tr("issue.need_lines"));
   return { date, customer, phone: $("ix-phone").value.replace(/\s+/g, " ").trim(),
-           contact: $("ix-contact").value.replace(/\s+/g, " ").trim(), address: $("ix-address").value.replace(/\s+/g, " ").trim(), lines };
+           contact: $("ix-contact").value.replace(/\s+/g, " ").trim(), address: $("ix-address").value.replace(/\s+/g, " ").trim(),
+           tax_code: $("ix-tax").value.replace(/\s+/g, " ").trim(), email: $("ix-email").value.replace(/\s+/g, " ").trim(), lines };
 }
 
 async function saveIssue() {
@@ -248,7 +260,8 @@ async function saveIssue() {
     const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
                                          qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
     const { data: made, error } = await sb.rpc("web_issue", { p: { doc_date: f.date, customer: f.customer, phone: f.phone,
-                                                                  contact: f.contact, address: f.address, lines } });
+                                                                  contact: f.contact, address: f.address, tax_code: f.tax_code,
+                                                                  email: f.email, lines } });
     if (error) fail(error.message || String(error));
     code = made.code;
     if (f.lines.some((ln) => ln.new)) {
@@ -262,7 +275,7 @@ async function saveIssue() {
     code = DBK_XLSX.nextCode(data.documents.filter((d) => d.kind === "delivery").map((d) => d.code));
   }
   const head = { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
-                 letterhead: letterhead() };
+                 tax_code: f.tax_code, email: f.email, letterhead: letterhead() };
   const bytes = DBK_XLSX.issueNote(fflate, head, rows);
   const name = `PhieuXuat_${code}.xlsx`;
   saveFile(name, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

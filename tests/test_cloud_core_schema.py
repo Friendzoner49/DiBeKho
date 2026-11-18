@@ -144,3 +144,30 @@ def test_an_older_app_pushing_an_order_keeps_its_currency_on_the_cloud(conn):
     seven, nine = out[-1]
     assert (seven["note"], seven["currency"], seven["fx_rate"]) == ("pushed by 0.5.4", "CNY", 3600)
     assert (nine["currency"], nine["fx_rate"]) == ("", None)
+
+
+def test_an_older_app_pushing_a_customer_keeps_its_tax_code_and_email(conn):
+    """0.5.7 and the Mac's Swift app push customers without tax_code/email (cloud 020): the cloud keeps what it has,
+    a new customer gets '', and the push is not refused."""
+    from tests.pgdb import ALL_FILES
+
+    _shop(conn)
+    snap = replica.snapshot(conn)
+    cust = snap["customers"][0]
+    old = {k: v for k, v in cust.items() if k not in ("tax_code", "email")}
+    new = {**old, "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", "name": "Khách Mới", "phone": "", "phone_norm": ""}
+    out = run(_load_steps(conn, snap) + [
+        {"sql": "insert into auth.users(id) values ($1)", "params": [OWNER]},
+        {"sql": "insert into public.profiles(user_id, role) values ($1, 'desktop')", "params": [OWNER]},
+        {"sql": "update public.customers set tax_code = '0101234567', email = 'a@example.com' where id = $1",
+         "params": [cust["id"]]},
+        {"sql": "select public.sync_push('old-mac', public.core_max_rev(), $1::jsonb) r",
+         "params": [json.dumps({"customers": [{**old, "address": "pushed by 0.5.7"}, new]})], "sub": OWNER},
+        {"sql": "select name, address, tax_code, email from public.customers where id in ($1, $2) order by name",
+         "params": [cust["id"], new["id"]]},
+    ], files=ALL_FILES)
+    assert out[-2][0]["r"]["ok"] is True
+    rows = {r["name"]: r for r in out[-1]}
+    kept = rows[cust["name"]]
+    assert (kept["address"], kept["tax_code"], kept["email"]) == ("pushed by 0.5.7", "0101234567", "a@example.com")
+    assert (rows["Khách Mới"]["tax_code"], rows["Khách Mới"]["email"]) == ("", "")

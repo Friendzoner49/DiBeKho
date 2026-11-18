@@ -241,3 +241,91 @@ def test_enter_in_a_number_never_saves(app, ws, monkeypatch):
     QTest.keyClick(box.lineEdit(), Qt.Key_Return)
     assert form.saved_doc is None and form.isVisible()
     form.done(0)
+
+
+def _fill_dialog(monkeypatch, values):
+    """CustomerInfoDialog.exec types `values` and clicks Lưu."""
+    from PySide6.QtWidgets import QDialog
+
+    import dibekho.ui.customer_form as cf
+
+    def fake_exec(self):
+        for key, text in values.items():
+            self.boxes[key].setText(text)
+        self._check()
+        return QDialog.Accepted if self.result() == QDialog.Accepted else QDialog.Rejected
+
+    monkeypatch.setattr(cf.CustomerInfoDialog, "exec", fake_exec)
+
+
+def test_a_new_customer_with_every_detail_is_saved_with_the_note(app, ws, monkeypatch):
+    """Customer's request 18/11/2026: '＋ Khách hàng mới…' takes name, phone, contact, address, MST and email."""
+    import dibekho.ui.issue_form as form_mod
+    import dibekho.ui.pending_page as pending_mod
+
+    i18n.set_language("vi")
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(form_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(form_mod, "error", lambda parent, text: pytest.fail(text))
+    monkeypatch.setattr(form_mod, "open_path", lambda *a: None)
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, paint = _shop(ws, "vi")
+    monkeypatch.setattr(pending_mod.ProductPicker, "choose", lambda self: paint)
+    _fill_dialog(monkeypatch, {"name": "Công ty Mới", "phone": "0900 000 007", "contact": "Chị C",
+                               "address": "2 Đường Y", "tax_code": "0101234567", "email": "moi@example.com"})
+    form = IssueForm(ctx)
+    form.new_customer_btn.click()
+    assert (form.customer.currentText(), form.tax_code.text(), form.email.text()) == (
+        "Công ty Mới", "0101234567", "moi@example.com")
+    form.rows[0].button.click()
+    type_in(form.rows[0].qty_main, "2")
+    form.save_btn.click()
+    assert form.saved_doc is not None
+    c = ctx.conn.execute("SELECT c.* FROM customers c JOIN documents d ON d.customer_id = c.id WHERE d.id = ?",
+                         (form.saved_doc,)).fetchone()
+    assert (c["name"], c["phone"], c["contact"], c["address"], c["tax_code"], c["email"]) == (
+        "Công ty Mới", "0900 000 007", "Chị C", "2 Đường Y", "0101234567", "moi@example.com")
+    ctx.close()
+
+
+def test_a_new_customer_already_in_the_list_picks_the_existing_one(app, ws, monkeypatch):
+    import dibekho.ui.issue_form as form_mod
+
+    i18n.set_language("vi")
+    asked = []
+    monkeypatch.setattr(form_mod, "ask", lambda parent, text, *a, **k: asked.append(text) or True)
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, paint = _shop(ws, "vi")
+    with db.transaction(ctx.conn):
+        cid = ctx.conn.execute("SELECT id FROM customers").fetchone()[0]
+        catalog.update_customer(ctx.conn, cid, tax_code="0109", email="a@example.com")
+    _fill_dialog(monkeypatch, {"name": "Ai đó", "phone": "0900000001"})
+    form = IssueForm(ctx)
+    form.new_customer_btn.click()
+    assert asked and "Công ty A" in asked[0]
+    assert (form.customer.currentText().split(" · ")[0], form.phone.text(), form.tax_code.text(),
+            form.email.text()) == ("Công ty A", "0900 000 001", "0109", "a@example.com")
+    ctx.close()
+
+
+def test_editing_a_customer_from_its_detail_window(app, ws, monkeypatch):
+    import dibekho.ui.customer_form as cf
+
+    i18n.set_language("vi")
+    monkeypatch.setattr(cf, "ask", lambda *a, **k: pytest.fail("no other customer has this phone or name"))
+    from dibekho.ui.details import CustomerDialog
+
+    ctx, _ = _shop(ws, "vi")
+    cid = ctx.conn.execute("SELECT id FROM customers").fetchone()[0]
+    _fill_dialog(monkeypatch, {"name": "Công ty A (mới)", "tax_code": "0101234567", "email": "a@example.com"})
+    dlg = CustomerDialog(ctx, cid)
+    assert dlg.fields["tax_code"].text() == "—"
+    dlg.edit_info()
+    assert (dlg.title.text(), dlg.fields["tax_code"].text(), dlg.fields["email"].text()) == (
+        "Công ty A (mới)", "0101234567", "a@example.com")
+    c = ctx.conn.execute("SELECT * FROM customers WHERE id = ?", (cid,)).fetchone()
+    assert (c["name"], c["phone"], c["tax_code"]) == ("Công ty A (mới)", "0900 000 001", "0101234567")
+    dlg.close()
+    ctx.close()

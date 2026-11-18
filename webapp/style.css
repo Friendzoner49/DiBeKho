@@ -208,6 +208,7 @@ dialog .scroll { box-shadow: 0 0 0 1px var(--border-strong); }
                border-top: 1px solid var(--border); }
 .form2 { display: grid; grid-template-columns: max-content 1fr; gap: 10px 14px; align-items: center; margin: 12px 0; }
 .form2 > label { white-space: nowrap; font-size: 15px; color: var(--muted); font-weight: 500; }
+.form2 > .row { margin: 0; flex-wrap: nowrap; }
 p.step { margin: 16px 0 6px; font-weight: 600; font-size: 17px; }
 dialog ul { margin: 6px 0 10px; padding-left: 22px; }
 

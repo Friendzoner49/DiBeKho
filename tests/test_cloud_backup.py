@@ -115,8 +115,8 @@ def test_validate_upgrades_an_older_copy(tmp_path):
     c.close()
     raw = sqlite3.connect(old)  # pretend it was made by the previous schema: roll the version back one step
     raw.execute(f"PRAGMA user_version = {db.schema_version() - 1}")
-    for col in ("currency", "fx_rate"):  # what migration 011 adds
-        raw.execute(f"ALTER TABLE documents DROP COLUMN {col}")
+    for col in ("tax_code", "email"):  # what migration 012 adds
+        raw.execute(f"ALTER TABLE customers DROP COLUMN {col}")
     raw.commit()
     raw.close()
     assert cloud_backup.validate(old) == db.schema_version() - 1  # reports what the file was

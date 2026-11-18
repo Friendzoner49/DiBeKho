@@ -9,7 +9,7 @@ from dibekho.excel import master_data
 from tests.test_features import setup_notes
 
 PRODUCT_COLS = "code, name_vi, name_zh, spec, variant, unit, category, active, created_at"
-CUSTOMER_COLS = "name, contact, phone, phone_norm, address"
+CUSTOMER_COLS = "name, contact, phone, phone_norm, address, tax_code, email"
 
 
 def snapshot(conn):
@@ -23,12 +23,14 @@ def test_export_then_import_on_an_empty_computer_gives_the_same_data(conn, ws, t
         pid = catalog.create_product(conn, "Màng PPE", "高分子防水卷材", "16.5KG", category="Màng",
                                      variant="Nguyên sinh")
         catalog.update_product(conn, pid, active=0)
+        one = conn.execute("SELECT id FROM customers WHERE name = 'Khách Một'").fetchone()[0]
+        catalog.update_customer(conn, one, tax_code="0101234567", email="mot@example.com")
     path = master_data.export(tmp_path / "goc.xlsx", conn)
 
     wb = openpyxl.load_workbook(path)
     customers_sheet = wb.worksheets[1]
     assert [c.value for c in customers_sheet[4]] == ["STT", "Khách hàng", "Điện thoại", "Người liên hệ", "Địa chỉ",
-                                                     "Số đơn"]
+                                                     "Số đơn", "MST", "Email"]
     orders = {r[1]: r[5] for r in customers_sheet.iter_rows(min_row=5, values_only=True)}
     assert orders == {"Khách Một": 2, "Khách Hai": 1}
 
@@ -326,3 +328,20 @@ def test_file_with_codes_needs_no_check(conn, ws, tmp_path):
     assert not master_data.needs_check(stock)
     by_row = {p.row: p for p in products}
     assert not any(master_data.stock_differs(st, by_row[st.product_row]) for st in stock)
+
+
+def test_a_file_without_the_mst_and_email_columns_keeps_them(conn, ws, tmp_path):
+    """A master-data file exported before 18/11/2026 has no MST / Email columns: importing it blanks nothing."""
+    setup_notes(conn, ws)
+    with db.transaction(conn):
+        one = conn.execute("SELECT id FROM customers WHERE name = 'Khách Một'").fetchone()[0]
+        catalog.update_customer(conn, one, tax_code="0101234567", email="mot@example.com")
+    path = master_data.export(tmp_path / "goc.xlsx", conn)
+    wb = openpyxl.load_workbook(path)
+    wb.worksheets[1].delete_cols(7, 2)
+    wb.save(path)
+    products, customers, stock = master_data.read(path)
+    assert {c.tax_code for c in customers} == {None}
+    catalog.import_master(conn, products, customers, stock)
+    assert conn.execute("SELECT tax_code, email FROM customers WHERE id = ?", (one,)).fetchone()[:] == (
+        "0101234567", "mot@example.com")

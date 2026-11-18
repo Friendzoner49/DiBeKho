@@ -61,6 +61,8 @@ class IssueInput:
     phone: str = ""
     contact: str = ""
     address: str = ""
+    tax_code: str = ""
+    email: str = ""
     lines: list[IssueLineInput] = field(default_factory=list)
 
     def filled(self) -> list[IssueLineInput]:
@@ -203,7 +205,7 @@ def _save(conn, ws: Workspace, data: IssueInput) -> tuple[int, Path]:
 
     code = new_code(conn)
     head = IssueHead(code, data.doc_date, clean(data.customer_name), clean(data.phone), clean(data.contact),
-                     clean(data.address), deliveries.letterhead(conn))
+                     clean(data.address), clean(data.tax_code), clean(data.email), deliveries.letterhead(conn))
     user_copy = _free(ws.output / FOLDER / f"{FILE_PREFIX}{code}.xlsx")
     write_issue_note(user_copy, head, note_rows(conn, data))
     ws.deliveries_done.mkdir(parents=True, exist_ok=True)
@@ -268,4 +270,4 @@ def delete(conn, ws: Workspace, doc_id: int) -> int:
 
 
 def customer_choices(conn) -> list:
-    return conn.execute("SELECT id, name, phone, contact, address FROM customers ORDER BY name").fetchall()
+    return conn.execute("SELECT id, name, phone, contact, address, tax_code, email FROM customers ORDER BY name").fetchall()

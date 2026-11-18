@@ -534,7 +534,7 @@ function renderSearch() {
   const out = $("search-results");
   if (!f) { out.innerHTML = ""; return; }
   const products = data.products.filter((p) => matches(f, `${p.code} ${p.name_vi} ${p.name_zh} ${p.spec} ${p.variant} ${p.category} ${p.stock_note}`));
-  const customers = data.customers.filter((c) => matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`));
+  const customers = data.customers.filter((c) => matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address} ${c.tax_code || ""} ${c.email || ""}`));
   const docs = data.documents.filter((d) => matches(f, `${d.code} ${d.note} ${(customerById[d.customer_id] || {}).name || ""} ${d.supplier_name}`))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date)).slice(0, 200);
   out.innerHTML = `<h2>${esc(tr("search.found_products", { n: products.length }))}</h2><div id="sr-products"></div>` +
@@ -632,7 +632,7 @@ $("customers-table").addEventListener("click", (e) => {
 
 function renderCustomers() {
   const f = $("customers-filter").value;
-  const items = data.customers.filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address}`))
+  const items = data.customers.filter((c) => !f || matches(f, `${c.name} ${c.contact} ${c.phone} ${c.address} ${c.tax_code || ""} ${c.email || ""}`))
     .sort((a, b) => a.name.localeCompare(b.name, "vi"));
   const revenue = {};
   for (const d of data.documents) {
@@ -657,6 +657,7 @@ function renderCustomers() {
   buildTable("customers-table", [
     { label: tr("col.customer"), get: (c) => c.name }, { label: tr("col.contact"), get: (c) => c.contact },
     { label: tr("col.phone"), get: (c) => c.phone }, { label: tr("col.address"), get: (c) => c.address },
+    { label: tr("col.tax_code"), get: (c) => c.tax_code || "" }, { label: tr("col.email"), get: (c) => c.email || "" },
     { label: tr("col.revenue"), get: (c) => moneyValue(rev(c).vnd, rev(c).cny, rev(c).approx), num: true, cls: "num",
       html: (c) => esc(fmtBoth(rev(c).vnd, rev(c).cny, rev(c).approx)) },
   ], items, { open: (c) => showCustomer(c.id) });

@@ -196,6 +196,8 @@ d.show()
 shot(d, "chi-tiet-don.png")
 d.close()
 cust = conn.execute("SELECT id FROM customers WHERE name LIKE 'Công ty Xây%'").fetchone()[0]
+conn.execute("UPDATE customers SET tax_code = '0100000001', email = 'lienhe@example.com' WHERE id = ?", (cust,))
+conn.commit()
 d = CustomerDialog(ctx, cust, win)
 d.resize(1150, 820)
 d.show()

@@ -116,11 +116,21 @@ class IssueForm(QDialog):
         self.customer.lineEdit().setPlaceholderText(t("issue.customer_placeholder"))
         self.customer.setMinimumWidth(520)
         self.customer.currentIndexChanged.connect(lambda _: self._customer_picked())
-        form.addRow(t("issue.customer") + ":", self.customer)
+        customer_row = QHBoxLayout()
+        customer_row.addWidget(self.customer, 1)
+        self.new_customer_btn = QPushButton(t("issue.new_customer"))
+        self.new_customer_btn.setToolTip(t("issue.new_customer_tip"))
+        self.new_customer_btn.setAutoDefault(False)
+        self.new_customer_btn.clicked.connect(self.new_customer)
+        customer_row.addWidget(self.new_customer_btn)
+        form.addRow(t("issue.customer") + ":", customer_row)
         self.phone, self.contact, self.address = QLineEdit(), QLineEdit(), QLineEdit()
+        self.tax_code, self.email = QLineEdit(), QLineEdit()
         form.addRow(t("issue.phone") + ":", self.phone)
         form.addRow(t("issue.contact") + ":", self.contact)
         form.addRow(t("issue.address") + ":", self.address)
+        form.addRow(t("col.tax_code") + ":", self.tax_code)
+        form.addRow(t("col.email") + ":", self.email)
         lay.addLayout(form)
 
         lay.addWidget(QLabel(t("issue.step_lines")))
@@ -172,6 +182,7 @@ class IssueForm(QDialog):
         return IssueInput(
             from_qdate(self.date.date()), self.customer.currentText().split(" · ")[0].strip(),
             phone=self.phone.text(), contact=self.contact.text(), address=self.address.text(),
+            tax_code=self.tax_code.text(), email=self.email.text(),
             lines=[IssueLineInput(r.product_id, r.qty_main.value(), r.qty_office.value(),
                                   self._price_vnd(r), r.note.text(), new=r.new) for r in self.rows])
 
@@ -197,9 +208,37 @@ class IssueForm(QDialog):
         if i is None or self.customer.itemText(self.customer.currentIndex()) != self.customer.currentText():
             return
         c = self.customers[i]
-        self.phone.setText(c["phone"] or "")
-        self.contact.setText(c["contact"] or "")
-        self.address.setText(c["address"] or "")
+        self._show_customer(c)
+        for row in self.rows:
+            self._fill_price(row)
+
+    def _show_customer(self, c):
+        for box, key in ((self.phone, "phone"), (self.contact, "contact"), (self.address, "address"),
+                         (self.tax_code, "tax_code"), (self.email, "email")):
+            box.setText(c[key] or "")
+
+    def new_customer(self):
+        """'＋ Khách hàng mới…': every field of a customer not in the list yet; saved with the note (the note is read
+        back like any delivery note, which adds the customer). One already in the list is picked instead."""
+        from dibekho.ui.customer_form import CustomerInfoDialog
+
+        values: dict = {}
+        while True:
+            dlg = CustomerInfoDialog(self, t("cust.new_title"), values, t("issue.new_customer_hint"))
+            if dlg.exec() != QDialog.Accepted:
+                return
+            values = dlg.values()
+            twin = (catalog.customer_owning_phone(self.ctx.conn, values["phone"])
+                    or catalog.customer_named(self.ctx.conn, values["name"]))
+            if twin is None:
+                break
+            if ask(self, t("issue.customer_exists", name=twin["name"])):
+                i = next(n for n, c in enumerate(self.customers) if c["id"] == twin["id"])
+                self.customer.setCurrentIndex(self.customer.findData(i))
+                return
+        self.customer.setCurrentIndex(0)
+        self.customer.setEditText(values["name"])
+        self._show_customer(values)
         for row in self.rows:
             self._fill_price(row)
 
