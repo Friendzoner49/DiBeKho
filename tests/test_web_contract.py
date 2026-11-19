@@ -76,7 +76,7 @@ def test_the_page_has_no_code_that_writes():
     for path in (ROOT / "webapp").glob("*.js"):
         rpcs |= set(re.findall(r"""sb\.rpc\(\s*["'](\w+)["']""", path.read_text(encoding="utf-8")))
     assert rpcs <= {"sync_pull", "web_setting_set", "web_accounts_list", "web_account_set_role", "web_account_revoke",
-                    "web_issue", "log_list", "log_get"} | {""}, rpcs  # log_list/log_get: maychinh reads the logs (cloud 017); web_issue: the owner's Phiếu xuất kho takes the stock (cloud 015)
+                    "web_issue", "web_issue_edit", "log_list", "log_get"} | {""}, rpcs  # web_issue_edit: the owner corrects a note (cloud 021); log_list/log_get: maychinh reads the logs (cloud 017); web_issue: the owner's Phiếu xuất kho takes the stock (cloud 015)
 
 
 def _shop(conn):

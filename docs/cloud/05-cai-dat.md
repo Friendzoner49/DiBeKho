@@ -30,6 +30,7 @@ Không bao giờ đưa **service_role key** hay mật khẩu database vào app, 
 17. `cloud/supabase/018_currency.sql` — **loại tiền của phiếu** (15/11/2026, app 0.5.5 / schema 11): thêm cột `documents.currency` (`VND` | `CNY` | rỗng = chưa xem, tính là ₫) và `documents.fx_rate` (tỷ giá lúc đọc phiếu, chỉ để hiện số xấp xỉ). **Chạy trước khi dùng app 0.5.5**: app gửi hai cột này khi đồng bộ.
 18. `cloud/supabase/019_issue_new_products.sql` — **Phiếu xuất kho có mặt hàng mới** (15/11/2026): dòng `{"new": {...}}` trong `web_issue` tạo mặt hàng cùng giao dịch với phiếu (hai dòng cùng tên + quy cách + loại thành một mặt hàng), tồn thành số âm; trả `product_ids` theo thứ tự dòng để file Excel ghi mã. Chạy sau 016 (chạy lại 015/016 thì chạy lại 019); **chạy trước khi tải web mới lên**.
 19. `cloud/supabase/020_customer_tax_email.sql` — **MST và email của khách** (18/11/2026, app schema 12): thêm cột `customers.tax_code` và `customers.email` (khách cũ để trống) + trigger giữ giá trị khi app cũ đồng bộ không gửi hai cột này; `web_issue` nhận `tax_code`/`email`; `web_customer_merge` giữ MST/email. Chạy sau 019 (chạy lại 015/016/019 thì chạy lại 020); **chạy trước khi app schema 12 đăng nhập và trước khi tải web mới lên**.
+20. `cloud/supabase/021_web_issue_edit.sql` — **sửa phiếu xuất kho trên web** (19/11/2026): thêm hàm `web_issue_edit` (chỉ chủ; phiếu mã A…/W… còn hiệu lực): xoá phiếu cũ như app rồi ghi phiếu mới giữ nguyên mã, trong một giao dịch. Chạy sau 020; **chạy trước khi tải web mới lên**.
 
 ## 3. Tạo tài khoản
 

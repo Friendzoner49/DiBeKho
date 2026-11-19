@@ -163,7 +163,8 @@ function orderDetailHtml(d) {
 function showOrder(id) {
   const d = docById[id];
   if (!d) return;
-  openDialog(`${kindName(d.kind)} ${d.code || ""}`.trim(), orderDetailHtml(d), []);
+  const buttons = canEditIssue(d) ? [{ label: tr("issue.edit_btn"), run: async () => { openIssueForm(d); return false; } }] : [];
+  openDialog(`${kindName(d.kind)} ${d.code || ""}`.trim(), orderDetailHtml(d), buttons, buttons.length ? tr("btn.close") : null);
 }
 
 /** Phiếu chuyển hàng… / Phiếu dùng thử… / Phiếu kiểm kê… (the app's lists inside Kiểm kê). */

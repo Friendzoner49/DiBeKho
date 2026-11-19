@@ -55,6 +55,38 @@ function issueRowHtml() {
     `<td><input class="ix-note"></td><td><button class="flat ix-remove" title="${esc(tr("issue.remove"))}">✕</button></td></tr>`;
 }
 
+/** An order made by the app or the web (A160, W160): the owner may correct it (customer's request 19/11/2026; cloud 021). */
+const isIssueCode = (code) => /^\s*[AaWw]\d+\s*$/.test(String(code || ""));
+const canEditIssue = (d) => isOwner() && d.kind === "delivery" && d.status === "active" && isIssueCode(d.code);
+
+/** The lines of a recorded note as the window shows them, like the app's issues.load: where each line was taken from
+    comes from the stock movements (a line taken from both places has no place of its own). */
+function issueLinesOf(d) {
+  const pool = {};
+  for (const m of data.movements) if (m.document_id === d.id) pool[`${m.product_id}|${m.location_id}`] = (pool[`${m.product_id}|${m.location_id}`] || 0) - m.qty;
+  const lines = (linesByDoc[d.id] || []).filter((l) => l.product_id).slice().sort((a, b) => a.line_no - b.line_no);
+  for (const l of lines) if (l.location_id) pool[`${l.product_id}|${l.location_id}`] = (pool[`${l.product_id}|${l.location_id}`] || 0) - l.qty;
+  return lines.map((l) => {
+    const take = { 1: 0, 2: 0 };
+    if (l.location_id) take[l.location_id] = l.qty;
+    else {
+      let left = l.qty;
+      for (const place of [1, 2]) {
+        const part = Math.min(left, Math.max(pool[`${l.product_id}|${place}`] || 0, 0));
+        take[place] = part; pool[`${l.product_id}|${place}`] = (pool[`${l.product_id}|${place}`] || 0) - part; left -= part;
+      }
+      if (left > 0) take[d.location_id || 1] += left;
+    }
+    return { product_id: l.product_id, main: take[1], office: take[2], price: l.unit_price, note: l.note || "" };
+  });
+}
+
+let issueEdit = null;  // {doc, lines} while the window corrects a recorded note, else null
+/** The goods the note being corrected holds are free again for its new version. */
+const issueGiven = (productId, place) => (issueEdit ? issueEdit.lines.reduce(
+  (a, l) => a + (l.product_id === productId ? (place === 1 ? l.main : l.office) : 0), 0) : 0);
+const issueHave = (productId, place) => (stockOf(productId)[place] || 0) + issueGiven(productId, place);
+
 let issueRate = null;  // dong for one yuan while the open window takes its prices in yuan, else null
 
 /** The row's price in dong, as the file carries it: null (empty), NaN (not a number). */
@@ -70,14 +102,15 @@ function issueMoney(vnd) {
   return issueRate ? "¥" + (vnd / issueRate).toLocaleString(numLocale(), { maximumFractionDigits: 2 }) : fmtVnd(vnd);
 }
 
-function openIssueForm() {
+function openIssueForm(editDoc = null) {
+  issueEdit = editDoc ? { doc: editDoc, lines: issueLinesOf(editDoc) } : null;
   issueRate = moneyInCny() ? FX.rate.vnd_per_cny : null;
   const heads = [tr("col.product"), tr("col.spec"), tr("col.unit"), tr("issue.have", { place: tr("place.1") }),
                  tr("issue.take", { place: tr("place.1") }), tr("issue.have", { place: tr("place.2") }),
                  tr("issue.take", { place: tr("place.2") }), tr(issueRate ? "issue.price_cny" : "issue.price"),
                  tr(issueRate ? "issue.amount_cny" : "issue.amount"), tr("col.note"), ""];
-  const body = openDialog(tr("issue.title"),
-    `<p class="hint">${esc(tr("issue.hint"))}${issueRate ? " " + esc(tr("issue.cny_hint", { rate: Math.round(issueRate).toLocaleString("vi-VN") })) : ""}</p>
+  const body = openDialog(issueEdit ? tr("issue.edit_title", { code: editDoc.code }) : tr("issue.title"),
+    `<p class="hint">${esc(issueEdit ? tr("issue.edit_hint", { code: editDoc.code }) : tr("issue.hint"))}${issueRate ? " " + esc(tr("issue.cny_hint", { rate: Math.round(issueRate).toLocaleString("vi-VN") })) : ""}</p>
      <div class="form2">
        <label>${esc(tr("issue.date"))}</label><input id="ix-date" type="date" value="${esc(todayLocal())}">
        <label>${esc(tr("col.customer"))}</label><div class="row"><input id="ix-customer" class="grow" list="customers-dl" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}"><button id="ix-new-customer" class="flat" title="${esc(tr("issue.new_customer_tip"))}">${esc(tr("issue.new_customer"))}</button></div>
@@ -92,7 +125,7 @@ function openIssueForm() {
        <tbody id="ix-lines">${issueRowHtml()}${issueRowHtml()}${issueRowHtml()}</tbody></table></div>
      <div class="row"><button id="ix-add" class="flat">${esc(tr("issue.add_row"))}</button><span class="spacer"></span>
        <span id="ix-total" class="hint"></span></div>`,
-    [{ label: tr("issue.save"), primary: true, run: saveIssue }], null,
+    [{ label: tr(issueEdit ? "issue.save_edit" : "issue.save"), primary: true, run: saveIssue }], null,
     { dirty: () => [...$("ix-lines").querySelectorAll(".ix-product, .ix-qty")].some((i) => i.value.trim()) || !!$("ix-customer").value.trim(),
       question: tr("issue.discard") });
 
@@ -100,7 +133,7 @@ function openIssueForm() {
   const rowIsNew = (tr_) => !rowProduct(tr_) && !!tr_.querySelector(".ix-product").value.trim();
   const fillPrice = (tr_) => {
     const price = tr_.querySelector(".ix-price");
-    if (price.dataset.typed) return;  // the user's own price is kept
+    if (price.dataset.typed || price.dataset.keep) return;  // the user's own price, or the one on the note being corrected, is kept
     const p = rowProduct(tr_);
     const v = p ? lastPrice($("ix-customer").value, p.id) : null;
     price.dataset.vnd = v === null ? "" : String(v);
@@ -127,8 +160,8 @@ function openIssueForm() {
         const have = tr_.querySelector(`.ix-have[data-place="${place}"]`);
         const box = tr_.querySelector(`.ix-qty[data-place="${place}"]`);
         const asked = parseQty(box.value);
-        have.textContent = p ? fmtQty(stockOf(p.id)[place] || 0) : isNew ? "0" : "";
-        const over = (isNew && asked > 0) || (p && asked > 0 && taken[`${p.id}|${place}`] > (stockOf(p.id)[place] || 0));
+        have.textContent = p ? fmtQty(issueHave(p.id, place)) : isNew ? "0" : "";
+        const over = (isNew && asked > 0) || (p && asked > 0 && taken[`${p.id}|${place}`] > issueHave(p.id, place));
         have.classList.toggle("over", !!over);
         box.closest("td").classList.toggle("bad", Number.isNaN(asked));
         if (asked > 0) qty += asked;
@@ -150,6 +183,7 @@ function openIssueForm() {
     }
     if (tr_ && e.target.classList.contains("ix-price")) e.target.dataset.typed = e.target.value.trim() ? "1" : "";
     if (tr_ && e.target.classList.contains("ix-product")) {
+      delete tr_.querySelector(".ix-price").dataset.keep;  // another product: its own price is suggested
       fillPrice(tr_);
       const rows = $("ix-lines").querySelectorAll("tr");
       if ((rowProduct(tr_) || rowIsNew(tr_)) && tr_ === rows[rows.length - 1]) $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
@@ -174,6 +208,28 @@ function openIssueForm() {
   });
   body.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT") e.preventDefault(); });  // Enter never saves
   $("ix-add").addEventListener("click", () => { $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml()); });
+  if (issueEdit) {  // the note's own date, customer and lines, prices as recorded
+    const c = customerById[editDoc.customer_id] || {};
+    $("ix-date").value = editDoc.doc_date;
+    for (const [id, v] of [["ix-customer", c.name], ["ix-phone", c.phone], ["ix-contact", c.contact], ["ix-address", c.address], ["ix-tax", c.tax_code], ["ix-email", c.email]]) $(id).value = v || "";
+    $("ix-lines").innerHTML = "";
+    for (const l of issueEdit.lines) {
+      $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
+      const row = $("ix-lines").lastElementChild, p = productById[l.product_id];
+      row.querySelector(".ix-product").value = p ? productLabel(p) : "";
+      row.querySelector(".ix-qty[data-place='1']").value = l.main ? fmtQty(l.main) : "";
+      row.querySelector(".ix-qty[data-place='2']").value = l.office ? fmtQty(l.office) : "";
+      const price = row.querySelector(".ix-price");
+      if (l.price !== null && l.price !== undefined) {
+        price.dataset.vnd = String(l.price);
+        price.value = fmtQty(issueRate ? Math.round(l.price / issueRate * 100) / 100 : l.price);
+        price.dataset.keep = "1";
+      }
+      row.querySelector(".ix-note").value = l.note;
+    }
+    $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
+    refresh();
+  }
 }
 
 /** The window's content checked like core/issues.problems; throws the first problem. */
@@ -238,7 +294,7 @@ async function saveIssue() {
     }
   }
   for (const a of asked.values()) {
-    const have = stockOf(a.product.id)[a.place] || 0;
+    const have = issueHave(a.product.id, a.place);
     if (a.qty > have) short.push(tr("issue.short_line", { product: productName(a.product), place: tr(`place.${a.place}`), qty: fmtQty(a.qty), have: fmtQty(have) }));
   }
   if (short.length && !confirm(`${tr("issue.short_ask")}\n\n${short.join("\n")}`)) return false;
@@ -251,9 +307,23 @@ async function saveIssue() {
     r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${both(r.amount)}` : "")).join("\n");
   const fresh = f.lines.some((ln) => ln.new) ? `\n\n${tr(isOwner() ? "issue.confirm_new" : "issue.confirm_new_staff")}` : "";
-  if (!confirm(`${tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: both(total) })}${fresh}`)) return false;
+  if (!confirm(`${issueEdit ? tr("issue.confirm_edit", { code: issueEdit.doc.code, customer: f.customer }) : tr("issue.confirm", { customer: f.customer })}\n\n${summary}\n\n${tr("issue.total", { money: both(total) })}${fresh}`)) return false;
   let code;
-  if (isOwner()) {
+  if (issueEdit) {
+    // a note corrected (cloud 021): the old one is deleted and this one recorded with the same code, in one go
+    const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
+                                         qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
+    const { data: made, error } = await sb.rpc("web_issue_edit", { p: { replaces: issueEdit.doc.id, doc_date: f.date,
+      customer: f.customer, phone: f.phone, contact: f.contact, address: f.address, tax_code: f.tax_code, email: f.email, lines } });
+    if (error) fail(error.message || String(error));
+    code = made.code;
+    if (f.lines.some((ln) => ln.new)) {
+      await loadAll();
+      const ids = made.product_ids || [];
+      const known = f.lines.map((ln, i) => (ids[i] && productById[ids[i]] ? { ...ln, product_id: ids[i], new: null } : ln));
+      rows = DBK_XLSX.noteRows(productById, known);
+    }
+  } else if (isOwner()) {
     // the owner's note is recorded on the cloud at once and takes the stock (user, 14/11/2026: the web is the
     // reference data); the server hands out the code (W + next order number) under the write lock, and makes the
     // new products (019)
@@ -280,7 +350,7 @@ async function saveIssue() {
   const name = `PhieuXuat_${code}.xlsx`;
   saveFile(name, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   if (isOwner()) {
-    alert(tr("issue.done_owner", { code, name }));
+    alert(tr(issueEdit ? "issue.done_edit" : "issue.done_owner", { code, name }));
     await loadAll();
   } else {
     alert(tr("issue.done", { name }));

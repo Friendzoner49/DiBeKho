@@ -456,3 +456,34 @@ def test_the_owner_s_web_issue_note_may_carry_a_new_product(shop):
     levels = stock.stock_levels(s, by_location=True)
     assert (levels[(made_p[0]["id"], stock.MAIN)], levels[(made_p[0]["id"], stock.OFFICE)]) == (-3, -2)
     assert s.execute("SELECT COUNT(*) FROM products WHERE name_vi LIKE 'Băng%'").fetchone()[0] == 1  # the failed note made none
+
+
+def test_the_owner_corrects_a_web_issue_note_keeping_its_code_and_recounting_the_stock(shop):
+    """cloud 021 (customer, 19/11/2026): the note is deleted like the app's issues.delete and recorded again with the
+    same code in one go; the staff cannot, and a shop note (a plain number) cannot be corrected."""
+    s, _, call, cloud = shop
+    a = _pid(s, "SP001")
+    p = {"doc_date": "2026-11-14", "customer": "Công ty A", "phone": "", "contact": "", "address": "", "tax_code": "",
+         "email": "", "lines": [{"product_id": _uid(s, "products", a), "qty_main": 3, "qty_office": 2,
+                                 "unit_price": 100000, "note": ""}]}
+    first = call("web_issue", p=(p, "jsonb"))
+    call("web_issue", p=({**p, "lines": [{**p["lines"][0], "qty_main": 1, "qty_office": 0}]}, "jsonb"))  # W78
+    _pull(s, cloud)
+    before = stock.stock_levels(s, by_location=True)
+    edit = {**p, "replaces": first["id"], "lines": [{**p["lines"][0], "qty_main": 4, "qty_office": 0, "unit_price": 90000}]}
+    with pytest.raises(PgError, match="chủ"):
+        call("web_issue_edit", account=STAFF, p=(edit, "jsonb"))
+    made = call("web_issue_edit", p=(edit, "jsonb"))
+    assert made["code"] == first["code"] == "W77"
+    with pytest.raises(PgError, match="còn hiệu lực"):
+        call("web_issue_edit", p=({**edit, "replaces": first["id"]}, "jsonb"))  # that note is gone now
+    _pull(s, cloud)
+    rows = s.execute("SELECT code, status, note_total FROM documents WHERE code IN ('W77', 'W78') ORDER BY code").fetchall()
+    assert [tuple(r) for r in rows] == [("W77", "active", 360000), ("W78", "active", 100000)]
+    after = stock.stock_levels(s, by_location=True)
+    assert after[(a, stock.MAIN)] - before[(a, stock.MAIN)] == -1  # 3 given back, 4 taken
+    assert after.get((a, stock.OFFICE), 0) - before.get((a, stock.OFFICE), 0) == 2  # the 2 from the office came back
+    from dibekho.core import issues
+    assert issues.new_code(s) == "A79"
+    with pytest.raises(PgError, match="còn hiệu lực"):
+        call("web_issue_edit", p=({**edit, "replaces": _uid(s, "documents", _doc(s, "delivery", "76"))}, "jsonb"))

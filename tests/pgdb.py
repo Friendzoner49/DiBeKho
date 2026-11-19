@@ -94,4 +94,4 @@ WEB_FILES = [*ALL_FILES, "cloud/supabase/009_web_rpc.sql", "cloud/supabase/010_w
              "cloud/supabase/013_return_prices.sql", "cloud/supabase/014_drop_mirror.sql",
              "cloud/supabase/015_web_issue.sql", "cloud/supabase/016_staff_push.sql",
              "cloud/supabase/017_app_logs.sql", "cloud/supabase/019_issue_new_products.sql",
-             "cloud/supabase/020_customer_tax_email.sql"]  # 020 again: it replaces 019's web_issue
+             "cloud/supabase/020_customer_tax_email.sql", "cloud/supabase/021_web_issue_edit.sql"]  # 020 again: it replaces 019's web_issue
