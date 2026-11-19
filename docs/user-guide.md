@@ -4,7 +4,7 @@
 
 This guide goes step by step, using the exact button names on screen. Not installed yet? See [Download and install](../README.md#download-and-install).
 
-> **Don't worry about mistakes.** A wrong product match: **Reread the whole note**; a wrong document: **Cancel document** (issue notes: **Delete entirely**) and make it again; the app also backs up every day (see [section 11](#11-mistakes-fixing-and-backups)).
+> **Don't worry about mistakes.** A wrong product match: **Reread the whole note**; a wrong document: **Cancel document** (issue notes: **Edit stock issue note…** or **Delete entirely**) and make it again; the app also backs up every day (see [section 11](#11-mistakes-fixing-and-backups)).
 
 **Contents**
 1. [Getting to know the screen](#1-getting-to-know-the-screen)
@@ -152,6 +152,8 @@ Use it when goods leave for a customer and there is no delivery note file yet: t
 5. Click **Save** → check → **Yes**. The stock goes down **at once**; the order appears in **Orders** and in the customer's revenue.
 
 The app writes an Excel file `output/phieu-xuat/PhieuXuat_A160.xlsx` to print or send. Its code is **A** + the number after the highest order number (latest order 159: the new note is **A160**); a note made on the web page starts with **W** (W160). It has **the same layout as a delivery note**: the company name and address (taken from the latest delivery note the app read), the customer block, the 7 columns STT · Name · Packing · Quantity · Unit price · Amount · Note, the total in words, the signatures. Only the title differs: **PHIẾU XUẤT KHO**. Where the goods are taken from is not printed: the app remembers it. Putting that file (or a copy of it) back in the notes folder **never counts it twice**; the line under the top bar says "… copies of a note already read". Edit the file in Excel (say, a quantity) and put it in the folder: the app asks **Replace with the new version?** as for a delivery note. If you changed the quantity of an item taken from both places, the app asks again where it was taken from. An issue note saved on the web page (with Cloud) with the **owner's account** takes the stock at once (code W…); made with a staff account it is only a file, and the stock goes down once you put that file in the delivery notes folder and click **⟳ Rescan notes**. A mistake: **Cancel document** in the order's details. For an issue note (code A… or W…), after Cancel document the app also asks **Delete the note entirely?**: Yes and it disappears, the stock comes back and its code is used again for the next issue note, so the order numbers have no gap at the end of the quarter.
+
+**Correcting an issued note** (prices, quantities, goods, customer): open the order in **Orders** → **Edit stock issue note…** → change it as when making it → **Save**. The note keeps its code (A160 stays A160), the stock is worked out again and the Excel file is made again; the old file is kept in `output/phieu-xuat/da-sua`. Only notes made by this app or the web page (codes **A…**, **W…**) can be edited; the shop's own delivery notes are corrected in their Excel file and read again.
 
 ### 3.6. Amounts in dong or yuan
 
@@ -382,7 +384,7 @@ Choosing customers filters only the **out** quantities. Transfers between the tw
 
 The app has no Undo button any more. Fix a mistake where it is:
 - The wrong product picked for an order: open it → **Reread the whole note** (only that order is read again).
-- A wrong order, goods in, transfer, trial use or stock count: open it → **Cancel document** (or **Edit**) and make it again. A stock issue note: **Cancel document → Delete entirely**, its code is used again.
+- A wrong order, goods in, transfer, trial use or stock count: open it → **Cancel document** (or **Edit**) and make it again. A stock issue note: **Edit stock issue note…** (keeps the code), or **Cancel document → Delete entirely**, its code is used again.
 - A product edited by mistake: **Edit product…** again.
 
 **Automatic backups:** every day when the app opens, the newest **10** are kept in `sao-luu/`, and anything over **30 days** old is dropped to save space (the app also tidies itself up every two weeks). In **Settings → Data transfer and backups**:

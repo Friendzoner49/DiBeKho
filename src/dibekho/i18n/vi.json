@@ -825,5 +825,12 @@
   "col.revenue_cny": "Doanh thu (¥)",
   "report.currency": "Loại tiền",
   "col.goods_vnd": "Tiền hàng (VND)",
-  "col.goods_cny": "Tiền hàng (CNY)"
+  "col.goods_cny": "Tiền hàng (CNY)",
+  "issue.edit_btn": "Sửa phiếu xuất kho…",
+  "issue.edit_tip": "Mở lại phiếu để sửa khách, mặt hàng, số lượng, giá. Phiếu giữ nguyên mã; tồn kho được tính lại. Chỉ phiếu do app hoặc web này tạo (mã A…, W…).",
+  "issue.edit_title": "Sửa phiếu xuất kho {code}",
+  "issue.edit_hint": "Đang sửa phiếu {code}. Sửa xong bấm Lưu phiếu: phiếu cũ được thay bằng nội dung mới (vẫn mã {code}), tồn kho tính lại, file Excel được tạo lại. File cũ để trong thư mục da-sua.",
+  "issue.confirm_edit_title": "Lưu phiếu đã sửa?",
+  "issue.confirm_edit": "Phiếu {code} · Ngày {date} · Khách: {customer}\n\n{lines}\n\nTiền hàng: {money}\n\nThay phiếu {code} bằng nội dung này và tính lại tồn?",
+  "issue.saved_edit": "Đã sửa phiếu {code} và tính lại tồn.\n\nFile Excel: {path}\n\nMở file để in hoặc gửi?"
 }

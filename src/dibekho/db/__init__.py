@@ -66,17 +66,27 @@ def _split_sql(sql: str) -> list[str]:
 
 
 class transaction:
-    """`with transaction(conn):` -> BEGIN IMMEDIATE ... COMMIT, or ROLLBACK on error."""
+    """`with transaction(conn):` -> BEGIN IMMEDIATE ... COMMIT, or ROLLBACK on error. Inside another transaction it is a
+    savepoint: an error undoes only its own part, and the outer one commits or rolls back the whole."""
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
+        self.savepoint = ""
 
     def __enter__(self):
-        self.conn.execute("BEGIN IMMEDIATE")
+        if self.conn.in_transaction:
+            self.savepoint = f"sp_{id(self)}"
+            self.conn.execute(f"SAVEPOINT {self.savepoint}")
+        else:
+            self.conn.execute("BEGIN IMMEDIATE")
         return self.conn
 
     def __exit__(self, exc_type, exc, tb):
-        if exc_type is None:
+        if self.savepoint:
+            if exc_type is not None:
+                self.conn.execute(f"ROLLBACK TO {self.savepoint}")
+            self.conn.execute(f"RELEASE {self.savepoint}")
+        elif exc_type is None:
             self.conn.execute("COMMIT")
         else:
             self.conn.execute("ROLLBACK")

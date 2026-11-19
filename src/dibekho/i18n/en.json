@@ -825,5 +825,12 @@
   "col.revenue_cny": "Revenue (¥)",
   "report.currency": "Currency",
   "col.goods_vnd": "Goods (VND)",
-  "col.goods_cny": "Goods (CNY)"
+  "col.goods_cny": "Goods (CNY)",
+  "issue.edit_btn": "Edit stock issue note…",
+  "issue.edit_tip": "Reopen the note to change the customer, goods, quantities and prices. It keeps its code; the stock is worked out again. Only notes made by this app or the web page (codes A…, W…).",
+  "issue.edit_title": "Edit stock issue note {code}",
+  "issue.edit_hint": "Editing note {code}. When done press Save: the old note is replaced by the new content (same code {code}), the stock is worked out again and the Excel file is made again. The old file is kept in the folder da-sua.",
+  "issue.confirm_edit_title": "Save the corrected note?",
+  "issue.confirm_edit": "Note {code} · Date {date} · Customer: {customer}\n\n{lines}\n\nGoods total: {money}\n\nReplace note {code} with this and work out the stock again?",
+  "issue.saved_edit": "Note {code} corrected and the stock worked out again.\n\nExcel file: {path}\n\nOpen the file to print or send?"
 }

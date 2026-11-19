@@ -75,6 +75,7 @@ class _Row:
         self.price = _spin(1e12, 120)
         self.price_typed = False  # typed by the user: the app no longer fills it in
         self.price_vnd: float | None = None  # the price the app filled in, exact in dong (the box may show yuan)
+        self.keep_price = False  # a note being edited: the price on it stays until the product changes
         self.note = QLineEdit()
         self.remove = QPushButton("✕")
         self.remove.setToolTip(t("receipt_form.remove_row"))
@@ -84,22 +85,32 @@ class _Row:
 
 
 class IssueForm(QDialog):
-    def __init__(self, ctx, parent=None):
+    def __init__(self, ctx, parent=None, edit_doc: int | None = None):
         super().__init__(parent)
         self.ctx = ctx
         self.saved_doc: int | None = None
+        self.edit_doc = edit_doc  # a recorded note being corrected (same code), else a new one
+        self.edit_code, self.old = "", None
+        if edit_doc:
+            self.edit_code, self.old = issues.load(ctx.conn, edit_doc)
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
-        self.setWindowTitle(t("issue.title"))
+        self.setWindowTitle(t("issue.edit_title", code=self.edit_code) if edit_doc else t("issue.title"))
         fit_window(self, 1250, 760)
         self.products = {p["id"]: p for p in catalog.products(ctx.conn)}
         self.levels = stock_levels(ctx.conn, by_location=True)
+        if self.old:  # the note being edited has already taken its goods: they are free again for the new version
+            for ln in self.old.filled():
+                for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
+                    self.levels[(ln.product_id, loc)] = self.levels.get((ln.product_id, loc), 0.0) + qty
+                self.products.setdefault(ln.product_id, ctx.conn.execute(
+                    "SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone())
         self.customers = issues.customer_choices(ctx.conn)
         self.rows: list[_Row] = []
         self.rate = fx.Display.rate if fx.Display.in_cny() else None  # prices typed in yuan at this rate
 
         lay = QVBoxLayout(self)
         lay.addWidget(title_label(self.windowTitle()))
-        lay.addWidget(hint_label(t("issue.hint")))
+        lay.addWidget(hint_label(t("issue.edit_hint", code=self.edit_code) if edit_doc else t("issue.hint")))
         if self.rate is not None:
             lay.addWidget(hint_label(t("issue.cny_hint", rate=fmt_money(round(self.rate.vnd_per_cny)))))
         form = QFormLayout()
@@ -172,9 +183,33 @@ class IssueForm(QDialog):
         buttons.addWidget(cancel)
         buttons.addWidget(self.save_btn)
         lay.addLayout(buttons)
-        for _ in range(START_ROWS):
-            self.add_row()
+        if self.old:
+            self._fill_from(self.old)
+        else:
+            for _ in range(START_ROWS):
+                self.add_row()
         self._update_summary()
+
+    def _fill_from(self, old: IssueInput):
+        """Show the note being edited: its date, customer and lines (prices as recorded, not looked up again)."""
+        self.date.setDate(to_qdate(old.doc_date))
+        self.customer.setCurrentIndex(0)
+        self.customer.setEditText(old.customer_name)
+        for box, value in ((self.phone, old.phone), (self.contact, old.contact), (self.address, old.address),
+                           (self.tax_code, old.tax_code), (self.email, old.email)):
+            box.setText(value)
+        for ln in old.lines:
+            row = self.add_row()
+            row.product_id, row.keep_price, row.price_vnd = ln.product_id, True, ln.unit_price
+            row.qty_main.setValue(ln.qty_main)
+            row.qty_office.setValue(ln.qty_office)
+            row.note.setText(ln.note)
+            row.price.blockSignals(True)
+            row.price.setValue(((round(self.rate.to_cny(ln.unit_price), 2) if self.rate else ln.unit_price)
+                                if ln.unit_price else 0))
+            row.price.blockSignals(False)
+            self._show_row(row)
+        self.add_row()
 
     # ---- state -----------------------------------------------------------------------------------------------
 
@@ -319,7 +354,7 @@ class IssueForm(QDialog):
                 label.setStyleSheet(f"color: {RED.name()};" if over else "")
 
     def _fill_price(self, row: _Row):
-        if row.price_typed or not row.product_id:
+        if row.price_typed or row.keep_price or not row.product_id:
             return
         price = issues.last_price(self.ctx.conn, self.data().customer_name, row.product_id)
         row.price_vnd = price or None
@@ -347,7 +382,7 @@ class IssueForm(QDialog):
             if dlg.exec() == QDialog.Accepted and dlg.result_product:
                 self._set_new(row, dlg.result_product)
         elif chosen is clear:
-            row.product_id, row.new, row.price_typed = None, None, False
+            row.product_id, row.new, row.price_typed, row.keep_price = None, None, False, False
             row.price.setValue(0)
             self._show_row(row)
 
@@ -358,7 +393,7 @@ class IssueForm(QDialog):
 
     def _set_new(self, row: _Row, new):
         row.product_id, row.new = None, new
-        row.price_typed = False
+        row.price_typed = row.keep_price = False
         row.price.setValue(0)
         self._show_row(row)
         self._after_pick(row)
@@ -385,7 +420,7 @@ class IssueForm(QDialog):
 
     def _set_existing(self, row: _Row, product_id: int):
         if product_id != row.product_id or row.new:
-            row.price_typed = False
+            row.price_typed = row.keep_price = False
         row.product_id, row.new = product_id, None
         self._fill_price(row)
         self._show_row(row)
@@ -412,7 +447,8 @@ class IssueForm(QDialog):
             money = f" × {self._both(ln.unit_price)}" if ln.unit_price else ""
             lines.append(f"• {name}: {' + '.join(parts)} {unit}".rstrip() + money)
         total = sum(ln.qty * ln.unit_price for ln in data.filled() if ln.unit_price)
-        text = t("issue.confirm", date=data.doc_date.strftime("%d/%m/%Y"), customer=data.customer_name,
+        text = t("issue.confirm_edit" if self.edit_doc else "issue.confirm", code=self.edit_code,
+                 date=data.doc_date.strftime("%d/%m/%Y"), customer=data.customer_name,
                  lines="\n".join(lines), money=self._both(total))
         if any(ln.new for ln in data.filled()):
             text += "\n\n" + t("issue.confirm_new")
@@ -440,7 +476,7 @@ class IssueForm(QDialog):
                 for row in [r for r in self.rows if r.new is not None and issues.new_key(r.new) == issues.new_key(ln.new)]:
                     self._set_existing(row, existing["id"])
         data = self.data()
-        short = issues.short_of(self.ctx.conn, data)
+        short = issues.short_of(self.ctx.conn, data, self.old)
         if short:
             text = "\n".join(t("issue.short_line", product=catalog.long_label(self.products[pid]),
                                place=location_name(loc), asked=fmt_qty(asked), have=fmt_qty(have))
@@ -449,19 +485,23 @@ class IssueForm(QDialog):
                 return
         if data.doc_date > date.today() and not ask(self, t("receipt_form.future_date")):
             return
-        if not ask(self, self._confirm_text(data), t("issue.confirm_title")):
+        title = t("issue.confirm_edit_title" if self.edit_doc else "issue.confirm_title")
+        if not ask(self, self._confirm_text(data), title):
             return
-        activity.log("issue", f"{len(data.filled())} mặt hàng")
-        self.ctx.log_action("issue_note")
+        activity.log("issue_edit" if self.edit_doc else "issue", f"{len(data.filled())} mặt hàng")
+        self.ctx.log_action("issue_edit" if self.edit_doc else "issue_note")
         try:
-            doc, path = issues.save(self.ctx.conn, self.ctx.ws, data)
+            if self.edit_doc:
+                doc, path = issues.edit(self.ctx.conn, self.ctx.ws, self.edit_doc, data)
+            else:
+                doc, path = issues.save(self.ctx.conn, self.ctx.ws, data)
         except Exception as exc:
             error(self, t("issue.failed", error=str(exc)))
             return
         self.saved_doc = doc
         self.ctx.notify()
         code = self.ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0]
-        if ask(self, t("issue.saved", code=code, path=str(path))):
+        if ask(self, t("issue.saved_edit" if self.edit_doc else "issue.saved", code=code, path=str(path))):
             open_path(path)
         self.accept()
 
@@ -487,7 +527,7 @@ class IssueForm(QDialog):
         super().reject()
 
 
-def open_issue_form(ctx, parent) -> int | None:
-    form = IssueForm(ctx, parent)
+def open_issue_form(ctx, parent, edit_doc: int | None = None) -> int | None:
+    form = IssueForm(ctx, parent, edit_doc)
     form.exec()
     return form.saved_doc

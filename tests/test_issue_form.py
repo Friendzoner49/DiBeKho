@@ -358,3 +358,35 @@ def test_a_tax_code_typed_the_first_time_is_kept_for_the_customer(app, ws, monke
     c = ctx.conn.execute("SELECT * FROM customers").fetchall()
     assert len(c) == 1 and (c[0]["name"], c[0]["tax_code"], c[0]["email"]) == ("Công ty A", "0101234567", "a@example.com")
     ctx.close()
+
+
+@pytest.mark.parametrize("lang", ["vi", "zh"])
+def test_editing_a_note_in_the_window_keeps_code_and_prices_and_recounts(app, ws, monkeypatch, lang):
+    """Customer, 19/11/2026: prices and quantities of an issued note can be corrected, only for notes made here."""
+    import dibekho.ui.issue_form as form_mod
+    from dibekho.ui.issue_form import IssueForm
+
+    i18n.set_language(lang)
+    monkeypatch.setattr(form_mod, "ask", lambda parent, text, *a, **k: False if "issue.confirm_close" in text else True)
+    monkeypatch.setattr(form_mod, "error", lambda parent, text: pytest.fail(text))
+    monkeypatch.setattr(form_mod, "open_path", lambda p: None)
+    ctx, paint = _shop(ws, lang)
+    doc, _ = issues.save(ctx.conn, ctx.ws, issues.IssueInput(
+        date(2026, 11, 14), "Công ty A", phone="0900 000 001",
+        lines=[issues.IssueLineInput(paint, qty_main=10, qty_office=2, unit_price=500000, note="sáng")]))
+    form = IssueForm(ctx, edit_doc=doc)
+    assert "A1" in form.windowTitle()
+    assert form.customer.currentText() == "Công ty A" and form.phone.text() == "0900 000 001"
+    row = form.rows[0]
+    assert (row.qty_main.value(), row.qty_office.value(), row.price.value(), row.note.text()) == (10, 2, 500000, "sáng")
+    assert form.table.cellWidget(0, 3).text() == "50"  # what is in Kho tổng counts the 10 this note took
+    type_in(row.qty_main, "20")
+    type_in(row.price, "400000")
+    form.save_btn.click()
+    assert form.saved_doc is not None
+    assert [tuple(r) for r in ctx.conn.execute("SELECT code, status FROM documents WHERE kind = 'delivery'")] == \
+        [("A1", "active")]
+    assert _lines(ctx.conn) == [(22, 400000, 8800000)]
+    levels = stock_levels(ctx.conn, by_location=True)
+    assert (levels[(paint, MAIN)], levels[(paint, OFFICE)]) == (30, 6)
+    ctx.close()

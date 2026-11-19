@@ -399,3 +399,103 @@ def test_the_note_follows_the_template_of_18_11(tmp_path):
                                                                   54.0, 152.0, 83.0, 43.75]
     assert all(ws.cell(8, c).border.bottom.style == "thin" for c in range(1, 8))
     assert ws.print_options.horizontalCentered and ws.page_margins.bottom == 0
+
+
+# ---- editing a note already issued (customer, 19/11/2026) ----------------------------------------------------------
+
+def test_editing_keeps_the_code_changes_quantities_and_prices_and_recounts_the_stock(conn, ws, goods):
+    paint, sand = goods
+    doc, path = issues.save(conn, ws, note_for(paint, sand))  # A1: paint 10 + 3, sand 2
+    issues.save(conn, ws, IssueInput(date(2026, 11, 14), "Công ty A", lines=[IssueLineInput(sand, qty_main=1)]))  # A2
+    code, data = issues.load(conn, doc)
+    assert code == "A1" and data.customer_name == "Công ty A" and data.phone == "0900 000 001"
+    by = {ln.product_id: ln for ln in data.lines}
+    assert (by[paint].qty_main, by[paint].qty_office, by[paint].unit_price, by[paint].note) == (10, 3, 500000, "giao sáng")
+    assert (by[sand].qty_main, by[sand].qty_office) == (2, 0)
+
+    by[paint].qty_main, by[paint].qty_office, by[paint].unit_price = 4, 0, 450000
+    data.lines = [by[paint]]  # the sand line is dropped
+    new_doc, new_path = issues.edit(conn, ws, doc, data)
+    assert places(conn, paint) == (46, 8) and places(conn, sand) == (19, 0)  # only A2's 1 sand is taken
+    rows = conn.execute("SELECT code, status FROM documents WHERE kind = 'delivery' ORDER BY id").fetchall()
+    assert [tuple(r) for r in rows] == [("A2", "active"), ("A1", "active")]  # no hole, no extra version
+    assert [tuple(r) for r in conn.execute("SELECT qty, unit_price, amount FROM document_lines WHERE document_id = ?",
+                                           (new_doc,))] == [(4, 450000, 1800000)]
+    assert new_path.exists() and new_path.name == "PhieuXuat_A1.xlsx"
+    assert (ws.deliveries_done / "PhieuXuat_A1.xlsx").exists()
+    assert len(list((ws.output / issues.FOLDER / issues.EDITED).glob("*.xlsx"))) == 2  # the old pair is kept apart
+    assert issues.new_code(conn) == "A3"
+    deliveries.scan(conn, ws)  # nothing comes back from the old files
+    assert places(conn, paint) == (46, 8) and deliveries.pending_count(conn) == 0
+    reset.reset_stock(conn, ws)
+    deliveries.scan(conn, ws)  # read again from the files: the same result
+    assert [tuple(r) for r in conn.execute("SELECT qty, unit_price FROM document_lines l JOIN documents d "
+                                           "ON d.id = l.document_id WHERE d.code = 'A1'")] == [(4, 450000)]
+
+
+def test_a_note_edited_twice_and_then_deleted_leaves_nothing(conn, ws, goods):
+    paint, sand = goods
+    doc, _ = issues.save(conn, ws, note_for(paint, sand))
+    for qty in (5, 6):
+        _, data = issues.load(conn, doc)
+        data.lines[0].qty_main = qty
+        doc, _ = issues.edit(conn, ws, doc, data)
+    assert places(conn, paint)[0] == 50 - 6
+    with db.transaction(conn):
+        issues.delete(conn, ws, doc)
+    assert places(conn, paint) == (50, 8) and places(conn, sand) == (20, 0)
+    assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
+
+
+def test_a_failed_edit_leaves_the_old_note_and_its_files_as_they_were(conn, ws, goods, monkeypatch):
+    paint, sand = goods
+    doc, path = issues.save(conn, ws, note_for(paint, sand))
+    _, data = issues.load(conn, doc)
+    data.lines[0].qty_main = 1
+    monkeypatch.setattr(issues, "write_issue_note", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+    with pytest.raises(OSError):
+        issues.edit(conn, ws, doc, data)
+    assert places(conn, paint) == (40, 5)
+    assert conn.execute("SELECT status FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "active"
+    assert path.exists() and (ws.deliveries_done / path.name).exists()
+    deliveries.scan(conn, ws)
+    assert places(conn, paint) == (40, 5)
+
+
+def test_only_notes_of_this_system_can_be_edited(conn, ws, goods):
+    paint, sand = goods
+    doc, _ = issues.save(conn, ws, note_for(paint, sand))
+    assert issues.can_edit(conn.execute("SELECT * FROM documents WHERE id = ?", (doc,)).fetchone())
+    with db.transaction(conn):
+        close_document(conn, doc, "cancelled")
+    assert not issues.can_edit(conn.execute("SELECT * FROM documents WHERE id = ?", (doc,)).fetchone())
+    with pytest.raises(ValueError):
+        issues.load(conn, doc)
+    stock = conn.execute("SELECT id FROM documents WHERE kind = 'stock_count'").fetchone()[0]
+    with pytest.raises(ValueError):
+        issues.edit(conn, ws, stock, note_for(paint, sand))
+
+
+def test_a_web_note_without_a_file_is_edited_from_its_lines(conn, ws, goods):
+    from dibekho.core.stock import Line, insert_document
+
+    paint, sand = goods
+    with db.transaction(conn):
+        doc = insert_document(conn, "delivery", date(2026, 11, 14), [Line(sand, 4, line_no=1, unit_price=100000,
+                                                                          amount=400000)],
+                              code="W5", code_norm="W5", customer_id=catalog.upsert_customer(conn, "Khách Mẫu"))
+    code, data = issues.load(conn, doc)
+    assert code == "W5" and (data.lines[0].qty_main, data.lines[0].unit_price) == (4, 100000)
+    data.lines[0].qty_main = 6
+    new_doc, path = issues.edit(conn, ws, doc, data)
+    assert places(conn, sand) == (14, 0) and path.name == "PhieuXuat_W5.xlsx"
+    assert conn.execute("SELECT code FROM documents WHERE id = ?", (new_doc,)).fetchone()[0] == "W5"
+
+
+def test_short_of_counts_the_goods_of_the_note_being_replaced_as_free(conn, ws, goods):
+    paint, sand = goods
+    doc, _ = issues.save(conn, ws, note_for(paint, sand))  # takes 10 of 50 main
+    _, data = issues.load(conn, doc)
+    data.lines[0].qty_main = 50
+    assert issues.short_of(conn, data)  # stock now: 40
+    assert issues.short_of(conn, data, issues.load(conn, doc)[1]) == []

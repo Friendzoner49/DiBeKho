@@ -4,7 +4,7 @@
 
 Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. Chưa cài app? Xem [Tải và cài đặt](../README.vi.md#tải-và-cài-đặt).
 
-> **Làm nhầm cũng đừng lo.** Chọn nhầm mặt hàng thì **Đọc lại cả phiếu**; phiếu sai thì **Huỷ phiếu** (phiếu xuất: **Xoá hẳn**) rồi lập lại; app còn tự sao lưu mỗi ngày (xem [mục 11](#11-khi-làm-nhầm-sửa-lại-sao-lưu)).
+> **Làm nhầm cũng đừng lo.** Chọn nhầm mặt hàng thì **Đọc lại cả phiếu**; phiếu sai thì **Huỷ phiếu** (phiếu xuất: **Sửa phiếu xuất kho…** hoặc **Xoá hẳn**) rồi lập lại; app còn tự sao lưu mỗi ngày (xem [mục 11](#11-khi-làm-nhầm-sửa-lại-sao-lưu)).
 
 **Mục lục**
 1. [Làm quen với màn hình](#1-làm-quen-với-màn-hình)
@@ -152,6 +152,8 @@ Dùng khi giao hàng cho khách mà chưa có file phiếu giao hàng: app tạo
 5. Bấm **Lưu phiếu** → xem lại → **Có**. Tồn kho bị trừ **ngay**, đơn có trong **Đơn hàng** và doanh thu của khách.
 
 App tạo file Excel `output/phieu-xuat/PhieuXuat_A160.xlsx` để in hoặc gửi. Mã phiếu là **A** + số tiếp theo sau mã đơn lớn nhất (đơn gần nhất là 159 thì phiếu mới là **A160**); phiếu tạo trên web có chữ **W** (W160). File có **cùng khuôn với phiếu giao hàng**: tên và địa chỉ công ty (app lấy từ phiếu giao hàng gần nhất đã đọc), khối thông tin khách, 7 cột STT · Tên hàng · Quy cách · Số lượng · Đơn giá · Thành tiền · Ghi chú, tổng tiền viết bằng chữ, chỗ ký. Chỉ khác tiêu đề: **PHIẾU XUẤT KHO**. Nơi lấy hàng không in trên phiếu: app tự nhớ. Bỏ lại file này (hay bản chép của nó) vào thư mục phiếu cũng **không bị trừ hai lần**; dòng dưới thanh trên cùng sẽ báo "… là bản chép của phiếu đã có". Sửa file trong Excel (vd. đổi số lượng) rồi bỏ vào thư mục thì app hỏi **Thay bằng bản mới?** như phiếu giao hàng. Nếu đã đổi số lượng của mặt hàng lấy ở cả hai nơi, app sẽ hỏi lại lấy hàng ở đâu. Phiếu xuất kho tạo trên trang web (nếu dùng Cloud) bằng **tài khoản chủ** được trừ tồn ngay khi lưu (mã W…); tạo bằng tài khoản nhân viên thì chỉ ra file, bỏ file đó vào thư mục phiếu giao hàng rồi **⟳ Quét lại phiếu** thì app mới trừ tồn. Làm nhầm: **Huỷ phiếu** trong Chi tiết đơn. Với phiếu xuất (mã A… hoặc W…), sau khi bấm Huỷ phiếu app hỏi thêm **Xoá hẳn phiếu?**: chọn Có thì phiếu biến mất, tồn trả lại và mã đó được dùng lại cho phiếu xuất tiếp theo, để số đơn không bị hụt khi tính doanh thu cuối quý.
+
+**Sửa phiếu đã xuất** (giá, số lượng, mặt hàng, khách): mở đơn trong **Đơn hàng** → **Sửa phiếu xuất kho…** → sửa như lúc lập phiếu → **Lưu phiếu**. Phiếu giữ nguyên mã (A160 vẫn là A160), tồn kho được tính lại, file Excel được tạo lại; file cũ để trong `output/phieu-xuat/da-sua`. Chỉ phiếu do app hoặc web này lập (mã **A…**, **W…**) mới sửa được; phiếu giao hàng của cửa hàng thì sửa trong file Excel rồi để app đọc lại.
 
 ### 3.6. Xem tiền bằng VND hoặc nhân dân tệ
 
@@ -382,7 +384,7 @@ Ghi chú: chọn khách thì chỉ số **xuất** được lọc theo khách. C
 
 App không còn nút Hoàn tác. Làm nhầm thì sửa đúng chỗ:
 - Chọn nhầm mặt hàng cho một đơn: mở đơn → **Đọc lại cả phiếu** (chỉ đơn đó được đọc lại).
-- Một đơn, phiếu hàng về, chuyển hàng, dùng thử, kiểm kê nhập nhầm: mở phiếu → **Huỷ phiếu** (hoặc **Sửa phiếu**) rồi lập lại. Phiếu xuất kho: **Huỷ phiếu → Xoá hẳn**, mã được dùng lại.
+- Một đơn, phiếu hàng về, chuyển hàng, dùng thử, kiểm kê nhập nhầm: mở phiếu → **Huỷ phiếu** (hoặc **Sửa phiếu**) rồi lập lại. Phiếu xuất kho: **Sửa phiếu xuất kho…** (giữ mã), hoặc **Huỷ phiếu → Xoá hẳn**, mã được dùng lại.
 - Sửa nhầm mặt hàng: **Sửa mặt hàng…** lần nữa.
 
 **Sao lưu tự động:** mỗi ngày khi mở app, giữ **10 bản gần nhất** trong `sao-luu/`, bản nào quá **30 ngày** cũng tự xoá để đỡ tốn dung lượng (app tự dọn lại mỗi 2 tuần). Trong **Cài đặt → Chuyển dữ liệu và sao lưu**:

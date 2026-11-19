@@ -825,5 +825,12 @@
   "col.revenue_cny": "收入 (¥)",
   "report.currency": "币种",
   "col.goods_vnd": "货款（越南盾）",
-  "col.goods_cny": "货款（人民币）"
+  "col.goods_cny": "货款（人民币）",
+  "issue.edit_btn": "修改出库单…",
+  "issue.edit_tip": "重新打开单据，修改客户、商品、数量和单价。单号不变，库存重新计算。仅限本应用或网页制作的单据（单号 A…、W…）。",
+  "issue.edit_title": "修改出库单 {code}",
+  "issue.edit_hint": "正在修改单据 {code}。改好后点“保存”：旧单据被新内容替换（单号仍为 {code}），库存重新计算，Excel 文件重新生成。旧文件保存在 da-sua 文件夹。",
+  "issue.confirm_edit_title": "保存修改后的单据？",
+  "issue.confirm_edit": "单号 {code} · 日期 {date} · 客户：{customer}\n\n{lines}\n\n货款：{money}\n\n用此内容替换单据 {code} 并重新计算库存？",
+  "issue.saved_edit": "单据 {code} 已修改，库存已重新计算。\n\nExcel 文件：{path}\n\n打开文件以打印或发送？"
 }

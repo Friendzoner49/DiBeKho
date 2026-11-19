@@ -232,6 +232,11 @@ class DocumentDialog(_Base):
             b.setToolTip(t("transfer.edit_tip"))
             b.clicked.connect(self.edit_transfer)
             buttons.addWidget(b)
+        if kind == "delivery" and issues.can_edit(head):
+            b = QPushButton(t("issue.edit_btn"))
+            b.setToolTip(t("issue.edit_tip"))
+            b.clicked.connect(self.edit_issue)
+            buttons.addWidget(b)
         if head["status"] == "active":
             b = QPushButton(t("btn.cancel_doc"))
             b.clicked.connect(self.cancel_doc)
@@ -289,6 +294,12 @@ class DocumentDialog(_Base):
             return
         self.ctx.notify()
         self.accept()
+
+    def edit_issue(self):
+        from dibekho.ui.issue_form import open_issue_form
+
+        if open_issue_form(self.ctx, self, self.doc_id):
+            self.accept()
 
     def edit_receipt(self):
         from dibekho.ui.receipt_form import open_receipt_form

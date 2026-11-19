@@ -37,6 +37,7 @@ _NUMBERED = re.compile(r"^\s*[AaWw]?\s*0*(\d{1,9})\s*$")  # an order number, may
 FILE_PREFIX = "PhieuXuat_"
 FOLDER = "phieu-xuat"
 DELETED = "da-xoa"
+EDITED = "da-sua"
 _ISSUE_CODE = re.compile(r"^\s*[AaWw]\d+\s*$")
 
 
@@ -115,11 +116,14 @@ def same_as_existing(conn, data: IssueInput) -> list[tuple[IssueLineInput, objec
     return out
 
 
-def short_of(conn, data: IssueInput) -> list[tuple[int, int, float, float]]:
+def short_of(conn, data: IssueInput, old: IssueInput | None = None) -> list[tuple[int, int, float, float]]:
     """Products asked for more than a place has now: (product_id, location_id, asked, in stock); the lines of one
     product count together (it may stand on several lines, each with its price). Only a warning: stock may go
-    below zero (the app never blocks it, the row turns red)."""
+    below zero (the app never blocks it, the row turns red). old: the note being replaced, its goods count as free."""
     levels = stock_levels(conn, by_location=True)
+    for ln in (old.filled() if old else []):
+        for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
+            levels[(ln.product_id, loc)] = levels.get((ln.product_id, loc), 0.0) + qty
     asked: dict[tuple[int, int], float] = {}
     for ln in data.filled():
         if not ln.product_id:
@@ -200,10 +204,10 @@ def _create_new_products(conn, data: IssueInput) -> list[int]:
     return list(made.values())
 
 
-def _save(conn, ws: Workspace, data: IssueInput) -> tuple[int, Path]:
+def _save(conn, ws: Workspace, data: IssueInput, code: str | None = None) -> tuple[int, Path]:
     from dibekho.core import deliveries
 
-    code = new_code(conn)
+    code = code or new_code(conn)
     head = IssueHead(code, data.doc_date, clean(data.customer_name), clean(data.phone), clean(data.contact),
                      clean(data.address), clean(data.tax_code), clean(data.email), deliveries.letterhead(conn))
     user_copy = _free(ws.output / FOLDER / f"{FILE_PREFIX}{code}.xlsx")
@@ -227,18 +231,16 @@ def is_issue_code(code) -> bool:
     return bool(_ISSUE_CODE.match(str(code or "")))
 
 
-def delete(conn, ws: Workspace, doc_id: int) -> int:
-    """Delete a stock issue note entirely (user's request 14/11/2026: the shop counts its revenue by these numbers, a
-    wrong note must leave no hole): the document and its earlier versions (same code, edited in Excel), their lines and
-    stock movements, so the stock is as if it never was; its number is free again (new_code). Its files leave the
-    notes folder and output/phieu-xuat/ for output/phieu-xuat/da-xoa/, otherwise the next scan would record it
-    again; the stored copy in data/phieu-goc/ stays. On shared data the deletes
-    go to the cloud like any change. Run inside a transaction. Returns how many files were moved."""
-    from dibekho.core import deliveries
-
+def _check_issue(conn, doc_id: int):
     doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
     if doc is None or doc["kind"] != "delivery" or not is_issue_code(doc["code"]):
         raise ValueError("Chỉ xoá được phiếu xuất kho (mã A… hoặc W…).")
+    return doc
+
+
+def _remove_rows(conn, doc) -> set[str]:
+    """Delete the document, its earlier versions (same code), their lines, movements and scan records.
+    Returns the hashes of their files."""
     ids = [r[0] for r in conn.execute("SELECT id FROM documents WHERE kind = 'delivery' AND code_norm = ?",
                                       (doc["code_norm"],))]
     hashes = {r[0] for i in ids for r in conn.execute(
@@ -253,20 +255,120 @@ def delete(conn, ws: Workspace, doc_id: int) -> int:
     for h in hashes:
         conn.execute("DELETE FROM scanned_files WHERE hash = ?", (h,))
     db.touch(conn)
-    db.log(conn, "issue_deleted", f"{doc['code']} #{doc_id}")
-    files = [p for p in deliveries.delivery_files(ws) + sorted((ws.output / FOLDER).glob("*.xlsx"))]
-    moved = 0
-    for path in files:
+    return hashes
+
+
+def _move_files(ws: Workspace, hashes: set[str], folder: str) -> list[tuple[Path, Path]]:
+    """Move the files of these hashes out of the notes folder and output/phieu-xuat/ into output/phieu-xuat/<folder>/,
+    otherwise the next scan would record them again. Returns [(from, to)] of what moved."""
+    from dibekho.core import deliveries
+
+    moved = []
+    for path in deliveries.delivery_files(ws) + sorted((ws.output / FOLDER).glob("*.xlsx")):
         try:
             if deliveries.file_hash(path) not in hashes:
                 continue
-            target = _free(ws.output / FOLDER / DELETED / path.name)
+            target = _free(ws.output / FOLDER / folder / path.name)
             target.parent.mkdir(parents=True, exist_ok=True)
             path.replace(target)
         except OSError:
             continue  # open in Excel: the user is told by the scan (it is read again)
-        moved += 1
+        moved.append((path, target))
     return moved
+
+
+def delete(conn, ws: Workspace, doc_id: int) -> int:
+    """Delete a stock issue note entirely (user's request 14/11/2026: the shop counts its revenue by these numbers, a
+    wrong note must leave no hole): the document and its earlier versions (same code, edited in Excel), their lines and
+    stock movements, so the stock is as if it never was; its number is free again (new_code). Its files leave the
+    notes folder and output/phieu-xuat/ for output/phieu-xuat/da-xoa/, otherwise the next scan would record it
+    again; the stored copy in data/phieu-goc/ stays. On shared data the deletes
+    go to the cloud like any change. Run inside a transaction. Returns how many files were moved."""
+    doc = _check_issue(conn, doc_id)
+    hashes = _remove_rows(conn, doc)
+    db.log(conn, "issue_deleted", f"{doc['code']} #{doc_id}")
+    return len(_move_files(ws, hashes, DELETED))
+
+
+def can_edit(doc) -> bool:
+    """An active stock issue note made by this system (A... in the app, W... on the web): customer's request 19/11/2026.
+    The shop's own notes (numbers like 160) stay as their Excel file says; they are read again from the file."""
+    return bool(doc["kind"] == "delivery" and doc["status"] == "active" and is_issue_code(doc["code"]))
+
+
+def load(conn, doc_id: int) -> tuple[str, IssueInput]:
+    """A recorded issue note as the form shows it, to edit: (code, data). The split between the two places comes from
+    the stock movements (a line taken from both places has no place of its own)."""
+    doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    if doc is None or not can_edit(doc):
+        raise ValueError("Chỉ sửa được phiếu xuất kho còn hiệu lực (mã A… hoặc W…).")
+    c = conn.execute("SELECT * FROM customers WHERE id = ?", (doc["customer_id"],)).fetchone() \
+        if doc["customer_id"] else None
+    pool: dict[tuple[int, int], float] = {}
+    for r in conn.execute("SELECT product_id, location_id, SUM(-qty) AS q FROM stock_movements "
+                          "WHERE document_id = ? GROUP BY product_id, location_id", (doc_id,)):
+        pool[(r["product_id"], r["location_id"])] = r["q"]
+    rows = conn.execute("SELECT * FROM document_lines WHERE document_id = ? AND product_id IS NOT NULL ORDER BY line_no",
+                        (doc_id,)).fetchall()
+    taken: dict[int, dict[int, float]] = {}
+    for r in rows:  # lines with a place of their own first: the split ones share what is left
+        if r["location_id"] is not None:
+            key = (r["product_id"], r["location_id"])
+            pool[key] = pool.get(key, 0.0) - r["qty"]
+            taken[r["id"]] = {r["location_id"]: r["qty"]}
+    out: list[IssueLineInput] = []
+    for r in rows:
+        if r["id"] not in taken:
+            split, left = {}, r["qty"]
+            for loc in (MAIN, OFFICE):
+                part = min(left, max(pool.get((r["product_id"], loc), 0.0), 0.0))
+                if part:
+                    split[loc] = part
+                    pool[(r["product_id"], loc)] -= part
+                    left -= part
+            if left > 0:  # no movement to read it from: the document's place
+                where = doc["location_id"] or MAIN
+                split[where] = split.get(where, 0.0) + left
+            taken[r["id"]] = split
+        out.append(IssueLineInput(r["product_id"], taken[r["id"]].get(MAIN, 0.0), taken[r["id"]].get(OFFICE, 0.0),
+                                  r["unit_price"], r["note"] or ""))
+    data = IssueInput(date.fromisoformat(doc["doc_date"]), c["name"] if c else "",
+                      phone=(c["phone"] if c else "") or "", contact=(c["contact"] if c else "") or "",
+                      address=(c["address"] if c else "") or "", tax_code=(c["tax_code"] if c else "") or "",
+                      email=(c["email"] if c else "") or "", lines=out)
+    return doc["code"], data
+
+
+def edit(conn, ws: Workspace, doc_id: int, data: IssueInput) -> tuple[int, Path]:
+    """Replace a recorded issue note by the corrected one, with the same code (customer's request 19/11/2026: prices,
+    quantities... of a note already issued). The old note goes as in delete() but its files to output/phieu-xuat/da-sua/
+    (the old version can still be looked at); the new one is written and recorded as in save(). One transaction: on
+    any failure the old note stays as it was, files included. Returns (document id, the user's copy)."""
+    doc = _check_issue(conn, doc_id)
+    if not can_edit(doc):
+        raise ValueError("Chỉ sửa được phiếu xuất kho còn hiệu lực (mã A… hoặc W…).")
+    if problems(conn, data):
+        raise ValueError("Phiếu xuất kho chưa đủ thông tin.")
+    created = _create_new_products(conn, data)
+    moved: list[tuple[Path, Path]] = []
+    try:
+        with db.transaction(conn):
+            hashes = _remove_rows(conn, doc)
+            moved = _move_files(ws, hashes, EDITED)
+            result = _save(conn, ws, data, doc["code"])
+            db.log(conn, "issue_edited", f"{doc['code']} #{result[0]}")
+    except BaseException:
+        for src, target in moved:  # the old note is back as it was
+            try:
+                src.parent.mkdir(parents=True, exist_ok=True)
+                target.replace(src)
+            except OSError:
+                pass
+        with db.transaction(conn):
+            for pid in created:
+                catalog.delete_product(conn, pid)
+        raise
+    return result
 
 
 def customer_choices(conn) -> list:
