@@ -37,6 +37,8 @@ final class CloudRunner: ObservableObject {
     }
     private var timer: Timer?
     private var soon: Timer?
+    /// every stored copy this Mac lacks was asked from the cloud this run (fetchMissingOriginals)
+    private var originalsDone = false
 
     /// true once the app is signed in and joined (start, firstRound); nothing here touches the network before
     private var active = false
@@ -180,9 +182,37 @@ final class CloudRunner: ObservableObject {
                     return
                 }
             }
+            if !staff { await fetchMissingOriginals(queue, client, token) }
             await finished()
         } catch {
             await failed(error)
+        }
+    }
+
+    /// The stored copies behind 'Mở file gốc' that this Mac lacks (signed in for the first time, or the app was removed:
+    /// the shared data came down, the files did not; user, 21/11/2026), downloaded from the owner's backups once per run,
+    /// at most originalsSeconds a round (the rest next round). Python main_window._fetch_copies.
+    private func fetchMissingOriginals(_ queue: DatabaseQueue, _ client: CloudClient, _ token: String) async {
+        guard !originalsDone, let folders = model?.folders else { return }
+        let names = (try? await queue.read { try Deliveries.missingOriginals($0, folders) }) ?? []
+        if names.isEmpty { originalsDone = true; return }
+        let (got, failed) = await CloudBackup.fetchNamed(folders.originals, client, token, names, maxSeconds: Self.originalsSeconds)
+        ActivityLog.write("cloud", "originals fetched: \(got) downloaded, \(failed) not found, \(names.count - got - failed) next round")
+        if got + failed == names.count { originalsDone = true }  // the ones the cloud lacks are not asked again this run
+    }
+
+    /// 'Mở file gốc' on an order whose stored copy this Mac lacks: download that one first (Python
+    /// DocumentDialog._fetch_original). -> nil: not signed in as the owner, nothing tried; false: tried and failed.
+    func fetchOriginal(hash: String) async -> Bool? {
+        guard let folders = model?.folders, let cfg = CloudConfig.load(), cfg.hasSavedSession, !cfg.isStaff else { return nil }
+        do {
+            guard let (client, token) = try await CloudAccount.session(timeout: 15) else { return false }
+            let (got, _) = await CloudBackup.fetchNamed(folders.originals, client, token, ["\(hash).xlsx"])
+            ActivityLog.write("cloud", "original fetched on open: \(got)")
+            return got > 0
+        } catch {
+            ActivityLog.write("error", "original fetch: \(error)")
+            return false
         }
     }
 

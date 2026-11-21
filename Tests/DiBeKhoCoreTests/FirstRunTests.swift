@@ -48,6 +48,16 @@ final class FirstRunTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: second.path))
     }
 
+    func testAStaleConfigWhoseFolderIsGoneIsSetAsideAndTheFirstStartGoesOn() throws {
+        let config = root.appendingPathComponent("config.json")
+        try Data(#"{"workspace": "\#(root.path)/gone"}"#.utf8).write(to: config)
+        let folder = root.appendingPathComponent("DiBeKho")
+        try FirstRun.create(folder: folder, language: "vi", config: config)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("config.json.cu").path))
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: config)) as? [String: Any]
+        XCTAssertEqual(object?["workspace"] as? String, folder.path)
+    }
+
     func testChangingTheFolderKeepsTheOtherKeysAndMakesAnEmptyDatabase() throws {
         let config = root.appendingPathComponent("config.json")
         try FirstRun.create(folder: root.appendingPathComponent("Old"), language: "zh", config: config)

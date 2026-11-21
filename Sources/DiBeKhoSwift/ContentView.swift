@@ -623,12 +623,16 @@ struct DetailView: View {
     }
 
     /// Mở file gốc: a read-only copy of the stored original in the temp folder, never the stored file itself
+    /// A copy this Mac lacks (signed in for the first time, or the app was removed) is downloaded from the cloud first.
     private func openOriginal() {
-        guard let folders = model.folders,
-              let copy = Deliveries.viewingCopy(folders, hash: data.sourceHash, name: data.sourceFile) else {
-            return UI.error(t("doc.original_missing"))
+        guard let folders = model.folders else { return UI.error(t("doc.original_missing")) }
+        let hash = data.sourceHash, name = data.sourceFile
+        if let copy = Deliveries.viewingCopy(folders, hash: hash, name: name) { return UI.open(copy) }
+        Task { @MainActor in
+            let fetched = await model.cloud.fetchOriginal(hash: hash)
+            if fetched == true, let copy = Deliveries.viewingCopy(folders, hash: hash, name: name) { return UI.open(copy) }
+            UI.error(t(fetched == false ? "doc.original_not_fetched" : "doc.original_missing"))
         }
-        UI.open(copy)
     }
 
     /// Đọc lại cả phiếu (common.reread_whole_note)

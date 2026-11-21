@@ -175,8 +175,34 @@ public enum Issues {
         return currency == "CNY" ? pythonRound2(price / rate) : (price * rate).rounded(.toNearestOrEven)
     }
 
-    public static func customerChoices(_ db: Database) throws -> [(name: String, phone: String, contact: String, address: String, taxCode: String, email: String)] {
-        var out: [(name: String, phone: String, contact: String, address: String, taxCode: String, email: String)] = []
+    public typealias CustomerChoice = (name: String, phone: String, contact: String, address: String, taxCode: String, email: String)
+
+    /// A customer as the list shows it: «Tên · SĐT»
+    public static func customerLabel(_ c: CustomerChoice) -> String {
+        [c.name, c.phone].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    /// The customer the typed text names: the list's own label, or the name alone (letter case and extra spaces aside).
+    /// The Python form's box completes a typed name to its label and picks it (QComboBox inline completion); here the
+    /// box only matched the whole label, so typing an old customer's name filled nothing (user, 21/11/2026).
+    public static func pickedCustomer(_ typed: String, _ choices: [CustomerChoice]) -> Int? {
+        if let i = choices.firstIndex(where: { customerLabel($0) == typed }) { return i }
+        let fold = { (s: String) in s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").lowercased() }
+        let name = fold(typed)
+        guard !name.isEmpty else { return nil }
+        return choices.firstIndex { fold($0.name) == name || fold(customerLabel($0)) == name }
+    }
+
+    /// The boxes after the text stopped naming the customer who filled them: a box still holding that customer's value
+    /// is emptied, one the user changed is kept.
+    public static func unfilled(_ boxes: CustomerChoice, from c: CustomerChoice) -> CustomerChoice {
+        let keep = { (box: String, theirs: String) in box == theirs ? "" : box }
+        return (name: boxes.name, phone: keep(boxes.phone, c.phone), contact: keep(boxes.contact, c.contact),
+                address: keep(boxes.address, c.address), taxCode: keep(boxes.taxCode, c.taxCode), email: keep(boxes.email, c.email))
+    }
+
+    public static func customerChoices(_ db: Database) throws -> [CustomerChoice] {
+        var out: [CustomerChoice] = []
         for row in try Row.fetchAll(db, sql: "SELECT name, phone, contact, address, tax_code, email FROM customers ORDER BY name") {
             out.append((name: row["name"] ?? "", phone: row["phone"] ?? "", contact: row["contact"] ?? "",
                         address: row["address"] ?? "", taxCode: row["tax_code"] ?? "", email: row["email"] ?? ""))

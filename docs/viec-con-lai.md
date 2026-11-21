@@ -186,3 +186,7 @@ So mọi khoá chữ bản Python dùng ở `ui/*.py` và `app.py` với code Sw
 ## 21/11/2026: đơn nháp và số Excel không dấu nghìn (đã chép sang Swift)
 - Excel: `issue_note.MONEY = '[$VND]\ 0'`, `MONEY_CNY = '[$¥]\ 0.00'`, `report.MONEY = "0"`, dòng tiền trong file thống kê không dấu nghìn (Swift `Report.dong/plain`).
 - Đơn nháp: tiêu đề `issue_note.TITLE_DRAFT` ("… (NHÁP)"), `issues.save_draft / load_draft / close_draft`, thư mục `output/phieu-xuat/nhap/`, quét phiếu từ chối file nháp (`deliveries.DRAFT_REFUSED`). Swift: `Issues.saveDraft/loadDraft/closeDraft`, `DraftTests`. ⚠ chưa biên dịch lúc viết.
+
+## 21/11/2026: phiếu gốc từ Cloud, tự điền khách cũ (Python 9324e8e)
+- Python: `deliveries.missing_originals` (mọi phiếu thiếu bản sao, phiếu chưa rõ tiền trước), cửa sổ chính tải nền tất cả; «Mở file gốc» tải đúng file đó nếu còn thiếu, lỗi mạng báo `doc.original_not_fetched` (chuỗi mới, đã sinh lại `Strings.swift`). Swift: `Deliveries.missingOriginals`, `CloudBackup.fetchNamed`, `CloudRunner.fetchMissingOriginals/fetchOriginal`, `OriginalsTests`. ⚠ chưa biên dịch lúc viết, chưa thử Cloud thật.
+- Swift Phiếu xuất kho: gõ tên khách cũ (không cần «· SĐT», không phân biệt hoa thường) là điền SĐT, địa chỉ, MST, email và giá (`Issues.pickedCustomer`); Python đã làm được nhờ ô chọn tự hoàn tất, web khớp đúng tên.

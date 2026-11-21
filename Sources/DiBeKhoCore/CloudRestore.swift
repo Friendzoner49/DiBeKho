@@ -128,11 +128,25 @@ extension CloudBackup {
     /// After a restore: download the kept notes this machine lacks; a file whose content does not match its name is not
     /// written. Never throws for one file. -> (downloaded, failed) (fetch_originals + fetch_named)
     public static func fetchOriginals(_ originals: URL, _ client: CloudClient, _ token: String) async -> (Int, Int) {
-        guard let names = try? await cloudOriginals(client, token) else { return (0, 0) }
+        let names: Set<String>
+        do { names = try await cloudOriginals(client, token) } catch {
+            ActivityLog.write("error", "cloud originals list: \(error)")  // not "nothing to fetch": a denied list shows here
+            return (0, 0)
+        }
         let have = Set(((try? FileManager.default.contentsOfDirectory(atPath: originals.path)) ?? []).filter(isOriginalName))
+        return await fetchNamed(originals, client, token, names.subtracting(have).sorted())
+    }
+
+    /// Download these kept notes (<sha256>.xlsx) into data/phieu-goc, stopping after maxSeconds (the rest next time). A
+    /// file whose content does not match its name, or that the bucket does not have, counts as failed. -> (downloaded,
+    /// failed) (fetch_named)
+    public static func fetchNamed(_ originals: URL, _ client: CloudClient, _ token: String, _ names: [String],
+                                  maxSeconds: TimeInterval? = nil) async -> (Int, Int) {
         try? FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
+        let started = Date()
         var done = 0, failed = 0
-        for name in names.subtracting(have).sorted() {
+        for name in names {
+            if let maxSeconds, Date().timeIntervalSince(started) > maxSeconds { break }
             guard isOriginalName(name), let data = try? await client.storageDownload("\(originalsFolder)/\(name)", token) else {
                 failed += 1
                 continue

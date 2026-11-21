@@ -83,7 +83,9 @@ struct IssueFormView: View {
     @State private var address = ""
     @State private var taxCode = ""
     @State private var email = ""
-    @State private var customers: [(name: String, phone: String, contact: String, address: String, taxCode: String, email: String)] = []
+    @State private var customers: [Issues.CustomerChoice] = []
+    /// the old customer whose details are in the boxes (typedCustomer)
+    @State private var filledFrom: Issues.CustomerChoice?
     @State private var rows: [IssueFormRow] = []
     @State private var products: [Int64: Product] = [:]
     @State private var levels: [Ledger.PlaceKey: Double] = [:]
@@ -128,9 +130,7 @@ struct IssueFormView: View {
         value == value.rounded() && abs(value) < 1e15 ? String(Int(value)) : String(value)
     }
 
-    private func customerLabel(_ c: (name: String, phone: String, contact: String, address: String, taxCode: String, email: String)) -> String {
-        [c.name, c.phone].filter { !$0.isEmpty }.joined(separator: " · ")
-    }
+    private func customerLabel(_ c: Issues.CustomerChoice) -> String { Issues.customerLabel(c) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -354,12 +354,29 @@ struct IssueFormView: View {
 
     // ---- the customer
 
-    private func customerName() -> String { customerText.components(separatedBy: " · ")[0].trimmingCharacters(in: .whitespaces) }
+    /// the name as the list has it when the text names an old customer (typed in another letter case), else as typed
+    private func customerName() -> String {
+        if let i = Issues.pickedCustomer(customerText, customers) { return customers[i].name }
+        return customerText.components(separatedBy: " · ")[0].trimmingCharacters(in: .whitespaces)
+    }
 
     private func typedCustomer(_ text: String) {
         customerText = text
-        // an exact pick from the list fills the other boxes and the prices of the customer
-        guard let c = customers.first(where: { customerLabel($0) == text }) else { return }
+        // a pick from the list, or an old customer's name typed, fills the other boxes and the prices of the customer
+        guard let i = Issues.pickedCustomer(text, customers) else {
+            // typed on past an old customer's name («Đại lý Mẫu» → «Đại lý Mẫu Hai»): the boxes that customer filled
+            // are emptied again, or the new customer would go out with the old one's phone (and be merged with them)
+            if let old = filledFrom {
+                let left = Issues.unfilled((name: "", phone: phone, contact: contact, address: address, taxCode: taxCode, email: email),
+                                           from: old)
+                (phone, contact, address, taxCode, email) = (left.phone, left.contact, left.address, left.taxCode, left.email)
+                filledFrom = nil
+                for i in rows.indices { fillPrice(i) }
+            }
+            return
+        }
+        let c = customers[i]
+        filledFrom = c
         phone = c.phone
         contact = c.contact
         address = c.address
@@ -387,6 +404,7 @@ struct IssueFormView: View {
                 continue
             }
             customerText = TextRules.clean(name)
+            filledFrom = nil  // these boxes are the new customer's own
             phone = typedPhone
             contact = typed["contact"] ?? ""
             address = typed["address"] ?? ""

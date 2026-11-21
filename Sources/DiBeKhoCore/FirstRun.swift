@@ -26,9 +26,16 @@ public enum FirstRun {
     /// Refuses when config.json exists or the folder already holds a database.
     public static func create(folder: URL, language: String, config configFile: URL = Workspace.configFile) throws {
         let fm = FileManager.default
-        guard !fm.fileExists(atPath: configFile.path) else { throw FirstRunError.configExists }
         let database = folder.appendingPathComponent("data/kho.sqlite")
         guard !fm.fileExists(atPath: database.path) else { throw FirstRunError.dataExists }
+        if fm.fileExists(atPath: configFile.path) {
+            // a config.json whose work folder still holds its database is live: never replaced. One left behind by an
+            // old install whose folder is gone points at nothing: it is set aside (config.json.cu), not deleted.
+            guard !pointsAtDatabase(configFile) else { throw FirstRunError.configExists }
+            let aside = configFile.appendingPathExtension("cu")
+            try? fm.removeItem(at: aside)
+            try fm.moveItem(at: configFile, to: aside)
+        }
         for sub in ["phieu-giao-hang/da-xu-ly", "input/da-xu-ly", "output", "sao-luu", "data", "phieu-goc"] {
             try fm.createDirectory(at: folder.appendingPathComponent(sub), withIntermediateDirectories: true)
         }
@@ -46,6 +53,14 @@ public enum FirstRun {
         let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
         try fm.createDirectory(at: configFile.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: configFile, options: .atomic)
+    }
+
+    /// true when the config file names a work folder that has data/kho.sqlite
+    static func pointsAtDatabase(_ configFile: URL) -> Bool {
+        guard let data = try? Data(contentsOf: configFile),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let folder = object["workspace"] as? String, !folder.isEmpty else { return false }
+        return FileManager.default.fileExists(atPath: URL(fileURLWithPath: folder).appendingPathComponent("data/kho.sqlite").path)
     }
 
     /// Cài đặt → Đổi thư mục… (settings_page.change_folder): config.json points at another folder from the next start;

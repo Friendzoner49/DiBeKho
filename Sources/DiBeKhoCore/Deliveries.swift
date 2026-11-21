@@ -190,6 +190,21 @@ public enum Deliveries {
         return path
     }
 
+    /// Stored copies (<sha256>.xlsx) of every recorded note this machine lacks, the ones of undecided currency first
+    /// (missing_originals): a Mac signed in for the first time, or after the app was removed, has the database from the
+    /// cloud but none of the files behind 'Mở file gốc' (user, 21/11/2026: no order could open its original).
+    public static func missingOriginals(_ db: Database, _ f: ShopFolders) throws -> [String] {
+        let rows = try Row.fetchAll(db, sql: "SELECT source_hash, MAX(currency = '') AS undecided FROM documents "
+                                    + "WHERE kind = 'delivery' AND source_hash <> '' GROUP BY source_hash")
+        var undecided: [String] = [], rest: [String] = []
+        for row in rows {
+            let hash: String = row["source_hash"]
+            guard originalCopy(f, hash) == nil else { continue }
+            if (row["undecided"] as Int?) == 1 { undecided.append("\(hash).xlsx") } else { rest.append("\(hash).xlsx") }
+        }
+        return undecided.sorted() + rest.sorted()
+    }
+
     public static func originalCopy(_ f: ShopFolders, _ hash: String) -> URL? {
         guard hash.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil else { return nil }
         let url = f.originals.appendingPathComponent("\(hash).xlsx")
