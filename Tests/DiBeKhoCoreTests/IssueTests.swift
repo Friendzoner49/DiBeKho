@@ -293,11 +293,11 @@ final class IssueTests: XCTestCase {
         checks.append("issue_cny_money=\(money["currency"] as String? ?? "")|\(c.canon(money["fx_rate"] as Double?))")
         let cnyLoaded = try q.read { try Issues.load($0, docId: cnyDoc) }.data
         checks.append("issue_cny_load=\(cnyLoaded.currency)|\(c.canon(cnyLoaded.fxRate))|\(linesOf(cnyLoaded))")
-        let asks: [(Int64, String, Double?)] = [(1, "CNY", nil), (1, "VND", nil), (1, "VND", 4000), (3, "CNY", 4000), (3, "CNY", nil)]
-        let prices = try q.read { db in
-            try asks.map { try Issues.lastPrice(db, customerName: "Công ty A", productId: $0.0, currency: $0.1, vndPerCny: $0.2) }
+        let cnyAsks: [(Int64, String, Double?)] = [(1, "CNY", nil), (1, "VND", nil), (1, "VND", 4000), (3, "CNY", 4000), (3, "CNY", nil)]
+        let cnyPrices = try q.read { db in
+            try cnyAsks.map { try Issues.lastPrice(db, customerName: "Công ty A", productId: $0.0, currency: $0.1, vndPerCny: $0.2) }
         }
-        checks.append("last_price_cny=" + prices.map { c.canon($0) }.joined(separator: ","))
+        checks.append("last_price_cny=" + cnyPrices.map { c.canon($0) }.joined(separator: ","))
         checks.append("cny_words=" + [0, 0.07, 12, 1250.5, 2376000.99].map { IssueNote.cnyWords($0) }.joined(separator: ","))
         try levels("after_cny")
 
