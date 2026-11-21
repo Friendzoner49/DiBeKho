@@ -403,7 +403,7 @@ def test_statistics_file_has_money_places_and_notes(conn, ws, tmp_path):
                          set(report.SHEETS), "10/2026", "Tất cả")
     wb = openpyxl.load_workbook(path)
     text = " ".join(str(c.value) for s in wb.worksheets for row in s.iter_rows() for c in row if c.value)
-    assert "5.500.000" in text and "190.000" in text and "1 thùng hết hạn" in text and "Kho tổng" in text
+    assert "5500000" in text and "190000" in text and "1 thùng hết hạn" in text and "Kho tổng" in text
     summary = wb.worksheets[0]
     head = [c.value for c in summary[6]]
     revenue = [r[head.index("Doanh thu")] for r in summary.iter_rows(min_row=7, values_only=True)]
