@@ -3,18 +3,19 @@
    latest order and stays editable. The web writes nothing: the window makes the Excel file (xlsx.js) and the browser
    downloads it. The stock is taken when the file goes into the app's notes folder and the app reads it, like a
    delivery note; the same file read twice is never counted twice. A product may stand on several lines (another
-   quantity, another price). While the ₫ / ¥ switch shows yuan the prices are typed in yuan at the rate the window
-   opened with (user, 15/11/2026); the file keeps VND: a typed price becomes whole dong, a suggested price left
-   untouched keeps its exact dong.
+   quantity, another price). While the ₫ / ¥ switch shows yuan the note is a yuan note (user, 21/11/2026; before, the
+   yuan typed became dong): prices typed in yuan, the file and the cloud keep them in yuan (currency CNY, cloud 022)
+   with the window's rate only to show '≈ … ₫'. A note being corrected keeps its own currency.
    A name typed that is not in the list is a new product (★, customer's request 15/11/2026): its packing and unit are
    typed on the row; the owner's note makes it on the cloud with the note (019) and its stock goes below zero until
    the goods come in; a staff file carries the name only and the app asks for it in Cần xử lý → Tạo mới. */
 
 "use strict";
 
-/** The price of this product on the customer's latest priced order, else on anyone's (core/issues.last_price; the
-    app breaks a tie of dates by its row number, the web by the time the order came in). */
-function lastPrice(customerName, productId) {
+/** The price of this product on the customer's latest priced order, else on anyone's, in `currency` (core/issues.last_price;
+    the app breaks a tie of dates by its row number, the web by the time the order came in). A price of a note in the
+    other currency is turned at `rate` (dong for one yuan), else the note's own rate; null when it cannot be. */
+function lastPrice(customerName, productId, currency = "VND", rate = null) {
   if (!productId) return null;
   const name = String(customerName || "").replace(/\s+/g, " ").trim();
   let best = null, bestAny = null;
@@ -30,7 +31,13 @@ function lastPrice(customerName, productId) {
       if (name && (customerById[d.customer_id] || {}).name === name && later(hit, best)) best = hit;
     }
   }
-  return (best || bestAny) ? (best || bestAny).l.unit_price : null;
+  const hit = best || bestAny;
+  if (!hit) return null;
+  const own = hit.d.currency === "CNY" ? "CNY" : "VND", price = hit.l.unit_price;
+  if (own === currency) return price;
+  const r = rate || hit.d.fx_rate;
+  if (!r) return null;
+  return currency === "CNY" ? Math.round(price / r * 100) / 100 : Math.round(price * r);
 }
 
 /** The company lines the app read above the title of the shop's delivery notes (meta note_letterhead, synced). */
@@ -87,30 +94,29 @@ const issueGiven = (productId, place) => (issueEdit ? issueEdit.lines.reduce(
   (a, l) => a + (l.product_id === productId ? (place === 1 ? l.main : l.office) : 0), 0) : 0);
 const issueHave = (productId, place) => (stockOf(productId)[place] || 0) + issueGiven(productId, place);
 
-let issueRate = null;  // dong for one yuan while the open window takes its prices in yuan, else null
+let issueCny = false;  // the open window makes a yuan note
+let issueRate = null;  // dong for one yuan: only to show '≈ … ₫' and to turn a last price of the other currency
 
-/** The row's price in dong, as the file carries it: null (empty), NaN (not a number). */
-function issuePriceVnd(input) {
-  const shown = parseQty(input.value);
-  if (shown === null || Number.isNaN(shown) || !issueRate) return shown;
-  if (!input.dataset.typed && input.dataset.vnd) return Number(input.dataset.vnd);
-  return Math.round(shown * issueRate);
+/** The row's price as typed and saved (dong, or yuan on a yuan note): null (empty), NaN (not a number). */
+function issuePrice(input) {
+  return parseQty(input.value);
 }
 
-/** An amount as the window shows it: dong, or yuan at the window's rate. */
-function issueMoney(vnd) {
-  return issueRate ? "¥" + (vnd / issueRate).toLocaleString(numLocale(), { maximumFractionDigits: 2 }) : fmtVnd(vnd);
+/** An amount of the open note: dong, or yuan on a yuan note. */
+function issueMoney(amount) {
+  return issueCny ? fmtCny(amount) : fmtVnd(amount);
 }
 
 function openIssueForm(editDoc = null) {
   issueEdit = editDoc ? { doc: editDoc, lines: issueLinesOf(editDoc) } : null;
-  issueRate = moneyInCny() ? FX.rate.vnd_per_cny : null;
+  issueCny = issueEdit ? isCny(editDoc) : moneyInCny();
+  issueRate = (issueEdit && isCny(editDoc) && editDoc.fx_rate) || rateNow() || null;
   const heads = [tr("col.product"), tr("col.spec"), tr("col.unit"), tr("issue.have", { place: tr("place.1") }),
                  tr("issue.take", { place: tr("place.1") }), tr("issue.have", { place: tr("place.2") }),
-                 tr("issue.take", { place: tr("place.2") }), tr(issueRate ? "issue.price_cny" : "issue.price"),
-                 tr(issueRate ? "issue.amount_cny" : "issue.amount"), tr("col.note"), ""];
+                 tr("issue.take", { place: tr("place.2") }), tr(issueCny ? "issue.price_cny" : "issue.price"),
+                 tr(issueCny ? "issue.amount_cny" : "issue.amount"), tr("col.note"), ""];
   const body = openDialog(issueEdit ? tr("issue.edit_title", { code: editDoc.code }) : tr("issue.title"),
-    `<p class="hint">${esc(issueEdit ? tr("issue.edit_hint", { code: editDoc.code }) : tr("issue.hint"))}${issueRate ? " " + esc(tr("issue.cny_hint", { rate: Math.round(issueRate).toLocaleString("vi-VN") })) : ""}</p>
+    `<p class="hint">${esc(issueEdit ? tr("issue.edit_hint", { code: editDoc.code }) : tr("issue.hint"))}${issueCny ? " " + esc(tr("issue.cny_hint", { rate: issueRate ? Math.round(issueRate).toLocaleString("vi-VN") : "—" })) : ""}</p>
      <div class="form2">
        <label>${esc(tr("issue.date"))}</label><input id="ix-date" type="date" value="${esc(todayLocal())}">
        <label>${esc(tr("col.customer"))}</label><div class="row"><input id="ix-customer" class="grow" list="customers-dl" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}"><button id="ix-new-customer" class="flat" title="${esc(tr("issue.new_customer_tip"))}">${esc(tr("issue.new_customer"))}</button></div>
@@ -135,9 +141,8 @@ function openIssueForm(editDoc = null) {
     const price = tr_.querySelector(".ix-price");
     if (price.dataset.typed || price.dataset.keep) return;  // the user's own price, or the one on the note being corrected, is kept
     const p = rowProduct(tr_);
-    const v = p ? lastPrice($("ix-customer").value, p.id) : null;
-    price.dataset.vnd = v === null ? "" : String(v);
-    price.value = v === null ? "" : fmtQty(issueRate ? Math.round(v / issueRate * 100) / 100 : v);
+    const v = p ? lastPrice($("ix-customer").value, p.id, issueCny ? "CNY" : "VND", issueRate) : null;
+    price.value = v === null ? "" : fmtQty(v);
   };
   const refresh = () => {
     let total = 0, priced = false;
@@ -166,7 +171,7 @@ function openIssueForm(editDoc = null) {
         box.closest("td").classList.toggle("bad", Number.isNaN(asked));
         if (asked > 0) qty += asked;
       }
-      const price = issuePriceVnd(tr_.querySelector(".ix-price"));
+      const price = issuePrice(tr_.querySelector(".ix-price"));
       const amount = (p || isNew) && qty > 0 && price !== null && !Number.isNaN(price) ? Math.round(qty * price * 100) / 100 : null;
       tr_.querySelector(".ix-amount").textContent = amount === null ? "" : issueMoney(amount);
       if (amount !== null) { total += amount; priced = true; }
@@ -203,7 +208,7 @@ function openIssueForm(editDoc = null) {
     if (!e.target.classList.contains("ix-remove")) return;
     const rows = $("ix-lines").querySelectorAll("tr");
     if (rows.length > 1) e.target.closest("tr").remove();
-    else for (const i of e.target.closest("tr").querySelectorAll("input")) { i.value = ""; delete i.dataset.typed; delete i.dataset.vnd; }
+    else for (const i of e.target.closest("tr").querySelectorAll("input")) { i.value = ""; delete i.dataset.typed; }
     refresh();
   });
   body.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT") e.preventDefault(); });  // Enter never saves
@@ -221,8 +226,7 @@ function openIssueForm(editDoc = null) {
       row.querySelector(".ix-qty[data-place='2']").value = l.office ? fmtQty(l.office) : "";
       const price = row.querySelector(".ix-price");
       if (l.price !== null && l.price !== undefined) {
-        price.dataset.vnd = String(l.price);
-        price.value = fmtQty(issueRate ? Math.round(l.price / issueRate * 100) / 100 : l.price);
+        price.value = fmtQty(l.price);
         price.dataset.keep = "1";
       }
       row.querySelector(".ix-note").value = l.note;
@@ -242,7 +246,7 @@ function readIssueForm() {
   for (const tr_ of $("ix-lines").querySelectorAll("tr")) {
     const label = tr_.querySelector(".ix-product").value.trim();
     const [main, office] = [".ix-qty[data-place='1']", ".ix-qty[data-place='2']"].map((s) => parseQty(tr_.querySelector(s).value));
-    const price = issuePriceVnd(tr_.querySelector(".ix-price"));
+    const price = issuePrice(tr_.querySelector(".ix-price"));
     if (!label && main === null && office === null) continue;
     if (!label) fail(tr("issue.unknown_product", { text: "?" }));
     const p = productFromLabel(label);
@@ -301,8 +305,14 @@ async function saveIssue() {
   if (f.date > todayLocal() && !confirm(tr("issue.future_ask"))) return false;
   let rows = DBK_XLSX.noteRows(productById, f.lines);
   const total = rows.reduce((a, r) => a + (r.amount || 0), 0);
-  // before saving the user sees what is written: yuan as typed and the dong the note carries
-  const both = (vnd) => (issueRate ? `${issueMoney(vnd)} = ${fmtVnd(vnd)} ₫` : fmtVnd(vnd));
+  // before saving the user sees what is written: dong, or the yuan of the note and about how many dong
+  const both = (a) => (issueCny && issueRate ? `${issueMoney(a)} ≈ ${fmtVnd(Math.round(a * issueRate))} ₫` : issueMoney(a));
+  const money = { currency: issueCny ? "CNY" : "VND", fx_rate: issueCny ? issueRate : null };
+  if (issueCny && isOwner()) {
+    // a yuan note needs cloud step 022: the older web_issue would record the yuan as dong, without a word
+    const { data: version, error: vErr } = await sb.rpc("web_api_version");
+    if (vErr || !(Number(version) >= 22)) fail(tr("issue.cny_sql"));
+  }
   const summary = rows.map((r, i) => `• ${r.code ? r.code + " " : ""}${f.lines[i].label}: ${fmtQty(r.qty)} ${r.unit} · ` +
     r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${both(r.amount)}` : "")).join("\n");
@@ -314,7 +324,8 @@ async function saveIssue() {
     const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
                                          qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
     const { data: made, error } = await sb.rpc("web_issue_edit", { p: { replaces: issueEdit.doc.id, doc_date: f.date,
-      customer: f.customer, phone: f.phone, contact: f.contact, address: f.address, tax_code: f.tax_code, email: f.email, lines } });
+      customer: f.customer, phone: f.phone, contact: f.contact, address: f.address, tax_code: f.tax_code, email: f.email, lines,
+      ...money } });
     if (error) fail(error.message || String(error));
     code = made.code;
     if (f.lines.some((ln) => ln.new)) {
@@ -329,9 +340,10 @@ async function saveIssue() {
     // new products (019)
     const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
                                          qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
-    const { data: made, error } = await sb.rpc("web_issue", { p: { doc_date: f.date, customer: f.customer, phone: f.phone,
-                                                                  contact: f.contact, address: f.address, tax_code: f.tax_code,
-                                                                  email: f.email, lines } });
+    // a yuan note goes through web_issue_money (022), which also keeps its currency
+    const args = { p: { doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
+                        tax_code: f.tax_code, email: f.email, lines, ...money } };
+    const { data: made, error } = await (issueCny ? sb.rpc("web_issue_money", args) : sb.rpc("web_issue", args));
     if (error) fail(error.message || String(error));
     code = made.code;
     if (f.lines.some((ln) => ln.new)) {
@@ -345,7 +357,7 @@ async function saveIssue() {
     code = DBK_XLSX.nextCode(data.documents.filter((d) => d.kind === "delivery").map((d) => d.code));
   }
   const head = { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
-                 tax_code: f.tax_code, email: f.email, letterhead: letterhead() };
+                 tax_code: f.tax_code, email: f.email, letterhead: letterhead(), currency: money.currency };
   const bytes = DBK_XLSX.issueNote(fflate, head, rows);
   const name = `PhieuXuat_${code}.xlsx`;
   saveFile(name, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

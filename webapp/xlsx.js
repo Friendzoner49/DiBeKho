@@ -26,6 +26,8 @@ const DBK_XLSX = (() => {
   };
   const HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
                    "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"];
+  // a yuan note (the ₫ | ¥ switch on ¥, user 21/11/2026): the signs the app's reader takes for yuan (issue_note.HEADERS_CNY)
+  const HEADERS_CNY = [...HEADERS.slice(0, 4), "单 价\nCNY", "金 额\nCNY", ...HEADERS.slice(6)];
   const PLACES = { 1: "Kho tổng 总仓", 2: "Văn phòng 办公室" };
   const WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)";
   const QTY_LABEL = "页小计 \n( Tổng số lượng ):\n";
@@ -38,6 +40,7 @@ const DBK_XLSX = (() => {
   const HEIGHTS = { 1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, [HEADER_ROW]: 54.0 };
   const LINE_HEIGHT = 152.0, TOTAL_HEIGHT = 83.0, SIGN_HEIGHT = 43.75;  // the template of 18/11/2026
   const MONEY = "[$VND]\\ #,##0";
+  const MONEY_CNY = "[$¥]\\ #,##0.00";
   const TNR = "Times New Roman";
   const SONG = "宋体";  // issue_note.SONG: the cells the template sets in SimSun
   const DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
@@ -62,11 +65,9 @@ const DBK_XLSX = (() => {
     return w;
   }
 
-  /** 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG' (issue_note.vnd_words). */
-  function vndWords(amount) {
-    let n = Math.floor(amount + 0.5);
-    if (n < 0) return "";
-    if (n === 0) return "KHÔNG VIỆT NAM ĐỒNG";
+  /** 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN' (issue_note._number_words, n >= 0). */
+  function numberWords(n) {
+    if (n === 0) return "KHÔNG";
     const groups = [];
     do { groups.push(n % 1000); n = Math.floor(n / 1000); } while (n);
     const words = [];
@@ -75,7 +76,21 @@ const DBK_XLSX = (() => {
       words.push(...three(groups[i], words.length > 0));
       if (UNITS[i]) words.push(UNITS[i]);
     }
-    return words.join(" ").toUpperCase() + " VIỆT NAM ĐỒNG";
+    return words.join(" ").toUpperCase();
+  }
+
+  /** 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG' (issue_note.vnd_words). */
+  function vndWords(amount) {
+    const n = Math.floor(amount + 0.5);
+    return n < 0 ? "" : numberWords(n) + " VIỆT NAM ĐỒNG";
+  }
+
+  /** 1250.5 -> 'MỘT NGHÌN HAI TRĂM NĂM MƯƠI NHÂN DÂN TỆ NĂM MƯƠI XU' (issue_note.cny_words; 1 ¥ = 100 xu). */
+  function cnyWords(amount) {
+    const cents = Math.floor(amount * 100 + 0.5);
+    if (cents < 0) return "";
+    const whole = Math.floor(cents / 100), fen = cents % 100;
+    return numberWords(whole) + " NHÂN DÂN TỆ" + (fen ? ` ${numberWords(fen)} XU` : "");
   }
 
   /** About how many lines a wrapped cell takes (Excel does not grow a row a program wrote). */
@@ -92,8 +107,9 @@ const DBK_XLSX = (() => {
 
   const pad = (n) => String(n).padStart(2, "0");
 
-  /** The cells of the note (issue_note.issue_sheet): {cells: Map("r,c" -> cell), merges, heights, lastRow}. */
+  /** The cells of the note (issue_note.issue_sheet): {cells: Map("r,c" -> cell), merges, heights, lastRow, moneyFormat}. */
   function issueSheet(head, rows) {
+    const cny = head.currency === "CNY";
     const cells = new Map(), merges = [], heights = { ...HEIGHTS };
     const put = (r, c, value, style = {}) => cells.set(`${r},${c}`, {
       r, c, value: value === "" || value === undefined ? null : value, font: TNR, size: 15, border: false,
@@ -114,7 +130,7 @@ const DBK_XLSX = (() => {
     put(8, 1, LABELS.address + (head.address || ""), { size: 14, align: "left", border: "bottom" });
     for (let c = 2; c <= 7; c++) put(8, c, null, { size: 14, align: "left", border: "bottom" });
     merges.push("A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C7:E7", "F7:G7", "A8:E8");
-    HEADERS.forEach((text, i) => put(HEADER_ROW, i + 1, text, { border: i < 7 }));
+    (cny ? HEADERS_CNY : HEADERS).forEach((text, i) => put(HEADER_ROW, i + 1, text, { border: i < 7 }));
     let r = HEADER_ROW, qtyTotal = 0, moneyTotal = 0, priced = false;
     rows.forEach((ln, i) => {
       r = HEADER_ROW + i + 1;
@@ -136,7 +152,7 @@ const DBK_XLSX = (() => {
     });
     r += 1;
     put(r, 1, WORDS_LABEL, { font: SONG, border: true });
-    put(r, 2, priced ? vndWords(moneyTotal) : null, { border: true });
+    put(r, 2, priced ? (cny ? cnyWords(moneyTotal) : vndWords(moneyTotal)) : null, { border: true });
     put(r, 3, null, { border: true });
     put(r, 4, QTY_LABEL + numberText(qtyTotal), { font: SONG, border: true });
     put(r, 5, null, { border: true });
@@ -149,7 +165,7 @@ const DBK_XLSX = (() => {
     put(r, 4, SIGN_TO, { size: 14, align: "left", wrap: false });
     merges.push(`A${r}:C${r}`);
     heights[r] = SIGN_HEIGHT;
-    return { cells, merges, heights, lastRow: r };
+    return { cells, merges, heights, lastRow: r, moneyFormat: cny ? MONEY_CNY : MONEY };
   }
 
   const xml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
@@ -184,7 +200,7 @@ const DBK_XLSX = (() => {
     }
     const side = (n) => `<${n} style="thin"><color auto="1"/></${n}>`;
     return `${HEAD}<styleSheet ${NS}>` +
-      `<numFmts count="1"><numFmt numFmtId="164" formatCode="${xml(MONEY)}"/></numFmts>` +
+      `<numFmts count="1"><numFmt numFmtId="164" formatCode="${xml(sheet.moneyFormat || MONEY)}"/></numFmts>` +
       `<fonts count="${fonts.length + 1}"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>${fonts.join("")}</fonts>` +
       '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
       `<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border>${side("left")}${side("right")}` +
@@ -296,12 +312,14 @@ const DBK_XLSX = (() => {
     return `${prefix}${max + 1}`;
   }
 
-  /** The bytes of a Phiếu xuất kho: head {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address, letterhead},
+  /** The bytes of a Phiếu xuất kho: head {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address, letterhead,
+      currency 'VND' | 'CNY'},
       rows [{code, name_vi, name_zh, spec, qty, places [[location id, qty]], unit_price, amount, note}]. */
   function issueNote(fflate, head, rows, now) {
     return workbook(fflate, issueSheet(head, rows), SHEET, now);
   }
 
-  return { TITLE, LABELS, HEADERS, PLACES, HEADER_ROW, productName, placesText, vndWords, issueSheet, noteRows, nextCode, issueNote };
+  return { TITLE, LABELS, HEADERS, HEADERS_CNY, PLACES, HEADER_ROW, productName, placesText, vndWords, cnyWords, issueSheet,
+           noteRows, nextCode, issueNote };
 })();
 if (typeof module !== "undefined") module.exports = DBK_XLSX;
