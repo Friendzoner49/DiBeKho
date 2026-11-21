@@ -231,11 +231,24 @@ struct NotesReaderPage: View {
 struct SearchPage: View {
     @ObservedObject var model: AppModel
     @FocusState private var searchFocused: Bool
+    /// 0 Tra cứu, 1 Danh mục mặt hàng (moved here from Cài đặt so the list gets the whole page: the owner, 21/11/2026)
+    @State private var tab = 0
 
     var body: some View {
-        let found = model.found
         VStack(alignment: .leading, spacing: 6) {
-            PageHeader(title: t("nav.search"), hint: t("search.hint"))
+            PageHeader(title: t("nav.search"), hint: tab == 0 ? t("search.hint") : t("settings.products_hint"))
+            TabBar(titles: [t("nav.search"), t("settings.products")], selection: $tab)
+            if tab == 0 {
+                lookup
+            } else {
+                CatalogPage(model: model, showsHint: false)
+            }
+        }
+        .onChange(of: model.searchFocus) { _ in tab = 0 }  // ⌘F: back to the search box
+    }
+
+    @ViewBuilder private var lookup: some View {
+            let found = model.found
             TextField(t("search.placeholder"), text: $model.searchText)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: UI.baseSize + 3))
@@ -265,7 +278,6 @@ struct SearchPage: View {
                 customersBox(found)
                 documentsBox(found)
             }
-        }
     }
 
     private func productsBox(_ found: Lookup.Found) -> some View {
@@ -393,7 +405,7 @@ struct SettingsPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             PageHeader(title: t("nav.settings"))
-            TabBar(titles: [t("settings.tab_general"), t("settings.tab_products"), t("settings.tab_transfer"),
+            TabBar(titles: [t("settings.tab_general"), t("settings.learned_title"), t("settings.tab_transfer"),
                             t("settings.tab_cloud")], selection: $tab)
             switch tab {
             case 0: tabPage { general }
@@ -418,15 +430,11 @@ struct SettingsPage: View {
         CloudBox(model: model)
     }
 
-    /// The product list and the learned names sit in the tab itself, as in the Python app (each scrolls on its own)
+    /// The learned names fill the tab; the product list moved to Tra cứu → Danh mục mặt hàng (the owner, 21/11/2026:
+    /// in a box here it showed two rows only)
     private var productsTab: some View {
-        VStack(spacing: 10) {
-            // two group boxes, as settings_page.py
-            GroupBox(t("settings.products")) { CatalogPage(model: model).padding(6) }
-                .frame(minHeight: 320, maxHeight: .infinity)
-            GroupBox(t("settings.learned_title")) { LearnedPage(model: model).padding(6) }
-                .frame(minHeight: 240, maxHeight: .infinity)
-        }
+        GroupBox(t("settings.learned_title")) { LearnedPage(model: model).padding(6) }
+            .frame(maxHeight: .infinity)
     }
 
     /// the three boxes of the Python tab, then what only this app has (live data / practice copy / view only)

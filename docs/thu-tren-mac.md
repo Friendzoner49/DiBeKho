@@ -222,3 +222,10 @@ Làm trên **dữ liệu đang dùng** (Cloud không chạy trên bản thử). 
 
 - Như bản Python: địa chỉ Cloud và mã kết nối được gắn sẵn vào bản dựng (secrets `DIBEKHO_CLOUD_URL`, `DIBEKHO_CLOUD_KEY` của repo trên GitHub, không nằm trong code). Cửa sổ đăng nhập chỉ hỏi **Tên đăng nhập** và **Mật khẩu**.
 - Bản dựng không có hai secrets đó thì cửa sổ vẫn hiện hai ô địa chỉ, như bản Python dựng từ mã công khai.
+
+## 19. Danh mục mặt hàng chuyển sang Tra cứu (viết 21/11 theo yêu cầu chủ dự án; ⚠ chưa biên dịch)
+
+- **Tra cứu** có 2 tab: «Tra cứu» (như cũ) và **«Danh mục mặt hàng»**. Tab danh mục chiếm cả trang, thấy được nhiều dòng; đủ nút Thêm / Sửa / Xoá / Gộp và ô mức báo sắp hết như trước.
+- Bấm ⌘F khi đang ở tab danh mục: quay về ô tìm kiếm.
+- **Cài đặt**: tab thứ hai đổi tên thành «Tên trên phiếu đã học», chỉ còn khung đó, chiếm cả trang.
+- Khác bản Python có chủ đích: bản Python vẫn để danh mục ở Cài đặt.

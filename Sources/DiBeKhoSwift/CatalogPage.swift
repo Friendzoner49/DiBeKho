@@ -3,7 +3,7 @@ import DiBeKhoCore
 import GRDB
 import SwiftUI
 
-/// Cài đặt → Mặt hàng (ui/settings_page.py: the product list, ProductEditor, delete, merge, the alarm level).
+/// Tra cứu → Danh mục mặt hàng (in the Python app Cài đặt → Mặt hàng, ui/settings_page.py: the product list, ProductEditor, delete, merge, the alarm level).
 @MainActor
 enum CatalogScreens {
     /// Thêm / Sửa mặt hàng: true when saved. A new product that looks like one already there asks first (the user may edit that one).
@@ -147,13 +147,15 @@ struct ProductEditor: View {
 
 struct CatalogPage: View {
     @ObservedObject var model: AppModel
+    /// off in Tra cứu, whose page title already carries the hint
+    var showsHint = true
     @State private var products: [Product] = []
     @State private var selected: Int?
     @State private var low = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Hint(t("settings.products_hint"))
+            if showsHint { Hint(t("settings.products_hint")) }
             HStack {
                 Text(t("settings.low_default") + ":")
                 TextField("", text: $low, onCommit: { CatalogScreens.setLowDefault(model, Double(low.replacingOccurrences(of: ",", with: ".")) ?? 0); load() })
