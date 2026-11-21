@@ -6,8 +6,9 @@ import GRDB
 /// product / group / customer filters and the per-period split of the Python screen are not in the Swift page yet).
 public enum Report {
     public static let sheetKeys = ["summary", "details", "customers", "top"]
-    static let money = "#,##0"
-    static let moneyCny = "\"¥\"#,##0.00"
+    /// no thousands separator in any Excel file (user, 21/11/2026: 6182.98, not 6.182,98), as report.MONEY
+    static let money = "0"
+    static let moneyCny = "\"¥\"0.00"
     static let dateFormat = "DD/MM/YYYY"
 
     public struct ReportError: Error, LocalizedError {
@@ -15,13 +16,25 @@ public enum Report {
         public var errorDescription: String? { message }
     }
 
-    // ---- the text of the money lines (Python _dong / _both): Vietnamese separators whatever the interface language
+    // ---- the text of the money lines (Python _dong / _both): no thousands separator, a dot before decimals
 
-    static func dong(_ value: Double?) -> String { Format.dong(value ?? 0) }
+    static func dong(_ value: Double?) -> String {
+        let rounded = (value ?? 0).rounded(.toNearestOrEven)
+        return String(format: "%.0f", rounded == 0 ? 0 : rounded)
+    }
+
+    /// 1234.5 -> "1234.5", 100 -> "100" (Python f"{x:.2f}".rstrip("0").rstrip("."))
+    static func plain(_ value: Double) -> String {
+        var text = String(format: "%.2f", value)
+        if text.hasPrefix("-0.00") { text = "0.00" }
+        while text.hasSuffix("0") { text.removeLast() }
+        if text.hasSuffix(".") { text.removeLast() }
+        return text
+    }
 
     static func both(_ vnd: Double?, _ cny: Double?, _ approx: Double? = nil) -> String {
         guard let cny, cny != 0 else { return dong(vnd) }
-        let yuan = "¥" + Format.twoDecimals((cny * 100).rounded(.toNearestOrEven) / 100)
+        let yuan = "¥" + plain((cny * 100).rounded(.toNearestOrEven) / 100)
         let about = (approx ?? 0) != 0 ? " (≈ \(dong((vnd ?? 0) + (approx ?? 0))) ₫)" : ""
         return ((vnd ?? 0) != 0 ? "\(dong(vnd)) ₫ + \(yuan)" : yuan) + about
     }

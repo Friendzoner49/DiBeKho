@@ -112,12 +112,12 @@ final class ReportTests: XCTestCase {
     func testFilesStayInDongWhateverTheScreenShows() throws {
         FX.rate = FX.Rate(vndPerCny: 3600, updated: Date(), fetched: Date())
         FX.currency = "cny"
-        XCTAssertEqual(Report.both(1_000_000, 100, 350_000), "1.000.000 ₫ + ¥100 (≈ 1.350.000 ₫)")
-        XCTAssertEqual(Report.both(1_000_000, nil), "1.000.000")
-        XCTAssertEqual(Report.both(nil, 100.5), "¥100,5")
+        XCTAssertEqual(Report.both(1_000_000, 100, 350_000), "1000000 ₫ + ¥100 (≈ 1350000 ₫)")
+        XCTAssertEqual(Report.both(1_000_000, nil), "1000000")
+        XCTAssertEqual(Report.both(nil, 100.5), "¥100.5")
         L10n.language = "en"
         defer { L10n.language = "vi" }
-        XCTAssertEqual(Report.both(nil, 1234.5), "¥1.234,5", "Vietnamese separators in the files")
+        XCTAssertEqual(Report.both(nil, 1234.5), "¥1234.5", "no thousands separator in the files (21/11/2026)")
     }
 
     func testFileName() {

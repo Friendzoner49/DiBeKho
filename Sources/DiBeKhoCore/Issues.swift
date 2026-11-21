@@ -17,6 +17,12 @@ public enum Issues {
     public static let deleted = "da-xoa"
     /// the old version of a corrected note (output/phieu-xuat/da-sua/)
     public static let edited = "da-sua"
+    /// draft orders (customer's request 21/11/2026, issues.py): output/phieu-xuat/nhap/PhieuXuat_NHAP_N1.xlsx, nothing
+    /// recorded; once a real note, the file goes to nhap/da-chot/
+    public static let drafts = "nhap"
+    public static let draftsDone = "da-chot"
+    public static let draftPrefix = "N"
+    public static let draftFilePrefix = "PhieuXuat_NHAP_"
 
     public struct LineInput {
         public var productId: Int64?
@@ -184,6 +190,14 @@ public enum Issues {
     static func noteRows(_ db: Database, _ data: Input) throws -> [IssueNote.Row] {
         var rows: [IssueNote.Row] = []
         for ln in data.filled {
+            if ln.productId == nil, let n = ln.new {  // only on a draft: a real note creates its new products first
+                let places = [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)].filter { $0.1 > 0 }
+                let name = [TextRules.clean(n.nameVi), TextRules.clean(n.variant)].filter { !$0.isEmpty }.joined(separator: " ")
+                rows.append(IssueNote.Row(code: "", nameVi: name, nameZh: TextRules.clean(n.nameZh), spec: TextRules.clean(n.spec),
+                                          qty: ln.qty, places: places, unitPrice: ln.unitPrice,
+                                          amount: ln.unitPrice.map { pythonRound2(ln.qty * $0) }, note: TextRules.clean(ln.note)))
+                continue
+            }
             guard let pid = ln.productId, let p = try Catalog.product(db, id: pid) else { continue }
             let name = [p.nameVi, p.variant].filter { !$0.isEmpty }.joined(separator: " ")
             let places = [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)].filter { $0.1 > 0 }
@@ -203,6 +217,76 @@ public enum Issues {
             n += 1
         }
         return candidate
+    }
+
+    // MARK: draft orders
+
+    public static func draftsFolder(_ f: ShopFolders) -> URL {
+        f.output.appendingPathComponent(folder).appendingPathComponent(drafts)
+    }
+
+    /// the number of a draft file name (PhieuXuat_NHAP_N12.xlsx -> 12)
+    static func draftNumber(_ name: String) -> Int? {
+        guard name.uppercased().hasPrefix(draftFilePrefix.uppercased() + draftPrefix) else { return nil }
+        let rest = name.dropFirst(draftFilePrefix.count + draftPrefix.count)
+        return Int(String(rest.prefix { $0.isNumber }))
+    }
+
+    /// N + 1 + the highest draft number in the drafts folder and its da-chot/ (a number is never reused).
+    public static func newDraftCode(_ f: ShopFolders) -> String {
+        let fm = FileManager.default
+        let base = draftsFolder(f)
+        let names = ((try? fm.contentsOfDirectory(atPath: base.path)) ?? [])
+            + ((try? fm.contentsOfDirectory(atPath: base.appendingPathComponent(draftsDone).path)) ?? [])
+        let top = names.filter { $0.lowercased().hasSuffix(".xlsx") }.compactMap(draftNumber).max() ?? 0
+        return "\(draftPrefix)\(top + 1)"
+    }
+
+    /// Write the draft file (a new one, or over `url`: a draft opened again keeps its code). Nothing is recorded.
+    public static func saveDraft(_ db: Database, _ f: ShopFolders, _ data: Input, over url: URL? = nil) throws -> URL {
+        if !problems(data).isEmpty { throw WriteError("Đơn nháp chưa đủ thông tin.") }
+        let code = url.flatMap { draftNumber($0.lastPathComponent) }.map { "\(draftPrefix)\($0)" } ?? newDraftCode(f)
+        let head = IssueNote.Head(code: code, date: data.date, customer: TextRules.clean(data.customerName),
+                                  phone: TextRules.clean(data.phone), contact: TextRules.clean(data.contact),
+                                  address: TextRules.clean(data.address), taxCode: TextRules.clean(data.taxCode),
+                                  email: TextRules.clean(data.email), letterhead: try Deliveries.letterhead(db),
+                                  currency: data.currency == "CNY" ? "CNY" : "VND", draft: true)
+        let target = url ?? free(draftsFolder(f).appendingPathComponent("\(draftFilePrefix)\(code).xlsx"))
+        return try IssueNote.write(target, head, try noteRows(db, data))
+    }
+
+    /// (draft code, what it holds) read back from a draft file: a product by its code, else a ★ new product.
+    public static func loadDraft(_ db: Database, _ url: URL) throws -> (code: String, data: Input) {
+        let note = try DeliveryNoteReader.read(url)
+        guard IssueNote.isDraftTitle(note.title) else { throw WriteError("File này không phải đơn nháp của DiBeKho.") }
+        var lines: [LineInput] = []
+        for ln in note.lines {
+            let main = ln.places.isEmpty ? ln.qty : ln.places.filter { Int64($0.0) == Ledger.main }.reduce(0) { $0 + $1.1 }
+            let office = ln.places.filter { Int64($0.0) == Ledger.office }.reduce(0) { $0 + $1.1 }
+            let code = TextRules.clean(ln.productCode)
+            if !code.isEmpty, let pid = try Int64.fetchOne(db, sql: "SELECT id FROM products WHERE code = ?", arguments: [code]) {
+                lines.append(LineInput(productId: pid, qtyMain: main, qtyOffice: office, unitPrice: ln.unitPrice, note: ln.note))
+            } else {
+                lines.append(LineInput(productId: nil, qtyMain: main, qtyOffice: office, unitPrice: ln.unitPrice, note: ln.note,
+                                       new: NewProduct(TextRules.clean(ln.nameVi.isEmpty ? ln.rawName : ln.nameVi),
+                                                       nameZh: TextRules.clean(ln.nameZh), spec: TextRules.clean(ln.spec))))
+            }
+        }
+        return (note.code, Input(date: note.docDate, customerName: note.customerName, phone: note.phone, contact: note.contact,
+                                 address: note.address, taxCode: note.taxCode, email: note.email, lines: lines,
+                                 currency: note.currency == "CNY" ? "CNY" : "VND"))
+    }
+
+    /// The draft became a real note: its file goes to da-chot/ (kept, never counted).
+    @discardableResult
+    public static func closeDraft(_ f: ShopFolders, _ url: URL) throws -> URL? {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path) else { return nil }
+        let done = draftsFolder(f).appendingPathComponent(draftsDone)
+        try fm.createDirectory(at: done, withIntermediateDirectories: true)
+        let target = free(done.appendingPathComponent(url.lastPathComponent))
+        try fm.moveItem(at: url, to: target)
+        return target
     }
 
     // MARK: saving

@@ -6,6 +6,14 @@ import Foundation
 /// and where each line is taken from, so the file is read back exactly. Only plain values, never formulas.
 public enum IssueNote {
     public static let title = "出库单 PHIẾU XUẤT KHO"
+    /// a draft order (customer's request 21/11/2026): the same file, nothing recorded; the scan refuses this mark
+    public static let draftMark = "(NHÁP)"
+    public static let titleDraft = "出库单（草稿） PHIẾU XUẤT KHO " + draftMark
+
+    /// issue_note.is_draft_title
+    public static func isDraftTitle(_ title: String) -> Bool {
+        title.uppercased().replacingOccurrences(of: " )", with: ")").replacingOccurrences(of: "( ", with: "(").contains(draftMark)
+    }
     static let labels: [String: String] = [
         "customer": "客户名称 ( Tên khách hàng ): ",
         "phone": "联系电话 ( Điện thoại liên hệ ): ",
@@ -33,8 +41,9 @@ public enum IssueNote {
     static let hidden: Set<Int> = [8, 9]
     static let heights: [Int: Double] = [1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, 9: 54.0]
     static let lineHeight = 152.0, totalHeight = 83.0, signHeight = 43.75  // the template of 18/11/2026
-    static let money = "[$VND]\\ #,##0"
-    static let moneyCny = "[$¥]\\ #,##0.00"
+    /// no thousands separator in any Excel file (user, 21/11/2026: 6182.98, not 6.182,98), as issue_note.MONEY
+    static let money = "[$VND]\\ 0"
+    static let moneyCny = "[$¥]\\ 0.00"
     static let times = "Times New Roman"
 
     public struct Row {
@@ -68,12 +77,14 @@ public enum IssueNote {
         public var letterhead: [String] = []
         /// "CNY": the prices are yuan
         public var currency = "VND"
+        /// a draft order: the title says NHÁP
+        public var draft = false
         public init(code: String, date: String, customer: String, phone: String = "", contact: String = "",
                     address: String = "", taxCode: String = "", email: String = "", letterhead: [String] = [],
-                    currency: String = "VND") {
+                    currency: String = "VND", draft: Bool = false) {
             self.code = code; self.date = date; self.customer = customer; self.phone = phone
             self.contact = contact; self.address = address; self.taxCode = taxCode; self.email = email
-            self.letterhead = letterhead; self.currency = currency
+            self.letterhead = letterhead; self.currency = currency; self.draft = draft
         }
     }
 
@@ -186,7 +197,7 @@ public enum IssueNote {
         let letter = Array((head.letterhead + ["", ""]).prefix(2))
         put(1, 1, letter[0].isEmpty ? nil : letter[0], style(size: 20))
         put(2, 1, letter[1].isEmpty ? nil : letter[1], style(size: 20))
-        put(4, 1, title, style(size: 24))
+        put(4, 1, head.draft ? titleDraft : title, style(size: 24))
         // the customer block cell for cell as the template of 18/11/2026: fonts, wrapping, merges (row 6 is not merged)
         put(5, 1, labels["customer"]! + " " + head.customer, style(size: 20, align: "left", font: song))
         put(5, 3, labels["phone"]! + head.phone, style(size: 14, align: "left", wrap: false))

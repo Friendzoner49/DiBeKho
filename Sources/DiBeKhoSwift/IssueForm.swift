@@ -2,6 +2,7 @@ import AppKit
 import DiBeKhoCore
 import GRDB
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// 'Phiếu xuất kho…' (ui/issue_form.py): goods out to a customer, typed in the app instead of written in Excel. The
 /// customer (picked from the list, or typed), the date, and the lines: each product says how many are taken from Kho
@@ -9,23 +10,35 @@ import SwiftUI
 /// same product may stand on several lines. 'Lưu phiếu' writes the Excel file (output/phieu-xuat/) and lowers the stock
 /// at once (Issues.save). A row may be '★ Mặt hàng mới': a product not in the catalog yet, made on save.
 /// While the ₫ | ¥ switch shows yuan, the note is a yuan note (as in Python, user 21/11/2026): prices typed and saved in
-/// yuan, the file in yuan (CNY); a note being edited keeps its own currency. ⚠ Not compiled.
+/// yuan, the file in yuan (CNY); a note being edited keeps its own currency.
+/// Đơn nháp (customer's request 21/11/2026): «Lưu nháp» writes the file only (NHÁP in the title, Issues.saveDraft);
+/// «Xuất từ phiếu nháp…» opens a draft file in a fresh window, whose «Lưu phiếu» makes the real note.
 @MainActor
 enum IssueForm {
-    /// docId: a recorded note (A… / W…) being corrected, with its own code (customer's request 19/11/2026)
-    static func open(_ model: AppModel, docId: Int64? = nil) {
+    /// docId: a recorded note (A… / W…) being corrected, with its own code (customer's request 19/11/2026);
+    /// draft: a draft order file opened again (Xuất từ phiếu nháp…)
+    static func open(_ model: AppModel, docId: Int64? = nil, draft: URL? = nil) {
         guard model.writable else { return UI.error(Texts.notOpen) }
-        var code = "", old: Issues.Input?
+        var code = "", old: Issues.Input?, draftCode = "", draftData: Issues.Input?
         if let docId {
             guard let loaded = model.read({ try Issues.load($0, docId: docId) }) else { return }
             (code, old) = (loaded.code, loaded.data)
+        } else if let draft {
+            var problem = ""
+            let loaded = model.read { db -> (code: String, data: Issues.Input)? in
+                do { return try Issues.loadDraft(db, draft) } catch { problem = UI.message(error); return nil }
+            } ?? nil
+            guard let loaded else { return UI.error(t("issue.draft_bad", ["error": problem])) }
+            (draftCode, draftData) = (loaded.code, loaded.data)
         }
         // opened on the next turn of the run loop: a modal loop started inside the button's own click handling
         // can leave the new window's buttons (Hủy bỏ, Lưu phiếu) dead
-        let title = docId == nil ? t("issue.title") : t("issue.edit_title", ["code": code])
+        let title = docId != nil ? t("issue.edit_title", ["code": code])
+            : draftData != nil ? t("issue.draft_title", ["code": draftCode]) : t("issue.title")
         DispatchQueue.main.async {
             Windows.show(title, width: 1400, height: 760, modal: true) { _ in
-                IssueFormView(model: model, editDoc: docId, editCode: code, old: old)
+                IssueFormView(model: model, editDoc: docId, editCode: code, old: old, draftURL: draftData == nil ? nil : draft,
+                              draftCode: draftCode, draftData: draftData)
             }
         }
     }
@@ -57,6 +70,10 @@ struct IssueFormView: View {
     var editDoc: Int64? = nil
     var editCode = ""
     var old: Issues.Input? = nil
+    /// a draft order opened again: its file, code and lines (nothing of it is recorded)
+    var draftURL: URL? = nil
+    var draftCode = ""
+    var draftData: Issues.Input? = nil
     @EnvironmentObject var box: WindowBox
 
     @State private var date = Dates.today
@@ -80,7 +97,7 @@ struct IssueFormView: View {
     static let startRows = 3
 
     /// a yuan note: new while the switch showed yuan, or an edited note recorded in yuan
-    private var cny: Bool { old.map { $0.currency == "CNY" } ?? openedInCny }
+    private var cny: Bool { (old ?? draftData).map { $0.currency == "CNY" } ?? openedInCny }
     /// dong for one yuan: only to show '≈ … ₫' (and to turn a last price of the other currency)
     private var vndPerCny: Double? {
         if let old, old.currency == "CNY", let own = old.fxRate { return own }
@@ -117,9 +134,11 @@ struct IssueFormView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(editDoc == nil ? t("issue.title") : t("issue.edit_title", ["code": editCode]))
+            Text(editDoc != nil ? t("issue.edit_title", ["code": editCode])
+                 : draftData != nil ? t("issue.draft_title", ["code": draftCode]) : t("issue.title"))
                 .font(.system(size: UI.baseSize + 5, weight: .bold))
-            Hint(editDoc == nil ? t("issue.hint") : t("issue.edit_hint", ["code": editCode]))
+            Hint(editDoc != nil ? t("issue.edit_hint", ["code": editCode])
+                 : draftData != nil ? t("issue.draft_hint", ["code": draftCode]) : t("issue.hint"))
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
                 GridRow {
                     Text(t("issue.date") + ":")
@@ -166,6 +185,10 @@ struct IssueFormView: View {
                                          "qty": Format.quantity(filled.reduce(0) { $0 + $1.qty }), "money": moneyText(money)]))
             }
             HStack {
+                if editDoc == nil {  // draft orders: count in neither stock nor revenue
+                    Button(t("issue.from_draft")) { pickDraft() }.help(t("issue.from_draft_tip"))
+                    Button(t("issue.save_draft")) { saveDraft() }.help(t("issue.save_draft_tip"))
+                }
                 Spacer()
                 Button(t("btn.cancel")) { if mayClose() { box.close() } }
                 Button(t("issue.save")) { save() }.bold()
@@ -398,15 +421,15 @@ struct IssueFormView: View {
             }
         }
         customers = model.read { try Issues.customerChoices($0) } ?? []
-        if let old {
-            showOld(old)
+        if let shown = old ?? draftData {
+            showOld(shown)
         } else {
             rows = (0..<Self.startRows).map { _ in IssueFormRow() }
         }
         box.shouldClose = { mayClose() }
     }
 
-    /// the note being corrected: its date, customer and lines (prices as recorded, not looked up again)
+    /// the note being corrected (or the draft): its date, customer and lines (prices as written, not looked up again)
     private func showOld(_ old: Issues.Input) {
         date = old.date
         customerText = old.customerName
@@ -418,6 +441,7 @@ struct IssueFormView: View {
         rows = old.lines.map { ln in
             var r = IssueFormRow()
             r.productId = ln.productId
+            r.new = ln.new
             r.main = ln.qtyMain == 0 ? "" : Self.plain(ln.qtyMain)
             r.office = ln.qtyOffice == 0 ? "" : Self.plain(ln.qtyOffice)
             r.price = ln.unitPrice.map { Self.plain($0) } ?? ""
@@ -430,19 +454,64 @@ struct IssueFormView: View {
 
     // ---- save / close
 
+    /// What is missing, said once (true: the note cannot be saved yet).
+    private func refused(_ d: Issues.Input) -> Bool {
+        let found = Issues.problems(d)
+        if found.isEmpty { return false }
+        var texts: [String] = []
+        for (key, values) in found {
+            var v = values
+            if let id = values["id"].flatMap({ Int64($0) }), let p = products[id] { v = ["product": p.longLabel] }
+            let line = "• " + t(key, v)
+            if !texts.contains(line) { texts.append(line) }
+        }
+        UI.error(t("issue.cannot_save") + "\n\n" + texts.joined(separator: "\n"))
+        return true
+    }
+
+    /// Lưu nháp: the file only (NHÁP in the title), nothing recorded; the draft opened again keeps its code.
+    private func saveDraft() {
+        let d = data()
+        if refused(d) { return }
+        guard let folders = model.folders else { return UI.error(Texts.notOpen) }
+        ActivityLog.write("issue_draft", "\(d.filled.count) mặt hàng")
+        var problem = ""
+        let over = draftURL
+        let written = model.read { db -> URL? in
+            do { return try Issues.saveDraft(db, folders, d, over: over) } catch { problem = UI.message(error); return nil }
+        } ?? nil
+        guard let url = written else { return UI.error(t("issue.draft_failed", ["error": problem])) }
+        self.saved = true
+        if UI.ask(t("issue.draft_saved", ["path": url.path])) { UI.open(url) }
+        box.close(accepted: true)
+    }
+
+    /// Xuất từ phiếu nháp…: choose a draft file; it opens in a fresh window.
+    private func pickDraft() {
+        guard let folders = model.folders else { return UI.error(Texts.notOpen) }
+        let folder = Issues.draftsFolder(folders)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let panel = NSOpenPanel()
+        panel.title = t("issue.draft_pick")
+        panel.directoryURL = folder
+        panel.allowedContentTypes = [.init(filenameExtension: "xlsx") ?? .data]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        var problem = ""
+        let ok = model.read { db -> Bool in
+            do { _ = try Issues.loadDraft(db, url); return true } catch { problem = UI.message(error); return false }
+        } ?? false
+        guard ok else { return UI.error(t("issue.draft_bad", ["error": problem])) }
+        if rows.contains(where: { $0.qty > 0 }) && !UI.ask(t("issue.draft_replace")) { return }
+        ActivityLog.write("click", "issue_from_draft")
+        saved = true  // closing asks nothing: the draft opens in its own window
+        box.close()
+        IssueForm.open(model, draft: url)
+    }
+
     private func save() {
         var d = data()
-        let found = Issues.problems(d)
-        if !found.isEmpty {
-            var texts: [String] = []
-            for (key, values) in found {
-                var v = values
-                if let id = values["id"].flatMap({ Int64($0) }), let p = products[id] { v = ["product": p.longLabel] }
-                let line = "• " + t(key, v)
-                if !texts.contains(line) { texts.append(line) }
-            }
-            return UI.error(t("issue.cannot_save") + "\n\n" + texts.joined(separator: "\n"))
-        }
+        if refused(d) { return }
         // a new product that may already be in the catalog: the user should pick that one (else the next Hàng về goes to
         // the existing product and the new one stays below zero)
         for found in model.read({ try Issues.sameAsExisting($0, d) }) ?? [] {
@@ -474,6 +543,7 @@ struct IssueFormView: View {
             return try Issues.save(db, folders, input)
         }) else { return }
         saved = true
+        if let draftURL { try? Issues.closeDraft(folders, draftURL) }  // the draft became this note: its file goes to da-chot/
         let code = model.read { try String.fetchOne($0, sql: "SELECT code FROM documents WHERE id = ?", arguments: [doc]) } ?? nil
         if UI.ask(t(editDoc == nil ? "issue.saved" : "issue.saved_edit", ["code": code ?? "", "path": file.path])) { UI.open(file) }
         box.close(accepted: true)

@@ -182,3 +182,7 @@ So mọi khoá chữ bản Python dùng ở `ui/*.py` và `app.py` với code Sw
 - Python, web và Swift: công tắc ở ¥ thì phiếu xuất là phiếu tệ (`IssueInput.currency = "CNY"`, `fx_rate` = tỷ giá của cửa sổ). File Excel: tiêu đề cột giá "CNY", định dạng `[$¥]\ #,##0.00`, chữ "… NHÂN DÂN TỆ … XU". `last_price` đổi giá sang đúng loại tiền. Chuỗi `issue.cny_hint` đổi nội dung (đã sinh lại `Strings.swift`).
 - Golden: `tools/gen_issue.py` thêm phiếu `issue_cny` (+ `XlsxRef/issue_cny.json`); `IssueTests.swift` thêm đúng bước đó. ⚠ Chưa chạy trên CI.
 - Web cần SQL 022 (`web_issue_money`) chạy trên Supabase trước khi tải web lên.
+
+## 21/11/2026: đơn nháp và số Excel không dấu nghìn (đã chép sang Swift)
+- Excel: `issue_note.MONEY = '[$VND]\ 0'`, `MONEY_CNY = '[$¥]\ 0.00'`, `report.MONEY = "0"`, dòng tiền trong file thống kê không dấu nghìn (Swift `Report.dong/plain`).
+- Đơn nháp: tiêu đề `issue_note.TITLE_DRAFT` ("… (NHÁP)"), `issues.save_draft / load_draft / close_draft`, thư mục `output/phieu-xuat/nhap/`, quét phiếu từ chối file nháp (`deliveries.DRAFT_REFUSED`). Swift: `Issues.saveDraft/loadDraft/closeDraft`, `DraftTests`. ⚠ chưa biên dịch lúc viết.

@@ -369,6 +369,9 @@ public enum Deliveries {
     // MARK: one file
 
     /// Try to import one file. True when a document was created.
+    /// deliveries.DRAFT_REFUSED
+    static let draftRefused = "Đây là đơn nháp (NHÁP): không tính vào tồn kho và doanh thu. Muốn thành phiếu thật: Phiếu xuất kho… → Xuất từ phiếu nháp…"
+
     static func processFile(_ db: Database, _ f: ShopFolders, _ url: URL, _ rel: String, _ h: String,
                             _ allowPartial: Bool) throws -> Bool {
         let note: DeliveryNote
@@ -376,6 +379,10 @@ public enum Deliveries {
             note = try DeliveryNoteReader.read(url)
         } catch {
             try record(db, h, rel, "error", error.localizedDescription)
+            return false
+        }
+        if IssueNote.isDraftTitle(note.title) {  // a draft order counts in neither stock nor revenue (21/11/2026)
+            try record(db, h, rel, "error", draftRefused)
             return false
         }
         let goods = try goodsLines(db, note)
