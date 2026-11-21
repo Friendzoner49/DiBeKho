@@ -340,10 +340,10 @@ def test_apply_warns_about_a_likely_duplicate_before_creating_a_new_product(app,
 def test_adding_a_product_warns_about_a_likely_duplicate(app, ws, monkeypatch):
     """Adding a product that looks like one already in the catalog offers to open that one instead of
     creating a duplicate; declining still creates the new product as typed."""
-    import dibekho.ui.settings_page as settings_mod
+    import dibekho.ui.catalog_page as settings_mod
     from dibekho.core import catalog
+    from dibekho.ui.catalog_page import ProductEditor
     from dibekho.ui.common import AppContext
-    from dibekho.ui.settings_page import ProductEditor
 
     ctx = AppContext(Config(workspace=str(ws.root), language="vi", device_id="x", device_name="t"), ws)
     catalog.create_product(ctx.conn, "Sơn chống thấm FS-101", "FS-101防水涂料", "20KG", variant="Trắng")
@@ -367,8 +367,9 @@ def test_adding_a_product_warns_about_a_likely_duplicate(app, ws, monkeypatch):
     assert ctx.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 2  # created as typed
 
 
-def test_settings_edit_and_delete_buttons(app, ws, monkeypatch):
-    import dibekho.ui.settings_page as settings_mod
+def test_catalog_edit_and_delete_buttons(app, ws, monkeypatch):
+    """Tra cứu -> Danh mục mặt hàng (it was in Cài đặt until 21/11/2026)."""
+    import dibekho.ui.catalog_page as settings_mod
 
     errors = []
     monkeypatch.setattr(settings_mod, "ask", lambda *a, **k: True)
@@ -385,9 +386,14 @@ def test_settings_edit_and_delete_buttons(app, ws, monkeypatch):
     spare = catalog.create_product(ctx.conn, "Sơn thừa")
     win = MainWindow(ctx)
     win.show()
-    settings = win.stack.widget(win.stack.count() - 1)
-    win.nav.setCurrentRow(win.stack.count() - 1)
+    win.nav.setCurrentRow(win.stack.indexOf(win.search))
+    win.search.tabs.setCurrentIndex(1)
     app.processEvents()
+    settings = win.search.catalog
+    assert win.search.hint.text() == i18n.t("settings.products_hint")
+    win.search.focus()  # Ctrl+F goes back to the search tab
+    assert win.search.tabs.currentIndex() == 0
+    settings.refresh()
 
     def select(pid):
         row = next(r for r in range(settings.table.rowCount()) if settings.table.item(r, 0).data(Qt.UserRole) == pid)

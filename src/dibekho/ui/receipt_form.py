@@ -48,7 +48,7 @@ from dibekho.ui.common import (
     title_label,
     to_qdate,
 )
-from dibekho.ui.settings_page import ProductEditor
+from dibekho.ui.catalog_page import ProductEditor
 
 PRODUCT, SPEC, UNIT, QTY, PRICE, NOTE, REMOVE = range(7)
 

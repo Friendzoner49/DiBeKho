@@ -14,8 +14,10 @@ class Page(QWidget):
         self.title_text = title
         self.layout_ = QVBoxLayout(self)
         self.layout_.addWidget(title_label(title))
+        self.hint = None  # the line under the title; a page with tabs may change its text
         if hint:
-            self.layout_.addWidget(hint_label(hint))
+            self.hint = hint_label(hint)
+            self.layout_.addWidget(self.hint)
         ctx.changed.connect(self._on_changed)
 
     def _on_changed(self):

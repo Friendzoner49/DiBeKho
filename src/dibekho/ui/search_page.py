@@ -1,7 +1,17 @@
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSplitter, QVBoxLayout
+from PySide6.QtWidgets import (
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dibekho.core import queries
+from dibekho.core import activity, queries
 from dibekho.i18n import t
 from dibekho.ui.common import (
     PageWindow,
@@ -13,6 +23,7 @@ from dibekho.ui.common import (
     row_id,
     status_text,
 )
+from dibekho.ui.catalog_page import CatalogPanel
 from dibekho.ui.details import CustomerDialog, DocumentDialog, ProductDialog
 from dibekho.ui.orders_page import CustomersPage, OrdersPage
 from dibekho.ui.page import Page
@@ -24,13 +35,25 @@ WINDOWS = (("search.orders_btn", OrdersPage), ("search.customers_btn", Customers
 class SearchPage(Page):
     def __init__(self, ctx):
         super().__init__(ctx, t("nav.search"), t("search.hint"))
+        # two tabs: the search itself, and the product catalog (moved here from Cài đặt to get the whole page:
+        # the owner, 21/11/2026, as the Mac app)
+        self.tabs = QTabWidget()
+        lookup = QWidget()
+        look = QVBoxLayout(lookup)
+        look.setContentsMargins(0, 6, 0, 0)
+        self.catalog = CatalogPanel(ctx)
+        self.tabs.addTab(lookup, t("nav.search"))
+        self.tabs.addTab(self.catalog, t("settings.products"))
+        self.tabs.currentChanged.connect(self._tab_changed)
+        self.layout_.addWidget(self.tabs, 1)
+
         self.box = QLineEdit()
         self.box.setPlaceholderText(t("search.placeholder"))
         self.box.setClearButtonEnabled(True)
         font = self.box.font()
         font.setPointSize(font.pointSize() + 3)
         self.box.setFont(font)
-        self.layout_.addWidget(self.box)
+        look.addWidget(self.box)
 
         more = QHBoxLayout()
         more.addWidget(QLabel(t("search.more")))
@@ -40,7 +63,7 @@ class SearchPage(Page):
             b.clicked.connect(lambda _=False, k=key, m=make: self.open_window(k, m))
             more.addWidget(b)
         more.addStretch()
-        self.layout_.addLayout(more)
+        look.addLayout(more)
 
         self._timer = QTimer(self, singleShot=True, interval=250)
         self._timer.timeout.connect(self.refresh)
@@ -65,9 +88,14 @@ class SearchPage(Page):
                 lambda idx, tb=table, dlg=dialog: dlg(self.ctx, row_id(tb, idx.row()), self).exec())
             split.addWidget(group)
             self.boxes.append((group, key))
-        self.layout_.addWidget(split)
+        look.addWidget(split)
+
+    def _tab_changed(self, index):
+        activity.log("tab", self.tabs.tabText(index))
+        self.hint.setText(t("search.hint") if index == 0 else t("settings.products_hint"))
 
     def refresh(self):
+        self.catalog.refresh()
         res = queries.search(self.ctx.conn, self.box.text())
         fill_table(self.products, [[p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"],
                                     num_item(p["stock"]),
@@ -97,5 +125,6 @@ class SearchPage(Page):
             self.open_window(key, make).close()
 
     def focus(self):
+        self.tabs.setCurrentIndex(0)  # Ctrl+F: back to the search box
         self.box.setFocus()
         self.box.selectAll()

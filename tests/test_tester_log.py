@@ -233,15 +233,16 @@ def test_global_search_finds_products_by_any_words(conn):
 
 
 def test_settings_merge_duplicate_products(app, ws, monkeypatch):
-    """Settings -> Merge duplicate products: pick one row, pick the other; the larger code goes into the smaller."""
+    """Tra cứu -> Danh mục mặt hàng -> Merge duplicate products: pick one row, pick the other; the larger code goes into
+    the smaller."""
+    from dibekho.ui import catalog_page as sp
     from dibekho.ui import pending_page as pp
-    from dibekho.ui import settings_page as sp
 
     ctx = _ctx(ws)
     with db.transaction(ctx.conn):
         a = catalog.create_product(ctx.conn, "Keo mẫu", "胶", "5KG")
         b = catalog.create_product(ctx.conn, "Keo mẫu", "胶", "5KG")
-    page = sp.SettingsPage(ctx)
+    page = sp.CatalogPanel(ctx)
     page.refresh()
     shown = []
     monkeypatch.setattr(sp, "error", lambda *x, **k: shown.append(x[1]))
