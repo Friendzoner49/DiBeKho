@@ -119,14 +119,28 @@
     <!-- Tra cứu -->
     <div id="page-search" class="page hidden">
       <h1 data-i18n="nav.search"></h1>
-      <p class="hint" data-i18n="search.hint"></p>
-      <input id="search-input" class="wide" data-i18n-ph="search.placeholder">
-      <div id="search-results"></div>
-      <div class="row more">
-        <span class="hint" data-i18n="search.more"></span>
-        <button data-sub="orders" data-i18n="search.orders"></button>
-        <button data-sub="customers" data-i18n="search.customers"></button>
-        <button data-sub="stats" data-i18n="search.stats"></button>
+      <!-- Danh mục mặt hàng: here since 21/11/2026 (it was in Cài đặt), as the app -->
+      <div class="tabs">
+        <button data-stab="lookup" class="stab active" data-i18n="nav.search"></button>
+        <button data-stab="products" class="stab" data-i18n="settings.products"></button>
+      </div>
+      <div id="stab-lookup" class="spane">
+        <p class="hint" data-i18n="search.hint"></p>
+        <input id="search-input" class="wide" data-i18n-ph="search.placeholder">
+        <div id="search-results"></div>
+        <div class="row more">
+          <span class="hint" data-i18n="search.more"></span>
+          <button data-sub="orders" data-i18n="search.orders"></button>
+          <button data-sub="customers" data-i18n="search.customers"></button>
+          <button data-sub="stats" data-i18n="search.stats"></button>
+        </div>
+      </div>
+      <div id="stab-products" class="spane hidden">
+        <p class="hint" data-i18n="catalog.hint"></p>
+        <div class="row wrap">
+          <input id="catalog-filter" class="grow" data-i18n-ph="catalog.filter">
+        </div>
+        <div id="catalog-table"></div>
       </div>
     </div>
 
@@ -212,7 +226,6 @@
       <h1 data-i18n="nav.settings"></h1>
       <div class="tabs">
         <button data-stab="general" class="stab active" data-i18n="settings.general"></button>
-        <button data-stab="products" class="stab" data-i18n="settings.products"></button>
         <button data-stab="transfer" class="stab only-owner" data-i18n="settings.backup"></button>
         <button data-stab="accounts" class="stab only-admin" data-i18n="settings.accounts"></button>
         <button data-stab="logs" class="stab only-admin" data-i18n="settings.logs"></button>
@@ -229,13 +242,6 @@
             <option value="120" data-i18n="settings.scale_120"></option></select>
         </div>
         <button id="logout" data-i18n="top.logout"></button>
-      </div>
-      <div id="stab-products" class="spane hidden">
-        <p class="hint" data-i18n="catalog.hint"></p>
-        <div class="row wrap">
-          <input id="catalog-filter" class="grow" data-i18n-ph="catalog.filter">
-        </div>
-        <div id="catalog-table"></div>
       </div>
       <div id="stab-transfer" class="spane hidden only-owner">
         <h2 data-i18n="pkg.title"></h2>

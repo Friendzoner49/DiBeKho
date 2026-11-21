@@ -699,7 +699,7 @@ function renderCount() {
   ], activeProducts(), { select: "one", open: (p) => showProduct(p.id) });
 }
 
-/* ---------------------------------------------------------------- Cài đặt */
+/* ---------------------------------------------------------------- Tra cứu → Danh mục mặt hàng, Cài đặt */
 
 function renderCatalog() {
   const f = $("catalog-filter").value;
@@ -729,8 +729,9 @@ for (const btn of document.querySelectorAll("[data-sub]")) btn.addEventListener(
 for (const btn of document.querySelectorAll("[data-back]")) btn.addEventListener("click", () => showPage(btn.dataset.back));
 for (const btn of document.querySelectorAll(".stab")) {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".stab").forEach((b) => b.classList.toggle("active", b === btn));
-    document.querySelectorAll(".spane").forEach((p) => p.classList.toggle("hidden", p.id !== `stab-${btn.dataset.stab}`));
+    const scope = btn.closest(".page");  // Tra cứu and Cài đặt each have their own tabs
+    scope.querySelectorAll(".stab").forEach((b) => b.classList.toggle("active", b === btn));
+    scope.querySelectorAll(".spane").forEach((p) => p.classList.toggle("hidden", p.id !== `stab-${btn.dataset.stab}`));
   });
 }
 /* Interface size: 100% by default (older customers: nothing changes unless maychinh chooses); only maychinh gets the choice, kept in
