@@ -475,6 +475,18 @@ def missing_copies(conn, ws: Workspace) -> list[str]:
     return [f"{r[0]}.xlsx" for r in rows if original_copy(ws, r[0]) is None]
 
 
+def missing_originals(conn, ws: Workspace) -> list[str]:
+    """Stored copies (<sha256>.xlsx) of every recorded note that this computer lacks, the undecided ones first: a
+    machine signed in for the first time (or after the app was removed) has the database from the cloud but none of
+    the files behind 'Mở file gốc' (user, 21/11/2026: no order could open its original)."""
+    first = missing_copies(conn, ws)
+    rows = conn.execute("SELECT DISTINCT source_hash FROM documents WHERE kind = 'delivery' AND source_hash <> '' "
+                        "ORDER BY source_hash").fetchall()
+    seen = set(first)
+    rest = [f"{r[0]}.xlsx" for r in rows if f"{r[0]}.xlsx" not in seen and original_copy(ws, r[0]) is None]
+    return first + rest
+
+
 def needs_rate(conn) -> bool:
     """A note in yuan was read while no rate was known on this computer."""
     return conn.execute("SELECT 1 FROM documents WHERE currency = 'CNY' AND fx_rate IS NULL LIMIT 1").fetchone() is not None

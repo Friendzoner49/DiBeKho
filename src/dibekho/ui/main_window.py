@@ -45,7 +45,7 @@ INBOX_POLL = 180_000  # ms between looks at the staff requests sent from the web
 CLOSE_TIMEOUT = 8  # s per cloud request while closing the app
 CLOSE_SLOW = 12  # s: when signing in already took this long, the full backup waits for next time
 CLOSE_ORIGINALS = 4  # s: kept delivery notes uploaded while closing; the rest go next time
-COPIES_SECONDS = 120  # s: kept notes fetched in the background to read their currency; the rest on the next run
+COPIES_SECONDS = 120  # s: kept notes fetched in the background (currency, Mở file gốc); the rest on the next run
 
 
 class MainWindow(QMainWindow):
@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.ctx = ctx
         self._pulling = False
-        self._copies_asked = False  # the stored copies of undecided notes were asked from the cloud this run
+        self._copies_asked = False  # the stored copies this computer lacks were asked from the cloud this run
         self._bg_done.connect(self._bg_finished)
         self.setWindowTitle(f"{APP_NAME} {__version__}")
         fit_window(self, 1280, 800)
@@ -185,10 +185,11 @@ class MainWindow(QMainWindow):
     def _fetch_copies(self):
         """Undecided notes whose stored copy is only on the cloud (a Mac signed in for the first time: the database
         came down, the files did not; user, 15/11/2026: order 155 still showed as dong): download them in the
-        background, once per run, then read their currency."""
+        background, once per run, then read their currency. Every other order's copy comes down the same way, so
+        'Mở file gốc' works on a new or reinstalled machine (user, 21/11/2026); the rest on the next run."""
         if self._copies_asked:
             return
-        names = deliveries.missing_copies(self.ctx.conn, self.ctx.ws)
+        names = deliveries.missing_originals(self.ctx.conn, self.ctx.ws)
         if not names:
             return
         self._copies_asked = True

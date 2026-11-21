@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QDateEdit,
     QDialog,
@@ -20,6 +21,9 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import activity, deliveries, issues, queries, receipts
+from dibekho.core.cloud import approval
+from dibekho.core.cloud import backup as cloud_backup
+from dibekho.core.cloud import sync as cloud_sync
 from dibekho.excel import report
 from dibekho.core.stock import MAIN, close_document, is_mixed, set_location
 from dibekho.core.text import fmt_qty
@@ -259,11 +263,38 @@ class DocumentDialog(_Base):
             ProductDialog(self.ctx, product_id, self).exec()
 
     def open_original(self):
-        copy = deliveries.viewing_copy(self.ctx.ws, self.head["source_hash"], self.head["source_file"] or "")
+        source_hash, name = self.head["source_hash"], self.head["source_file"] or ""
+        copy = deliveries.viewing_copy(self.ctx.ws, source_hash, name)
+        fetched = None
         if copy is None:
-            error(self, t("doc.original_missing"))
+            fetched = self._fetch_original(source_hash)
+            if fetched:
+                copy = deliveries.viewing_copy(self.ctx.ws, source_hash, name)
+        if copy is None:
+            error(self, t("doc.original_not_fetched" if fetched is False else "doc.original_missing"))
         else:
             open_path(copy)
+
+    def _fetch_original(self, source_hash: str) -> bool | None:
+        """This computer lacks the stored copy (a new machine, or the app was removed: the database came from the
+        cloud, the files did not): download it from the cloud backups first (user, 21/11/2026).
+        -> None: not signed in to the cloud as the owner, nothing tried; False: tried and failed."""
+        cfg = self.ctx.cfg
+        if not source_hash or approval.is_staff(cfg) or not cfg.cloud_user:
+            return None
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            pair = cloud_sync.session(cfg, timeout=15)
+            if pair is None:
+                return False
+            got, _ = cloud_backup.fetch_named(self.ctx.ws, *pair, [f"{source_hash}.xlsx"])
+            activity.log("cloud", f"original fetched on open: {got}")
+            return got > 0
+        except Exception as exc:  # offline, signed out: the plain message below
+            activity.log("error", f"original fetch: {type(exc).__name__}: {exc}")
+            return False
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def cancel_doc(self):
         if not ask(self, t("doc.confirm_cancel")):

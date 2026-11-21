@@ -148,6 +148,7 @@
   "doc.total": "{lines} lines · total quantity {qty}",
   "doc.hint_open_product": "Double-click a line to open the product.",
   "doc.original_missing": "The copy of the original file is missing.",
+  "doc.original_not_fetched": "This computer does not have the original file of this order yet, and it could not be downloaded from the Cloud.\nCheck the Internet connection, then press «Open original file» again.",
   "doc.confirm_cancel": "Cancel this document? Stock will be reversed; history is kept.",
   "doc.ask_delete_issue": "Delete note {code} entirely?\n\nYes: it disappears from the list, the stock is as if it never left, and the code {code} is used again for the next stock issue note (no gap in the order numbers).\nNo: only cancel it; it stays in the list as Cancelled and its code is not used again.",
   "cust.summary": "Summary",
