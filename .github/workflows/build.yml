@@ -82,6 +82,19 @@ jobs:
           shoot stock product 17-product-detail
           shoot count trials 18-trials
           echo "the app opened and stayed open on every page: OK"
+      - name: Phiếu xuất kho fills an old customer (real clicks on ▾, then a typed name; see the screenshots)
+        if: inputs.screens
+        run: |
+          for mode in pick type; do
+            DIBEKHO_OPEN="$PWD/shop.sqlite" DIBEKHO_PAGE=stock DIBEKHO_WINDOW=issue \
+              "build/DiBeKho Swift.app/Contents/MacOS/DiBeKhoSwift" & pid=$!
+            sleep 7
+            osascript tools/ci_pick_customer.applescript "$mode" || echo "osascript $mode failed (no accessibility on this runner?)"
+            sleep 2
+            screencapture -x "build/screen-19-issue-$mode.png" || true
+            kill $pid || true
+            sleep 1
+          done
       - name: macOS draws the Excel files the app wrote (Quick Look thumbnails)
         if: inputs.screens
         run: |

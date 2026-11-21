@@ -361,9 +361,14 @@ struct IssueFormView: View {
     }
 
     private func typedCustomer(_ text: String) {
+        if text == customerText, filledFrom != nil { return }  // the box only wrote back what it shows: nothing to redo
         customerText = text
         // a pick from the list, or an old customer's name typed, fills the other boxes and the prices of the customer
-        guard let i = Issues.pickedCustomer(text, customers) else {
+        let picked = Issues.pickedCustomer(text, customers)
+        if picked != nil || filledFrom != nil {  // no names in the log: only what happened
+            ActivityLog.write("issue", "customer box: \(picked == nil ? "no longer an old customer" : "old customer filled")")
+        }
+        guard let i = picked else {
             // typed on past an old customer's name («Đại lý Mẫu» → «Đại lý Mẫu Hai»): the boxes that customer filled
             // are emptied again, or the new customer would go out with the old one's phone (and be merged with them)
             if let old = filledFrom {

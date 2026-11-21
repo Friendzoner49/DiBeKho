@@ -478,10 +478,19 @@ struct ComboField: View {
                 .frame(minWidth: 300 * UI.scale, maxWidth: .infinity)
             if !items.isEmpty {
                 Menu("▾") {
-                    ForEach(items, id: \.self) { item in Button(item) { text = item } }
+                    ForEach(items, id: \.self) { item in Button(item) { pick(item) } }
                 }
                 .frame(width: 50)
+                .accessibilityIdentifier("combo-menu")
             }
         }
+    }
+
+    /// A pick from ▾: the text box is still being edited (its field editor holds what was typed, often nothing), and
+    /// when it lost the focus later it wrote that back over the pick, so the customer's details never stayed (user,
+    /// 21/11/2026). The editing ends first (the typed text is committed now), then the pick is set.
+    private func pick(_ item: String) {
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        DispatchQueue.main.async { text = item }
     }
 }
