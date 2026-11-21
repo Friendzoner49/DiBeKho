@@ -46,7 +46,8 @@ enum Windows {
         let box = WindowBox()
         box.modal = modal
         let host = NSHostingController(rootView: content(box).environmentObject(box)
-            .font(.system(size: UI.baseSize)).buttonStyle(AppButtonStyle()).padding(14))
+            .font(.system(size: UI.baseSize)).buttonStyle(AppButtonStyle())
+            .groupBoxStyle(SoftGroupBoxStyle()).padding(14))
         host.sizingOptions = []  // the window keeps the size given here, not the content's ideal size
         let window = NSWindow(contentViewController: host)
         window.title = title

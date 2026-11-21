@@ -32,7 +32,7 @@ struct ContentView: View {
             }
             .padding(6)
             .frame(width: 200)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+            .background(SoftRect().fill(Color(nsColor: .controlBackgroundColor)))
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -62,6 +62,7 @@ struct ContentView: View {
         .padding(10)
         .font(.system(size: UI.baseSize))
         .buttonStyle(AppButtonStyle())
+        .groupBoxStyle(SoftGroupBoxStyle())
         .frame(minWidth: 900, idealWidth: 1280 * UI.scale, minHeight: 600, idealHeight: 800 * UI.scale)
         .sheet(isPresented: $model.firstRun) { FirstRunSheet(model: model) }
         .onAppear {
@@ -293,7 +294,7 @@ struct SearchPage: View {
                     },
                     onOpen: { i in model.openProduct(found.products[i]["id"]) })
             }
-            .frame(minHeight: 110)
+            .frame(minHeight: 90)  // 3 boxes + the tab bar still fit a small window (CI 1024×768)
     }
 
     private func customersBox(_ found: Lookup.Found) -> some View {
@@ -309,7 +310,7 @@ struct SearchPage: View {
                     onOpen: { i in model.openCustomer(found.customers[i]["id"]) },
                     stretch: 3)
             }
-            .frame(minHeight: 110)
+            .frame(minHeight: 90)  // 3 boxes + the tab bar still fit a small window (CI 1024×768)
     }
 
     private func documentsBox(_ found: Lookup.Found) -> some View {
@@ -325,7 +326,7 @@ struct SearchPage: View {
                     onOpen: { i in model.openOrder(found.documents[i]["id"]) },
                     stretch: 3)
             }
-            .frame(minHeight: 110)
+            .frame(minHeight: 90)  // 3 boxes + the tab bar still fit a small window (CI 1024×768)
     }
 }
 

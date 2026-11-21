@@ -229,3 +229,16 @@ Làm trên **dữ liệu đang dùng** (Cloud không chạy trên bản thử). 
 - Bấm ⌘F khi đang ở tab danh mục: quay về ô tìm kiếm.
 - **Cài đặt**: tab thứ hai đổi tên thành «Tên trên phiếu đã học», chỉ còn khung đó, chiếm cả trang.
 - Khác bản Python có chủ đích: bản Python vẫn để danh mục ở Cài đặt.
+
+## 20. Bo góc các phần lớn (viết 21/11 theo yêu cầu chủ dự án; ⚠ chưa biên dịch)
+
+- Bảng dữ liệu, các khung có tiêu đề, bảng dòng hàng trong phiếu, biểu đồ thống kê và cột trang bên trái được bo góc. Độ bo bằng 10% cạnh ngắn của phần đó, tối đa 12 pt. Nút giữ nguyên.
+- Bảng dữ liệu có thêm viền mảnh để thấy góc bo; viền đổi màu theo chế độ sáng/tối.
+- Cần xem: góc bảng không bị cắt mất thanh cuộn hay tiêu đề cột; khung trong Cài đặt → Cloud và Tra cứu không bị lệch.
+
+## 21. Phiếu xuất kho bằng nhân dân tệ (viết 21/11 theo yêu cầu chủ dự án; ⚠ chưa biên dịch)
+
+- Công tắc góc trái dưới ở **¥** (giao diện tiếng Việt hay tiếng Trung đều vậy) thì **Phiếu xuất kho…** mới là phiếu tệ: gõ giá bằng ¥, lưu bằng ¥, file Excel ghi giá và tổng bằng ¥, dòng bằng chữ ghi "… NHÂN DÂN TỆ". Đơn này nằm ở cột tiền tệ trong Đơn hàng.
+- Hộp hỏi trước khi lưu hiện số ¥ kèm số ₫ xấp xỉ.
+- Sửa một phiếu đã lưu: phiếu giữ đúng loại tiền lúc lưu, dù công tắc đang ở đâu.
+- Cần xem: mở file phiếu tệ bằng Excel/Numbers thấy ký hiệu ¥ và 2 số lẻ; phiếu hiện ở cột **Tiền hàng (CNY)** trong Đơn hàng.

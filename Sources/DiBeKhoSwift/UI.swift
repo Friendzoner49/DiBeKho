@@ -157,8 +157,62 @@ extension View {
     /// The white, framed area of a Qt table around a hand-made one
     func tableBox() -> some View {
         self.background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.2)))
+            .clipShape(SoftRect())
+            .overlay(SoftRect().stroke(Color.primary.opacity(0.2)))
+    }
+}
+
+/// The corner of a big area (tables, frames, the page list, the chart): 10% of its shorter side, at most 12 pt (the
+/// owner, 21/11/2026: rounded areas are easier on the eye). Buttons keep their own corners.
+struct SoftRect: InsettableShape {
+    var inset: CGFloat = 0
+    func path(in rect: CGRect) -> Path {
+        let area = rect.insetBy(dx: inset, dy: inset)
+        return RoundedRectangle(cornerRadius: UI.softRadius(area.size)).path(in: area)
+    }
+    func inset(by amount: CGFloat) -> SoftRect {
+        var shape = self
+        shape.inset += amount
+        return shape
+    }
+}
+
+extension UI {
+    static func softRadius(_ size: CGSize) -> CGFloat { min(12, max(0, min(size.width, size.height)) * 0.1) }
+}
+
+/// Every GroupBox of the app (set with AppButtonStyle): its title, then its contents on a light frame with SoftRect
+/// corners, as the macOS group box but rounder.
+struct SoftGroupBoxStyle: GroupBoxStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            configuration.label
+            configuration.content
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .background(SoftRect().fill(Color.primary.opacity(0.04)))
+                .overlay(SoftRect().stroke(Color.primary.opacity(0.14)))
+        }
+    }
+}
+
+/// The scroll view of a DataTable: its corners rounded as SoftRect, with a thin frame (an AppKit view: a layer, not
+/// a SwiftUI shape, so the radius is set again whenever its size changes).
+final class SoftScrollView: NSScrollView {
+    override func layout() {
+        super.layout()
+        wantsLayer = true
+        layer?.cornerRadius = UI.softRadius(bounds.size)
+        layer?.masksToBounds = true
+        layer?.borderWidth = 1
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            self.layer?.borderColor = UI.themed(0xC8C8C8, 0x4A4A4A).cgColor
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsLayout = true  // the frame colour follows light / dark mode
     }
 }
 

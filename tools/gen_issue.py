@@ -37,7 +37,7 @@ from dibekho.core.receipts import NewProduct, ReceiptInput, ReceiptLineInput  # 
 from dibekho.core.stock import MAIN, OFFICE  # noqa: E402
 from dibekho.core.text import matches_words, unaccent  # noqa: E402
 from dibekho.core.workspace import Workspace  # noqa: E402
-from dibekho.excel.issue_note import number_text, vnd_words  # noqa: E402
+from dibekho.excel.issue_note import cny_words, number_text, vnd_words  # noqa: E402
 from dibekho.excel.receipt import read_receipt, write_template  # noqa: E402
 from note_lines import note_lines, swift_str  # noqa: E402
 from xlsx_dump import dump as dump_xlsx  # noqa: E402
@@ -238,6 +238,19 @@ levels("after_edit")
 checks.append("edit_load_again=" + head_of(issues.load(conn, doc4)[1]) + "|" + lines_of(issues.load(conn, doc4)[1]))
 checks.append("new_code_after_edit=" + issues.new_code(conn))
 scan("after_edit")
+
+# a yuan note (user, 21/11/2026): the prices as typed, the file in CNY, the document CNY with the window's rate
+cny_doc = issue_save("issue_cny", IssueInput(
+    date(2026, 11, 17), "Công ty A", "0900 000 001", "", "", "", "", [
+        IssueLineInput(1, 1.0, 0.0, 101.5, ""), IssueLineInput(2, 2.0, 0.0, 12.25, "")], currency="CNY", fx_rate=3800.0))
+money_row = conn.execute("SELECT currency, fx_rate FROM documents WHERE id = ?", (cny_doc,)).fetchone()
+checks.append(f"issue_cny_money={money_row[0]}|{canon(money_row[1])}")
+cny_loaded = issues.load(conn, cny_doc)[1]
+checks.append(f"issue_cny_load={cny_loaded.currency}|{canon(cny_loaded.fx_rate)}|{lines_of(cny_loaded)}")
+checks.append("last_price_cny=" + ",".join(canon(issues.last_price(conn, "Công ty A", p, cur, r)) for p, cur, r in (
+    (1, "CNY", None), (1, "VND", None), (1, "VND", 4000.0), (3, "CNY", 4000.0), (3, "CNY", None))))
+checks.append("cny_words=" + ",".join(cny_words(a) for a in (0, 0.07, 12, 1250.5, 2376000.99)))
+levels("after_cny")
 
 # the customer's own details (Sửa thông tin khách hàng)
 def customer_line(cid: int) -> str:

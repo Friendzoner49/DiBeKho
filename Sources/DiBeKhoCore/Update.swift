@@ -4,10 +4,11 @@ import Foundation
 /// Looking for a newer version and fetching it (Python core/update.py). The app asks GitHub's releases API (no account,
 /// a generic User-Agent). A release is offered only when its tag is newer than this build AND the file for this Mac is
 /// already attached. The download resumes with HTTP Range and is used only when its size (and sha256, when GitHub gives
-/// one) is the announced one. ⚠ Not compiled. The Swift app's repository is private for now: GitHub answers 404 without
-/// an account, so the check says "could not check" until the releases are public (DIBEKHO_UPDATE_URL replaces the address).
+/// one) is the announced one. Since 21/11/2026 the Swift app's file DiBeKho-Swift-mac-arm64.dmg is attached to the public
+/// release of the Python app (same tag, same version), built from the branch Mac_swift (DIBEKHO_UPDATE_URL replaces the
+/// address).
 public enum Update {
-    public static let releasesURL = "https://api.github.com/repos/Friendzoner49/DiBeKho-mac/releases/latest"
+    public static let releasesURL = "https://api.github.com/repos/Friendzoner49/DiBeKho/releases/latest"
     public static let assetName = "DiBeKho-Swift-mac-arm64.dmg"
     public static let userAgent = "DiBeKho-app"
 

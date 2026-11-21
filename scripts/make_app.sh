@@ -10,6 +10,11 @@ rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/DiBeKhoSwift" "$APP/Contents/MacOS/DiBeKhoSwift"
 cp packaging/Info.plist "$APP/Contents/Info.plist"
+# The version: the release tag when CI builds a release (v0.6.3 -> 0.6.3, the same number as the Python app, which the
+# update check compares with the tag); packaging/Info.plist's otherwise
+if [ -n "${DIBEKHO_VERSION:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${DIBEKHO_VERSION#v}" "$APP/Contents/Info.plist"
+fi
 # The icon (yellow tile, blue warehouse: told apart from the Python app's blue one) from packaging/AppIcon.png,
 # drawn by tools/make_icon.py from packaging/dibekho-swift.svg
 ICONSET="$(mktemp -d)/AppIcon.iconset"

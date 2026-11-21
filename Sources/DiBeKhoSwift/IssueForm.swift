@@ -8,7 +8,8 @@ import SwiftUI
 /// tổng and how many from Văn phòng (both may be filled), with the price (the customer's last one is filled in). The
 /// same product may stand on several lines. 'Lưu phiếu' writes the Excel file (output/phieu-xuat/) and lowers the stock
 /// at once (Issues.save). A row may be '★ Mặt hàng mới': a product not in the catalog yet, made on save.
-/// While the ₫ | ¥ switch shows yuan, the prices are typed in yuan (as in Python); the note is always saved in dong. ⚠ Not compiled.
+/// While the ₫ | ¥ switch shows yuan, the note is a yuan note (as in Python, user 21/11/2026): prices typed and saved in
+/// yuan, the file in yuan (CNY); a note being edited keeps its own currency. ⚠ Not compiled.
 @MainActor
 enum IssueForm {
     /// docId: a recorded note (A… / W…) being corrected, with its own code (customer's request 19/11/2026)
@@ -39,8 +40,6 @@ struct IssueFormRow: Identifiable {
     var price = ""
     /// typed by the user: the app no longer fills it in
     var priceTyped = false
-    /// the price the app filled in, exact in dong (the box may show yuan); nil once the user typed in the box
-    var priceVnd: Double?
     var note = ""
 
     var mainValue: Double { max(0, pythonRound2(parseNumber(main) ?? 0)) }
@@ -73,32 +72,30 @@ struct IssueFormView: View {
     @State private var levels: [Ledger.PlaceKey: Double] = [:]
     @State private var saved = false
     @State private var loaded = false
-    /// while the ₫ | ¥ switch shows yuan, the prices are typed in yuan at the rate the window opened with (Python issue_form.py)
-    @State private var rate: FX.Rate? = FX.inCny ? FX.rate : nil
+    /// the switch and the rate when the window opened (Python issue_form.py: a new note while the switch shows yuan is a
+    /// yuan note)
+    @State private var openedInCny = FX.inCny
+    @State private var openedRate: Double? = FX.rate?.vndPerCny
 
     static let startRows = 3
 
-    /// the row's price in dong, as it is saved
-    private func priceVnd(_ row: IssueFormRow) -> Double? {
-        guard let shown = row.priceValue else { return nil }
-        guard let rate else { return shown }
-        if let exact = row.priceVnd, exact != 0 { return exact }
-        return (shown * rate.vndPerCny).rounded(.toNearestOrEven)
+    /// a yuan note: new while the switch showed yuan, or an edited note recorded in yuan
+    private var cny: Bool { old.map { $0.currency == "CNY" } ?? openedInCny }
+    /// dong for one yuan: only to show '≈ … ₫' (and to turn a last price of the other currency)
+    private var vndPerCny: Double? {
+        if let old, old.currency == "CNY", let own = old.fxRate { return own }
+        return openedRate
     }
 
-    private func moneyText(_ vnd: Double) -> String {
-        guard let rate else { return Format.dong(vnd) }
-        return Format.yuan(vnd / rate.vndPerCny)
-    }
+    /// the row's price as typed and saved: dong, or yuan on a yuan note
+    private func rowPrice(_ row: IssueFormRow) -> Double? { row.priceValue }
 
-    /// before saving the user sees yuan as typed and the dong the note will carry
-    private func both(_ vnd: Double) -> String {
-        rate == nil ? Format.dong(vnd) : "\(moneyText(vnd)) = \(Format.dong(vnd)) ₫"
-    }
+    private func moneyText(_ amount: Double) -> String { cny ? Format.yuan(amount) : Format.dong(amount) }
 
-    private func shownPrice(_ vnd: Double) -> String {
-        guard let rate else { return Self.plain(vnd) }
-        return Self.plain(pythonRound2(vnd / rate.vndPerCny))
+    /// before saving the user sees dong, or the yuan of the note and about how many dong
+    private func both(_ amount: Double) -> String {
+        guard cny, let rate = vndPerCny else { return moneyText(amount) }
+        return "\(moneyText(amount)) ≈ \(Format.dong((amount * rate).rounded())) ₫"
     }
 
     /// 390000, 390.000 (dots between thousands), 512500.5 or 512500,5
@@ -157,7 +154,7 @@ struct IssueFormView: View {
                     TextField("", text: $email).textFieldStyle(.roundedBorder)
                 }
             }
-            if let rate { Hint(t("issue.cny_hint", ["rate": Format.dong(rate.vndPerCny.rounded())])) }
+            if cny { Hint(t("issue.cny_hint", ["rate": vndPerCny.map { Format.dong($0.rounded()) } ?? "—"])) }
             Text(t("issue.step_lines"))
             lines
             HStack {
@@ -201,8 +198,8 @@ struct IssueFormView: View {
                     Text(t("issue.take", ["place": t("loc.main")])).formHeader(W.take)
                     Text(t("issue.have", ["place": t("loc.office")])).formHeader(W.have)
                     Text(t("issue.take", ["place": t("loc.office")])).formHeader(W.take)
-                    Text(t(rate == nil ? "issue.price" : "issue.price_cny")).formHeader(W.price)
-                    Text(t(rate == nil ? "issue.amount" : "issue.amount_cny")).formHeader(W.amount)
+                    Text(t(cny ? "issue.price_cny" : "issue.price")).formHeader(W.price)
+                    Text(t(cny ? "issue.amount_cny" : "issue.amount")).formHeader(W.amount)
                     Text(t("col.note")).formHeader(W.note)
                     Text("").formHeader(W.remove)
                 }
@@ -232,7 +229,7 @@ struct IssueFormView: View {
                         Text(haveText(row, Ledger.office)).foregroundColor(over(row, Ledger.office) ? Color.red : .primary)
                             .formCell(W.have, .trailing, grey: true)
                         StepField(text: $row.office).formCell(W.take, padded: false)
-                        StepField(text: Binding(get: { row.price }, set: { row.price = $0; row.priceTyped = true; row.priceVnd = nil }),
+                        StepField(text: Binding(get: { row.price }, set: { row.price = $0; row.priceTyped = true }),
                                   parse: { Self.parsePrice($0) })
                             .formCell(W.price, padded: false)
                         Text(amountText(row)).lineLimit(1).formCell(W.amount, .trailing, grey: true)
@@ -253,7 +250,7 @@ struct IssueFormView: View {
     private func unit(_ row: IssueFormRow) -> String { row.new?.unit ?? row.productId.flatMap { products[$0]?.unit } ?? "" }
 
     private func amountText(_ row: IssueFormRow) -> String {
-        guard let price = priceVnd(row), row.qty > 0 else { return "" }
+        guard let price = rowPrice(row), row.qty > 0 else { return "" }
         return moneyText(pythonRound2(row.qty * price))
     }
 
@@ -291,7 +288,6 @@ struct IssueFormView: View {
         rows[i].productId = nil
         rows[i].new = nil
         rows[i].price = ""
-        rows[i].priceVnd = nil
         rows[i].priceTyped = false
     }
 
@@ -307,7 +303,6 @@ struct IssueFormView: View {
         rows[i].productId = nil
         rows[i].new = made
         rows[i].price = ""
-        rows[i].priceVnd = nil
         rows[i].priceTyped = false
         afterPick(id)
     }
@@ -324,9 +319,9 @@ struct IssueFormView: View {
     private func fillPrice(_ i: Int) {
         guard !rows[i].priceTyped, let pid = rows[i].productId else { return }
         let name = customerName()
-        let price = model.read { try Issues.lastPrice($0, customerName: name, productId: pid) } ?? nil
-        rows[i].price = price.map { shownPrice($0) } ?? ""
-        rows[i].priceVnd = price
+        let currency = cny ? "CNY" : "VND", rate = vndPerCny
+        let price = model.read { try Issues.lastPrice($0, customerName: name, productId: pid, currency: currency, vndPerCny: rate) } ?? nil
+        rows[i].price = price.map { Self.plain($0) } ?? ""
     }
 
     /// the next empty row is there when the last one was just filled
@@ -386,8 +381,9 @@ struct IssueFormView: View {
                      taxCode: taxCode, email: email,
                      lines: rows.map { r in
                          Issues.LineInput(productId: r.productId, qtyMain: r.mainValue, qtyOffice: r.officeValue,
-                                          unitPrice: priceVnd(r), note: r.note, new: r.new)
-                     })
+                                          unitPrice: rowPrice(r), note: r.note, new: r.new)
+                     },
+                     currency: cny ? "CNY" : "VND", fxRate: cny ? vndPerCny : nil)
     }
 
     private func load() {
@@ -424,8 +420,7 @@ struct IssueFormView: View {
             r.productId = ln.productId
             r.main = ln.qtyMain == 0 ? "" : Self.plain(ln.qtyMain)
             r.office = ln.qtyOffice == 0 ? "" : Self.plain(ln.qtyOffice)
-            r.price = ln.unitPrice.map { shownPrice($0) } ?? ""
-            r.priceVnd = ln.unitPrice
+            r.price = ln.unitPrice.map { Self.plain($0) } ?? ""
             r.priceTyped = true
             r.note = ln.note
             return r

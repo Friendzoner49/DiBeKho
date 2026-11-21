@@ -18,6 +18,8 @@ public enum IssueNote {
     ]
     static let headers = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
                           "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"]
+    /// a yuan note (the ₫ | ¥ switch on ¥, user 21/11/2026): the signs the reader takes for yuan (issue_note.HEADERS_CNY)
+    static let headersCny = Array(headers[0..<4]) + ["单 价\nCNY", "金 额\nCNY"] + Array(headers[6...])
     static let places: [Int64: String] = [1: "Kho tổng 总仓", 2: "Văn phòng 办公室"]
     static let wordsLabel = "总计大写\n (Tổng cộng viết bằng chữ)"
     static let qtyLabel = "页小计 \n( Tổng số lượng ):\n"
@@ -32,6 +34,7 @@ public enum IssueNote {
     static let heights: [Int: Double] = [1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, 9: 54.0]
     static let lineHeight = 152.0, totalHeight = 83.0, signHeight = 43.75  // the template of 18/11/2026
     static let money = "[$VND]\\ #,##0"
+    static let moneyCny = "[$¥]\\ #,##0.00"
     static let times = "Times New Roman"
 
     public struct Row {
@@ -63,11 +66,14 @@ public enum IssueNote {
         public var email = ""
         /// company name, address (from the shop's delivery notes)
         public var letterhead: [String] = []
+        /// "CNY": the prices are yuan
+        public var currency = "VND"
         public init(code: String, date: String, customer: String, phone: String = "", contact: String = "",
-                    address: String = "", taxCode: String = "", email: String = "", letterhead: [String] = []) {
+                    address: String = "", taxCode: String = "", email: String = "", letterhead: [String] = [],
+                    currency: String = "VND") {
             self.code = code; self.date = date; self.customer = customer; self.phone = phone
             self.contact = contact; self.address = address; self.taxCode = taxCode; self.email = email
-            self.letterhead = letterhead
+            self.letterhead = letterhead; self.currency = currency
         }
     }
 
@@ -105,11 +111,10 @@ public enum IssueNote {
         return words
     }
 
-    /// 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG', as the shop writes it.
-    public static func vndWords(_ amount: Double) -> String {
-        var n = Int((amount + 0.5).rounded(.down))
-        if n < 0 { return "" }
-        if n == 0 { return "KHÔNG VIỆT NAM ĐỒNG" }
+    /// 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN' (issue_note._number_words, n >= 0).
+    static func numberWords(_ number: Int) -> String {
+        var n = number
+        if n == 0 { return "KHÔNG" }
         var groups: [Int] = []
         repeat {
             groups.append(n % 1000)
@@ -121,7 +126,21 @@ public enum IssueNote {
             words += three(groups[i], full: !words.isEmpty)
             if !units[i].isEmpty { words.append(units[i]) }
         }
-        return words.joined(separator: " ").uppercased() + " VIỆT NAM ĐỒNG"
+        return words.joined(separator: " ").uppercased()
+    }
+
+    /// 2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG', as the shop writes it.
+    public static func vndWords(_ amount: Double) -> String {
+        let n = Int((amount + 0.5).rounded(.down))
+        return n < 0 ? "" : numberWords(n) + " VIỆT NAM ĐỒNG"
+    }
+
+    /// 1250.5 -> 'MỘT NGHÌN HAI TRĂM NĂM MƯƠI NHÂN DÂN TỆ NĂM MƯƠI XU' (issue_note.cny_words; 1 ¥ = 100 xu).
+    public static func cnyWords(_ amount: Double) -> String {
+        let cents = Int((amount * 100 + 0.5).rounded(.down))
+        if cents < 0 { return "" }
+        let whole = cents / 100, fen = cents % 100
+        return numberWords(whole) + " NHÂN DÂN TỆ" + (fen > 0 ? " \(numberWords(fen)) XU" : "")
     }
 
     /// About how many lines a wrapped cell takes (Excel does not grow a row a program wrote).
@@ -136,7 +155,8 @@ public enum IssueNote {
     }
 
     static func style(size: Double = 15, border: Bool = false, align: String = "center", wrap: Bool = true,
-                      money isMoney: Bool = false, font: String = times, underline: Bool = false) -> XStyle {
+                      money isMoney: Bool = false, font: String = times, underline: Bool = false,
+                      moneyFormat: String = money) -> XStyle {
         var s = XStyle()
         s.fontName = font
         s.fontSize = size
@@ -147,13 +167,15 @@ public enum IssueNote {
         s.shrink = isMoney
         s.box = border
         if underline { s.borderBottom = true }
-        if isMoney { s.numberFormat = money }
+        if isMoney { s.numberFormat = moneyFormat }
         return s
     }
 
     /// The note as a sheet. webapp/xlsx.js issueSheet builds the same cells.
     public static func sheet(_ head: Head, _ rows: [Row]) -> XSheet {
         var sh = XSheet(name: sheetName)
+        let cny = head.currency == "CNY"
+        let format = cny ? moneyCny : money
         func put(_ r: Int, _ c: Int, _ value: String?, _ s: XStyle) {
             sh.put(r, c, value.map { .text($0) } ?? .empty, s)
         }
@@ -176,7 +198,7 @@ public enum IssueNote {
         put(8, 1, labels["address"]! + head.address, style(size: 14, align: "left", underline: true))
         for c in 2...7 { put(8, c, nil, style(size: 14, align: "left", underline: true)) }
         sh.merges += ["A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C7:E7", "F7:G7", "A8:E8"]
-        for (i, text) in headers.enumerated() { put(headerRow, i + 1, text, style(border: i + 1 <= 7)) }
+        for (i, text) in (cny ? headersCny : headers).enumerated() { put(headerRow, i + 1, text, style(border: i + 1 <= 7)) }
         var r = headerRow
         var qtyTotal = 0.0, moneyTotal = 0.0, priced = false
         for (i, ln) in rows.enumerated() {
@@ -186,8 +208,8 @@ public enum IssueNote {
             put(r, 2, name, style(border: true))
             put(r, 3, ln.spec.isEmpty ? nil : ln.spec, style(size: 18, border: true))
             putNumber(r, 4, ln.qty, style(size: 18, border: true))
-            putNumber(r, 5, ln.unitPrice, style(size: 18, border: true, wrap: false, money: true))
-            putNumber(r, 6, ln.amount, style(size: 18, border: true, wrap: false, money: true))
+            putNumber(r, 5, ln.unitPrice, style(size: 18, border: true, wrap: false, money: true, moneyFormat: format))
+            putNumber(r, 6, ln.amount, style(size: 18, border: true, wrap: false, money: true, moneyFormat: format))
             put(r, 7, ln.note.isEmpty ? nil : ln.note, style(border: true))
             put(r, 8, "\(ln.code)|\(ln.spec)|\(name)", style(size: 11, wrap: false))  // trusted while the row is unchanged
             let where_ = placesText(ln.places)
@@ -203,11 +225,11 @@ public enum IssueNote {
         }
         r += 1
         put(r, 1, wordsLabel, style(border: true, font: song))
-        put(r, 2, priced ? vndWords(moneyTotal) : nil, style(border: true))
+        put(r, 2, priced ? (cny ? cnyWords(moneyTotal) : vndWords(moneyTotal)) : nil, style(border: true))
         put(r, 3, nil, style(border: true))
         put(r, 4, qtyLabel + numberText(qtyTotal), style(border: true, font: song))
         put(r, 5, nil, style(border: true))
-        putNumber(r, 6, priced ? moneyTotal : nil, style(size: 18, border: true, wrap: false, money: true))
+        putNumber(r, 6, priced ? moneyTotal : nil, style(size: 18, border: true, wrap: false, money: true, moneyFormat: format))
         put(r, 7, nil, style(border: true))
         sh.merges.append("B\(r):C\(r)")
         sh.rowHeights[r] = totalHeight

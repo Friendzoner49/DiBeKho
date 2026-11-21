@@ -166,6 +166,6 @@ struct StatsChart: View {
             .chartXAxis { AxisMarks(values: shownLabels(bars)) }
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+        .background(SoftRect().fill(Color(nsColor: .textBackgroundColor)))
     }
 }

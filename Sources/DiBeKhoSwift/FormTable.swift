@@ -27,8 +27,8 @@ struct FormTableBox<Content: View>: View {
             }
         }
         .background(FormTable.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(FormTable.line))
+        .clipShape(SoftRect())
+        .overlay(SoftRect().stroke(FormTable.line))
         .frame(minHeight: 200)
     }
 }

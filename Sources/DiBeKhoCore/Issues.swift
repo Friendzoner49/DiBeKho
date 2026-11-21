@@ -44,10 +44,16 @@ public enum Issues {
         public var taxCode = ""
         public var email = ""
         public var lines: [LineInput] = []
+        /// "CNY": the prices are yuan, as typed while the ₫ | ¥ switch shows yuan (user, 21/11/2026); the note is
+        /// written and recorded in yuan. fxRate: dong for one yuan the window used, kept on the document.
+        public var currency = "VND"
+        public var fxRate: Double?
         public init(date: String, customerName: String, phone: String = "", contact: String = "", address: String = "",
-                    taxCode: String = "", email: String = "", lines: [LineInput] = []) {
+                    taxCode: String = "", email: String = "", lines: [LineInput] = [], currency: String = "VND",
+                    fxRate: Double? = nil) {
             self.date = date; self.customerName = customerName; self.phone = phone; self.contact = contact
             self.address = address; self.taxCode = taxCode; self.email = email; self.lines = lines
+            self.currency = currency; self.fxRate = fxRate
         }
         public var filled: [LineInput] { lines.filter { ($0.productId != nil || $0.new != nil) && $0.qty > 0 } }
     }
@@ -135,21 +141,32 @@ public enum Issues {
         return out
     }
 
-    /// The price of this product on the customer's latest order with a price, else on anyone's latest order.
-    public static func lastPrice(_ db: Database, customerName: String, productId: Int64?) throws -> Double? {
+    /// The price of this product on the customer's latest order with a price, else on anyone's latest order, in
+    /// `currency`: a price of a note in the other currency is turned at vndPerCny (else the note's own rate); yuan to
+    /// two decimals, dong whole. nil when it cannot be turned (issues.last_price).
+    public static func lastPrice(_ db: Database, customerName: String, productId: Int64?, currency: String = "VND",
+                                 vndPerCny: Double? = nil) throws -> Double? {
         guard let productId else { return nil }
         let base = """
-            SELECT l.unit_price FROM document_lines l JOIN documents d ON d.id = l.document_id
+            SELECT l.unit_price, d.currency, d.fx_rate FROM document_lines l JOIN documents d ON d.id = l.document_id
             LEFT JOIN customers c ON c.id = d.customer_id
             WHERE d.kind = 'delivery' AND d.status = 'active' AND l.product_id = ? AND l.unit_price IS NOT NULL
             """
         let order = " ORDER BY d.doc_date DESC, d.id DESC, l.line_no LIMIT 1"
         let name = TextRules.clean(customerName)
         if !name.isEmpty,
-           let price = try Double.fetchOne(db, sql: base + " AND c.name = ?" + order, arguments: [productId, name]) {
-            return price
+           let row = try Row.fetchOne(db, sql: base + " AND c.name = ?" + order, arguments: [productId, name]) {
+            return inCurrency(row, currency, vndPerCny)
         }
-        return try Double.fetchOne(db, sql: base + order, arguments: [productId])
+        return try Row.fetchOne(db, sql: base + order, arguments: [productId]).flatMap { inCurrency($0, currency, vndPerCny) }
+    }
+
+    static func inCurrency(_ row: Row, _ currency: String, _ vndPerCny: Double?) -> Double? {
+        let price: Double = row["unit_price"]
+        let own = (row["currency"] as String?) == "CNY" ? "CNY" : "VND"
+        if own == currency { return price }
+        guard let rate = vndPerCny ?? (row["fx_rate"] as Double?), rate != 0 else { return nil }
+        return currency == "CNY" ? pythonRound2(price / rate) : (price * rate).rounded(.toNearestOrEven)
     }
 
     public static func customerChoices(_ db: Database) throws -> [(name: String, phone: String, contact: String, address: String, taxCode: String, email: String)] {
@@ -213,7 +230,8 @@ public enum Issues {
         let head = IssueNote.Head(code: code, date: data.date, customer: TextRules.clean(data.customerName),
                                   phone: TextRules.clean(data.phone), contact: TextRules.clean(data.contact),
                                   address: TextRules.clean(data.address), taxCode: TextRules.clean(data.taxCode),
-                                  email: TextRules.clean(data.email), letterhead: try Deliveries.letterhead(db))
+                                  email: TextRules.clean(data.email), letterhead: try Deliveries.letterhead(db),
+                                  currency: data.currency == "CNY" ? "CNY" : "VND")
         let fm = FileManager.default
         let userCopy = free(f.output.appendingPathComponent(folder).appendingPathComponent("\(filePrefix)\(code).xlsx"))
         try IssueNote.write(userCopy, head, try noteRows(db, data))
@@ -230,6 +248,9 @@ public enum Issues {
             try? fm.removeItem(at: scanned)  // not recorded: the scan must not find it either
             try? fm.removeItem(at: userCopy)
             throw WriteError(message.isEmpty ? "Không ghi được phiếu xuất kho." : message)
+        }
+        if data.currency == "CNY", let rate = data.fxRate {  // the rate the user saw, not the one of the moment the file was read
+            try db.execute(sql: "UPDATE documents SET fx_rate = ? WHERE id = ?", arguments: [rate, docId])
         }
         try Meta.log(db, "issue_note", "\(code) (\(data.filled.count) mặt hàng)")
         return (docId, userCopy)
@@ -358,7 +379,8 @@ public enum Issues {
         }
         let data = Input(date: doc["doc_date"] ?? "", customerName: c?["name"] ?? "", phone: c?["phone"] ?? "",
                          contact: c?["contact"] ?? "", address: c?["address"] ?? "", taxCode: c?["tax_code"] ?? "",
-                         email: c?["email"] ?? "", lines: out)
+                         email: c?["email"] ?? "", lines: out,
+                         currency: (doc["currency"] as String?) == "CNY" ? "CNY" : "VND", fxRate: doc["fx_rate"])
         return (doc["code"] ?? "", data)
     }
 

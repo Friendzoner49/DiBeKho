@@ -171,3 +171,14 @@ So mọi khoá chữ bản Python dùng ở `ui/*.py` và `app.py` với code Sw
 - **Đặt lại / khôi phục sao lưu / nhập gói `.dibekho`** (`reset.*`, `backup.*`, `transfer.*`): bản Swift chỉ cho làm trên bản thử, câu chữ riêng cho bản thử.
 - `license.hint` (bản Python nói về Qt): bản Swift có câu riêng. `note.edit_tip` (gợi ý khi rê chuột ô ghi chú): chưa có. `settings.uninstall_done_win`: chỉ Windows.
 - Khoá ghép tên (`receipt_form.source_*`, `web.kind_*`) có dùng, chỉ là công cụ rà không thấy.
+
+## 21/11/2026: Danh mục mặt hàng ở Tra cứu, phát hành chung với bản Python
+
+- Bản Python và web đã chuyển danh mục sang **Tra cứu → Danh mục mặt hàng** giống bản Swift (`ui/catalog_page.py`). Tab thứ hai của Cài đặt giờ tên «Tên trên phiếu đã học». Khoá `settings.tab_products` đã bỏ khỏi `i18n/*.json`. Swift không dùng khoá này nữa; lần chạy `tools/gen_from_python.py` tới sẽ xoá nó khỏi `Strings.swift`.
+- Từ tag Python kế tiếp (v0.6.3), `build.yml` ở `main` dựng thêm bản Swift từ nhánh `Mac_swift`, rồi đính file `DiBeKho-Swift-mac-arm64.dmg` vào cùng Release. README có nút **macOS Swift** trỏ vào file đó. Số phiên bản app = số của tag (`DIBEKHO_VERSION` → `make_app.sh`), bộ cập nhật hỏi repo công khai `Friendzoner49/DiBeKho`. ⚠ Chưa chạy lần nào trên CI thật.
+
+## 21/11/2026: Phiếu xuất kho bằng nhân dân tệ (cả 3 bản)
+
+- Python, web và Swift: công tắc ở ¥ thì phiếu xuất là phiếu tệ (`IssueInput.currency = "CNY"`, `fx_rate` = tỷ giá của cửa sổ). File Excel: tiêu đề cột giá "CNY", định dạng `[$¥]\ #,##0.00`, chữ "… NHÂN DÂN TỆ … XU". `last_price` đổi giá sang đúng loại tiền. Chuỗi `issue.cny_hint` đổi nội dung (đã sinh lại `Strings.swift`).
+- Golden: `tools/gen_issue.py` thêm phiếu `issue_cny` (+ `XlsxRef/issue_cny.json`); `IssueTests.swift` thêm đúng bước đó. ⚠ Chưa chạy trên CI.
+- Web cần SQL 022 (`web_issue_money`) chạy trên Supabase trước khi tải web lên.

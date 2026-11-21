@@ -81,7 +81,7 @@ struct DataTable: NSViewRepresentable {
             menu.delegate = context.coordinator
             table.menu = menu
         }
-        let scroll = NSScrollView()
+        let scroll = SoftScrollView()  // rounded corners (UI.swift)
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
