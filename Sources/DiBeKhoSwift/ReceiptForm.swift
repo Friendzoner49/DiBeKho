@@ -467,30 +467,69 @@ struct ReceiptFormView: View {
 }
 
 /// An editable combo box (QComboBox.setEditable): type freely or pick one of the listed texts.
+/// It is the Mac's own NSComboBox: a SwiftUI text box with a Menu beside it never handed a pick from the menu to the
+/// form (user, 21/11/2026: picking an old customer filled nothing; seen again on CI with real clicks).
 struct ComboField: View {
     @Binding var text: String
     let placeholder: String
     let items: [String]
 
     var body: some View {
-        HStack(spacing: 4) {
-            TextField(placeholder, text: $text).textFieldStyle(.roundedBorder)
-                .frame(minWidth: 300 * UI.scale, maxWidth: .infinity)
-            if !items.isEmpty {
-                Menu("▾") {
-                    ForEach(items, id: \.self) { item in Button(item) { pick(item) } }
-                }
-                .frame(width: 50)
-                .accessibilityIdentifier("combo-menu")
-            }
-        }
+        NativeCombo(text: $text, placeholder: placeholder, items: items)
+            .frame(minWidth: 300 * UI.scale, maxWidth: .infinity)
+    }
+}
+
+private struct NativeCombo: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let items: [String]
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSComboBox {
+        let box = NSComboBox()
+        box.usesDataSource = false
+        box.isEditable = true
+        box.completes = false  // a typed old name is matched whole by the form, not completed under the user's hands
+        box.numberOfVisibleItems = 20
+        box.font = NSFont.systemFont(ofSize: UI.baseSize)
+        box.delegate = context.coordinator
+        return box
     }
 
-    /// A pick from ▾: the text box is still being edited (its field editor holds what was typed, often nothing), and
-    /// when it lost the focus later it wrote that back over the pick, so the customer's details never stayed (user,
-    /// 21/11/2026). The editing ends first (the typed text is committed now), then the pick is set.
-    private func pick(_ item: String) {
-        NSApp.keyWindow?.makeFirstResponder(nil)
-        DispatchQueue.main.async { text = item }
+    func updateNSView(_ box: NSComboBox, context: Context) {
+        context.coordinator.parent = self
+        if (box.objectValues as? [String]) != items {
+            box.removeAllItems()
+            box.addItems(withObjectValues: items)
+        }
+        if box.stringValue != text { box.stringValue = text }
+        box.placeholderString = placeholder
+    }
+
+    final class Coordinator: NSObject, NSComboBoxDelegate {
+        var parent: NativeCombo
+
+        init(_ parent: NativeCombo) { self.parent = parent }
+
+        /// typed
+        func controlTextDidChange(_ note: Notification) {
+            guard let box = note.object as? NSComboBox, parent.text != box.stringValue else { return }
+            parent.text = box.stringValue
+        }
+
+        /// picked from the list (the box's own text is not updated yet when this arrives)
+        func comboBoxSelectionDidChange(_ note: Notification) {
+            guard let box = note.object as? NSComboBox, box.indexOfSelectedItem >= 0,
+                  let item = box.itemObjectValue(at: box.indexOfSelectedItem) as? String else { return }
+            box.stringValue = item
+            if parent.text != item { parent.text = item }
+        }
+
+        func controlTextDidEndEditing(_ note: Notification) {
+            guard let box = note.object as? NSComboBox, parent.text != box.stringValue else { return }
+            parent.text = box.stringValue
+        }
     }
 }
