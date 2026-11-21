@@ -3,7 +3,7 @@ import DiBeKhoCore
 import SwiftUI
 
 /// The box of the first start (app.py FirstRunDialog): the language and the work folder. Shown only on a Mac that has
-/// no config.json and no practice copy; creates the folder, an empty database and config.json, then opens it.
+/// no config.json; creates the folder, an empty database and config.json, then the login follows. Thoát quits.
 struct FirstRunSheet: View {
     @ObservedObject var model: AppModel
     @State private var language = GeneralSettings.savedLanguage()
@@ -30,7 +30,7 @@ struct FirstRunSheet: View {
             Text(t("firstrun.folder_hint")).font(.caption).foregroundColor(.secondary)
             HStack {
                 Spacer()
-                Button(Texts.later) { model.firstRun = false }
+                Button(t("app.quit")) { NSApp.terminate(nil) }
                 Button(t("firstrun.start")) { start() }.keyboardShortcut(.defaultAction)
             }
         }
@@ -55,8 +55,7 @@ struct FirstRunSheet: View {
             try FirstRun.create(folder: folder, language: language)
             UserDefaults.standard.set(language, forKey: GeneralSettings.languageKey)
             L10n.language = language
-            model.firstRun = false
-            model.openLive()
+            model.openAtStart()
         } catch {
             UI.error(UI.message(error))
         }

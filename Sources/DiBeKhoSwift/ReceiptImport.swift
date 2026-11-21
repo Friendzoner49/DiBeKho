@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 enum ReceiptImport {
     /// Hàng về → Chọn file để nhập…
     static func pickFile(_ model: AppModel) {
-        guard model.writable, let folders = model.folders else { return UI.error(Texts.readOnly) }
+        guard model.writable, let folders = model.folders else { return UI.error(Texts.notOpen) }
         let panel = NSOpenPanel()
         panel.title = t("receipts.pick_file")
         panel.allowedContentTypes = [UTType(filenameExtension: "xlsx") ?? .data]
@@ -79,7 +79,7 @@ struct ReceiptReviewView: View {
     }
 
     private func confirm() {
-        guard let folders = model.folders else { return UI.error(Texts.readOnly) }
+        guard let folders = model.folders else { return UI.error(Texts.notOpen) }
         let it = item
         guard model.write("receipt", { try Inbox.applyReceipt($0, it) }) != nil else { return }
         Inbox.done(folders, item.url)  // a file chosen from elsewhere stays where it is

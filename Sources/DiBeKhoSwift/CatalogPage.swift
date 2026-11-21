@@ -9,7 +9,7 @@ enum CatalogScreens {
     /// Thêm / Sửa mặt hàng: true when saved. A new product that looks like one already there asks first (the user may edit that one).
     @discardableResult
     static func edit(_ model: AppModel, product: Product?) -> Bool {
-        guard model.writable else { UI.error(Texts.readOnly); return false }
+        guard model.writable else { UI.error(Texts.notOpen); return false }
         var typed: ProductValues?
         let categories = model.read { try Catalog.categories($0) } ?? []
         Windows.show(t(product == nil ? "settings.add_product" : "settings.edit_product"), width: 760, height: 420, modal: true) { _ in

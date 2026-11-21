@@ -9,7 +9,7 @@ import SwiftUI
 @MainActor
 enum ReceiptForm {
     static func open(_ model: AppModel, docId: Int64? = nil) {
-        guard model.writable else { return UI.error(Texts.readOnly) }
+        guard model.writable else { return UI.error(Texts.notOpen) }
         var draft: Receipts.Input?
         var dropped = 0
         if docId == nil, var kept = model.receiptDraft {
@@ -417,7 +417,7 @@ struct ReceiptFormView: View {
         // the receipt is recorded; the Excel file to keep or print comes after (a file of the same name open in Excel
         // is no reason to lose the receipt)
         do {
-            guard let folders = model.folders, let queue = model.queue else { throw WriteError(Texts.readOnly) }
+            guard let folders = model.folders, let queue = model.queue else { throw WriteError(Texts.notOpen) }
             let path = try queue.write { try Receipts.exportFile($0, folders, docId: doc) }
             model.changed()
             if UI.ask(t("receipt_form.saved", ["code": code ?? "", "path": path.path])) { UI.open(path) }

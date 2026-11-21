@@ -205,9 +205,9 @@ final class WritesTests: XCTestCase {
         XCTAssertEqual(try q.read { try Self.dump($0, "documents") + Self.dump($0, "products") }, before)
     }
 
-    /// The practice folder: made from a kho.sqlite that stays as it was, written to, still there when opened again.
-    func testThePracticeFolderNeverTouchesTheOriginal() throws {
-        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("practice-\(UUID().uuidString)")
+    /// The screenshots' made-up shop: made from a kho.sqlite that stays as it was, written to, still there when opened again.
+    func testTheDemoShopNeverTouchesTheOriginal() throws {
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("demo-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: temp) }
         let work = temp.appendingPathComponent("shop")
         try FileManager.default.createDirectory(at: work.appendingPathComponent("data/phieu-goc"), withIntermediateDirectories: true)
@@ -220,17 +220,16 @@ final class WritesTests: XCTestCase {
         try original.close()
         let before = try Data(contentsOf: source)
 
-        Practice.folderOverride = temp.appendingPathComponent("BanThu")
-        defer { Practice.folderOverride = nil }
-        try Practice.make(from: source)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: Practice.deliveries.appendingPathComponent("a.xlsx").path))
-        var q = try Practice.open()
+        DemoShop.folderOverride = temp.appendingPathComponent("Demo")
+        defer { DemoShop.folderOverride = nil }
+        try DemoShop.make(from: source)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: DemoShop.deliveries.appendingPathComponent("a.xlsx").path))
+        var q = try DemoShop.open()
         _ = try q.write { try Ledger.transfer($0, date: "2026-11-14", from: 1, to: 2, lines: [LedgerLine(1, 3)]) }
         try q.close()
         XCTAssertEqual(try Data(contentsOf: source), before, "the original was written")
-        q = try Practice.open()
+        q = try DemoShop.open()
         XCTAssertEqual(try q.read { try Ledger.nextTransferCode($0) }, "CH003")
-        XCTAssertTrue(Practice.origin.contains(source.path))
         try q.close()
         ActivityLog.file = nil
     }

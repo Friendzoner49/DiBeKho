@@ -6,8 +6,8 @@ import GRDB
 /// Python ui/sync_runner.py: two-way sync in the background while the app is open. A round = pull (network) → merge
 /// (database, only at a safe moment) → push (network). A staff account never pushes: it takes the answer about its
 /// request, merges, and sends its queue for the owner's approval when it changed. The window never waits on the network.
-/// Cloud stays OFF until the user signs in or presses "Đồng bộ ngay" once (`allowed`), and never runs on the practice
-/// copy. ⚠ Not compiled and not run against a real Cloud yet.
+/// It runs once the app is signed in and joined to the shared data (AppModel's start, as app.sign_in_and_link).
+/// ⚠ Not run against a real Cloud yet.
 @MainActor
 final class CloudRunner: ObservableObject {
     static let period: TimeInterval = 60      // between rounds when nothing happens here
@@ -38,13 +38,11 @@ final class CloudRunner: ObservableObject {
     private var timer: Timer?
     private var soon: Timer?
 
-    /// Set once the user signs in (or presses "Đồng bộ ngay"); without it nothing here touches the network.
-    static var allowed: Bool {
-        get { UserDefaults.standard.bool(forKey: "cloudAllowed") }
-        set { UserDefaults.standard.set(newValue, forKey: "cloudAllowed") }
-    }
+    /// true once the app is signed in and joined (start, firstRound); nothing here touches the network before
+    private var active = false
 
     func start() {
+        active = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: Self.period, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.round() }
@@ -53,7 +51,7 @@ final class CloudRunner: ObservableObject {
         schedule(after: 3)
     }
 
-    func stop() { timer?.invalidate(); timer = nil; soon?.invalidate(); soon = nil }
+    func stop() { active = false; timer?.invalidate(); timer = nil; soon?.invalidate(); soon = nil }
 
     func schedule(after seconds: TimeInterval) {
         soon?.invalidate()
@@ -64,7 +62,7 @@ final class CloudRunner: ObservableObject {
 
     /// Called after every change made here.
     func changedHere() {
-        guard Self.allowed, !busy, model?.live == true else { return }
+        guard active, !busy, model?.live == true else { return }
         schedule(after: Self.afterChange)
     }
 
@@ -134,7 +132,7 @@ final class CloudRunner: ObservableObject {
     }
 
     private func run(tries: Int) async {
-        guard Self.allowed, !busy, let model, model.live, let queue = model.queue else { return }
+        guard active, !busy, let model, model.live, let queue = model.queue else { return }
         guard let cfg = CloudConfig.load(), cfg.hasSavedSession else { return }
         busy = true
         let staff = cfg.isStaff
@@ -251,7 +249,6 @@ final class CloudRunner: ObservableObject {
     func syncNow() async {
         guard let model, model.live, let queue = model.queue else { UI.error(Texts.noLive); return }
         guard let cfg = CloudConfig.load(), cfg.hasSavedSession else { UI.error(t("cloud.need_password")); return }
-        Self.allowed = true
         if timer == nil { start() }
         let first = await linkIfNeeded(queue, cfg)
         if !first { return }
@@ -301,10 +298,13 @@ final class CloudRunner: ObservableObject {
         }
     }
 
-    /// Sign in with the account (the login window), then join (first time) and run a round. Returns the reason the
-    /// account was refused, shown in red in the window as login_dialog.py does; nil when signed in.
-    func signIn(user: String, password: String, url: String, key: String) async -> String? {
-        guard let model, model.live, let queue = model.queue, let backups = model.workFolder?.backups else { return Texts.noLive }
+    /// What signing in leads to (app.sign_in_and_link): stay on the login with the reason in red, quit the app (the
+    /// message was shown already), or open the window, after a first round when the machine has just joined.
+    enum Joined: Equatable { case problem(String), quit, ready(firstRound: Bool) }
+
+    /// Sign in with the account typed in the login window (login_dialog.py), then join the shared data.
+    func signIn(user: String, password: String, url: String, key: String) async -> Joined {
+        guard let model, model.live, let queue = model.queue else { return .problem(Texts.noLive) }
         // read before signing in, which writes the new account into config.json (app.sign_in_and_link)
         let previousUser = CloudConfig.load()?.user ?? ""
         let queuedBefore: Int = (try? await queue.read { db -> Int in
@@ -315,53 +315,77 @@ final class CloudRunner: ObservableObject {
         do {
             session = try await CloudAccount.signIn(username: user, password: password, url: url, key: key)
         } catch {
-            return (error as? CloudError)?.message ?? "\(error)"
+            return .problem((error as? CloudError)?.message ?? "\(error)")
         }
-        let current = CloudConfig.load()?.user ?? user
+        return await join(session, previousUser: previousUser, queuedBefore: queuedBefore)
+    }
+
+    /// app.sign_in_and_link once there is a session: changes another account left here are never sent under this one
+    /// (dropped only when the user says so, else signed out and the app quits); the machine joins the shared data; an
+    /// empty cloud on a staff machine or a refused takeover quits, as in the Python app.
+    func join(_ session: CloudSession, previousUser: String, queuedBefore: Int) async -> Joined {
+        guard let model, model.live, let queue = model.queue, let backups = model.workFolder?.backups else {
+            return .problem(Texts.noLive)
+        }
+        let current = CloudConfig.load()?.user ?? ""
         ActivityLog.write("start", "signed in as \(current) (\(session.role))")
+        var firstRound = false
         if queuedBefore > 0 && !previousUser.isEmpty && previousUser != current {
-            // another account worked here and left changes not on the cloud: never send them under this account
             let text = t("login.other_queue", ["n": String(queuedBefore), "user": previousUser])
             guard Self.dropOtherQueue(text) else {
                 try? CloudAccount.signOut()
-                return text
+                return .quit
             }
             do {
                 _ = try Backups.named(queue, folder: backups, label: "truoc-bo-thay-doi-tai-khoan-khac")
                 try await queue.write { try CloudApproval.discard($0) }
             } catch {
                 try? CloudAccount.signOut()
-                return UI.message(error)
+                UI.error(UI.message(error))
+                return .quit
             }
-            model.changed()
+            firstRound = true
         }
-        Self.allowed = true
-        signedOut = false
-        lastError = ""
-        if timer == nil { start() }
+        let linked: CloudAccount.Link
         do {
-            let result = try await CloudAccount.link(queue, backups: backups, session) {
+            linked = try await CloudAccount.link(queue, backups: backups, session) {
                 await MainActor.run { UI.ask(t("login.confirm_adopt")) }
             }
-            if result == .emptyCloud { UI.info(t("login.empty_cloud")) }
-            if result == .refused { UI.info(t("login.refused")) }
-            if result != .refused && result != .emptyCloud { model.changed(); await run(tries: 3) }
         } catch {
             UI.error((error as? CloudError)?.message ?? "\(error)")
+            return .quit
         }
-        await refreshState()
-        return nil
+        switch linked {
+        case .emptyCloud: UI.info(t("login.empty_cloud")); return .quit
+        case .refused: UI.info(t("login.refused")); return .quit
+        case .uploaded, .adopted: firstRound = true
+        case .already: break
+        }
+        ActivityLog.write("cloud", "shared data: \(linked)")
+        signedOut = false
+        lastError = ""
+        return .ready(firstRound: firstRound)
     }
 
+    /// The first round right after joining, before the window scans the notes folder: the notes must find their
+    /// documents. The reason when it failed (the app then quits, as the Python app does).
+    func firstRound() async -> String? {
+        active = true
+        await run(tries: 3)
+        return lastError.isEmpty ? nil : lastError
+    }
+
+    /// Đăng xuất (cloud_tab.sign_out): asked first (changes not on the cloud yet are named), then the app quits; the
+    /// next start opens on the login.
     func signOut() {
         guard let model, let queue = model.queue else { return }
         let queued = (try? queue.read { try TwoWay.queuedCount($0) }) ?? 0
         let extra = queued > 0 ? t("login.queued_warning", ["n": String(queued)]) : ""
         if !UI.ask(t("login.confirm_sign_out", ["queued": extra])) { return }
+        ActivityLog.write("click", "sign_out")
         do { try CloudAccount.signOut() } catch { UI.error((error as? CloudError)?.message ?? "\(error)"); return }
-        Self.allowed = false
         UI.info(t("login.signed_out"))
-        Task { await refreshState() }
+        NSApp.terminate(nil)
     }
 
     /// login.other_queue: true when the user chose «Bỏ các thay đổi đó»; the safe answer is the default one.
@@ -572,7 +596,7 @@ final class CloudRunner: ObservableObject {
     }
 
     func approveWeb(_ item: WebRequest) async {
-        guard let model, let queue = model.queue, let folders = model.folders, model.writable else { UI.error(Texts.readOnly); return }
+        guard let model, let queue = model.queue, let folders = model.folders, model.writable else { UI.error(Texts.notOpen); return }
         ActivityLog.write("click", "web_request \(item.kind)")
         do {
             switch item.kind {
@@ -593,7 +617,7 @@ final class CloudRunner: ObservableObject {
 
     /// End of day: every receipt and delivery file in one go (counts are approved one by one).
     func approveAllWeb() async {
-        guard let model, let queue = model.queue, let folders = model.folders, model.writable else { UI.error(Texts.readOnly); return }
+        guard let model, let queue = model.queue, let folders = model.folders, model.writable else { UI.error(Texts.notOpen); return }
         let todo = webRequests.filter { $0.kind != WebInbox.stockCount }
         var failed: [String] = []
         var session: (CloudClient, String)?

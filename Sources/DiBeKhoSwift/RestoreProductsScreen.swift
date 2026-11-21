@@ -9,7 +9,7 @@ import SwiftUI
 enum RestoreProductsScreen {
     static func start(_ model: AppModel) {
         guard model.writable, let backups = model.folders?.root.appendingPathComponent("sao-luu", isDirectory: true) else {
-            return UI.error(Texts.readOnly)
+            return UI.error(Texts.notOpen)
         }
         let found = model.read { try Catalog.deletedProducts($0, backups: backups) } ?? []
         if found.isEmpty { return UI.info(t("restore.none")) }

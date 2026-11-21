@@ -4,8 +4,7 @@ import SwiftUI
 /// Cài đặt → Cloud (Python ui/cloud_tab.py): one box with the hint, who is signed in and Đăng xuất, a row of buttons
 /// (Đồng bộ ngay; the owner's Khôi phục từ Cloud…; Xem các thay đổi trùng when there are some; a staff machine's Bỏ thay
 /// đổi chưa duyệt… when it has some), the sync status and the last full backup, then «Gửi nhật ký sử dụng».
-/// Signing in is the login window of login_dialog.py; the Python app opens it before the main window, this app while
-/// the trial lasts only from here or the Cloud button (the Cloud stays off until the user signs in once).
+/// Signing in is the login of login_dialog.py, before the main window (LoginScreen); Đăng xuất quits the app.
 /// ⚠ Not run against a real Cloud yet.
 struct CloudBox: View {
     @ObservedObject var model: AppModel
@@ -26,18 +25,7 @@ struct CloudBox: View {
             GroupBox(t("cloud.title")) {
                 VStack(alignment: .leading, spacing: 8) {
                     Hint(t("sync.mode_hint"))
-                    if !model.live {
-                        Hint(tr("Cloud chỉ chạy trên dữ liệu đang dùng (thư mục làm việc thật), không chạy trên bản thử. Hãy mở «Dữ liệu đang dùng» trước.", "The Cloud runs only on the live data (the real work folder), not on the practice copy. Open “Live data” first.", "Cloud 只在正在使用的数据（真实工作文件夹）上运行，不在试用版上运行。请先打开“正在使用的数据”。"))
-                    } else if config == nil {
-                        Hint(tr("Chưa có thư mục dữ liệu thật của DiBeKho (config.json) trên máy này.", "There is no real DiBeKho data folder (config.json) on this computer yet.", "本机上还没有真实的 DiBeKho 数据文件夹（config.json）。"))
-                    } else if signedIn {
-                        signedInView
-                    } else {
-                        HStack {
-                            Button(t("login.sign_in") + "…") { CloudScreens.signIn(model) { reload() } }
-                            Spacer()
-                        }
-                    }
+                    if model.live && signedIn { signedInView }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).padding(6)
             }
@@ -61,10 +49,7 @@ struct CloudBox: View {
         HStack {
             Text(t("login.who", ["user": config?.user ?? "—", "role": t("login.role_\(role)")]))
             Spacer()
-            Button(t("login.sign_out")) {
-                cloud.signOut()
-                reload()
-            }
+            Button(t("login.sign_out")) { cloud.signOut() }
         }
         HStack {
             Button(t("cloud.sync_now")) {
@@ -118,7 +103,7 @@ enum CloudScreens {
     static func signIn(_ model: AppModel, message: String = "", done: @escaping () -> Void = {}) {
         guard model.live else { return UI.error(Texts.noLive) }
         Windows.show(t("app.name"), width: 560, height: CloudBuiltin.has ? 290 : 360, modal: false) { _ in
-            LoginView(model: model, cloud: model.cloud, problem: message, done: done)
+            LoginView(model: model, problem: message, done: done)
         }
     }
 
@@ -138,14 +123,11 @@ enum CloudScreens {
         return items[picked]
     }
 
-    /// The Cloud button at the top right (main_window._sync_clicked): signed out -> the login window; conflicts -> the
-    /// conflicts window; otherwise a sync round now. Not signed in yet (this app only) -> Cài đặt → Cloud.
+    /// The Cloud button at the top right (main_window._sync_clicked): the session ended -> the login again; conflicts ->
+    /// the conflicts window; otherwise a sync round now.
     static func statusClicked(_ model: AppModel) {
         let cloud = model.cloud
-        guard model.live, CloudConfig.load()?.hasSavedSession == true else {
-            model.page = .settings
-            return
-        }
+        guard model.live else { return }
         if cloud.signedOut {
             signIn(model, message: t("login.again"))
         } else if !cloud.conflicts.isEmpty {
@@ -157,13 +139,14 @@ enum CloudScreens {
 }
 
 /// login_dialog.LoginDialog: the title, the hint, the address and key (only in a build that carries none), the account
-/// and the password; a refused sign-in is said in red here, the password emptied. Huỷ bỏ, then Đăng nhập (default).
-struct LoginView: View {
-    @ObservedObject var model: AppModel
+/// and the password; a refused sign-in is said in red here, the password emptied. `cancelTitle` (Thoát at the start,
+/// Huỷ bỏ inside the app), then Đăng nhập (default). `joined`: the app quits or opens.
+struct LoginForm: View {
     @ObservedObject var cloud: CloudRunner
     @State var problem: String
-    let done: () -> Void
-    @EnvironmentObject var box: WindowBox
+    let cancelTitle: String
+    let cancel: () -> Void
+    let joined: (CloudRunner.Joined) -> Void
     @State private var url = CloudConfig.load()?.url ?? ""
     @State private var key = CloudConfig.load()?.key ?? ""
     @State private var user = CloudConfig.load()?.user ?? ""
@@ -206,7 +189,7 @@ struct LoginView: View {
             HStack {
                 Spacer()
                 if working { ProgressView().controlSize(.small) }
-                Button(t("btn.cancel")) { box.close() }
+                Button(cancelTitle) { cancel() }
                 Button(t("login.sign_in")) { signIn() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(working)
@@ -221,17 +204,83 @@ struct LoginView: View {
         working = true
         let typed = password
         Task {
-            let refused = await cloud.signIn(user: user, password: typed, url: builtin ? "" : url, key: builtin ? "" : key)
+            let outcome = await cloud.signIn(user: user, password: typed, url: builtin ? "" : url, key: builtin ? "" : key)
             working = false
             password = ""
-            if let refused {
-                problem = refused
+            if case .problem(let text) = outcome {
+                problem = text
                 focus = .password
             } else {
-                box.close(accepted: true)
-                done()
+                joined(outcome)
             }
         }
+    }
+}
+
+/// The login asked again inside the running app when the saved session ended (login_dialog.sign_in_again).
+struct LoginView: View {
+    @ObservedObject var model: AppModel
+    let problem: String
+    let done: () -> Void
+    @EnvironmentObject var box: WindowBox
+
+    var body: some View {
+        LoginForm(cloud: model.cloud, problem: problem, cancelTitle: t("btn.cancel"), cancel: { box.close() }) { outcome in
+            if outcome == .quit {
+                NSApp.terminate(nil)
+                return
+            }
+            box.close(accepted: true)
+            model.cloud.round()
+            done()
+        }
+    }
+}
+
+/// The first window of the app (app.sign_in_and_link), inside the main window before anything else: the logo, then the
+/// account and the password; Thoát quits. Every start after Đăng xuất opens here.
+struct LoginScreen: View {
+    @ObservedObject var model: AppModel
+    let problem: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            AppLogo(size: 120)
+            Text(t("app.name")).font(.system(size: UI.baseSize + 12, weight: .bold))
+            LoginForm(cloud: model.cloud, problem: problem, cancelTitle: t("app.quit"), cancel: { NSApp.terminate(nil) }) {
+                model.joined($0)
+            }
+            .padding(20)
+            .frame(width: 540)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(SoftRect().fill(Color(nsColor: .controlBackgroundColor)))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// While the work folder opens and the saved session is checked (a slow line: the app shows it is opening).
+struct StartingScreen: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            AppLogo(size: 120)
+            ProgressView().controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// The app's own icon (yellow tile, blue warehouse) as the logo of the first windows.
+struct AppLogo: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size, height: size)
     }
 }
 

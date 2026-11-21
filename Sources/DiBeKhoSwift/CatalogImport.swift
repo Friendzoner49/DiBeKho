@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 @MainActor
 enum CatalogImport {
     static func start(_ model: AppModel) {
-        guard model.writable else { return UI.error(Texts.readOnly) }
+        guard model.writable else { return UI.error(Texts.notOpen) }
         let panel = NSOpenPanel()
         panel.title = t("catalog.pick_file")
         panel.allowedContentTypes = [UTType(filenameExtension: "xlsx") ?? .data]

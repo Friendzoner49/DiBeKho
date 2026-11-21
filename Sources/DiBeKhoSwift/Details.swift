@@ -364,41 +364,6 @@ enum Details {
         return data
     }
 
-    // ---- Đọc phiếu: one note as the Swift reader read it
-
-    static func note(_ note: DeliveryNote?, error: String?, file: URL) -> DetailData {
-        guard let note else {
-            return DetailData(title: file.lastPathComponent, info: [(tr("Không đọc được", "Cannot be read", "无法读取"), error ?? "")], tables: [])
-        }
-        func money(_ v: Double?) -> String { Format.money(v, currency: note.currency, rate: nil) }
-        var info: [(String, String)] = [
-            (tr("Mã đơn hàng", "Order code", "订单编号"), note.code), (tr("Ngày giao hàng", "Delivery date", "送货日期"), Format.date(note.docDate)), (t("col.customer"), note.customerName),
-            (t("col.phone"), note.phone), (t("col.contact"), note.contact), (t("col.address"), note.address),
-            (t("col.currency"), note.currency == "CNY" ? tr("Nhân dân tệ (¥)", "Chinese yuan (¥)", "人民币（¥）") : tr("Đồng (₫)", "Dong (₫)", "越南盾（₫）")),
-        ]
-        if let total = note.total { info.append((tr("Tổng cộng trên phiếu", "Total on the note", "单据合计"), money(total))) }
-        for (name, fee) in note.fees { info.append((tr("Phí: \(name)", "Fee: \(name)", "费用：\(name)"), money(fee))) }
-        for warning in note.warnings { info.append((tr("Cảnh báo", "Warning", "警告"), warning)) }
-        if !note.title.isEmpty { info.append((tr("Tiêu đề", "Title", "标题"), note.title)) }
-        let lines = DetailData.Table(
-            title: tr("Các dòng hàng đọc được", "Lines that could be read", "读取到的商品行"),
-            columns: [Column(title: tr("Dòng Excel", "Excel row", "Excel 行"), width: 70, numeric: true), Column(title: tr("Tên trên phiếu", "Name on the note", "单据上的名称"), width: 260),
-                      Column(title: tr("Tên Việt", "Vietnamese name", "越南语名称"), width: 200), Column(title: t("col.name_zh"), width: 120),
-                      Column(title: t("col.spec"), width: 100), Column(title: t("col.qty"), width: 80, numeric: true),
-                      Column(title: t("col.unit_price"), width: 110, numeric: true), Column(title: t("col.amount"), width: 120, numeric: true),
-                      Column(title: t("col.note"), width: 150), Column(title: tr("Mã hàng", "Product code", "商品编码"), width: 70), Column(title: tr("Lấy từ", "Taken from", "来源"), width: 160)],
-            rows: note.lines.map { l -> [String] in
-                let places = l.places.map { "\(OrderQueries.placeName(Int64($0.0))): \(Format.quantity($0.1))" }
-                return [String(l.row), l.rawName, l.nameVi, l.nameZh, l.spec, Format.quantity(l.qty), money(l.unitPrice),
-                        money(l.amount), l.note, l.productCode, places.joined(separator: "; ")]
-            })
-        var tables = [lines]
-        if !note.skippedRows.isEmpty {
-            tables.append(DetailData.Table(title: tr("Dòng không phải hàng (bỏ qua)", "Lines that are not goods (skipped)", "非商品行（已跳过）"), columns: [Column(title: tr("Nội dung", "Content", "内容"), width: 500)],
-                                           rows: note.skippedRows.map { [$0] }))
-        }
-        return DetailData(title: "\(file.lastPathComponent) · \(tr("đơn", "order", "订单")) \(note.code)", info: info, tables: tables)
-    }
 
     // ---- Chi tiết mặt hàng (details.ProductDialog)
 

@@ -52,7 +52,7 @@ jobs:
         run: |
           set -e
           shoot() {
-            DIBEKHO_OPEN="$PWD/shop.sqlite" DIBEKHO_NOTES="$PWD/Tests/DiBeKhoCoreTests/Notes" DIBEKHO_SCAN_NOTES="${4:-}" DIBEKHO_PAGE="$1" DIBEKHO_WINDOW="$2" \
+            DIBEKHO_OPEN="$PWD/shop.sqlite" DIBEKHO_SCAN_NOTES="${4:-}" DIBEKHO_PAGE="$1" DIBEKHO_WINDOW="$2" \
               "build/DiBeKho Swift.app/Contents/MacOS/DiBeKhoSwift" & pid=$!
             sleep 7
             kill -0 $pid

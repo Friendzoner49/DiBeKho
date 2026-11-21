@@ -8,7 +8,7 @@ import SwiftUI
 enum LearnedScreen {
     /// Forget one learned name and read again the notes that have it (settings_page.forget)
     static func forget(_ model: AppModel, _ line: Deliveries.LearnedLine, then: @escaping () -> Void) {
-        guard let folders = model.folders else { return UI.error(Texts.readOnly) }
+        guard let folders = model.folders else { return UI.error(Texts.notOpen) }
         let orders = model.read { db -> [String] in
             guard !line.documents.isEmpty else { return [] }
             let marks = line.documents.map { _ in "?" }.joined(separator: ",")

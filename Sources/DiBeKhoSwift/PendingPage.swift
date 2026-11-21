@@ -453,8 +453,7 @@ struct PendingPage: View {
             case .catalog:
                 Button(t("catalog.import_btn")) { finishImport(item, CatalogImport.importFile(model, item.url)) }
             case .package:
-                Button(t("btn.import_data")) { finishImport(item, TransferScreens.importPackage(model, url: item.url)) }
-                    .disabled(!model.practice)
+                Hint(tr("Bản Mac chưa nhập được gói dữ liệu.", "The Mac app cannot import a data package yet.", "Mac 版暂时无法导入数据包。"))
             case .error:
                 EmptyView()
             }

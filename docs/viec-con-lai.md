@@ -31,7 +31,7 @@ bằng Excel/Numbers, in A4, gõ Telex, khoá chung với bản Python, ⌘Q gi�
 kéo/gộp/đẩy hai chiều (`Replica`, `TwoWay`, golden `GoldenCloud`), chọn bản giữ khi trùng, nhân viên gửi chờ duyệt và chủ
 duyệt/từ chối trong Cài đặt → Cloud, đồng bộ nền (60 giây / 5 giây sau thay đổi), sao lưu `.sqlite.gz` + phiếu gốc lên Storage
 («Đồng bộ ngay»). Tài khoản chỉ-xem bị từ chối đúng như bản Python (không có đường chỉ-xem trong app: thử bằng tài khoản
-Nhân viên trên thư mục dữ liệu chưa nối). Cloud tắt cho tới khi đăng nhập; không chạy trên bản thử.
+Nhân viên trên thư mục dữ liệu chưa nối). Cloud luôn bật: đăng nhập trước khi mở cửa sổ (21/11/2026, không còn bản thử).
 
 Còn thiếu:
 - **Yêu cầu từ web**: đã viết (`WebInbox`, mục «Yêu cầu từ nhân viên (web)» ở Cần xử lý, máy chủ): hàng về, phiếu giao (file Excel), kiểm kê → xem rồi vào sổ / từ chối; xác nhận sau khi đẩy. CI xanh (test chỉ-Swift); ⚠ chưa chạy với Cloud thật; đã chuyển sang Cần xử lý 20/11 (CI xanh, ⚠ chưa thử trên Mac).
@@ -126,7 +126,7 @@ rà ảnh chụp cửa sổ thật. (Bộ lọc ngày trong cửa sổ khách: �
 - ✅ viết 20/11 (CI xanh, ⚠ chưa thử trên Mac): phím **⌘F** cho Tra cứu; bộ lọc **Loại tiền** ở Danh sách đơn hàng; dòng trạng thái Cloud góc phải; **thay đổi nhân viên chờ duyệt và yêu cầu từ web ở Cần xử lý**; hộp chọn ngôn ngữ và thư mục làm việc ở lần mở đầu tiên (`FirstRun`, có test).
 - Màn hình còn thiếu: (cột «Tiền hàng (CNY)» riêng và chuột phải một đơn → Đọc lại cả phiếu: đã có từ đợt 2, 21/11); cột Tồn ghim: không làm (Tồn luôn hiện vì bảng vừa cửa sổ); «Nhập dữ liệu» ở Cần xử lý đã có từ trước; đăng nhập bắt buộc khi mở app.
 - ✅ viết 20/11 (CI xanh, ⚠ chưa thử trên Mac): Phiếu xuất kho gõ giá bằng tệ (giống Python: tỷ giá lúc mở cửa sổ, lưu bằng ₫); en/zh thêm cho cửa sổ chi tiết, Cài đặt, hộp yêu cầu nhân viên/web, đặt lại/sao lưu (dùng `tr(vi, en, zh)` khi Python không có khoá). Còn sót vài chữ tiếng Việt ở hộp nhỏ (vd. thông báo trong `CloudRunner`, `Forms`).
-- Nhập gói `.dibekho` chỉ làm trên bản thử (Python: thay dữ liệu chung, chỉ Chủ, cần mạng).
+- Nhập gói `.dibekho`: chưa có trên Mac (đã bỏ bản thử 21/11/2026; Python: thay dữ liệu chung, chỉ Chủ, cần mạng).
 
 Hướng dẫn công khai viết cho khách dùng bản Python; chưa viết bản cho Swift (giai đoạn 6).
 
@@ -140,7 +140,7 @@ Hướng dẫn công khai viết cho khách dùng bản Python; chưa viết b�
 | «Tên trên phiếu đã học» | cây theo đơn | mở ra trống | ✅ ⚠ (danh sách phẳng, id riêng) |
 | Bảng danh sách | kẻ ô, xen kẽ, cột vừa nội dung, cột 2 giãn | cột rộng cố định | ✅ `DataTable` |
 | Dòng trạng thái | cạnh nút trên cùng | dưới cùng + dòng ms | ✅ |
-| Cài đặt → Chung | thứ tự + Đổi thư mục + Đặt lại dữ liệu | thiếu | ✅ (đặt lại chỉ trên bản thử) |
+| Cài đặt → Chung | thứ tự + Đổi thư mục + Đặt lại dữ liệu | thiếu | ⚠ chưa có Đặt lại dữ liệu (đã bỏ bản thử 21/11/2026) |
 | Cài đặt → Danh mục mặt hàng | hai khung nhóm | tiêu đề trang | ✅ |
 | Nút bấm | to (Qt, 120%) | nút macOS nhỏ hơn | ✅ to hơn ~10% (`AppButtonStyle`), vị trí giữ nguyên |
 | Ô Ngày xuất / Ngày về | rộng hết hàng | ô ngày macOS cố định | còn (ô ngày của macOS không giãn) |
@@ -168,7 +168,7 @@ Hướng dẫn công khai viết cho khách dùng bản Python; chưa viết b�
 So mọi khoá chữ bản Python dùng ở `ui/*.py` và `app.py` với code Swift (702 khoá; 32 chưa dùng). Phần còn khác, có lý do:
 - **Đăng nhập bắt buộc lúc mở app** (`app.sign_in_and_link`, `login.offline`, `login.other_queue`): bản Swift để Cloud tự chọn trong thời gian thử (đăng nhập ở Cài đặt → Cloud). Làm khi bản Swift thay bản Python.
 - **Cảnh báo thư mục làm việc nằm trong iCloud/OneDrive** (`app.cloud_warning`), lỗi tạo thư mục, lỗi ngoài dự kiến: chưa làm.
-- **Đặt lại / khôi phục sao lưu / nhập gói `.dibekho`** (`reset.*`, `backup.*`, `transfer.*`): bản Swift chỉ cho làm trên bản thử, câu chữ riêng cho bản thử.
+- **Đặt lại / khôi phục sao lưu / nhập gói `.dibekho`** (`reset.*`, `backup.*`, `transfer.*`): chưa có trên Mac từ khi bỏ bản thử (21/11/2026). Muốn có thì chép `settings_page.reset_*` và `shared_admin.replace_shared_data` (thay dữ liệu chung trên Cloud), có test, thử với Cloud thử trước.
 - `license.hint` (bản Python nói về Qt): bản Swift có câu riêng. `note.edit_tip` (gợi ý khi rê chuột ô ghi chú): chưa có. `settings.uninstall_done_win`: chỉ Windows.
 - Khoá ghép tên (`receipt_form.source_*`, `web.kind_*`) có dùng, chỉ là công cụ rà không thấy.
 

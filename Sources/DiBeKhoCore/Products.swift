@@ -156,15 +156,14 @@ extension Workspace {
     }
 }
 
-/// The practice work folder of phase 3 (BẢN THỬ): a full copy of the shop's data where the Swift app writes, so the
-/// real data and the cloud never change until the Swift app can sync (phase 4). It stays from one run to the next.
-public enum Practice {
-    /// tests put the practice folder somewhere else (never the user's own)
+/// The made-up shop of the build workflow's screenshots (DIBEKHO_OPEN): a copy of a kho.sqlite and its work folder in
+/// a temporary folder, never the user's own data.
+public enum DemoShop {
+    /// tests put the folder somewhere else
     public static var folderOverride: URL?
 
     public static var folder: URL {
-        folderOverride ?? FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/DiBeKhoSwift/BanThu", isDirectory: true)
+        folderOverride ?? FileManager.default.temporaryDirectory.appendingPathComponent("DiBeKhoSwift-demo", isDirectory: true)
     }
 
     public static var database: URL { folder.appendingPathComponent("data/kho.sqlite") }
@@ -173,14 +172,8 @@ public enum Practice {
     public static var input: URL { folder.appendingPathComponent("input", isDirectory: true) }
     public static var output: URL { folder.appendingPathComponent("output", isDirectory: true) }
 
-    /// What the copy was made from and when (shown on the banner).
-    public static var origin: String {
-        (try? String(contentsOf: folder.appendingPathComponent("BAN-THU.txt"), encoding: .utf8))?
-            .split(separator: "\n").last.map(String.init) ?? ""
-    }
-
-    /// A fresh practice folder from a kho.sqlite (the original is only read, with SQLite's backup), with the
-    /// delivery notes and stored originals of its work folder when they are there. The old practice folder goes.
+    /// A fresh folder from a kho.sqlite (the original is only read, with SQLite's backup), with the delivery notes and
+    /// stored originals of its work folder when they are there. The previous one goes.
     public static func make(from source: URL) throws {
         var readOnly = Configuration()
         readOnly.readonly = true
@@ -205,18 +198,9 @@ public enum Practice {
                 try fm.copyItem(at: src, to: dst)
             }
         }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "dd/MM/yyyy HH:mm"
-        let text = """
-            BẢN THỬ của DiBeKho Swift: bản sao dữ liệu để thử ghi (hàng về, kiểm kê, chuyển hàng…).
-            Không phải dữ liệu thật, không đồng bộ lên Cloud. Xoá thư mục này là mất các thao tác đã thử, dữ liệu thật không sao.
-            Chép từ \(source.path) lúc \(f.string(from: Date()))
-            """
-        try text.write(to: folder.appendingPathComponent("BAN-THU.txt"), atomically: true, encoding: .utf8)
     }
 
-    /// The practice database, brought to the current schema, with the Python app's sync triggers.
+    /// The copied database, brought to the current schema, with the Python app's sync triggers.
     public static func open() throws -> DatabaseQueue {
         let queue = try DatabaseQueue(path: database.path, configuration: Store.configuration())
         try queue.read { try Store.check($0) }

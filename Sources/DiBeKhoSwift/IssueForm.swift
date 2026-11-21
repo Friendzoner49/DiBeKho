@@ -14,7 +14,7 @@ import SwiftUI
 enum IssueForm {
     /// docId: a recorded note (A… / W…) being corrected, with its own code (customer's request 19/11/2026)
     static func open(_ model: AppModel, docId: Int64? = nil) {
-        guard model.writable else { return UI.error(Texts.readOnly) }
+        guard model.writable else { return UI.error(Texts.notOpen) }
         var code = "", old: Issues.Input?
         if let docId {
             guard let loaded = model.read({ try Issues.load($0, docId: docId) }) else { return }
@@ -465,7 +465,7 @@ struct IssueFormView: View {
         if d.date > Dates.today && !UI.ask(t("receipt_form.future_date")) { return }
         guard UI.ask(confirmText(d), title: editDoc == nil ? t("issue.confirm_title") : t("issue.confirm_edit_title")) else { return }
         ActivityLog.write(editDoc == nil ? "issue" : "issue_edit", "\(d.filled.count) mặt hàng")
-        guard let folders = model.folders else { return UI.error(Texts.readOnly) }
+        guard let folders = model.folders else { return UI.error(Texts.notOpen) }
         let input = d
         let target = editDoc
         guard let (doc, file) = model.write(target == nil ? "issue_note" : "issue_edit",

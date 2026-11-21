@@ -14,11 +14,6 @@ enum Screens {
         Windows.show(t("nav.customers"), width: 1200, height: 760, modal: false) { _ in CustomersPage(model: model) }
     }
 
-    /// Cài đặt → Đọc thử phiếu: the Swift reader on chosen notes, nothing written (phase 2)
-    static func notesReader(_ model: AppModel) {
-        Windows.show(tr("Đọc thử phiếu", "Test-read notes", "试读单据"), width: 1100, height: 650, modal: false) { _ in NotesReaderPage(model: model) }
-    }
-
     static func stats(_ model: AppModel) {
         Windows.show(t("nav.stats"), width: 1200, height: 760, modal: false) { _ in StatsPage(model: model) }
     }

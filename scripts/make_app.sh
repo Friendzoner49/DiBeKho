@@ -1,6 +1,6 @@
 #!/bin/bash
-# Build "DiBeKho Swift.app" (arm64) and a zip of it. Its own name and bundle id, so it sits next to the Python
-# DiBeKho.app during the trial. Signed ad hoc (an Apple Silicon Mac does not start an unsigned program).
+# Build "DiBeKho Swift.app" (arm64) and a zip of it. Its own name and bundle id (kept: the release file and the
+# update check use them). Signed ad hoc (an Apple Silicon Mac does not start an unsigned program).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 swift build -c release --arch arm64

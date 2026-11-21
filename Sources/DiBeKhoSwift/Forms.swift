@@ -8,7 +8,7 @@ enum Forms {
     /// Chuyển hàng… (count_page.TransferDialog); docId: edit that transfer (the old one is marked replaced).
     @discardableResult
     static func transfer(_ model: AppModel, docId: Int64? = nil) -> Bool {
-        guard model.writable else { UI.error(Texts.readOnly); return false }
+        guard model.writable else { UI.error(Texts.notOpen); return false }
         let title = t(docId == nil ? "transfer.title" : "transfer.title_edit")
         return Windows.show(title, width: 1000, height: 620, modal: true) { _ in
             MoveDialog(model: model, mode: .transfer, docId: docId)
@@ -18,7 +18,7 @@ enum Forms {
     /// Xuất dùng thử… (count_page.TrialUseDialog)
     @discardableResult
     static func trial(_ model: AppModel) -> Bool {
-        guard model.writable else { UI.error(Texts.readOnly); return false }
+        guard model.writable else { UI.error(Texts.notOpen); return false }
         return Windows.show(t("trial.title"), width: 1000, height: 620, modal: true) { _ in
             MoveDialog(model: model, mode: .trial, docId: nil)
         }
@@ -37,7 +37,7 @@ enum Forms {
     /// another customer's asks first (the user may merge them instead).
     @discardableResult
     static func editCustomer(_ model: AppModel, id: Int64) -> Bool {
-        guard model.writable else { UI.error(Texts.readOnly); return false }
+        guard model.writable else { UI.error(Texts.notOpen); return false }
         guard let row = model.read({ try Row.fetchOne($0, sql: "SELECT * FROM customers WHERE id = ?", arguments: [id]) }) ?? nil else { return false }
         var values: [String: String] = [:]
         for key in Catalog.customerFields { values[key] = Details.text(row, key) }
@@ -58,7 +58,7 @@ enum Forms {
 
     /// Gộp khách hàng… (orders_page.CustomersPage.merge_selected): the customers selected (id, name, order count) into one.
     static func mergeCustomers(_ model: AppModel, picked: [(id: Int64, name: String, orders: Int)]) {
-        guard model.writable else { UI.error(Texts.readOnly); return }
+        guard model.writable else { UI.error(Texts.notOpen); return }
         guard picked.count >= 2 else { UI.error(t("cust.merge_select_first")); return }
         var chosen: String?
         Windows.show(t("cust.merge_title"), width: 640, height: 320, modal: true) { _ in

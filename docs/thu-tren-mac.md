@@ -7,12 +7,13 @@ ghi chú tồn kho).
 - **Hai app không mở cùng lúc được** (dùng chung khoá `data/dibekho.lock`): muốn dùng bản Python thì thoát bản Swift
   trước (⌘Q), và ngược lại. Mở bản Swift khi bản Python đang mở → app báo "DiBeKho đang mở rồi".
 - **Mỗi ngày mở app có một bản sao lưu** trong `sao-luu/` (như bản Python).
-- **Cloud (⚠ mới viết, đã biên dịch trên CI, chưa thử với Cloud thật):** mặc định TẮT. Chỉ bật khi anh/chị vào **Cài đặt → Cloud**,
-  gõ địa chỉ + mã kết nối + tài khoản rồi đăng nhập. Chưa đăng nhập thì thay đổi làm ở bản Swift xếp hàng chờ và
-  **bản Python gửi lên Cloud ở lần mở sau**. Khi đã đăng nhập, app tự gửi/nhận nền. Yêu cầu từ nhân viên (web) và thay đổi của nhân viên hiện ở **Cần xử lý** (máy chủ): xem rồi vào sổ hoặc từ chối. Chưa có: khôi phục từ Cloud (cố ý: nó thay dữ liệu chung trên Cloud, chưa làm).
-  **Thử cẩn thận:** tài khoản chỉ-xem sẽ bị từ chối (đúng thiết kế, như bản Python). Hãy thử bằng tài khoản **Nhân viên**
-  (thay đổi chỉ chờ chủ duyệt, không ghi thẳng vào dữ liệu chung) trên thư mục dữ liệu chưa nối Cloud, hoặc trên bản sao.
-- Muốn thử mà không đụng dữ liệu thật: **Cài đặt → Bản thử** (bản sao riêng, dải cam BẢN THỬ).
+- **Cloud luôn bật, như bản Python (từ 21/11/2026):** mở app là màn hình **Đăng nhập** (logo DiBeKho, tài khoản, mật
+  khẩu, nút **Thoát**). Máy đã đăng nhập thì mở thẳng vào app, kể cả khi mất mạng (đồng bộ lại khi có mạng). Đăng nhập
+  xong app nối với dữ liệu chung trên Cloud rồi mới mở cửa sổ. **Cài đặt → Cloud → Đăng xuất**: app hỏi lại, rồi tự đóng;
+  lần mở sau hiện lại màn hình Đăng nhập. Tài khoản chỉ-xem bị từ chối (như bản Python).
+- **Không còn bản thử, không còn «Chỉ xem» và «Đọc thử phiếu»** (21/11/2026). Các mục bên dưới có chữ «bản thử» là ghi
+  chép của các lần thử trước. Thư mục bản thử cũ (`~/Library/Application Support/DiBeKhoSwift/BanThu`) app không xoá; anh/chị
+  tự xoá nếu muốn. Bản Mac chưa có: Đặt lại dữ liệu, Khôi phục bản sao lưu, Nhập gói `.dibekho` (làm trên bản Windows).
 
 Hai app có tên khác nhau ("DiBeKho" và "DiBeKho Swift") nên để cạnh nhau trong Applications được.
 
@@ -50,15 +51,8 @@ Hai app có tên khác nhau ("DiBeKho" và "DiBeKho Swift") nên để cạnh nh
 Mở app: bản Swift tự mở thư mục làm việc mà bản Python đã chọn (thường là `Documents/DiBeKho`). Lần đầu macOS có thể
 hỏi quyền vào thư mục **Tài liệu**: bấm **Cho phép**. Đường dẫn hiện ở dải xanh đầu cửa sổ.
 
-**Lần đầu mở trên dữ liệu đang dùng, app hỏi có quét thư mục phiếu giao hàng không** (quét = đọc các phiếu MỚI, ghi
-vào kho và chuyển phiếu đọc xong vào `da-xu-ly`). Mặc định là **Để sau**: khi đó app **không đụng** thư mục phiếu cho
-tới khi anh/chị bấm **Quét lại phiếu**. Nên thử bản thử trước (xem dưới); chọn **Quét ngay (và đừng hỏi lại)** thì từ
-lần sau app tự quét lúc mở và trước khi kiểm kê, như bản Python. Chưa cho quét thì **Kiểm kê** tính theo những phiếu
-đã có trong kho, chưa đọc thêm phiếu mới.
-
-**Bản thử** (tuỳ chọn): **Cài đặt → Tạo bản thử từ dữ liệu đang dùng** chép dữ liệu, phiếu và phiếu gốc vào
-`~/Library/Application Support/DiBeKhoSwift/BanThu`; mọi thao tác chỉ ghi vào đó. Quay lại dữ liệu thật: **Cài đặt →
-Mở dữ liệu đang dùng**.
+Mở app xong (đã đăng nhập), app tự quét thư mục phiếu giao hàng như bản Python: đọc các phiếu MỚI, ghi vào kho và
+chuyển phiếu đọc xong vào `da-xu-ly`. Không còn hộp hỏi «quét ngay hay để sau».
 
 ## Trong app: bố cục như bản Python
 
@@ -242,3 +236,16 @@ Làm trên **dữ liệu đang dùng** (Cloud không chạy trên bản thử). 
 - Hộp hỏi trước khi lưu hiện số ¥ kèm số ₫ xấp xỉ.
 - Sửa một phiếu đã lưu: phiếu giữ đúng loại tiền lúc lưu, dù công tắc đang ở đâu.
 - Cần xem: mở file phiếu tệ bằng Excel/Numbers thấy ký hiệu ¥ và 2 số lẻ; phiếu hiện ở cột **Tiền hàng (CNY)** trong Đơn hàng.
+
+## 22. Bỏ bản thử, đăng nhập khi mở app, đăng xuất là thoát (viết 21/11/2026; ⚠ chưa biên dịch)
+
+- Mở app: màn hình **Đăng nhập** có logo (nền vàng, nhà kho xanh) và tên DiBeKho; nút **Thoát** và **Đăng nhập**. Gõ sai
+  mật khẩu: dòng chữ đỏ, ô mật khẩu xoá trống. Máy đã đăng nhập: mở thẳng vào app (lúc chờ chỉ thấy logo và vòng quay).
+- Mất mạng, máy đã nối Cloud trước đó: vẫn mở được, góc trên phải báo mất kết nối. Máy chưa nối lần nào mà mất mạng:
+  màn hình Đăng nhập báo cần mạng.
+- **Cài đặt → Cloud → Đăng xuất** → hỏi lại → «Đã đăng xuất. App sẽ đóng…» → app đóng. Mở lại: màn hình Đăng nhập.
+- Máy mới chưa có thư mục làm việc: hộp chọn ngôn ngữ và thư mục (nút **Thoát** thay cho **Để sau**), rồi màn hình Đăng nhập.
+- Không còn: dải cam BẢN THỬ / CHỈ XEM, các khung «Bản thử» và «Chỉ xem» trong Cài đặt → Chuyển dữ liệu và sao lưu, nút
+  «Khôi phục bản đã chọn», khung «Đặt lại dữ liệu» trong Cài đặt → Chung. Ở **Cần xử lý**, gói `.dibekho` hiện dòng «Bản
+  Mac chưa nhập được gói dữ liệu.».
+- Tiêu đề cửa sổ: «DiBeKho» (trước là «DiBeKho Swift (bản thử)»).

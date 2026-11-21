@@ -3,11 +3,10 @@ import DiBeKhoCore
 import SwiftUI
 
 /// Cài đặt → Chuyển dữ liệu và sao lưu, the three boxes of ui/transfer_page.TransferPanel: hand the data to another
-/// computer, the master data in Excel, the backups (a list, back up now, restore the one chosen, restore products).
+/// computer, the master data in Excel, the backups (a list, back up now, restore products).
 struct TransferTab: View {
     @ObservedObject var model: AppModel
     @State private var backups: [URL] = []
-    @State private var chosen: Int?
 
     private var backupsFolder: URL? { model.folders?.root.appendingPathComponent("sao-luu", isDirectory: true) }
 
@@ -46,7 +45,6 @@ struct TransferTab: View {
                     DataTable(
                         columns: [Column(title: t("backup.file"), width: 360), Column(title: t("backup.time"), width: 140)],
                         rows: backups.map { [$0.lastPathComponent, Self.time($0)] },
-                        onSelect: { chosen = $0 },
                         sortable: false,
                         stretch: 0)
                         .frame(height: 170)  // the tab scrolls: a fixed height, as the Python list
@@ -56,15 +54,6 @@ struct TransferTab: View {
                             reload()
                         }
                         .disabled(!model.writable)
-                        Button(t("backup.restore")) {
-                            guard let i = chosen, i < backups.count else {
-                                return UI.error(tr("Chọn một bản sao lưu trong danh sách trước.", "Choose a backup in the list first.", "请先在列表中选择一个备份。"))
-                            }
-                            ResetScreens.restore(model, url: backups[i])
-                            reload()
-                        }
-                        .disabled(!model.practice)
-                        .help(tr("Chỉ làm được trên bản thử.", "Only on the practice copy.", "只能在试用版上进行。"))
                         Button(t("restore.button")) { RestoreProductsScreen.start(model) }.disabled(!model.writable)
                         Button(t("backup.open_folder")) { if let f = backupsFolder { UI.open(f) } }
                         Spacer()

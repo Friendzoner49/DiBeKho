@@ -27,14 +27,10 @@ enum GeneralSettings {
         return url.pathExtension == "app" ? url : nil
     }
 
-    /// Gỡ app: confirm, forget the preferences, optionally the practice copy, move the app to the Trash. The shop's
-    /// real data folder is never touched.
+    /// Gỡ app: confirm, forget the preferences, move the app to the Trash. The shop's data folder is never touched.
     @MainActor
     static func uninstall() {
         guard UI.ask(t("settings.confirm_uninstall")) else { return }
-        if Practice.exists, UI.ask(t("settings.confirm_delete_data", ["path": Practice.folder.path])) {
-            try? FileManager.default.removeItem(at: Practice.folder)
-        }
         if let id = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: id) }
         guard let bundle = bundleToRemove() else {
             return UI.info(t("settings.uninstall_done_mac"))
@@ -152,29 +148,6 @@ extension GeneralBox {
     }
 }
 
-/// «Đặt lại dữ liệu» (settings_page.py, tab Chung). ⚠ Swift: only on the practice copy for now.
-struct ResetBox: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        GroupBox(t("reset.title")) {
-            VStack(alignment: .leading, spacing: 8) {
-                Hint(t("reset.hint"))
-                HStack {
-                    Button(t("reset.stock")) { ResetScreens.resetStock(model) }.disabled(!model.practice)
-                    Button(t("reset.all")) { ResetScreens.resetAll(model) }.disabled(!model.practice)
-                    Spacer()
-                }
-                if !model.practice {
-                    Hint(tr("Bản Swift đang thử nên hai nút này chỉ dùng được trên bản thử.", "This Swift build is still being tried: these two buttons work on the practice copy only.", "Swift 版仍在试用中：这两个按钮只能在试用版上使用。"))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(6)
-        }
-    }
-}
-
 /// "Gỡ app khỏi máy này"
 struct UninstallBox: View {
     var body: some View {
@@ -198,7 +171,7 @@ struct UninstallBox: View {
 enum LogScreen {
     static func open(_ model: AppModel) {
         let dataFolder = model.workFolder?.root.appendingPathComponent("data")
-            ?? (model.practice ? Practice.folder.appendingPathComponent("data") : nil)
+            ?? (model.demo ? DemoShop.folder.appendingPathComponent("data") : nil)
         Windows.show(t("log.title"), width: 1000, height: 640, modal: false) { _ in
             LogView(model: model, dataFolder: dataFolder)
         }

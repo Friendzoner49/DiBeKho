@@ -11,6 +11,26 @@ struct ContentView: View {
     @StateObject private var currency = CurrencyModel()
 
     var body: some View {
+        Group {
+            switch model.stage {
+            case .ready: main
+            case .firstRun: FirstRunSheet(model: model).frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .login(let problem): LoginScreen(model: model, problem: problem).id(problem)
+            case .starting: StartingScreen()
+            }
+        }
+        .font(.system(size: UI.baseSize))
+        .buttonStyle(AppButtonStyle())
+        .frame(minWidth: 900, idealWidth: 1280 * UI.scale, minHeight: 600, idealHeight: 800 * UI.scale)
+        .onAppear {
+            NSApplication.shared.setActivationPolicy(.regular)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            currency.changed = { [model] in model.changed() }
+            Updater.checkOnStart()
+        }
+    }
+
+    private var main: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(AppModel.Page.allCases) { page in
@@ -52,7 +72,6 @@ struct ContentView: View {
                     Text(model.status).lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)
                     CloudStatusBadge(model: model, cloud: model.cloud)
                 }
-                banner
                 if let error = model.errorText {
                     Text(error).foregroundColor(.red)
                 }
@@ -60,33 +79,7 @@ struct ContentView: View {
             }
         }
         .padding(10)
-        .font(.system(size: UI.baseSize))
-        .buttonStyle(AppButtonStyle())
         .groupBoxStyle(SoftGroupBoxStyle())
-        .frame(minWidth: 900, idealWidth: 1280 * UI.scale, minHeight: 600, idealHeight: 800 * UI.scale)
-        .sheet(isPresented: $model.firstRun) { FirstRunSheet(model: model) }
-        .onAppear {
-            NSApplication.shared.setActivationPolicy(.regular)
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            currency.changed = { [model] in model.changed() }
-            Updater.checkOnStart()
-        }
-    }
-
-    @ViewBuilder private var banner: some View {
-        if model.queue == nil {
-            Text(Texts.noData).padding(8).frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 6).fill(UI.banner))
-        } else if !model.live {
-            // the Python window has no banner over live data; the trial copy and a read-only look keep theirs
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.practice ? Texts.practiceBanner : Texts.readOnlyBanner).bold()
-                Text(model.source).font(.caption).lineLimit(1).truncationMode(.middle)
-            }
-            .padding(8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: UI.orange)))
-        }
     }
 
     @ViewBuilder private var page: some View {
@@ -180,49 +173,6 @@ struct StockPage: View {
                     model.write("stock_note") { try Catalog.saveStockNote($0, productId: id, text: text) }
                 },
                 fitWidth: false)
-        }
-    }
-}
-
-// ---- Đọc thử phiếu (the phase 2 reader on chosen notes, without writing; Cài đặt → Đọc thử phiếu…)
-
-struct NotesReaderPage: View {
-    @ObservedObject var model: AppModel
-
-    static func row(_ r: AppModel.NoteResult) -> [String] {
-        guard let note = r.note else { return [r.file.lastPathComponent, "", "", "", "", "", "", r.error ?? ""] }
-        return [r.file.lastPathComponent, note.code, Format.date(note.docDate), note.customerName, String(note.lines.count),
-                note.currency == "CNY" ? "¥" : "₫", String(note.warnings.count), ""]
-    }
-
-    static func tone(_ r: AppModel.NoteResult) -> RowTone {
-        guard let note = r.note else { return .negative }
-        return note.warnings.isEmpty ? .normal : .low
-    }
-
-    var body: some View {
-        let results = model.noteResults
-        let read = results.filter { $0.note != nil }.count
-        VStack(alignment: .leading, spacing: 6) {
-            PageHeader(title: tr("Đọc thử phiếu", "Test-read notes", "试读单据"),
-                       hint: tr("Chỉ ĐỌC thử các phiếu để so với bản Python: không ghi vào kho, không sửa, không chuyển file.", "Only TEST-READS the notes to compare with the Python app: nothing is written to the stock, edited or moved.", "仅试读单据以便与 Python 版对照：不写入库存、不修改、不移动文件。"))
-            HStack {
-                if model.notesFolder != nil {
-                    Button(tr("Đọc thư mục phiếu đang dùng", "Read the live notes folder", "读取正在使用的单据文件夹")) { if let f = model.notesFolder { model.readNotes([f]) } }
-                }
-                Button(tr("Chọn file hoặc thư mục phiếu…", "Choose a note file or folder…", "选择单据文件或文件夹…")) { model.chooseNotes() }
-                Spacer()
-            }
-            Text(tr("\(results.count) phiếu · \(read) đọc được · \(results.count - read) không đọc được · nháy đúp để xem từng dòng", "\(results.count) notes · \(read) readable · \(results.count - read) unreadable · double-click to see each line", "\(results.count) 张单据 · \(read) 张可读 · \(results.count - read) 张不可读 · 双击查看每一行"))
-                .bold()
-            DataTable(
-                columns: [Column(title: t("col.file"), width: 220), Column(title: t("col.doc_code"), width: 70),
-                          Column(title: t("col.date"), width: 90), Column(title: t("col.customer"), width: 220),
-                          Column(title: t("col.lines"), width: 60, numeric: true), Column(title: t("col.currency"), width: 60),
-                          Column(title: tr("Cảnh báo", "Warnings", "警告"), width: 70, numeric: true), Column(title: tr("Lỗi", "Error", "错误"), width: 360)],
-                rows: results.map(Self.row),
-                tones: results.map(Self.tone),
-                onOpen: { model.openNote(results[$0]) })
         }
     }
 }
@@ -423,7 +373,6 @@ struct SettingsPage: View {
 
     @ViewBuilder private var general: some View {
         GeneralBox(model: model)
-        ResetBox(model: model)
         UninstallBox()
     }
 
@@ -438,19 +387,16 @@ struct SettingsPage: View {
             .frame(maxHeight: .infinity)
     }
 
-    /// the three boxes of the Python tab, then what only this app has (live data / practice copy / view only)
+    /// the three boxes of the Python tab, then where the data of this Mac is
     @ViewBuilder private var transferTab: some View {
             TransferTab(model: model)
             GroupBox(tr("Dữ liệu đang dùng", "Live data", "正在使用的数据")) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Hint(tr("Thư mục làm việc của app DiBeKho trên máy này (cùng dữ liệu với bản Python). Hai app không mở cùng lúc được: muốn dùng bản Python thì thoát bản Swift trước. Mỗi ngày mở app có một bản sao lưu trong sao-luu/. Cloud đồng bộ khi bạn đăng nhập ở mục Cloud.", "The DiBeKho work folder on this computer (the same data as the Python app). The two apps cannot be open at the same time: quit this one before using the Python app. A backup is made in sao-luu/ the first time the app opens each day.", "本机上的 DiBeKho 工作文件夹（与 Python 版使用同一份数据）。两个应用不能同时打开：要使用 Python 版，请先退出本应用。每天首次打开应用时会在 sao-luu/ 中生成一份备份。"))
+                    Hint(tr("Thư mục làm việc của DiBeKho trên máy này. Mỗi ngày mở app có một bản sao lưu trong sao-luu/. Dữ liệu luôn đồng bộ với Cloud.", "The DiBeKho work folder on this computer. A backup is made in sao-luu/ the first time the app opens each day. The data is always synced with the Cloud.", "本机上的 DiBeKho 工作文件夹。每天首次打开应用时会在 sao-luu/ 中生成一份备份。数据始终与 Cloud 同步。"))
                     if let root = WorkFolder.configured {
                         Text(root.path).font(.caption).foregroundColor(.secondary)
                     }
                     HStack {
-                        if !model.live && WorkFolder.configured != nil {
-                            Button(tr("Mở dữ liệu đang dùng", "Open the live data", "打开正在使用的数据")) { model.openLive() }
-                        }
                         if let folder = model.workFolder {
                             Button(tr("Mở thư mục làm việc", "Open the work folder", "打开工作文件夹")) { UI.open(folder.root) }
                             Button(tr("Mở thư mục sao lưu", "Open the backup folder", "打开备份文件夹")) { UI.open(folder.backups) }
@@ -458,34 +404,6 @@ struct SettingsPage: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(6)
-            }
-            GroupBox(tr("Bản thử (bản sao riêng để thử, không đổi dữ liệu thật)", "Practice copy (a separate copy to try things, the real data is not changed)", "试用版（单独的副本，用来试用，不改动真实数据）")) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Hint(tr("Bản thử là một bản sao dữ liệu nằm riêng trong máy này. Mọi thao tác trên bản thử không đổi dữ liệu thật và Cloud. Bản thử còn nguyên khi tắt mở lại app.", "The practice copy is a copy of the data kept separately on this computer. Nothing done in it changes the real data or the Cloud. It stays when the app is closed and opened again.", "试用版是保存在本机上的一份独立数据副本。在其中的任何操作都不会改动真实数据和 Cloud。关闭再打开应用后它仍然保留。"))
-                    if Practice.exists { Text(Practice.origin).font(.caption).foregroundColor(.secondary) }
-                    HStack {
-                        if model.liveDatabase != nil {
-                            Button(tr("Tạo bản thử từ dữ liệu đang dùng", "Make a practice copy of the live data", "用正在使用的数据创建试用版")) { model.makePracticeFromLive() }
-                        }
-                        Button(tr("Tạo bản thử từ file kho.sqlite…", "Make a practice copy from a kho.sqlite file…", "用 kho.sqlite 文件创建试用版…")) { model.choosePracticeSource() }
-                        if Practice.exists && !model.practice {
-                            Button(tr("Mở lại bản thử", "Reopen the practice copy", "重新打开试用版")) { model.openPractice() }
-                        }
-                        Button(tr("Mở thư mục bản thử", "Open the practice copy folder", "打开试用版文件夹")) { UI.open(Practice.folder) }.disabled(!Practice.exists)
-                        // the Python app takes a package in through input/ and Cần xử lý; here only into the practice copy
-                        Button(tr("Nhập gói dữ liệu…", "Import a data package…", "导入数据包…")) { TransferScreens.importPackage(model) }.disabled(!model.practice)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(6)
-            }
-            GroupBox(tr("Chỉ xem", "View only", "仅查看")) {
-                HStack {
-                    Button(tr("Xem một file kho.sqlite (chỉ đọc)…", "Look at a kho.sqlite file (read only)…", "查看 kho.sqlite 文件（只读）…")) { model.openReadOnly() }
-                    Button(tr("Đọc thử phiếu (chỉ đọc)…", "Test-read notes (read only)…", "试读单据（只读）…")) { Screens.notesReader(model) }
-                    Spacer()
-                }
                 .padding(6)
             }
     }

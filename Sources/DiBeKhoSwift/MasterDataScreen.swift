@@ -25,7 +25,7 @@ enum MasterDataScreen {
     }
 
     static func start(_ model: AppModel) {
-        guard model.writable else { return UI.error(Texts.readOnly) }
+        guard model.writable else { return UI.error(Texts.notOpen) }
         let panel = NSOpenPanel()
         panel.title = t("master.import")
         panel.allowedContentTypes = [UTType(filenameExtension: "xlsx") ?? .data]
@@ -39,7 +39,7 @@ enum MasterDataScreen {
     /// Reads the workbook and imports it after the questions. True when imported (the Inbox then moves the file).
     static func importFile(_ model: AppModel, _ url: URL) -> Bool {
         guard model.writable, let queue = model.queue, let folders = model.folders else {
-            UI.error(Texts.readOnly)
+            UI.error(Texts.notOpen)
             return false
         }
         let data: MasterData.Contents
