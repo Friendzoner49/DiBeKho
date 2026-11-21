@@ -165,7 +165,7 @@ final class AppModel: ObservableObject {
         } catch let error as CloudError where error.kind == .sessionExpired {
             stage = .login(t("login.again"))
         } catch {
-            if (try? queue?.read { try Replica.enabled($0) }) == true {
+            if (try? await queue?.read { try Replica.enabled($0) }) == true {
                 ActivityLog.write("cloud", "offline at start: working on the local copy")
                 begin()
             } else {
