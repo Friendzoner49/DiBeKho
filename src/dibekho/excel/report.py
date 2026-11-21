@@ -18,27 +18,28 @@ SHEETS = ("summary", "details", "customers", "top")
 _HEAD_FILL = PatternFill("solid", fgColor="DDEBF7")
 _ORDER_FILL = PatternFill("solid", fgColor="F2F2F2")
 _BOLD = Font(bold=True)
-MONEY = "#,##0"
+MONEY = "0"  # no thousands separator in any Excel file (user, 21/11/2026: 6182.98, not 6.182,98)
 
 
 def _place(location_id) -> str:
     return t(f"loc.{LOCATION_CODES[location_id]}") if location_id in LOCATION_CODES else ""
 
 
-MONEY_CNY = '"¥"#,##0.00'  # an amount of a note priced in yuan (documents.currency = 'CNY')
+MONEY_CNY = '"¥"0.00'  # an amount of a note priced in yuan (documents.currency = 'CNY')
 
 
 def _dong(value) -> str:
-    return f"{round(value or 0):,}".replace(",", ".")
+    """'120000000': no thousands separator in the files (as MONEY)"""
+    return str(round(value or 0))
 
 
 def _both(vnd, cny=None, approx=None) -> str:
-    """'120.000.000', or with notes in yuan '120.000.000 ₫ + ¥4.800 (≈ 137.280.000 ₫)': the two currencies are never
+    """'120000000', or with notes in yuan '120000000 ₫ + ¥4800.5 (≈ 137280000 ₫)': the two currencies are never
     one number (user, 15/11/2026); the bracket is the yuan as dong at the rates kept with those notes. The files do
     not follow the ₫ | ¥ switch of the screen."""
     if not cny:
         return _dong(vnd)
-    yuan = "¥" + f"{round(cny, 2):,.2f}".rstrip("0").rstrip(".").replace(",", " ").replace(".", ",").replace(" ", ".")
+    yuan = "¥" + f"{round(cny, 2):.2f}".rstrip("0").rstrip(".")
     about = f" (≈ {_dong((vnd or 0) + approx)} ₫)" if approx else ""
     return (f"{_dong(vnd)} ₫ + {yuan}" if vnd else yuan) + about
 

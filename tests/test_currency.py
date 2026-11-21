@@ -193,7 +193,7 @@ def test_the_excel_files_keep_the_two_currencies_apart(conn, ws, monkeypatch, tm
                          {"summary", "details", "customers", "top"}, "11/2026", "Tất cả")
     wb = openpyxl.load_workbook(path)
     summary = wb.worksheets[0]
-    assert "2.100.000 ₫ + ¥4.800 (≈ 19.380.000 ₫)" in summary["A3"].value
+    assert "2100000 ₫ + ¥4800 (≈ 19380000 ₫)" in summary["A3"].value  # no thousands separator in files (21/11/2026)
     head = [c.value for c in summary[6]]
     col = head.index("Doanh thu (¥)") + 1
     assert head[col - 2] == "Doanh thu" and head[col] == "Ghi chú tồn kho"
@@ -208,7 +208,7 @@ def test_the_excel_files_keep_the_two_currencies_apart(conn, ws, monkeypatch, tm
     one = report.export_customer(tmp_path / "c.xlsx", conn, yuan["customer_id"], None, None, "Tất cả")
     wb = openpyxl.load_workbook(one)
     orders, products = wb.worksheets
-    assert "2.100.000 ₫ + ¥4.800 (≈ 19.380.000 ₫)" in orders["A3"].value
+    assert "2100000 ₫ + ¥4800 (≈ 19380000 ₫)" in orders["A3"].value
     totals = {r[1].value: r[10] for r in orders.iter_rows(min_row=7) if r[3].value and r[2].value is None}
     assert "¥" in totals["155"].number_format and "¥" not in totals["156"].number_format
     assert [c.value for c in products[6]][-3:] == ["Doanh thu (¥)", "Giá thấp nhất (¥)", "Giá cao nhất (¥)"]

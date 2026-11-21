@@ -39,8 +39,9 @@ const DBK_XLSX = (() => {
   const HIDDEN = [8, 9];
   const HEIGHTS = { 1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, [HEADER_ROW]: 54.0 };
   const LINE_HEIGHT = 152.0, TOTAL_HEIGHT = 83.0, SIGN_HEIGHT = 43.75;  // the template of 18/11/2026
-  const MONEY = "[$VND]\\ #,##0";
-  const MONEY_CNY = "[$¥]\\ #,##0.00";
+  // no thousands separator in any Excel file (user, 21/11/2026: 6182.98, not 6.182,98), as excel/issue_note.py
+  const MONEY = "[$VND]\\ 0";
+  const MONEY_CNY = "[$¥]\\ 0.00";
   const TNR = "Times New Roman";
   const SONG = "宋体";  // issue_note.SONG: the cells the template sets in SimSun
   const DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];

@@ -56,8 +56,8 @@ WIDTHS = [17.0, 62.6640625, 38.33203125, 13.0, 34.6640625, 25.0, 25.83203125, 12
 HIDDEN = (8, 9)
 HEIGHTS = {1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, HEADER_ROW: 54.0}
 LINE_HEIGHT, TOTAL_HEIGHT, SIGN_HEIGHT = 152.0, 83.0, 43.75  # the template of 18/11/2026
-MONEY = '[$VND]\\ #,##0'
-MONEY_CNY = '[$¥]\\ #,##0.00'
+MONEY = '[$VND]\\ 0'  # no thousands separator in any Excel file (user, 21/11/2026: 6182.98, not 6.182,98)
+MONEY_CNY = '[$¥]\\ 0.00'
 TNR = "Times New Roman"  # most cells, as the shop's note shows (Chinese falls back to a CJK font)
 SONG = "宋体"  # SimSun: the customer, the code, e-mail and date labels, the two total labels (the template's own)
 
