@@ -9,7 +9,7 @@
 **Автоматический учёт склада по накладным Excel: программа на вашем компьютере, общие данные в облаке магазина, бесплатно.**
 
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg)
 
 <img src="docs/images/en/ton-kho.png" alt="Экран склада" width="860">
 
@@ -35,7 +35,7 @@
 
 ## Скачать
 
-Все файлы — на странице [**Releases**](https://github.com/Friendzoner49/DiBeKho/releases/latest): установщик для **Windows** (`DiBeKho-windows-setup.exe`) или **Mac с процессором Apple** (`DiBeKho-mac-arm64.dmg`). Подробные шаги установки (разблокировка в Windows/macOS, обновление, удаление) — в [README.md](README.md#download-and-install).
+Все файлы — на странице [**Releases**](https://github.com/Friendzoner49/DiBeKho/releases/latest): установщик для **Windows** (`DiBeKho-windows-setup.exe`) или **Mac с процессором Apple** (`DiBeKho-Swift-mac-arm64.dmg`, версия для Mac на Swift; старая версия на Python до v0.6.2 — на [странице релиза v0.6.2](https://github.com/Friendzoner49/DiBeKho/releases/tag/v0.6.2)). Подробные шаги установки (разблокировка в Windows/macOS, обновление, удаление) — в [README.md](README.md#download-and-install).
 
 ## Лицензия
 

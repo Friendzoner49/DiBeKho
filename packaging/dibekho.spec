@@ -1,6 +1,6 @@
-# PyInstaller build for Windows and macOS (run on each OS; PyInstaller cannot cross-build).
+# PyInstaller build for Windows (the Mac app is DiBeKho Swift since 21/11/2026, branch Mac_swift).
 #   uv run pyinstaller packaging/dibekho.spec --noconfirm
-# Output: dist/DiBeKho/ (Windows, --onedir) or dist/DiBeKho.app (macOS).
+# Output: dist/DiBeKho/ (--onedir).
 # --onefile is NOT used: it unpacks to a temp folder on every start and can leave junk behind.
 
 import sys
@@ -36,7 +36,6 @@ excludes = [
 ]
 
 icon_win = ROOT / "resources" / "dibekho.ico"
-icon_mac = ROOT / "resources" / "dibekho.icns"
 
 a = Analysis(
     [str(ROOT / "packaging" / "launcher.py")],
@@ -66,19 +65,3 @@ exe = EXE(
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="DiBeKho")
 
-if sys.platform == "darwin":
-    bundle_version = __version__.split(".dev")[0]  # macOS wants plain numbers: 0.1.0.dev0 -> 0.1.0
-    app = BUNDLE(
-        coll,
-        name="DiBeKho.app",
-        icon=str(icon_mac) if icon_mac.exists() else None,
-        bundle_identifier="vn.dibekho.app",
-        version=bundle_version,
-        info_plist={
-            "CFBundleDisplayName": "DiBeKho",
-            "CFBundleShortVersionString": bundle_version,
-            "NSHighResolutionCapable": True,
-            "LSMinimumSystemVersion": "13.0",
-            "NSDocumentsFolderUsageDescription": "DiBeKho lưu thư mục làm việc trong Documents.",
-        },
-    )

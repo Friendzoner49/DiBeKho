@@ -9,7 +9,7 @@
 **Automatic stock tracking from Excel delivery notes: an app on your computer, the shared data on the Cloud (the same as the web page), zero running cost.**
 
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg)
 
 📖 **[Detailed user guide (step by step, with pictures)](docs/user-guide.md)**
 
@@ -58,7 +58,7 @@ Every file is on the [**Downloads (Releases)**](https://github.com/Friendzoner49
 |---|---|---|
 | Windows | [**Installer** `DiBeKho-windows-setup.exe`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe) | Default (the **Windows** button at the top) |
 | Windows | [Zipped installer `DiBeKho-windows-setup.zip`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip) | The browser blocks the `.exe` (see below). It holds the same installer |
-| Mac | [`DiBeKho-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg) | Mac with an Apple chip (the **macOS** button at the top) |
+| Mac | [`DiBeKho-Swift-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg) | Mac with an Apple chip (the **macOS** button at the top). The old Python version for Mac (up to v0.6.2) stays on the [v0.6.2 release page](https://github.com/Friendzoner49/DiBeKho/releases/tag/v0.6.2) |
 
 ### Windows
 
@@ -69,20 +69,22 @@ Every file is on the [**Downloads (Releases)**](https://github.com/Friendzoner49
 
 ### Mac
 
-1. Click the **macOS** button at the top of this page. The file `DiBeKho-mac-arm64.dmg` is downloaded.
-2. Open the `.dmg` and **drag the DiBeKho icon into the Applications folder**.
-3. Open **DiBeKho** from Applications. The first time, macOS blocks it because Apple has not checked the app:
+The Mac version is **DiBeKho Swift**, written for the Mac: it opens fast and is light, with the same screens and button names as the Windows version. It shares the `Documents/DiBeKho` folder, `.dibekho` packages and the Cloud with the Windows version and the old Python version for Mac, so switching loses no data.
+
+1. Click the **macOS** button at the top of this page. The file `DiBeKho-Swift-mac-arm64.dmg` is downloaded.
+2. Open the `.dmg` and **drag the DiBeKho Swift icon into the Applications folder**.
+3. Open **DiBeKho Swift** from Applications. The first time, macOS blocks it because Apple has not checked the app:
    - Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** and enter your password.
    - When the app asks for access to the **Documents** folder, click **Allow**.
-4. **The Mac keeps saying "Move to Trash / Done" and there is no Open Anyway button?** Open **Terminal** (find it with Spotlight), paste the command below and press Enter. It only removes the "downloaded from the internet" mark from DiBeKho. Do it once after each new install.
+4. **The Mac keeps saying "Move to Trash / Done" and there is no Open Anyway button?** Open **Terminal** (find it with Spotlight), paste the command below and press Enter. It only removes the "downloaded from the internet" mark from DiBeKho Swift. Do it once after each new install.
 
    ```
-   xattr -dr com.apple.quarantine /Applications/DiBeKho.app
+   xattr -dr com.apple.quarantine "/Applications/DiBeKho Swift.app"
    ```
 
 ### Updating
 
-**From version 0.5.7 the app tells you when a new version is out**: a few seconds after it opens it checks, and asks **Update now?** → **Yes**. Windows: the app downloads it, closes, installs over itself and opens again. Mac: the app downloads it and opens the installer window; drag DiBeKho into Applications and choose **Replace**. Turn it off or check by hand: **Settings → General → New version**.
+**From version 0.5.7 the app tells you when a new version is out**: a few seconds after it opens it checks, and asks **Update now?** → **Yes**. Windows: the app downloads it, closes, installs over itself and opens again. Mac: the app downloads it and opens the installer window; drag DiBeKho Swift into Applications and choose **Replace**. Turn it off or check by hand: **Settings → General → New version**.
 
 Older than 0.5.7 (or to do it yourself): download the new version as above and **install it over the old one** (Mac: drag into Applications and choose **Replace**). Your data in `Documents/DiBeKho` is kept.
 
@@ -166,7 +168,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 
 ### 4. Looking things up
 
-- **Stock:** columns **Main warehouse**, **Office** and the total (the **Stock** column sticks to the left edge once you scroll past it, so the running total stays visible). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Settings → Products → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
+- **Stock:** columns **Main warehouse**, **Office** and the total (the **Stock** column sticks to the left edge once you scroll past it, so the running total stays visible). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Search → Product catalog → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
 - **Search** (**Ctrl+F**, on a Mac **⌘F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
 - **Order list**: the goods of dong orders and of yuan orders stand in two columns, **Goods (VND)** and **Goods (CNY)**; the **Currency** filter shows one kind only.
 - Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Reread the whole note** (right-click an order in the order list to do this straight from there), **Cancel document**.
@@ -179,7 +181,7 @@ Open **Stock count**, pick the date, type what you counted in the 2 yellow colum
 
 ### 6. Product catalog
 
-**Settings → Products**:
+**Search → Product catalog** (the second tab of the Search page, filling the page so many rows show):
 - **Add product**, **Edit product…** (or double-click a row): name, packing, type/colour, category.
 - **Merge duplicate products…**: if one product was typed twice, select one row, click this, then pick the other. Every note, stock figure and learned name goes to the one with the smaller code; the other disappears. A merge cannot be split again, so check before you click.
 - **Delete product** only works for a product that no note uses. A product already in use can be made *inactive* instead (hidden from lists, old notes unchanged). The code of a deleted product is never given out again.
@@ -215,7 +217,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are never deleted.
 | Situation | What to do |
 |---|---|
 | You just picked the wrong product for an order | Open it → **Reread the whole note** (only that order is read again) |
-| A line was matched to the wrong product some time ago | **Settings → Products → Learned names on notes**: click the order, then **Forget and read again…** on the wrong line. The note comes back to **To do** to choose again |
+| A line was matched to the wrong product some time ago | **Settings → Learned names on notes**: click the order, then **Forget and read again…** on the wrong line. The note comes back to **To do** to choose again |
 | You want to redo a whole order at once (not line by line) | Right-click the order's name (order list, Learned names on notes, or the order's own window) → **Reread the whole note** |
 | A note was entered by mistake | Open the order, **Cancel document** (stock is given back, history kept). Deleting the file does **not** cancel it |
 | A note file was deleted from the folder | The stock does not change. **To do** offers **Restore file**, **Cancel document** or **Ignore** |

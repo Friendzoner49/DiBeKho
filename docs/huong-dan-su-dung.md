@@ -33,10 +33,10 @@ Bên trái là **6 mục**. Bấm vào một mục để mở nó:
 |---|---|
 | **Tồn kho** | Xem còn bao nhiêu hàng, ở đâu, hàng nào sắp hết |
 | **Cần xử lý** | Những việc app cần bạn quyết định. Có số trong ngoặc, ví dụ **Cần xử lý (2)**, là đang có việc chờ |
-| **Tra cứu** | Tìm mọi thứ; mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel** |
+| **Tra cứu** | Tìm mọi thứ; mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**; tab **Danh mục mặt hàng** |
 | **Hàng về** | Ghi hàng nhập về kho |
 | **Kiểm kê** | Ghi số đếm thực tế; chuyển hàng giữa hai nơi |
-| **Cài đặt** | Ngôn ngữ, cỡ chữ, danh mục mặt hàng, sao lưu, chuyển dữ liệu |
+| **Cài đặt** | Ngôn ngữ, cỡ chữ, tên trên phiếu đã học, sao lưu, chuyển dữ liệu |
 
 Phía trên cùng có các nút dùng chung:
 - **⟳ Quét lại phiếu** (phím **F5**): đọc các phiếu giao hàng mới.
@@ -225,7 +225,7 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
 5. Bấm **Lưu phiếu hàng về**, đọc bảng tóm tắt rồi đồng ý.
    - Ô nhà cung cấp là **nơi gửi hàng tới** (cửa khẩu, công ty mẹ), không phải "Kho tổng". **Muốn sửa số tồn bị sai thì dùng Kiểm kê**, không dùng Hàng về.
 
-Đang nhập mà phải đóng cửa sổ (ví dụ để sang Cài đặt sửa tên một mặt hàng): phiếu chưa lưu **được giữ lại**. Bấm **＋ Nhập hàng về…** lần sau, chọn **Có** để nhập tiếp. Phiếu dở chỉ giữ tới khi tắt app.
+Đang nhập mà phải đóng cửa sổ (ví dụ để sang Tra cứu → Danh mục mặt hàng sửa tên một mặt hàng): phiếu chưa lưu **được giữ lại**. Bấm **＋ Nhập hàng về…** lần sau, chọn **Có** để nhập tiếp. Phiếu dở chỉ giữ tới khi tắt app.
 
 Kết quả: tồn tăng ở nơi đã chọn, phiếu có mã **HV001, HV002…**, và một file Excel của phiếu được lưu trong `output/hang-ve/` (để in hoặc gửi).
 
@@ -402,7 +402,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 
 ## 12. Danh mục mặt hàng và mức báo động
 
-**Cài đặt → Danh mục mặt hàng**:
+**Tra cứu → Danh mục mặt hàng** (tab thứ hai của trang Tra cứu, chiếm cả trang; bấm **Ctrl+F** (Mac: **⌘F**) để quay về ô tìm):
 
 **Mức báo động chung — Báo động khi tồn dưới** (mặc định **30**):
 - Áp dụng cho **mọi mặt hàng**. Tồn **dưới** số này thì dòng tô cam và ghi "⚠ Sắp hết — nên đặt hàng".
@@ -414,7 +414,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 - **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại trong danh sách. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Gộp rồi không tách lại được.
 - **Xoá mặt hàng**: chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
 - **Nhập danh mục từ Excel…**: nạp thêm mặt hàng từ file thống kê tháng.
-- **Tên trên phiếu đã học**: danh sách tên hàng app đã học, nhóm theo đơn. Bấm vào đơn để xem; **Quên và đọc lại…** để chọn lại mặt hàng cho **một tên**.
+- **Cài đặt → Tên trên phiếu đã học** (tab thứ hai của Cài đặt): danh sách tên hàng app đã học, nhóm theo đơn. Bấm vào đơn để xem; **Quên và đọc lại…** để chọn lại mặt hàng cho **một tên**.
 - **Đọc lại cả phiếu**: muốn chọn lại **mọi dòng hàng** trong một đơn (không phải từng dòng một)? Nhấn **chuột phải vào tên đơn** — ở đây, hoặc ở Danh sách đơn hàng (mục 9), hoặc bấm nút cùng tên khi mở chi tiết đơn. App quên cách ghép tên cho mọi dòng trong đơn đó rồi đọc lại **riêng đơn đó** từ đầu; đơn hiện lại ở **Cần xử lý** để chọn lại, các đơn khác giữ nguyên. Lịch sử cũ vẫn giữ. (Còn **Quên và đọc lại…** ở một tên thì đọc lại **mọi** đơn có tên đó.)
 
 ---
@@ -439,7 +439,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 | Tình huống | Cách làm |
 |---|---|
 | Vừa chọn nhầm mặt hàng cho một đơn | Mở đơn → **Đọc lại cả phiếu** |
-| Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
+| Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
 | Muốn chọn lại cả một đơn (nhiều dòng cùng lúc) | Nhấn chuột phải vào tên đơn (Đơn hàng, Tên trên phiếu đã học, hoặc chi tiết đơn) → **Đọc lại cả phiếu** ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)) |
 | Một đơn nhập nhầm | Mở đơn → **Huỷ phiếu** |
 | Chọn nhầm nơi lấy hàng | Mở đơn → đổi ô **Lấy hàng từ** |

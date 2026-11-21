@@ -33,10 +33,10 @@ On the left are **6 items**. Click one to open it:
 |---|---|
 | **Stock** | How much is left, where, and what is running low |
 | **To do** | Things the app needs you to decide. A number in brackets, e.g. **To do (2)**, means something is waiting |
-| **Search** | Find anything; opens the **Order list**, **Customer list**, **Statistics and Excel export** |
+| **Search** | Find anything; opens the **Order list**, **Customer list**, **Statistics and Excel export**; the **Product catalog** tab |
 | **Goods in** | Record goods arriving |
 | **Stock count** | Record what you counted; move goods between the two places |
-| **Settings** | Language, text size, product catalog, backups, data transfer |
+| **Settings** | Language, text size, learned names on notes, backups, data transfer |
 
 At the top are 3 buttons:
 - **⟳ Rescan notes** (key **F5**): read new delivery notes.
@@ -225,7 +225,7 @@ This note is **shared** with the note column on the Stock count page, and shows 
 5. Click **Save goods in**, read the summary and agree.
    - The supplier box is **where the goods came from** (border gate, parent company), not "Main warehouse". **To correct a wrong stock figure, use Stock count**, not Goods in.
 
-Had to close the window while typing (e.g. to fix a product's name in Settings)? The unsaved receipt **is kept**: click **＋ Goods in…** next time and choose **Yes** to go on. It is kept until the app is closed.
+Had to close the window while typing (e.g. to fix a product's name in Search → Product catalog)? The unsaved receipt **is kept**: click **＋ Goods in…** next time and choose **Yes** to go on. It is kept until the app is closed.
 
 Result: the stock goes up at the chosen place, the receipt gets a code **HV001, HV002…**, and an Excel file of it is saved in `output/hang-ve/` (to print or send).
 
@@ -402,7 +402,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 
 ## 12. Product catalog and alert level
 
-**Settings → Products**:
+**Search → Product catalog** (the second tab of the Search page, filling the page; **Ctrl+F** (Mac: **⌘F**) goes back to the search box):
 
 **Common alert level — Alert when stock is below** (default **30**):
 - For **every product**. Stock **below** it turns the row orange with "⚠ Running low — order more".
@@ -439,7 +439,7 @@ Your own files (delivery notes, `input/`, `output/`, backups) are **never** dele
 | Situation | What to do |
 |---|---|
 | Just picked the wrong product for an order | Open it → **Reread the whole note** |
-| Wrong product chosen for a line long ago | **Settings → Products → Learned names on notes**: click the order, **Forget and read again…** on the wrong line. The note comes back in **To do** |
+| Wrong product chosen for a line long ago | **Settings → Learned names on notes**: click the order, **Forget and read again…** on the wrong line. The note comes back in **To do** |
 | Want to redo a whole order (several lines at once) | Right-click the order's name (Order list, Learned names on notes, or the order's own window) → **Reread the whole note** ([section 12](#12-product-catalog-and-alert-level)) |
 | An order recorded by mistake | Open it → **Cancel document** |
 | Wrong place for an order | Open it → change **Taken from** |

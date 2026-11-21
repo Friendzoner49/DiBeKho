@@ -9,7 +9,7 @@
 **Theo dõi tồn kho tự động từ các file phiếu giao hàng Excel: app trên máy, dữ liệu chung trên Cloud (giống trang web), chi phí 0₫.**
 
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg)
 
 📖 **[Hướng dẫn sử dụng chi tiết (từng bước, có ảnh)](docs/huong-dan-su-dung.md)**
 
@@ -56,7 +56,7 @@ Mọi bản đều nằm ở trang [**Tải về (Releases)**](https://github.co
 |---|---|---|
 | Windows | [**Bộ cài** `DiBeKho-windows-setup.exe`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe) | Mặc định (nút **Windows** ở đầu trang) |
 | Windows | [Bộ cài nén `DiBeKho-windows-setup.zip`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip) | Trình duyệt chặn file `.exe` (xem bên dưới). Bên trong là đúng bộ cài trên |
-| Mac | [`DiBeKho-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg) | Mac chip Apple (nút **macOS** ở đầu trang) |
+| Mac | [`DiBeKho-Swift-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg) | Mac chip Apple (nút **macOS** ở đầu trang). Bản cũ viết bằng Python cho Mac (đến v0.6.2) vẫn ở [trang Release v0.6.2](https://github.com/Friendzoner49/DiBeKho/releases/tag/v0.6.2) |
 
 ### Windows
 
@@ -67,20 +67,22 @@ Mọi bản đều nằm ở trang [**Tải về (Releases)**](https://github.co
 
 ### Mac
 
-1. Bấm nút **macOS** ở đầu trang. Máy tải file `DiBeKho-mac-arm64.dmg`.
-2. Mở file `.dmg`, **kéo biểu tượng DiBeKho vào thư mục Applications**.
-3. Mở **DiBeKho** trong Applications. Lần đầu macOS chặn vì app chưa được Apple chứng nhận:
+Bản cho Mac là **DiBeKho Swift**, viết riêng cho Mac: mở nhanh, nhẹ, màn hình và tên nút giống bản Windows. Dùng chung thư mục `Tài liệu/DiBeKho`, gói `.dibekho` và Cloud với bản Windows và bản Python cho Mac cũ, nên chuyển sang không mất dữ liệu.
+
+1. Bấm nút **macOS** ở đầu trang. Máy tải file `DiBeKho-Swift-mac-arm64.dmg`.
+2. Mở file `.dmg`, **kéo biểu tượng DiBeKho Swift vào thư mục Applications**.
+3. Mở **DiBeKho Swift** trong Applications. Lần đầu macOS chặn vì app chưa được Apple chứng nhận:
    - Mở **Cài đặt hệ thống → Quyền riêng tư & Bảo mật**, kéo xuống dưới, bấm **Vẫn mở**, rồi nhập mật khẩu máy.
    - Khi app hỏi quyền truy cập thư mục **Tài liệu (Documents)**, bấm **Cho phép**.
-4. **Mac cứ báo "Chuyển vào Thùng rác / Xong" và không có nút Vẫn mở?** Mở **Terminal** (tìm bằng Spotlight), dán lệnh dưới rồi bấm Enter. Lệnh chỉ bỏ dấu "tải từ internet" khỏi DiBeKho. Làm lại một lần sau mỗi lần cài bản mới.
+4. **Mac cứ báo "Chuyển vào Thùng rác / Xong" và không có nút Vẫn mở?** Mở **Terminal** (tìm bằng Spotlight), dán lệnh dưới rồi bấm Enter. Lệnh chỉ bỏ dấu "tải từ internet" khỏi DiBeKho Swift. Làm lại một lần sau mỗi lần cài bản mới.
 
    ```
-   xattr -dr com.apple.quarantine /Applications/DiBeKho.app
+   xattr -dr com.apple.quarantine "/Applications/DiBeKho Swift.app"
    ```
 
 ### Cập nhật bản mới
 
-**Từ bản 0.5.7 app tự báo khi có bản mới**: mở app vài giây là app kiểm tra; có bản mới thì hỏi **Cập nhật ngay?** → **Có**. Windows: app tự tải, tự đóng, cài đè rồi mở lại. Mac: app tải và mở cửa sổ cài đặt, bạn kéo DiBeKho vào Applications, chọn **Thay thế**. Tắt/bật hoặc kiểm tra bằng tay: **Cài đặt → Chung → Bản mới**.
+**Từ bản 0.5.7 app tự báo khi có bản mới**: mở app vài giây là app kiểm tra; có bản mới thì hỏi **Cập nhật ngay?** → **Có**. Windows: app tự tải, tự đóng, cài đè rồi mở lại. Mac: app tải và mở cửa sổ cài đặt, bạn kéo DiBeKho Swift vào Applications, chọn **Thay thế**. Tắt/bật hoặc kiểm tra bằng tay: **Cài đặt → Chung → Bản mới**.
 
 Bản cũ hơn 0.5.7 (hoặc muốn tự làm): tải bản mới như trên rồi **cài đè** lên bản cũ (Mac: kéo vào Applications, chọn **Thay thế**). Dữ liệu trong `Tài liệu/DiBeKho` giữ nguyên, không mất gì.
 
@@ -164,7 +166,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 
 ### 4. Tra cứu
 
-- **Tồn kho:** cột **Kho tổng**, **Văn phòng** và tổng (cột **Tồn** tự dính vào mép trái khi kéo bảng sang ngang, để vẫn thấy tổng tồn). Dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **cam** = dưới mức báo động (mặc định **30**, đổi ở **Cài đặt → Danh mục mặt hàng → Báo động khi tồn dưới**). Tick **Chỉ hiện hàng sắp hết** để có danh sách cần đặt. Nháy đúp ô **Ghi chú tồn kho** để ghi chú; nháy đúp chỗ khác để xem lịch sử nhập, xuất và số ở từng nơi.
+- **Tồn kho:** cột **Kho tổng**, **Văn phòng** và tổng (cột **Tồn** tự dính vào mép trái khi kéo bảng sang ngang, để vẫn thấy tổng tồn). Dòng **đỏ** = tồn âm (thiếu phiếu hàng về hoặc chưa kiểm kê); dòng **cam** = dưới mức báo động (mặc định **30**, đổi ở **Tra cứu → Danh mục mặt hàng → Báo động khi tồn dưới**). Tick **Chỉ hiện hàng sắp hết** để có danh sách cần đặt. Nháy đúp ô **Ghi chú tồn kho** để ghi chú; nháy đúp chỗ khác để xem lịch sử nhập, xuất và số ở từng nơi.
 - **Tra cứu** (phím **Ctrl+F**, trên Mac **⌘F**): một ô tìm cho mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**.
 - **Danh sách đơn hàng**: tiền hàng của đơn tiền Việt và đơn tệ nằm ở hai cột riêng **Tiền hàng (VND)** và **Tiền hàng (CNY)**; ô lọc **Loại tiền** để xem riêng từng loại.
 - Mở **một đơn hàng**: khách, các dòng hàng với **Đơn giá** và **Thành tiền**, tiền hàng + phí khác = tổng tiền, **Mở file gốc**, **Đọc lại cả phiếu** (nhấn chuột phải vào tên đơn ở danh sách đơn hàng để làm nhanh cho cả đơn), **Huỷ phiếu**.
@@ -177,7 +179,7 @@ Vào **Kiểm kê**, chọn ngày, gõ số đếm thực tế vào 2 cột vàn
 
 ### 6. Danh mục mặt hàng
 
-**Cài đặt → Danh mục mặt hàng**:
+**Tra cứu → Danh mục mặt hàng** (tab thứ hai của trang Tra cứu, chiếm cả trang để thấy được nhiều dòng):
 - **Thêm mặt hàng**, **Sửa mặt hàng…** (hoặc nháy đúp một dòng): tên, quy cách, loại/màu, nhóm hàng.
 - **Gộp mặt hàng trùng…**: nếu một mặt hàng lỡ gõ thành hai dòng, bấm chọn một dòng, bấm nút này rồi chọn dòng còn lại. Mọi phiếu, số tồn và tên đã học chuyển sang mặt hàng có mã nhỏ hơn, mặt hàng kia biến mất. Gộp rồi không tách lại được, nên xem kỹ trước khi bấm.
 - **Xoá mặt hàng** chỉ xoá được mặt hàng chưa có trong phiếu nào. Mặt hàng đã dùng thì chuyển sang *Ngừng dùng* (ẩn khỏi danh sách, phiếu cũ giữ nguyên). Mã của mặt hàng đã xoá không bao giờ cấp lại.
@@ -213,7 +215,7 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) không bao 
 | Tình huống | Cách làm |
 |---|---|
 | Vừa chọn nhầm mặt hàng cho một đơn | Mở đơn → **Đọc lại cả phiếu** (chỉ đơn đó được đọc lại) |
-| Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Danh mục mặt hàng → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
+| Chọn nhầm mặt hàng cho một dòng phiếu từ lâu | **Cài đặt → Tên trên phiếu đã học**: bấm vào đơn, bấm **Quên và đọc lại…** ở dòng sai. Phiếu hiện lại ở **Cần xử lý** để chọn lại |
 | Một phiếu nhập nhầm | Mở đơn hàng, bấm **Huỷ phiếu** (tồn được trả lại, lịch sử vẫn giữ). Xoá file **không** phải cách huỷ phiếu |
 | Lỡ xoá file phiếu khỏi thư mục | Tồn không đổi. **Cần xử lý** cho chọn **Khôi phục file**, **Huỷ phiếu** hoặc **Bỏ qua** |
 | Lỡ xoá nhầm một mặt hàng | **Cài đặt → Chuyển dữ liệu và sao lưu → Khôi phục mặt hàng đã xoá…** |

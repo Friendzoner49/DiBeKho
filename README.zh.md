@@ -9,7 +9,7 @@
 **根据 Excel 送货单自动跟踪库存：应用在电脑上运行，共享数据在云端（与网页相同），零运行成本。**
 
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe)
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg)
 
 📖 **[详细使用指南（分步骤，附截图）](docs/user-guide.zh.md)**
 
@@ -58,7 +58,7 @@
 |---|---|---|
 | Windows | [**安装程序** `DiBeKho-windows-setup.exe`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.exe) | 默认（页面顶部的 **Windows** 按钮） |
 | Windows | [压缩的安装程序 `DiBeKho-windows-setup.zip`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-windows-setup.zip) | 浏览器拦截 `.exe` 时（见下文）。里面是同一个安装程序 |
-| Mac | [`DiBeKho-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-mac-arm64.dmg) | 使用 Apple 芯片的 Mac（页面顶部的 **macOS** 按钮） |
+| Mac | [`DiBeKho-Swift-mac-arm64.dmg`](https://github.com/Friendzoner49/DiBeKho/releases/latest/download/DiBeKho-Swift-mac-arm64.dmg) | 使用 Apple 芯片的 Mac（页面顶部的 **macOS** 按钮）。旧的 Python 版 Mac 应用（至 v0.6.2）仍在 [v0.6.2 发布页](https://github.com/Friendzoner49/DiBeKho/releases/tag/v0.6.2) |
 
 ### Windows
 
@@ -69,20 +69,22 @@
 
 ### Mac
 
-1. 点击页面顶部的 **macOS** 按钮，会下载 `DiBeKho-mac-arm64.dmg`。
-2. 打开 `.dmg`，**把 DiBeKho 图标拖到“应用程序”文件夹**。
-3. 在“应用程序”中打开 **DiBeKho**。第一次打开时 macOS 会拦截，因为应用未经 Apple 公证：
+Mac 版是专为 Mac 编写的 **DiBeKho Swift**：打开快、更轻，界面和按钮名称与 Windows 版相同。它与 Windows 版及旧的 Python 版 Mac 应用共用 `文稿/DiBeKho` 文件夹、`.dibekho` 数据包和云端，换用不会丢失数据。
+
+1. 点击页面顶部的 **macOS** 按钮，会下载 `DiBeKho-Swift-mac-arm64.dmg`。
+2. 打开 `.dmg`，**把 DiBeKho Swift 图标拖到“应用程序”文件夹**。
+3. 在“应用程序”中打开 **DiBeKho Swift**。第一次打开时 macOS 会拦截，因为应用未经 Apple 公证：
    - 打开 **系统设置 → 隐私与安全性**，向下滚动，点击 **仍要打开**，然后输入电脑密码。
    - 应用请求访问 **文稿** 文件夹时，点击 **允许**。
-4. **Mac 一直显示“移到废纸篓 / 完成”，没有“仍要打开”按钮？** 打开 **终端**（用聚焦搜索查找），粘贴下面的命令并按回车。它只会去掉 DiBeKho 的“从互联网下载”标记。每次安装新版本后执行一次。
+4. **Mac 一直显示“移到废纸篓 / 完成”，没有“仍要打开”按钮？** 打开 **终端**（用聚焦搜索查找），粘贴下面的命令并按回车。它只会去掉 DiBeKho Swift 的“从互联网下载”标记。每次安装新版本后执行一次。
 
    ```
-   xattr -dr com.apple.quarantine /Applications/DiBeKho.app
+   xattr -dr com.apple.quarantine "/Applications/DiBeKho Swift.app"
    ```
 
 ### 更新
 
-**从 0.5.7 版起，应用会提示新版本**：打开几秒后自动检查，有新版本时询问 **现在更新吗？** → **是**。Windows：应用自动下载、关闭、覆盖安装后重新打开。Mac：应用下载后打开安装窗口，把 DiBeKho 拖到“应用程序”并选择 **替换**。关闭或手动检查：**设置 → 常规 → 新版本**。
+**从 0.5.7 版起，应用会提示新版本**：打开几秒后自动检查，有新版本时询问 **现在更新吗？** → **是**。Windows：应用自动下载、关闭、覆盖安装后重新打开。Mac：应用下载后打开安装窗口，把 DiBeKho Swift 拖到“应用程序”并选择 **替换**。关闭或手动检查：**设置 → 常规 → 新版本**。
 
 低于 0.5.7 的版本（或想自己更新）：按上面的方法下载新版本，**直接安装在旧版本上**（Mac：拖到“应用程序”并选择 **替换**）。`文稿/DiBeKho` 中的数据会保留。
 
@@ -166,7 +168,7 @@
 
 ### 4. 查询
 
-- **库存**：显示 **总仓**、**办公室** 和合计（**库存** 一列在左右拖动表格滚动过它之后会固定在左边，方便一直看到合计）。**红色** 行 = 负库存（缺少到货或盘点）；**橙色** 行 = 低于提醒值（默认 **30**，在 **设置 → 商品 → 库存低于此数时提醒** 中修改）。勾选 **只看即将缺货** 可得到需补货清单。双击 **库存备注** 单元格填写备注；双击其他位置查看全部进出记录及各处库存。
+- **库存**：显示 **总仓**、**办公室** 和合计（**库存** 一列在左右拖动表格滚动过它之后会固定在左边，方便一直看到合计）。**红色** 行 = 负库存（缺少到货或盘点）；**橙色** 行 = 低于提醒值（默认 **30**，在 **查询 → 商品目录 → 库存低于此数时提醒** 中修改）。勾选 **只看即将缺货** 可得到需补货清单。双击 **库存备注** 单元格填写备注；双击其他位置查看全部进出记录及各处库存。
 - **查询**（**Ctrl+F**，Mac 上为 **⌘F**）：一个搜索框即可搜索商品、客户、电话号码、单号和备注。下方按钮可打开 **订单列表**、**客户列表** 和 **统计与 Excel 导出**。
 - **订单列表**：越南盾订单和人民币订单的货款分列在 **货款（越南盾）** 和 **货款（人民币）** 两列；用 **币种** 筛选可只看一种。
 - 打开 **订单**：客户、带 **单价** 和 **金额** 的明细行、货款 + 其他费用 = 合计、**打开原始文件**、**整张重新读取**（在订单列表中对订单点右键也能直接做到）、**作废单据**。
@@ -179,7 +181,7 @@
 
 ### 6. 商品目录
 
-**设置 → 商品**：
+**查询 → 商品目录**（查询页面的第二个标签，占满整页，可看到更多行）：
 - **添加商品**、**编辑商品…**（或双击一行）：名称、规格、类型/颜色、类别。
 - **合并重复商品…**：如果同一个商品被录入了两次，先选中其中一行，点此按钮，再选另一个。所有单据、库存和已学名称都会转到编码较小的商品，另一个消失。合并后无法再拆分，请看清楚再点。
 - **删除商品** 只能删除未出现在任何单据中的商品。已使用的商品可改为 *停用*（不再显示在列表中，旧单据不变）。已删除商品的编码不会再次分配。
@@ -215,7 +217,7 @@
 | 情况 | 操作 |
 |---|---|
 | 刚给某张订单选错商品 | 打开订单 → **整张重新读取**（只重新读取这一张） |
-| 很早以前某行对应错了商品 | **设置 → 商品 → 已学习的单据名称**：点击订单，在错误的行上点击 **忘记并重新读取…**。该送货单会回到 **待处理** 重新选择 |
+| 很早以前某行对应错了商品 | **设置 → 已学习的单据名称**：点击订单，在错误的行上点击 **忘记并重新读取…**。该送货单会回到 **待处理** 重新选择 |
 | 想一次性重新选择一整张订单（不是一行一行来） | 在订单名称上点右键（订单列表、已学习的单据名称，或订单详情窗口）→ **整张重新读取** |
 | 某张送货单录入错误 | 打开该订单，点击 **作废单据**（库存冲回，历史保留）。删除文件 **不会** 作废单据 |
 | 送货单文件被从文件夹中删除 | 库存不变。**待处理** 中可选择 **恢复文件**、**作废单据** 或 **忽略** |
