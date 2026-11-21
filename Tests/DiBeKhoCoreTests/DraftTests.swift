@@ -31,7 +31,7 @@ final class DraftTests: XCTestCase {
 
     private func counts() throws -> [String] {
         try q.read { db in
-            ["documents", "products", "customers", "stock_movements"].map { table in
+            try ["documents", "products", "customers", "stock_movements"].map { table in
                 "\(table)=\(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table)") ?? -1)"
             }
         }
