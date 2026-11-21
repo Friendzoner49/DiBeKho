@@ -89,6 +89,10 @@ jobs:
             DIBEKHO_OPEN="$PWD/shop.sqlite" DIBEKHO_PAGE=stock DIBEKHO_WINDOW=issue \
               "build/DiBeKho Swift.app/Contents/MacOS/DiBeKhoSwift" & pid=$!
             sleep 7
+            # positions from screen-19-issue-*.png (1024×768): the ▾ next to the customer box, the customer box
+            if [ "$mode" = pick ]; then xy="776 195"; else xy="450 194"; fi
+            osascript -l JavaScript tools/ci_click.js $xy || echo "click failed"
+            sleep 1
             osascript tools/ci_pick_customer.applescript "$mode" || echo "osascript $mode failed (no accessibility on this runner?)"
             sleep 2
             screencapture -x "build/screen-19-issue-$mode.png" || true
