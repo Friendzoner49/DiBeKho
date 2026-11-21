@@ -55,8 +55,9 @@ enum UI {
     /// run-loop modes itself.
     @MainActor
     static func later(_ work: @escaping () -> Void) {
-        // the block runs on the main thread, in whichever of these modes the run loop is in next
-        RunLoop.main.perform(inModes: [.default, .modalPanel, .eventTracking]) { work() }
+        // the main thread, in the normal or the modal-panel mode; never event tracking, which a button press still runs in
+        // (a dialog started there hung the app on CI)
+        RunLoop.main.perform(inModes: [.default, .modalPanel]) { work() }
     }
 
     @MainActor
