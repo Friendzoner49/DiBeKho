@@ -32,6 +32,9 @@ from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.worksheet.properties import PageSetupProperties
 
 TITLE = "出库单 PHIẾU XUẤT KHO"
+# a draft order (customer's request 21/11/2026): the same file, nothing recorded; the scan refuses a file with this mark
+DRAFT_MARK = "(NHÁP)"
+TITLE_DRAFT = "出库单（草稿） PHIẾU XUẤT KHO " + DRAFT_MARK
 LABELS = {
     "customer": "客户名称 ( Tên khách hàng ): ",
     "phone": "联系电话 ( Điện thoại liên hệ ): ",
@@ -90,6 +93,12 @@ class IssueHead:
     email: str = ""
     letterhead: list[str] = field(default_factory=list)  # company name, address (from the shop's delivery notes)
     currency: str = "VND"  # "CNY": the prices are yuan
+    draft: bool = False  # a draft order: the title says NHÁP
+
+
+def is_draft_title(title: str) -> bool:
+    """True for the title of a draft order (TITLE_DRAFT), whatever its spacing."""
+    return DRAFT_MARK in (title or "").upper().replace(" )", ")").replace("( ", "(")
 
 
 @dataclass
@@ -201,7 +210,7 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
     letter = (head.letterhead + ["", ""])[:2]
     put(1, 1, letter[0] or None, size=20)
     put(2, 1, letter[1] or None, size=20)
-    put(4, 1, TITLE, size=24)
+    put(4, 1, TITLE_DRAFT if head.draft else TITLE, size=24)
     # the customer block cell for cell as the template of 18/11/2026: fonts, wrapping, merges (row 6 is not merged)
     put(5, 1, LABELS["customer"] + " " + head.customer, font=SONG, size=20, align="left")
     put(5, 3, LABELS["phone"] + head.phone, size=14, align="left", wrap=False)

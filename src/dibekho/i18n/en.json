@@ -831,5 +831,16 @@
   "issue.edit_hint": "Editing note {code}. When done press Save: the old note is replaced by the new content (same code {code}), the stock is worked out again and the Excel file is made again. The old file is kept in the folder da-sua.",
   "issue.confirm_edit_title": "Save the corrected note?",
   "issue.confirm_edit": "Note {code} · Date {date} · Customer: {customer}\n\n{lines}\n\nGoods total: {money}\n\nReplace note {code} with this and work out the stock again?",
-  "issue.saved_edit": "Note {code} corrected and the stock worked out again.\n\nExcel file: {path}\n\nOpen the file to print or send?"
+  "issue.saved_edit": "Note {code} corrected and the stock worked out again.\n\nExcel file: {path}\n\nOpen the file to print or send?",
+  "issue.save_draft": "Save as draft",
+  "issue.save_draft_tip": "Save as a draft order: an Excel file marked NHÁP; no stock taken, no revenue counted",
+  "issue.from_draft": "From a draft…",
+  "issue.from_draft_tip": "Open a saved draft order. When the customer confirms, click Save to make it a real stock issue note",
+  "issue.draft_title": "Stock issue note from draft {code}",
+  "issue.draft_hint": "Draft {code}. When the customer confirms, click “Save”: it becomes a real stock issue note (stock taken, revenue counted, a new code). To keep it as a draft, click “Save as draft”.",
+  "issue.draft_pick": "Choose a draft order",
+  "issue.draft_bad": "Could not open the draft order:\n{error}",
+  "issue.draft_replace": "Drop what is typed here and open the draft?",
+  "issue.draft_failed": "Could not save the draft order (is the file open in Excel?):\n{error}",
+  "issue.draft_saved": "The draft order was saved:\n{path}\n\nA draft takes no stock and counts no revenue. Open the file?"
 }

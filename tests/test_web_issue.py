@@ -168,3 +168,43 @@ def test_a_staff_web_file_with_a_new_product_waits_in_pending(conn, ws, goods, t
     deliveries.scan(conn, ws)
     assert deliveries.pending_count(conn) == 1
     assert conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("currency", ["VND", "CNY"])
+def test_a_draft_order_goes_both_ways_between_the_app_and_the_web(conn, ws, goods, tmp_path, currency):
+    """Đơn nháp (21/11/2026): the web reads back the app's draft file (readDraft), and the app reads back the web's
+    (load_draft), lines, places, prices, customer and currency alike; neither file is ever recorded by the scan."""
+    from dibekho.core.receipts import NewProduct
+
+    paint, sand = goods
+    data = IssueInput(date(2026, 11, 20), "Công ty A", phone="0900 000 001", contact="Anh B", address="1 Đường X",
+                      tax_code="0101234567", email="a@example.com", currency=currency, lines=[
+                          IssueLineInput(paint, qty_main=10, qty_office=3, unit_price=6182.98, note="giao sáng"),
+                          IssueLineInput(sand, qty_main=2.5, unit_price=None),
+                          IssueLineInput(None, qty_office=4, unit_price=9000, new=NewProduct("Băng keo mới", "胶带", "5cm"))])
+    path = issues.save_draft(conn, ws, data)
+    out = tmp_path / "draft.json"
+    _node("draft", path, out)
+    web = json.loads(out.read_text(encoding="utf-8"))
+    codes = {r["id"]: r["code"] for r in conn.execute("SELECT id, code FROM products")}
+    assert {k: web[k] for k in ("code", "doc_date", "customer", "phone", "contact", "address", "tax_code", "email",
+                                "currency")} == {
+        "code": "N1", "doc_date": "2026-11-20", "customer": "Công ty A", "phone": "0900 000 001", "contact": "Anh B",
+        "address": "1 Đường X", "tax_code": "0101234567", "email": "a@example.com", "currency": currency}
+    assert [(ln["code"], ln["qty_main"], ln["qty_office"], ln["unit_price"], ln["note"]) for ln in web["lines"]] == [
+        (codes[paint], 10, 3, 6182.98, "giao sáng"), (codes[sand], 2.5, 0, None, ""), ("", 0, 4, 9000, "")]
+    assert (web["lines"][2]["name_vi"], web["lines"][2]["name_zh"], web["lines"][2]["spec"]) == ("Băng keo mới", "胶带", "5cm")
+
+    # the web's draft of the same order, read by the app
+    rows = _web_rows(conn, IssueInput(data.doc_date, data.customer_name, lines=data.lines[:2]), tmp_path)
+    rows.append({"code": "", "name_vi": "Băng keo mới", "name_zh": "胶带", "spec": "5cm", "unit": "", "qty": 4,
+                 "places": [[2, 4]], "unit_price": 9000, "amount": 36000, "note": ""})
+    head = {"code": "WN2611201530", "doc_date": "2026-11-20", "customer": "Công ty A", "phone": "0900 000 001",
+            "contact": "Anh B", "address": "1 Đường X", "tax_code": "0101234567", "email": "a@example.com",
+            "letterhead": [], "currency": currency, "draft": True}
+    web_file = _web_file(head, rows, tmp_path / "PhieuXuat_NHAP_WN2611201530.xlsx")
+    code, back = issues.load_draft(conn, web_file)
+    assert (code, back.currency, back.customer_name, back.tax_code) == ("WN2611201530", currency, "Công ty A", "0101234567")
+    assert [(ln.product_id, ln.qty_main, ln.qty_office, ln.unit_price) for ln in back.lines] == [
+        (paint, 10, 3, 6182.98), (sand, 2.5, 0, None), (None, 0, 4, 9000)]
+    assert back.lines[2].new.name_vi == "Băng keo mới"

@@ -412,3 +412,47 @@ def test_editing_a_note_in_the_window_keeps_code_and_prices_and_recounts(app, ws
     levels = stock_levels(ctx.conn, by_location=True)
     assert (levels[(paint, MAIN)], levels[(paint, OFFICE)]) == (30, 6)
     ctx.close()
+
+
+def test_a_draft_is_saved_opened_again_and_made_a_real_note(app, ws, monkeypatch):
+    """Đơn nháp (customer, 21/11/2026): «Lưu nháp» writes the file only; «Xuất từ phiếu nháp…» opens it in a fresh form
+    (title and hint name the draft); «Lưu phiếu» there makes the real note once and moves the draft to da-chot/."""
+    import dibekho.ui.issue_form as form_mod
+    import dibekho.ui.pending_page as pending_mod
+    from dibekho.ui.issue_form import IssueForm, open_issue_form
+
+    i18n.set_language("vi")
+    monkeypatch.setattr(form_mod, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(form_mod, "open_path", lambda *a: None)
+    ctx, paint = _shop(ws, "vi")
+    monkeypatch.setattr(pending_mod.ProductPicker, "choose", lambda self: paint)
+
+    form = IssueForm(ctx)
+    form.customer.setCurrentText("Công ty A")
+    form.rows[0].button.click()
+    type_in(form.rows[0].qty_main, "4")
+    type_in(form.rows[0].price, "6182.98")
+    form.draft_btn.click()
+    draft = issues.drafts_folder(ws) / "PhieuXuat_NHAP_N1.xlsx"
+    assert draft.exists() and form.result() == form.DialogCode.Accepted
+    assert ctx.conn.execute("SELECT COUNT(*) FROM documents WHERE kind = 'delivery'").fetchone()[0] == 0
+    assert stock_levels(ctx.conn, by_location=True)[(paint, MAIN)] == 50
+
+    opened = []
+
+    def run(self):  # the first form picks the draft, the second one saves it as a real note
+        if self.draft is None:
+            monkeypatch.setattr(form_mod.QFileDialog, "getOpenFileName", lambda *a, **k: (str(draft), ""))
+            self.pick_draft()
+        else:
+            opened.append((self.windowTitle(), self.rows[0].qty_main.value(), self.rows[0].price.value()))
+            self.save_btn.click()
+        return 0
+
+    monkeypatch.setattr(form_mod.IssueForm, "exec", run)
+    doc = open_issue_form(ctx, None)
+    assert opened == [(i18n.t("issue.draft_title", code="N1"), 4, 6182.98)]
+    assert ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "A1"
+    assert stock_levels(ctx.conn, by_location=True)[(paint, MAIN)] == 46
+    assert not draft.exists() and (issues.drafts_folder(ws) / "da-chot" / draft.name).exists()
+    ctx.close()

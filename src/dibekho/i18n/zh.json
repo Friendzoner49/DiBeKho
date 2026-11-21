@@ -831,5 +831,16 @@
   "issue.edit_hint": "正在修改单据 {code}。改好后点“保存”：旧单据被新内容替换（单号仍为 {code}），库存重新计算，Excel 文件重新生成。旧文件保存在 da-sua 文件夹。",
   "issue.confirm_edit_title": "保存修改后的单据？",
   "issue.confirm_edit": "单号 {code} · 日期 {date} · 客户：{customer}\n\n{lines}\n\n货款：{money}\n\n用此内容替换单据 {code} 并重新计算库存？",
-  "issue.saved_edit": "单据 {code} 已修改，库存已重新计算。\n\nExcel 文件：{path}\n\n打开文件以打印或发送？"
+  "issue.saved_edit": "单据 {code} 已修改，库存已重新计算。\n\nExcel 文件：{path}\n\n打开文件以打印或发送？",
+  "issue.save_draft": "保存草稿",
+  "issue.save_draft_tip": "保存为草稿：Excel 文件标有 NHÁP，不扣库存，不计营业额",
+  "issue.from_draft": "从草稿出库…",
+  "issue.from_draft_tip": "打开已保存的草稿。客户确认后点击 保存 即成为正式出库单",
+  "issue.draft_title": "由草稿 {code} 出库",
+  "issue.draft_hint": "草稿 {code}。客户确认后点击“保存”：成为正式出库单（扣库存、计营业额、新单号）。继续修改请点击“保存草稿”。",
+  "issue.draft_pick": "选择草稿",
+  "issue.draft_bad": "无法打开草稿：\n{error}",
+  "issue.draft_replace": "放弃当前输入并打开草稿？",
+  "issue.draft_failed": "无法保存草稿（文件是否在 Excel 中打开？）：\n{error}",
+  "issue.draft_saved": "草稿已保存：\n{path}\n\n草稿不扣库存，不计营业额。打开文件？"
 }

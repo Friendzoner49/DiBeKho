@@ -14,9 +14,11 @@ its stock goes below zero until the goods come in (Hàng về).
 """
 
 from datetime import date
+from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (
+    QFileDialog,
     QDialog,
     QFormLayout,
     QHBoxLayout,
@@ -84,7 +86,7 @@ class _Row:
 
 
 class IssueForm(QDialog):
-    def __init__(self, ctx, parent=None, edit_doc: int | None = None):
+    def __init__(self, ctx, parent=None, edit_doc: int | None = None, draft: Path | None = None):
         super().__init__(parent)
         self.ctx = ctx
         self.saved_doc: int | None = None
@@ -92,8 +94,14 @@ class IssueForm(QDialog):
         self.edit_code, self.old = "", None
         if edit_doc:
             self.edit_code, self.old = issues.load(ctx.conn, edit_doc)
+        # a draft order opened again (Xuất từ phiếu nháp…): its file, code and lines; nothing of it is recorded
+        self.draft_path, self.draft_code, self.draft = draft, "", None
+        if draft and not edit_doc:
+            self.draft_code, self.draft = issues.load_draft(ctx.conn, draft)
+        self.open_draft: Path | None = None  # another draft picked: open_issue_form opens it in a fresh form
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
-        self.setWindowTitle(t("issue.edit_title", code=self.edit_code) if edit_doc else t("issue.title"))
+        self.setWindowTitle(t("issue.edit_title", code=self.edit_code) if edit_doc
+                            else t("issue.draft_title", code=self.draft_code) if self.draft else t("issue.title"))
         fit_window(self, 1250, 760)
         self.products = {p["id"]: p for p in catalog.products(ctx.conn)}
         self.levels = stock_levels(ctx.conn, by_location=True)
@@ -103,17 +111,23 @@ class IssueForm(QDialog):
                     self.levels[(ln.product_id, loc)] = self.levels.get((ln.product_id, loc), 0.0) + qty
                 self.products.setdefault(ln.product_id, ctx.conn.execute(
                     "SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone())
+        for ln in (self.draft.lines if self.draft else []):  # a product no longer in use still shows
+            if ln.product_id and ln.product_id not in self.products:
+                self.products[ln.product_id] = ctx.conn.execute("SELECT * FROM products WHERE id = ?",
+                                                                (ln.product_id,)).fetchone()
         self.customers = issues.customer_choices(ctx.conn)
         self.rows: list[_Row] = []
-        # a yuan note: new while the switch shows yuan, or an edited note recorded in yuan
-        self.cny = (self.old.currency == "CNY") if self.old else fx.Display.in_cny()
+        # a yuan note: new while the switch shows yuan, or an edited note / a draft in yuan
+        prefill = self.old or self.draft
+        self.cny = (prefill.currency == "CNY") if prefill else fx.Display.in_cny()
         # dong for one yuan: only to show '≈ … ₫' (and to turn a last price of the other currency)
         self.vnd_per_cny = (self.old.fx_rate if self.old and self.old.currency == "CNY" and self.old.fx_rate else None) \
             or (fx.Display.rate.vnd_per_cny if fx.Display.rate else None)
 
         lay = QVBoxLayout(self)
         lay.addWidget(title_label(self.windowTitle()))
-        lay.addWidget(hint_label(t("issue.edit_hint", code=self.edit_code) if edit_doc else t("issue.hint")))
+        lay.addWidget(hint_label(t("issue.edit_hint", code=self.edit_code) if edit_doc
+                                 else t("issue.draft_hint", code=self.draft_code) if self.draft else t("issue.hint")))
         if self.cny:
             lay.addWidget(hint_label(t("issue.cny_hint", rate=fmt_money(round(self.vnd_per_cny))
                                        if self.vnd_per_cny else "—")))
@@ -173,6 +187,17 @@ class IssueForm(QDialog):
         lay.addLayout(add_row)
 
         buttons = QHBoxLayout()
+        if not edit_doc:  # draft orders (customer's request 21/11/2026): count in neither stock nor revenue
+            self.from_draft_btn = QPushButton(t("issue.from_draft"))
+            self.from_draft_btn.setToolTip(t("issue.from_draft_tip"))
+            self.from_draft_btn.clicked.connect(self.pick_draft)
+            self.draft_btn = QPushButton(t("issue.save_draft"))
+            self.draft_btn.setToolTip(t("issue.save_draft_tip"))
+            self.draft_btn.clicked.connect(self.save_draft)
+            for b in (self.from_draft_btn, self.draft_btn):
+                b.setAutoDefault(False)
+                b.setDefault(False)
+                buttons.addWidget(b)
         buttons.addStretch()
         cancel = QPushButton(t("btn.cancel"))
         cancel.clicked.connect(self.reject)
@@ -187,15 +212,16 @@ class IssueForm(QDialog):
         buttons.addWidget(cancel)
         buttons.addWidget(self.save_btn)
         lay.addLayout(buttons)
-        if self.old:
-            self._fill_from(self.old)
+        if prefill:
+            self._fill_from(prefill)
         else:
             for _ in range(START_ROWS):
                 self.add_row()
         self._update_summary()
 
     def _fill_from(self, old: IssueInput):
-        """Show the note being edited: its date, customer and lines (prices as recorded, not looked up again)."""
+        """Show the note being edited (or the draft): its date, customer and lines (prices as written, not looked up
+        again)."""
         self.date.setDate(to_qdate(old.doc_date))
         self.customer.setCurrentIndex(0)
         self.customer.setEditText(old.customer_name)
@@ -204,7 +230,7 @@ class IssueForm(QDialog):
             box.setText(value)
         for ln in old.lines:
             row = self.add_row()
-            row.product_id, row.keep_price = ln.product_id, True
+            row.product_id, row.new, row.keep_price = ln.product_id, ln.new, True
             row.qty_main.setValue(ln.qty_main)
             row.qty_office.setValue(ln.qty_office)
             row.note.setText(ln.note)
@@ -455,8 +481,8 @@ class IssueForm(QDialog):
             return self._money(amount)
         return f"{self._money(amount)} ≈ {fmt_money(round(amount * self.vnd_per_cny))} ₫"
 
-    def save(self):
-        data = self.data()
+    def _refused(self, data: IssueInput) -> bool:
+        """What is missing, said once (True: the note cannot be saved yet)."""
         found = issues.problems(self.ctx.conn, data)
         if found:
             texts = []
@@ -465,6 +491,44 @@ class IssueForm(QDialog):
                     values = {"product": catalog.long_label(self.products[values["id"]])}
                 texts.append("• " + t(key, **values))
             error(self, t("issue.cannot_save") + "\n\n" + "\n".join(dict.fromkeys(texts)))
+        return bool(found)
+
+    def save_draft(self):
+        """Lưu nháp: the file only (NHÁP in the title), nothing recorded; the draft opened again keeps its code."""
+        data = self.data()
+        if self._refused(data):
+            return
+        activity.log("issue_draft", f"{len(data.filled())} mặt hàng")
+        try:
+            path = issues.save_draft(self.ctx.conn, self.ctx.ws, data, self.draft_path)
+        except (ValueError, OSError) as exc:
+            error(self, t("issue.draft_failed", error=str(exc)))
+            return
+        if ask(self, t("issue.draft_saved", path=str(path))):
+            open_path(path)
+        super().accept()  # saved: closing asks nothing
+
+    def pick_draft(self):
+        """Xuất từ phiếu nháp…: choose a draft file; it opens in a fresh form (open_issue_form)."""
+        folder = issues.drafts_folder(self.ctx.ws)
+        folder.mkdir(parents=True, exist_ok=True)
+        name, _ = QFileDialog.getOpenFileName(self, t("issue.draft_pick"), str(folder), "Excel (*.xlsx)")
+        if not name:
+            return
+        try:
+            issues.load_draft(self.ctx.conn, Path(name))
+        except ValueError as exc:
+            error(self, t("issue.draft_bad", error=str(exc)))
+            return
+        if any(r.qty() > 0 for r in self.rows) and not ask(self, t("issue.draft_replace")):
+            return
+        activity.log("click", "issue_from_draft")
+        self.open_draft = Path(name)
+        super().reject()
+
+    def save(self):
+        data = self.data()
+        if self._refused(data):
             return
         for ln, existing in issues.same_as_existing(self.ctx.conn, data):
             if ask(self, t("receipt_form.already_in_catalog", new=ln.new.label(), code=existing["code"],
@@ -496,6 +560,11 @@ class IssueForm(QDialog):
             error(self, t("issue.failed", error=str(exc)))
             return
         self.saved_doc = doc
+        if self.draft_path:  # the draft became this note: its file goes to da-chot/
+            try:
+                issues.close_draft(self.ctx.ws, self.draft_path)
+            except OSError:
+                pass  # still open in Excel: it stays, the note is saved anyway
         self.ctx.notify()
         code = self.ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0]
         if ask(self, t("issue.saved_edit" if self.edit_doc else "issue.saved", code=code, path=str(path))):
@@ -524,7 +593,10 @@ class IssueForm(QDialog):
         super().reject()
 
 
-def open_issue_form(ctx, parent, edit_doc: int | None = None) -> int | None:
-    form = IssueForm(ctx, parent, edit_doc)
-    form.exec()
-    return form.saved_doc
+def open_issue_form(ctx, parent, edit_doc: int | None = None, draft: Path | None = None) -> int | None:
+    while True:
+        form = IssueForm(ctx, parent, edit_doc, draft)
+        form.exec()
+        if form.open_draft is None:
+            return form.saved_doc
+        edit_doc, draft = None, form.open_draft  # Xuất từ phiếu nháp…: the draft in a fresh form

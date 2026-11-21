@@ -27,7 +27,7 @@ Bạn bỏ file phiếu giao hàng Excel vào một thư mục. App tự đọc 
 
 - 📦 **Xem tồn kho** từng mặt hàng, chia theo **Kho tổng** và **Văn phòng**; hàng dưới 30 tô cam kèm ghi "Sắp hết — nên đặt hàng", tồn âm tô đỏ; **ghi chú** cho từng mặt hàng (thùng lỗi, in lệch, hết hạn…).
 - 📥 **Nhập hàng về** trong một cửa sổ: từ cửa khẩu / công ty mẹ, hoặc khách trả lại.
-- 📤 **Phiếu xuất kho:** chọn khách và hàng, lấy ở Kho tổng, Văn phòng hoặc cả hai; app trừ tồn ngay và tạo file Excel giống phiếu giao hàng ([chi tiết](docs/huong-dan-su-dung.md#35-phiếu-xuất-kho)).
+- 📤 **Phiếu xuất kho:** chọn khách và hàng, lấy ở Kho tổng, Văn phòng hoặc cả hai; app trừ tồn ngay và tạo file Excel giống phiếu giao hàng. Khách chưa chốt: **Lưu nháp** (không trừ tồn, không tính doanh thu), khách chốt thì **Xuất từ phiếu nháp…** ([chi tiết](docs/huong-dan-su-dung.md#35-phiếu-xuất-kho)).
 - 💱 **Xem tiền bằng VND hoặc nhân dân tệ:** công tắc **₫ | ¥** ở góc trái dưới đổi mọi số tiền sang nhân dân tệ theo tỷ giá thị trường hôm nay (file thống kê vẫn ghi VND; **Phiếu xuất kho** làm khi công tắc ở ¥ thì gõ giá và ghi file bằng ¥). Phiếu ghi giá bằng tệ được nhận là đơn tệ: doanh thu tệ cộng riêng, kèm số quy đổi xấp xỉ ra ₫ trong ngoặc; trong Đơn hàng, đơn tệ nằm ở cột riêng **Tiền hàng (CNY)**.
 - 🔢 **Kiểm kê** từng nơi (Kho tổng, Văn phòng): gõ số đếm thực tế, app ghi phần chênh lệch. **Chuyển hàng** giữa hai nơi.
 - 🔎 **Tra cứu** mặt hàng, khách, số điện thoại, mã phiếu; gõ không dấu hay tiếng Trung đều được.

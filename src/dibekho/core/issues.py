@@ -10,6 +10,10 @@ Files:
   package read it again like the other notes.
 A wrong note is deleted (delete(), from the order's window: Huỷ phiếu → Xoá hẳn) and typed again.
 
+A draft order (customer's request 21/11/2026, «Lưu nháp»): the same file with NHÁP in the title and its own code
+(N1, N2…), in output/phieu-xuat/nhap/. Nothing is recorded: no stock, no revenue, no new product. «Xuất từ phiếu
+nháp…» reads the file back into the form; once saved as a real note the draft moves to output/phieu-xuat/nhap/da-chot/.
+
 A line may be a product not in the catalog yet (★ Mặt hàng mới, customer's request 15/11/2026): it is created on
 save, its stock goes below zero, and the next Hàng về of that product (picked from the catalog) brings it back.
 
@@ -30,7 +34,7 @@ from dibekho.core.receipts import NewProduct
 from dibekho.core.stock import MAIN, OFFICE, stock_levels
 from dibekho.core.text import clean, unaccent
 from dibekho.core.workspace import Workspace
-from dibekho.excel.issue_note import IssueHead, IssueRow, write_issue_note
+from dibekho.excel.issue_note import IssueHead, IssueRow, is_draft_title, write_issue_note
 
 PREFIX = "A"  # made in the app; "W" on the web page
 _NUMBERED = re.compile(r"^\s*[AaWw]?\s*0*(\d{1,9})\s*$")  # an order number, maybe with the app's or the web's letter
@@ -39,6 +43,11 @@ FOLDER = "phieu-xuat"
 DELETED = "da-xoa"
 EDITED = "da-sua"
 _ISSUE_CODE = re.compile(r"^\s*[AaWw]\d+\s*$")
+DRAFTS = "nhap"  # output/phieu-xuat/nhap/
+DRAFTS_DONE = "da-chot"
+DRAFT_PREFIX = "N"
+DRAFT_FILE_PREFIX = "PhieuXuat_NHAP_"
+_DRAFT_FILE = re.compile(r"^PhieuXuat_NHAP_N(\d+)", re.IGNORECASE)
 
 
 @dataclass
@@ -173,10 +182,15 @@ def note_rows(conn, data: IssueInput) -> list[IssueRow]:
     prices); where it is taken from (Kho tổng and/or Văn phòng) goes in the hidden 'Lấy từ kho' column."""
     rows = []
     for ln in data.filled():
-        p = conn.execute("SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone()
-        name_vi = " ".join(x for x in (p["name_vi"], p["variant"]) if x)
         places = [(loc, qty) for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)) if qty and qty > 0]
         amount = None if ln.unit_price is None else round(ln.qty * ln.unit_price, 2)
+        if ln.product_id is None and ln.new:  # only on a draft: a real note creates its new products first
+            n = ln.new
+            rows.append(IssueRow("", " ".join(x for x in (clean(n.name_vi), clean(n.variant)) if x), clean(n.name_zh),
+                                 clean(n.spec), ln.qty, places, ln.unit_price, amount, clean(ln.note)))
+            continue
+        p = conn.execute("SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone()
+        name_vi = " ".join(x for x in (p["name_vi"], p["variant"]) if x)
         rows.append(IssueRow(p["code"], name_vi, p["name_zh"] or "", p["spec"] or "", ln.qty, places,
                              ln.unit_price, amount, clean(ln.note)))
     return rows
@@ -245,6 +259,72 @@ def _save(conn, ws: Workspace, data: IssueInput, code: str | None = None) -> tup
         conn.execute("UPDATE documents SET fx_rate = ? WHERE id = ?", (data.fx_rate, row["document_id"]))
     db.log(conn, "issue_note", f"{code} ({len(data.filled())} mặt hàng)")
     return row["document_id"], user_copy
+
+
+# ---- draft orders
+
+def drafts_folder(ws: Workspace) -> Path:
+    return ws.output / FOLDER / DRAFTS
+
+
+def new_draft_code(ws: Workspace) -> str:
+    """N + 1 + the highest draft number in the drafts folder and its da-chot/ (a number is never reused)."""
+    folder = drafts_folder(ws)
+    files = list(folder.glob("*.xlsx")) + list((folder / DRAFTS_DONE).glob("*.xlsx"))
+    numbers = [int(m.group(1)) for m in (_DRAFT_FILE.match(p.name) for p in files) if m]
+    return f"{DRAFT_PREFIX}{max(numbers, default=0) + 1}"
+
+
+def save_draft(conn, ws: Workspace, data: IssueInput, path: Path | None = None) -> Path:
+    """Write the draft file (a new one, or over `path`: the draft opened again keeps its code). Nothing is recorded.
+    Raises ValueError on a problem, OSError when the file is open in Excel."""
+    from dibekho.core import deliveries
+
+    if problems(conn, data):
+        raise ValueError("Đơn nháp chưa đủ thông tin.")
+    m = _DRAFT_FILE.match(path.name) if path else None
+    code = f"{DRAFT_PREFIX}{m.group(1)}" if m else new_draft_code(ws)
+    head = IssueHead(code, data.doc_date, clean(data.customer_name), clean(data.phone), clean(data.contact),
+                     clean(data.address), clean(data.tax_code), clean(data.email), deliveries.letterhead(conn),
+                     currency="CNY" if data.currency == "CNY" else "VND", draft=True)
+    target = path or _free(drafts_folder(ws) / f"{DRAFT_FILE_PREFIX}{code}.xlsx")
+    return write_issue_note(target, head, note_rows(conn, data))
+
+
+def load_draft(conn, path: Path) -> tuple[str, IssueInput]:
+    """(draft code, what it holds) read back from a draft file: a product by its code in the catalog, else a ★ new
+    product with the name and packing of the file. Raises ValueError when the file is not a draft order."""
+    from dibekho.excel.delivery_note import DeliveryNoteError, NotDeliveryNote, read_delivery_note
+
+    try:
+        note = read_delivery_note(path)
+    except (NotDeliveryNote, DeliveryNoteError, OSError) as exc:
+        raise ValueError(str(exc)) from exc
+    if not is_draft_title(note.title):
+        raise ValueError("File này không phải đơn nháp của DiBeKho.")
+    lines = []
+    for ln in note.lines:
+        main = sum(q for loc, q in ln.places if loc == MAIN) if ln.places else ln.qty
+        office = sum(q for loc, q in ln.places if loc == OFFICE) if ln.places else 0.0
+        code = clean(ln.product_code)
+        p = conn.execute("SELECT id FROM products WHERE code = ?", (code,)).fetchone() if code else None
+        if p:
+            lines.append(IssueLineInput(p["id"], main, office, ln.unit_price, ln.note))
+        else:
+            lines.append(IssueLineInput(None, main, office, ln.unit_price, ln.note,
+                                        new=NewProduct(clean(ln.name_vi or ln.raw_name), clean(ln.name_zh), clean(ln.spec))))
+    return note.code, IssueInput(note.doc_date, note.customer_name, note.phone, note.contact, note.address,
+                                 note.tax_code, note.email, lines, currency="CNY" if note.currency == "CNY" else "VND")
+
+
+def close_draft(ws: Workspace, path: Path) -> Path | None:
+    """The draft became a real note: its file goes to da-chot/ (kept, never counted)."""
+    if not path.exists():
+        return None
+    target = _free(drafts_folder(ws) / DRAFTS_DONE / path.name)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(path), str(target))
+    return target
 
 
 def is_issue_code(code) -> bool:

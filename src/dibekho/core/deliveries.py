@@ -25,6 +25,7 @@ from dibekho.core.stock import (MAIN, Line, add_lines, close_document, insert_do
                                  stock_levels)
 from dibekho.core.text import clean, fmt_qty, match_key, nfc, normalize_code, normalize_phone, unaccent
 from dibekho.core.workspace import PROCESSED, Workspace
+from dibekho.excel.issue_note import is_draft_title
 from dibekho.excel.delivery_note import (
     DeliveryNote,
     DeliveryNoteError,
@@ -60,6 +61,8 @@ class UnknownLine:
     is_fee: bool = False  # looks like 'Phí vận chuyển' -> the UI pre-selects 'not goods'
     first_date: date | None = None  # earliest delivery date among the notes containing the line
 
+
+DRAFT_REFUSED = "Đây là đơn nháp (NHÁP): không tính vào tồn kho và doanh thu. Muốn thành phiếu thật: Phiếu xuất kho… → Xuất từ phiếu nháp…"
 
 def file_hash(path: Path) -> str:
     h = hashlib.sha256()
@@ -262,6 +265,9 @@ def process_file(conn, ws: Workspace, path: Path, rel: str, h: str, allow_partia
         note = read_delivery_note(path)
     except (NotDeliveryNote, DeliveryNoteError) as exc:
         _record(conn, h, rel, "error", str(exc))
+        return False
+    if is_draft_title(note.title):  # a draft order counts in neither stock nor revenue (21/11/2026)
+        _record(conn, h, rel, "error", DRAFT_REFUSED)
         return False
 
     goods = goods_lines(conn, note)

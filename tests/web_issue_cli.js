@@ -1,7 +1,8 @@
 /* Runs webapp/xlsx.js -- the very code the web page uses for a Phiếu xuất kho -- in Node, for tests/test_web_issue.py.
    node web_issue_cli.js file <in.json> <out.xlsx>     in.json = {head, rows}: the file of those rows
    node web_issue_cli.js rows <in.json> <out.json>     in.json = {products: {id: product}, lines}: noteRows()
-   node web_issue_cli.js code                          nextCode of a few order codes */
+   node web_issue_cli.js code                          nextCode of a few order codes
+   node web_issue_cli.js draft <in.xlsx> <out.json>    readDraft(): a draft order read back */
 const fs = require("fs");
 const path = require("path");
 
@@ -17,6 +18,8 @@ try {
   } else if (cmd === "rows") {
     const { products, lines } = JSON.parse(fs.readFileSync(a, "utf8"));
     fs.writeFileSync(b, JSON.stringify(X.noteRows(products, lines)));
+  } else if (cmd === "draft") {
+    fs.writeFileSync(b, JSON.stringify(X.readDraft(fflate, new Uint8Array(fs.readFileSync(a)))));
   } else if (cmd === "code") {
     process.stdout.write(X.nextCode(["159", "076", "A12", "PX261114-093015", "76#2", ""]));
   } else {

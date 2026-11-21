@@ -8,7 +8,10 @@
    with the window's rate only to show '≈ … ₫'. A note being corrected keeps its own currency.
    A name typed that is not in the list is a new product (★, customer's request 15/11/2026): its packing and unit are
    typed on the row; the owner's note makes it on the cloud with the note (019) and its stock goes below zero until
-   the goods come in; a staff file carries the name only and the app asks for it in Cần xử lý → Tạo mới. */
+   the goods come in; a staff file carries the name only and the app asks for it in Cần xử lý → Tạo mới.
+   A draft order (customer's request 21/11/2026, «Lưu nháp»): the same file with NHÁP in the title, downloaded, nothing
+   recorded; «Xuất từ phiếu nháp…» reads such a file back (from the app or the web) and the window saves it as a real
+   note. */
 
 "use strict";
 
@@ -107,16 +110,24 @@ function issueMoney(amount) {
   return issueCny ? fmtCny(amount) : fmtVnd(amount);
 }
 
-function openIssueForm(editDoc = null) {
+let issueDraft = null;  // the draft read back (DBK_XLSX.readDraft) the window was opened from, else null
+
+function openIssueForm(editDoc = null, draft = null) {
   issueEdit = editDoc ? { doc: editDoc, lines: issueLinesOf(editDoc) } : null;
-  issueCny = issueEdit ? isCny(editDoc) : moneyInCny();
+  issueDraft = editDoc ? null : draft;
+  issueCny = issueEdit ? isCny(editDoc) : issueDraft ? issueDraft.currency === "CNY" : moneyInCny();
   issueRate = (issueEdit && isCny(editDoc) && editDoc.fx_rate) || rateNow() || null;
   const heads = [tr("col.product"), tr("col.spec"), tr("col.unit"), tr("issue.have", { place: tr("place.1") }),
                  tr("issue.take", { place: tr("place.1") }), tr("issue.have", { place: tr("place.2") }),
                  tr("issue.take", { place: tr("place.2") }), tr(issueCny ? "issue.price_cny" : "issue.price"),
                  tr(issueCny ? "issue.amount_cny" : "issue.amount"), tr("col.note"), ""];
-  const body = openDialog(issueEdit ? tr("issue.edit_title", { code: editDoc.code }) : tr("issue.title"),
-    `<p class="hint">${esc(issueEdit ? tr("issue.edit_hint", { code: editDoc.code }) : tr("issue.hint"))}${issueCny ? " " + esc(tr("issue.cny_hint", { rate: issueRate ? Math.round(issueRate).toLocaleString("vi-VN") : "—" })) : ""}</p>
+  const title = issueEdit ? tr("issue.edit_title", { code: editDoc.code })
+    : issueDraft ? tr("issue.draft_title", { code: issueDraft.code }) : tr("issue.title");
+  const hint = issueEdit ? tr("issue.edit_hint", { code: editDoc.code })
+    : issueDraft ? tr("issue.draft_hint", { code: issueDraft.code }) : tr("issue.hint");
+  const draftButtons = issueEdit ? [] : [{ label: tr("issue.from_draft"), run: pickDraft }, { label: tr("issue.save_draft"), run: saveDraft }];
+  const body = openDialog(title,
+    `<p class="hint">${esc(hint)}${issueCny ? " " + esc(tr("issue.cny_hint", { rate: issueRate ? Math.round(issueRate).toLocaleString("vi-VN") : "—" })) : ""}</p>
      <div class="form2">
        <label>${esc(tr("issue.date"))}</label><input id="ix-date" type="date" value="${esc(todayLocal())}">
        <label>${esc(tr("col.customer"))}</label><div class="row"><input id="ix-customer" class="grow" list="customers-dl" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}"><button id="ix-new-customer" class="flat" title="${esc(tr("issue.new_customer_tip"))}">${esc(tr("issue.new_customer"))}</button></div>
@@ -131,7 +142,7 @@ function openIssueForm(editDoc = null) {
        <tbody id="ix-lines">${issueRowHtml()}${issueRowHtml()}${issueRowHtml()}</tbody></table></div>
      <div class="row"><button id="ix-add" class="flat">${esc(tr("issue.add_row"))}</button><span class="spacer"></span>
        <span id="ix-total" class="hint"></span></div>`,
-    [{ label: tr(issueEdit ? "issue.save_edit" : "issue.save"), primary: true, run: saveIssue }], null,
+    [...draftButtons, { label: tr(issueEdit ? "issue.save_edit" : "issue.save"), primary: true, run: saveIssue }], null,
     { dirty: () => [...$("ix-lines").querySelectorAll(".ix-product, .ix-qty")].some((i) => i.value.trim()) || !!$("ix-customer").value.trim(),
       question: tr("issue.discard") });
 
@@ -234,6 +245,71 @@ function openIssueForm(editDoc = null) {
     $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
     refresh();
   }
+  if (issueDraft) {  // the draft's date, customer and lines: a product by its code, else a ★ new product
+    $("ix-date").value = issueDraft.doc_date || todayLocal();
+    for (const [id, v] of [["ix-customer", issueDraft.customer], ["ix-phone", issueDraft.phone], ["ix-contact", issueDraft.contact],
+                           ["ix-address", issueDraft.address], ["ix-tax", issueDraft.tax_code], ["ix-email", issueDraft.email]]) $(id).value = v || "";
+    $("ix-lines").innerHTML = "";
+    for (const l of issueDraft.lines) {
+      $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
+      const row = $("ix-lines").lastElementChild;
+      const p = l.code ? data.products.find((x) => x.code === l.code) : null;
+      if (p) row.querySelector(".ix-product").value = productLabel(p);
+      else {
+        row.querySelector(".ix-product").value = LANG === "zh" ? (l.name_zh || l.name_vi) : l.name_vi;
+        row.querySelector(".ix-new-vi").value = l.name_vi;
+        row.querySelector(".ix-new-spec").value = l.spec;
+      }
+      row.querySelector(".ix-qty[data-place='1']").value = l.qty_main ? fmtQty(l.qty_main) : "";
+      row.querySelector(".ix-qty[data-place='2']").value = l.qty_office ? fmtQty(l.qty_office) : "";
+      const price = row.querySelector(".ix-price");
+      if (l.unit_price !== null && l.unit_price !== undefined) {
+        price.value = fmtQty(l.unit_price);
+        price.dataset.keep = "1";
+      }
+      row.querySelector(".ix-note").value = l.note;
+    }
+    $("ix-lines").insertAdjacentHTML("beforeend", issueRowHtml());
+    refresh();
+  }
+}
+
+/** Lưu nháp: the note's file with NHÁP in the title, downloaded; nothing is recorded (no stock, no revenue). */
+async function saveDraft() {
+  const f = readIssueForm();
+  const rows = DBK_XLSX.noteRows(productById, f.lines);
+  const now = new Date(), two = (n) => String(n).padStart(2, "0");
+  // WN…: never one of the app's draft numbers (N1, N2…), which it counts in its own folder
+  const code = issueDraft ? issueDraft.code : `WN${String(now.getFullYear()).slice(2)}${two(now.getMonth() + 1)}${two(now.getDate())}${two(now.getHours())}${two(now.getMinutes())}`;
+  const head = { code, doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
+                 tax_code: f.tax_code, email: f.email, letterhead: letterhead(), currency: issueCny ? "CNY" : "VND", draft: true };
+  const name = `PhieuXuat_NHAP_${code}.xlsx`;
+  saveFile(name, DBK_XLSX.issueNote(fflate, head, rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  alert(tr("issue.draft_saved", { name }));
+  return true;
+}
+
+/** Xuất từ phiếu nháp…: pick a draft file (made by the app or the web); it opens in the window. */
+async function pickDraft() {
+  const file = await new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xlsx";
+    input.addEventListener("change", () => resolve(input.files[0] || null));
+    input.addEventListener("cancel", () => resolve(null));
+    input.click();
+  });
+  if (!file) return false;
+  let draft;
+  try {
+    draft = DBK_XLSX.readDraft(fflate, new Uint8Array(await file.arrayBuffer()));
+  } catch (e) {
+    fail(tr("issue.draft_bad"));
+  }
+  const typed = [...$("ix-lines").querySelectorAll(".ix-product, .ix-qty")].some((i) => i.value.trim());
+  if (typed && !confirm(tr("issue.draft_replace"))) return false;
+  openIssueForm(null, draft);
+  return false;  // the window stays open, now on the draft
 }
 
 /** The window's content checked like core/issues.problems; throws the first problem. */

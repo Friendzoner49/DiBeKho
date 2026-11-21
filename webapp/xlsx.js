@@ -14,6 +14,9 @@
 
 const DBK_XLSX = (() => {
   const TITLE = "出库单 PHIẾU XUẤT KHO";
+  // a draft order (customer's request 21/11/2026): the same file, nothing recorded; the app's scan refuses it
+  const DRAFT_MARK = "(NHÁP)";
+  const TITLE_DRAFT = "出库单（草稿） PHIẾU XUẤT KHO " + DRAFT_MARK;
   const LABELS = {
     customer: "客户名称 ( Tên khách hàng ): ",
     phone: "联系电话 ( Điện thoại liên hệ ): ",
@@ -118,7 +121,7 @@ const DBK_XLSX = (() => {
     const letter = [...(head.letterhead || []), "", ""].slice(0, 2);
     put(1, 1, letter[0] || null, { size: 20 });
     put(2, 1, letter[1] || null, { size: 20 });
-    put(4, 1, TITLE, { size: 24 });
+    put(4, 1, head.draft ? TITLE_DRAFT : TITLE, { size: 24 });
     const [y, m, d] = String(head.doc_date).split("-");
     // the customer block cell for cell as the template of 18/11/2026 (issue_note.issue_sheet)
     put(5, 1, `${LABELS.customer} ${head.customer}`, { font: SONG, size: 20, align: "left" });
@@ -320,7 +323,80 @@ const DBK_XLSX = (() => {
     return workbook(fflate, issueSheet(head, rows), SHEET, now);
   }
 
-  return { TITLE, LABELS, HEADERS, HEADERS_CNY, PLACES, HEADER_ROW, productName, placesText, vndWords, cnyWords, issueSheet,
-           noteRows, nextCode, issueNote };
+  // ---- reading a draft back (Xuất từ phiếu nháp…): the cells this very layout writes, whichever app wrote the file
+
+  const unxml = (s) => String(s).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+  const texts = (xml) => [...String(xml).matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map((m) => unxml(m[1])).join("");
+
+  /** "r,c" -> value of the first sheet of an .xlsx (shared, inline and plain strings, numbers). */
+  function sheetCells(fflate, bytes) {
+    const files = fflate.unzipSync(bytes);
+    const text = (name) => (files[name] ? fflate.strFromU8(files[name]) : "");
+    const shared = [...text("xl/sharedStrings.xml").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => texts(m[1]));
+    const sheetName = files["xl/worksheets/sheet1.xml"] ? "xl/worksheets/sheet1.xml"
+      : Object.keys(files).filter((n) => /^xl\/worksheets\/[^/]+\.xml$/.test(n)).sort()[0];
+    const cells = new Map();
+    for (const m of text(sheetName).matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const ref = /\br="([A-Z]+)(\d+)"/.exec(m[1]);
+      if (!ref || !m[2]) continue;
+      const col = [...ref[1]].reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
+      const type = (/\bt="([^"]+)"/.exec(m[1]) || [])[1] || "n";
+      const v = (/<v>([\s\S]*?)<\/v>/.exec(m[2]) || [])[1];
+      let value = null;
+      if (type === "s") value = v === undefined ? null : shared[Number(v)];
+      else if (type === "inlineStr") value = texts(m[2]);
+      else if (type === "str" || type === "e") value = v === undefined ? null : unxml(v);
+      else if (v !== undefined) value = Number(v);
+      if (value !== null && value !== "") cells.set(`${ref[2]},${col}`, value);
+    }
+    return cells;
+  }
+
+  const isDraftTitle = (title) => String(title || "").toUpperCase().replace(/ \)/g, ")").replace(/\( /g, "(").includes(DRAFT_MARK);
+
+  /** A draft file read back: {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address, tax_code, email, currency,
+      lines [{code, name_vi, name_zh, spec, qty_main, qty_office, unit_price, note}]}. Throws when it is not a draft. */
+  function readDraft(fflate, bytes) {
+    let cells;
+    try { cells = sheetCells(fflate, bytes); } catch (e) { throw new Error("not-xlsx"); }
+    const at = (r, c) => cells.get(`${r},${c}`);
+    if (!isDraftTitle(at(4, 1))) throw new Error("not-draft");
+    const after = (r, c, label) => {
+      const v = String(at(r, c) ?? "");
+      const i = v.indexOf(label.trim());
+      return (i >= 0 ? v.slice(i + label.trim().length) : v).replace(/^[\s:：]+/, "").replace(/\s+/g, " ").trim();
+    };
+    const day = /(\d{1,2})-(\d{1,2})-(\d{4})/.exec(String(at(7, 6) || ""));
+    const doc_date = day ? `${day[3]}-${pad(day[2])}-${pad(day[1])}` : "";
+    const currency = /CNY|¥/.test(String(at(HEADER_ROW, 5) || "")) ? "CNY" : "VND";
+    const lines = [];
+    for (let r = HEADER_ROW + 1; typeof at(r, 1) === "number"; r++) {
+      const parts = String(at(r, 2) || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+      const cjk = (x) => /[\u3400-\u9fff]/.test(x);
+      const zh = parts.length > 1 && cjk(parts[0]) ? parts[0] : "";
+      const vi = (zh ? parts.slice(1) : parts).join(" ");
+      const take = { 1: 0, 2: 0 };
+      const said = String(at(r, 9) || "");
+      for (const [loc, label] of Object.entries(PLACES)) {
+        const m = new RegExp(`${label}\\s*:\\s*([0-9.]+)`).exec(said);
+        if (m) take[loc] = Number(m[1]);
+      }
+      const qty = Number(at(r, 4)) || 0;
+      if (!said) take[1] = qty;
+      const price = at(r, 5);
+      // the code column holds "SP001|spec|name": the code first
+      lines.push({ code: String(at(r, 8) ?? "").split("|")[0].trim(), name_vi: vi, name_zh: zh, spec: String(at(r, 3) ?? "").trim(),
+                   qty_main: take[1], qty_office: take[2], unit_price: typeof price === "number" ? price : null,
+                   note: String(at(r, 7) ?? "").trim() });
+    }
+    return { code: after(5, 6, LABELS.code), doc_date, customer: after(5, 1, LABELS.customer), phone: after(5, 3, LABELS.phone),
+             contact: after(7, 3, LABELS.contact), address: after(8, 1, LABELS.address), tax_code: after(6, 3, LABELS.tax_code),
+             email: after(6, 6, LABELS.email), currency, lines };
+  }
+
+  return { TITLE, TITLE_DRAFT, LABELS, HEADERS, HEADERS_CNY, PLACES, HEADER_ROW, productName, placesText, vndWords, cnyWords,
+           issueSheet, noteRows, nextCode, issueNote, readDraft, isDraftTitle };
 })();
 if (typeof module !== "undefined") module.exports = DBK_XLSX;
