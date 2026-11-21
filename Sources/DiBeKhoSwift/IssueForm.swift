@@ -35,7 +35,7 @@ enum IssueForm {
         // can leave the new window's buttons (Hủy bỏ, Lưu phiếu) dead
         let title = docId != nil ? t("issue.edit_title", ["code": code])
             : draftData != nil ? t("issue.draft_title", ["code": draftCode]) : t("issue.title")
-        DispatchQueue.main.async {
+        UI.later {
             Windows.show(title, width: 1400, height: 760, modal: true) { _ in
                 IssueFormView(model: model, editDoc: docId, editCode: code, old: old, draftURL: draftData == nil ? nil : draft,
                               draftCode: draftCode, draftData: draftData)
@@ -149,7 +149,7 @@ struct IssueFormView: View {
                     HStack {
                         ComboField(text: Binding(get: { customerText }, set: { typedCustomer($0) }),
                                    placeholder: t("issue.customer_placeholder"), items: customers.map(customerLabel))
-                        Button(t("issue.new_customer")) { newCustomer() }.help(t("issue.new_customer_tip"))
+                        Button(t("issue.new_customer")) { UI.later { newCustomer() } }.help(t("issue.new_customer_tip"))
                     }
                 }
                 GridRow {

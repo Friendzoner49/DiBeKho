@@ -129,7 +129,7 @@ struct OrdersPage: View {
     private func editSelected(_ docs: [Row]) {
         guard let i = selected, i < docs.count else { return UI.error(t("orders.select_first")) }
         if Details.text(docs[i], "status") != "active" { return UI.error(t("orders.not_active")) }
-        Forms.transfer(model, docId: docs[i]["id"])
+        UI.later { _ = Forms.transfer(model, docId: docs[i]["id"]) }  // never inside the button's handling
     }
 
     private static func cells(_ d: Row, money: Bool) -> [String] {
@@ -299,7 +299,7 @@ struct CustomersPage: View {
                     let picked = selected.filter { $0 < rows.count }.map { i -> (id: Int64, name: String, orders: Int) in
                         (rows[i]["id"], Details.text(rows[i], "name"), (rows[i]["order_count"] as Int?) ?? 0)
                     }
-                    Forms.mergeCustomers(model, picked: picked)
+                    UI.later { Forms.mergeCustomers(model, picked: picked) }
                 }
                 .help(t("cust.merge_tip"))
             }
@@ -338,10 +338,10 @@ struct StatsPage: View {
             StatsPeriodRow(model: model)
             HStack(spacing: 8) {
                 ForEach([StatsScope.Kind.products, .categories, .customers], id: \.self) { kind in
-                    Button(StatsScope.buttonText(model, kind)) { StatsScope.pick(model, kind) }
+                    Button(StatsScope.buttonText(model, kind)) { UI.later { StatsScope.pick(model, kind) } }
                 }
                 Spacer()
-                Button(t("stats.export")) { StatsExport.run(model) }
+                Button(t("stats.export")) { UI.later { StatsExport.run(model) } }
             }
             Text(caption).fixedSize(horizontal: false, vertical: true)
             // the summary over the most issued and the chart, in splitters (stats_page.py: QSplitter)
@@ -557,8 +557,8 @@ struct CountPage: View {
                 DateBox(iso: $date)
                 Text(t("col.note"))
                 TextField("", text: $note).textFieldStyle(.roundedBorder)
-                Button(t("transfer.button")) { Forms.transfer(model) }.help(t("transfer.tip"))
-                Button(t("trial.button")) { Forms.trial(model) }.help(t("trial.tip"))
+                Button(t("transfer.button")) { UI.later { _ = Forms.transfer(model) } }.help(t("transfer.tip"))
+                Button(t("trial.button")) { UI.later { _ = Forms.trial(model) } }.help(t("trial.tip"))
             }
             HStack {
                 Button(t("count.transfers_btn")) { Screens.history("transfer", model) }

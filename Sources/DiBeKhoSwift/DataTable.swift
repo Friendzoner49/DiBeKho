@@ -158,7 +158,7 @@ struct DataTable: NSViewRepresentable {
             guard sender.tag >= 0, sender.tag < menuActions.count else { return }
             let action = menuActions[sender.tag]
             // after the menu has closed (the action may open a message box)
-            DispatchQueue.main.async { action() }
+            UI.later { action() }  // also inside a dialog's modal session
         }
 
         var columns: [Column] = []
@@ -231,7 +231,7 @@ struct DataTable: NSViewRepresentable {
             let shown = order.isEmpty ? before : (order.firstIndex(of: before) ?? before)
             if table.selectedRow != shown {
                 // not while SwiftUI is updating its views (the selection tells the parent)
-                DispatchQueue.main.async { [weak table] in
+                UI.later { [weak table] in
                     table?.selectRowIndexes(IndexSet(integer: shown), byExtendingSelection: false)
                 }
             }
@@ -381,7 +381,7 @@ struct DataTable: NSViewRepresentable {
             let movement = notification.userInfo?["NSTextMovement"] as? Int
             if movement == NSTextMovement.return.rawValue, row + 1 < rows.count {
                 // Enter: the same column of the next row, never a button of the window
-                DispatchQueue.main.async {
+                UI.later {
                     table.scrollRowToVisible(row + 1)
                     if let next = table.view(atColumn: column, row: row + 1, makeIfNecessary: true) as? NSTextField {
                         table.window?.makeFirstResponder(next)

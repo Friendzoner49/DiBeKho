@@ -313,7 +313,7 @@ struct ReceiptPage: View {
                 Spacer()
             }
             HStack {
-                Button(t("receipts.pick_file")) { ReceiptImport.pickFile(model) }.help(t("receipts.pick_file_tip"))
+                Button(t("receipts.pick_file")) { UI.later { ReceiptImport.pickFile(model) } }.help(t("receipts.pick_file_tip"))
                 Button(t("receipts.open_input")) { if let f = model.inputFolder { UI.open(f) } }
                 Button(t("receipts.check_input")) { model.page = .pending }
                 Spacer()
@@ -458,9 +458,11 @@ struct DetailView: View {
             Spacer()
             if let cid = data.customerId, model.writable {
                 Button(t("cust.edit_button")) {
-                    if Forms.editCustomer(model, id: cid) {
-                        box.close()
-                        model.openCustomer(cid)
+                    UI.later {  // a dialog never opens inside the button's own handling (UI.later)
+                        if Forms.editCustomer(model, id: cid) {
+                            box.close()
+                            model.openCustomer(cid)
+                        }
                     }
                 }
                 .help(t("cust.edit_tip"))
@@ -579,7 +581,7 @@ struct DetailView: View {
                 if data.docKind == "transfer" {
                     Button(t("transfer.edit")) {
                         box.close()
-                        Forms.transfer(model, docId: id)
+                        UI.later { _ = Forms.transfer(model, docId: id) }
                     }
                     .help(t("transfer.edit_tip"))
                 }

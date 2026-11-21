@@ -168,7 +168,7 @@ struct PendingPage: View {
     private func binding(_ u: UnknownLine) -> Binding<PendingChoice> {
         Binding(get: { choice(u) }, set: { new in
             if new == .other {
-                DispatchQueue.main.async { pickOther(u) }  // the list opens after the menu has closed
+                UI.later { pickOther(u) }  // the list opens after the menu has closed
             } else {
                 choices[u.key] = new
             }
@@ -447,11 +447,11 @@ struct PendingPage: View {
         Group {
             switch item.kind {
             case .receipt:
-                Button(t("btn.view_import")) { if ReceiptImport.review(model, item) { model.rescan() } }
+                Button(t("btn.view_import")) { UI.later { if ReceiptImport.review(model, item) { model.rescan() } } }
             case .master:
-                Button(t("master.import")) { finishImport(item, MasterDataScreen.importFile(model, item.url)) }
+                Button(t("master.import")) { UI.later { finishImport(item, MasterDataScreen.importFile(model, item.url)) } }
             case .catalog:
-                Button(t("catalog.import_btn")) { finishImport(item, CatalogImport.importFile(model, item.url)) }
+                Button(t("catalog.import_btn")) { UI.later { finishImport(item, CatalogImport.importFile(model, item.url)) } }
             case .package:
                 Hint(tr("Bản Mac chưa nhập được gói dữ liệu.", "The Mac app cannot import a data package yet.", "Mac 版暂时无法导入数据包。"))
             case .error:

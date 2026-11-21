@@ -170,13 +170,13 @@ struct CatalogPage: View {
                 rows: products.map { [$0.code, $0.nameVi, $0.nameZh, $0.spec, $0.variant, $0.unit, $0.category,
                                       t($0.active ? "btn.yes" : "btn.no")] },
                 tones: products.map { $0.active ? .normal : .grey },
-                onOpen: { i in if CatalogScreens.edit(model, product: products[i]) { load() } },
+                onOpen: { i in let p = products[i]; UI.later { if CatalogScreens.edit(model, product: p) { load() } } },
                 onSelect: { selected = $0 })
             HStack {
-                Button(t("settings.add_product")) { if CatalogScreens.edit(model, product: nil) { load() } }
+                Button(t("settings.add_product")) { UI.later { if CatalogScreens.edit(model, product: nil) { load() } } }
                 Button(t("settings.edit_product_btn")) {
                     guard let p = current else { return UI.error(t("settings.pick_first")) }
-                    if CatalogScreens.edit(model, product: p) { load() }
+                    UI.later { if CatalogScreens.edit(model, product: p) { load() } }
                 }
                 Button(t("settings.delete_product")) {
                     guard let p = current else { return UI.error(t("settings.pick_first")) }
@@ -185,11 +185,10 @@ struct CatalogPage: View {
                 }
                 Button(t("settings.merge_button")) {
                     guard let p = current else { return UI.error(t("settings.merge_pick_first")) }
-                    CatalogScreens.merge(model, first: p)
-                    load()
+                    UI.later { CatalogScreens.merge(model, first: p); load() }
                 }
                 .help(t("settings.merge_tip"))
-                Button(t("catalog.import_btn")) { CatalogImport.start(model); load() }
+                Button(t("catalog.import_btn")) { UI.later { CatalogImport.start(model); load() } }
                 Spacer()
             }
         }

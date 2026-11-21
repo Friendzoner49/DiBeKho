@@ -26,7 +26,7 @@ enum ReceiptForm {
         let title = t(docId == nil ? "receipt_form.title" : "receipt_form.title_edit")
         // on the next run-loop turn, as the issue form: a modal session opened from inside a button action
         // left Huỷ bỏ / ✕ dead
-        DispatchQueue.main.async {
+        UI.later {
             Windows.show(title, width: 1150, height: 760, modal: true) { _ in
                 ReceiptFormView(model: model, docId: docId, draft: draft, title: title)
             }

@@ -48,6 +48,17 @@ enum UI {
         return answer
     }
 
+    /// On the next turn of the run loop, also inside a dialog's modal session. A dialog (Windows.show, modal) opened
+    /// from inside a button's or a menu's own handling comes up dead: SwiftUI holds its updates until that handling
+    /// returns, which is only when the new dialog closes (the catalog window of Phiếu xuất kho showed no products;
+    /// user, 22/11/2026). AppKit's delayed actions (menu items) never ran in the modal session; this names the
+    /// run-loop modes itself.
+    @MainActor
+    static func later(_ work: @escaping () -> Void) {
+        // the block runs on the main thread, in whichever of these modes the run loop is in next
+        RunLoop.main.perform(inModes: [.default, .modalPanel, .eventTracking]) { work() }
+    }
+
     @MainActor
     static func info(_ text: String) {
         ActivityLog.write("info", text)
@@ -353,6 +364,7 @@ enum PopMenu {
         let picked = menu.popUp(positioning: nil, at: view.convert(inWindow, from: nil), in: view)
         menu.delegate = nil
         FileHandle.standardError.write(Data("ui: menu closed, picked: \(picked), item: \(watcher.highlighted ?? -1)\n".utf8))
-        if picked, let i = watcher.highlighted, items.indices.contains(i) { items[i].run() }
+        // on the next run-loop turn: the item may open a dialog, which must not start inside this button's handling
+        if picked, let i = watcher.highlighted, items.indices.contains(i) { UI.later(items[i].run) }
     }
 }

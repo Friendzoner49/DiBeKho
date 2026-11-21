@@ -33,7 +33,7 @@ struct TransferTab: View {
                     Hint(t("master.hint"))
                     HStack {
                         Button(t("master.export")) { MasterDataScreen.export(model) }
-                        Button(t("master.import")) { MasterDataScreen.start(model) }.disabled(!model.writable)
+                        Button(t("master.import")) { UI.later { MasterDataScreen.start(model) } }.disabled(!model.writable)
                         Spacer()
                     }
                 }
@@ -54,7 +54,7 @@ struct TransferTab: View {
                             reload()
                         }
                         .disabled(!model.writable)
-                        Button(t("restore.button")) { RestoreProductsScreen.start(model) }.disabled(!model.writable)
+                        Button(t("restore.button")) { UI.later { RestoreProductsScreen.start(model) } }.disabled(!model.writable)
                         Button(t("backup.open_folder")) { if let f = backupsFolder { UI.open(f) } }
                         Spacer()
                     }
