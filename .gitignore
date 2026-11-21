@@ -1,0 +1,16 @@
+.build/
+.swiftpm/
+*.xcodeproj
+DerivedData/
+.DS_Store
+CLAUDE*.md
+*.sqlite
+*.dibekho
+*.xlsx
+samples/
+data/
+# made-up notes of the reader tests (tools/gen_notes.py): never real ones
+!Tests/DiBeKhoCoreTests/Notes/*.xlsx
+!Tests/DiBeKhoCoreTests/ScanNotes/*.xlsx
+!Tests/DiBeKhoCoreTests/InboxFiles/*.xlsx
+__pycache__/

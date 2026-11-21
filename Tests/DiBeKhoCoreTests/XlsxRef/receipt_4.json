@@ -1,0 +1,956 @@
+{
+ "sheet": "Hàng về",
+ "merges": [],
+ "widths": {
+  "A": 11.0,
+  "B": 45.0,
+  "C": 22.0,
+  "D": 16.0,
+  "E": 10.0,
+  "F": 12.0,
+  "G": 20.0,
+  "H": 24.0
+ },
+ "hidden": [],
+ "heights": {
+  "9": 32.0
+ },
+ "page": [
+  null,
+  null,
+  null,
+  false,
+  0.75,
+  0.75,
+  1.0,
+  1.0,
+  0.5,
+  0.5,
+  "",
+  false
+ ],
+ "creator": "",
+ "last_modified_by": "",
+ "app": true,
+ "cells": {
+  "A1": {
+   "v": [
+    "s",
+    "PHIẾU HÀNG VỀ  到货单"
+   ],
+   "font": [
+    "Calibri",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A3": {
+   "v": [
+    "s",
+    "Ngày về  到货日期:"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B3": {
+   "v": [
+    "d",
+    "2026-11-15T00:00:00"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "",
+    false,
+    false
+   ],
+   "fmt": "DD/MM/YYYY"
+  },
+  "A4": {
+   "v": [
+    "s",
+    "Ghi chú  备注:"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B4": {
+   "v": [
+    "s",
+    "đợt 4 (sửa)"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A5": {
+   "v": [
+    "s",
+    "Số phiếu  单号:"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B5": {
+   "v": [
+    "s",
+    "HV003"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A6": {
+   "v": [
+    "s",
+    "Nguồn hàng  来源:"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B6": {
+   "v": [
+    "s",
+    "Cửa khẩu / công ty mẹ  口岸/母公司"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A7": {
+   "v": [
+    "s",
+    "Nhà cung cấp  供应商:"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B7": {
+   "v": [
+    "s",
+    "Công ty mẹ"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A9": {
+   "v": [
+    "s",
+    "Mã hàng\n编码"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B9": {
+   "v": [
+    "s",
+    "Tên hàng\n品名"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C9": {
+   "v": [
+    "s",
+    "Tên tiếng Trung\n中文名"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D9": {
+   "v": [
+    "s",
+    "Quy cách\n规格"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E9": {
+   "v": [
+    "s",
+    "Đơn vị\n单位"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F9": {
+   "v": [
+    "s",
+    "Số lượng\n数量"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "G9": {
+   "v": [
+    "s",
+    "Loại, màu\n类型、颜色"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "H9": {
+   "v": [
+    "s",
+    "Ghi chú\n备注"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A10": {
+   "v": [
+    "s",
+    "SP001"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B10": {
+   "v": [
+    "s",
+    "Sơn chống thấm"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C10": {
+   "v": [
+    "s",
+    "防水涂料"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D10": {
+   "v": [
+    "s",
+    "20KG/thùng"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E10": {
+   "v": [
+    "s",
+    "thùng"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F10": {
+   "v": [
+    "n",
+    25.0
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "G10": {
+   "v": [
+    "s",
+    "Xám"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "H10": {
+   "v": null,
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A11": {
+   "v": [
+    "s",
+    "SP002"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B11": {
+   "v": [
+    "s",
+    "Keo FS-101"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C11": {
+   "v": [
+    "s",
+    "胶水"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D11": {
+   "v": [
+    "s",
+    "5KG"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E11": {
+   "v": [
+    "s",
+    "can"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F11": {
+   "v": [
+    "n",
+    10.5
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "G11": {
+   "v": null,
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "H11": {
+   "v": [
+    "s",
+    "móp"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    false
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": "999999",
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E12": {
+   "v": [
+    "s",
+    "Tổng cộng  合计"
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F12": {
+   "v": [
+    "n",
+    35.5
+   ],
+   "font": [
+    "Calibri",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "",
+    "",
+    false,
+    false
+   ],
+   "fmt": "General"
+  }
+ }
+}

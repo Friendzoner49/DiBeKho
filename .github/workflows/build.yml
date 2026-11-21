@@ -1,0 +1,104 @@
+# Run by hand only (Actions -> build -> Run workflow): the macOS minutes of a private repo are limited
+# (GitHub Free: about 190 minutes a month). Daily builds are done on the Mac with Xcode.
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      screens:
+        description: "Make the app, start it and keep screenshots (about 2 more minutes)"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+      - name: Toolchain
+        run: swift --version && xcodebuild -version
+      - name: Build and test
+        run: DIBEKHO_XLSX_OUT="$PWD/xlsx-out" DIBEKHO_SHOP_OUT="$PWD/shop.sqlite" swift test 2>&1 | tee test.log
+        shell: bash -o pipefail {0}
+      - name: The .xlsx files the tests wrote hold what the Python app's files hold (read by openpyxl)
+        run: |
+          python3 -m venv /tmp/check-env
+          /tmp/check-env/bin/pip install --quiet openpyxl
+          /tmp/check-env/bin/python tools/check_xlsx.py Tests/DiBeKhoCoreTests/XlsxRef xlsx-out 2>&1 | tee xlsx-check.log
+        shell: bash -o pipefail {0}
+      - name: Keep the resolved package versions and the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            Package.resolved
+            test.log
+          if-no-files-found: ignore
+      - name: Make the app
+        if: inputs.screens
+        run: bash scripts/make_app.sh
+        env:  # the shop's Cloud address, put into the build (builtin.json); never in the repository
+          DIBEKHO_CLOUD_URL: ${{ secrets.DIBEKHO_CLOUD_URL }}
+          DIBEKHO_CLOUD_KEY: ${{ secrets.DIBEKHO_CLOUD_KEY }}
+      - name: The app opens on a made-up shop (a screenshot per page)
+        if: inputs.screens
+        run: |
+          set -e
+          shoot() {
+            DIBEKHO_OPEN="$PWD/shop.sqlite" DIBEKHO_NOTES="$PWD/Tests/DiBeKhoCoreTests/Notes" DIBEKHO_SCAN_NOTES="${4:-}" DIBEKHO_PAGE="$1" DIBEKHO_WINDOW="$2" \
+              "build/DiBeKho Swift.app/Contents/MacOS/DiBeKhoSwift" & pid=$!
+            sleep 7
+            kill -0 $pid
+            screencapture -x "build/screen-$3.png" || true
+            kill $pid
+            sleep 1
+          }
+          shoot stock "" 01-stock
+          shoot pending "" 02-pending "$PWD/Tests/DiBeKhoCoreTests/ScanNotes"
+          shoot search "" 03-search
+          shoot receipts "" 04-receipts
+          shoot count "" 05-count
+          shoot settings "" 06-settings
+          DIBEKHO_SETTINGS_TAB=1 DIBEKHO_LEARNED_OPEN=1 shoot settings "" 06b-settings-products
+          DIBEKHO_SETTINGS_TAB=2 shoot settings "" 06c-settings-transfer
+          shoot search orders 07-orders
+          shoot search stats 08-stats
+          shoot count transfers 09-transfers
+          shoot count transfer 10-transfer
+          shoot count trial 11-trial
+          shoot receipts receipt 12-receipt
+          shoot stock order 13-order
+          shoot stock issue 14-issue
+          DIBEKHO_SETTINGS_TAB=3 shoot settings "" 06d-settings-cloud
+          shoot search customers 15-customers
+          shoot search customer 16-customer-detail
+          shoot stock product 17-product-detail
+          shoot count trials 18-trials
+          echo "the app opened and stayed open on every page: OK"
+      - name: macOS draws the Excel files the app wrote (Quick Look thumbnails)
+        if: inputs.screens
+        run: |
+          for f in issue_1 receipt_1; do qlmanage -t -s 1400 -o build "xlsx-out/$f.xlsx" || true; done
+          ls build
+      - uses: actions/upload-artifact@v4
+        if: inputs.screens
+        with:
+          name: DiBeKho-Swift-mac-arm64
+          path: |
+            build/DiBeKho-Swift-mac-arm64.zip
+            build/DiBeKho-Swift-mac-arm64.dmg
+      - uses: actions/upload-artifact@v4
+        if: inputs.screens
+        with:
+          name: screens
+          path: |
+            build/screen-*.png
+            build/*.xlsx.png
+          if-no-files-found: ignore

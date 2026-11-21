@@ -1,0 +1,1254 @@
+{
+ "sheet": "出库单",
+ "merges": [
+  "A13:C13",
+  "A1:G1",
+  "A2:G2",
+  "A3:G3",
+  "A4:G4",
+  "A5:B7",
+  "A8:E8",
+  "B12:C12",
+  "C5:E5",
+  "C7:E7",
+  "F5:G5",
+  "F7:G7"
+ ],
+ "widths": {
+  "A": 17.0,
+  "B": 62.66,
+  "C": 38.33,
+  "D": 13.0,
+  "E": 34.66,
+  "F": 25.0,
+  "G": 25.83,
+  "H": 12.0,
+  "I": 24.0
+ },
+ "hidden": [
+  "H",
+  "I"
+ ],
+ "heights": {
+  "1": 61.0,
+  "2": 41.0,
+  "3": 9.0,
+  "4": 40.0,
+  "5": 54.0,
+  "6": 54.0,
+  "7": 44.25,
+  "8": 32.0,
+  "9": 54.0,
+  "10": 152.0,
+  "11": 152.0,
+  "12": 83.0,
+  "13": 43.75
+ },
+ "page": [
+  "landscape",
+  9,
+  67,
+  false,
+  0.0,
+  0.0,
+  0.3937,
+  0.0,
+  0.5,
+  0.5,
+  "'出库单'!$A$1:$G$13",
+  true
+ ],
+ "creator": "",
+ "last_modified_by": "",
+ "app": true,
+ "cells": {
+  "A1": {
+   "v": [
+    "s",
+    "CÔNG TY MẪU"
+   ],
+   "font": [
+    "Times New Roman",
+    20.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A2": {
+   "v": [
+    "s",
+    "Hà Nội"
+   ],
+   "font": [
+    "Times New Roman",
+    20.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A4": {
+   "v": [
+    "s",
+    "出库单 PHIẾU XUẤT KHO"
+   ],
+   "font": [
+    "Times New Roman",
+    24.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A5": {
+   "v": [
+    "s",
+    "客户名称 ( Tên khách hàng ):  Khách Mẫu"
+   ],
+   "font": [
+    "宋体",
+    20.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C5": {
+   "v": [
+    "s",
+    "联系电话 ( Điện thoại liên hệ ): 0900 000 002"
+   ],
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F5": {
+   "v": [
+    "s",
+    "订货单号 ( Mã đơn hàng )：A81"
+   ],
+   "font": [
+    "宋体",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C6": {
+   "v": [
+    "s",
+    "MST 税号： 0100000002"
+   ],
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F6": {
+   "v": [
+    "s",
+    "email邮箱：khach@example.com"
+   ],
+   "font": [
+    "宋体",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C7": {
+   "v": [
+    "s",
+    "联系人( Người liên hệ )："
+   ],
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F7": {
+   "v": [
+    "s",
+    "送货日期 ( Ngày giao hàng )：16-11-2026"
+   ],
+   "font": [
+    "宋体",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A8": {
+   "v": [
+    "s",
+    "地址( Địa chỉ):  "
+   ],
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F8": {
+   "v": null,
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "G8": {
+   "v": null,
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A9": {
+   "v": [
+    "s",
+    "编 号\nSTT"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B9": {
+   "v": [
+    "s",
+    "商 品 全 名\nTên hàng"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C9": {
+   "v": [
+    "s",
+    "规格\nQUY CÁCH "
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D9": {
+   "v": [
+    "s",
+    "数 量\nSố lượng"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E9": {
+   "v": [
+    "s",
+    "单 价\nVND"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F9": {
+   "v": [
+    "s",
+    "金 额\nVND"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "G9": {
+   "v": [
+    "s",
+    "备 注\nGhi chú"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "H9": {
+   "v": [
+    "s",
+    "货号\nMã hàng"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "I9": {
+   "v": [
+    "s",
+    "取货地点\nLấy từ kho"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A10": {
+   "v": [
+    "n",
+    1.0
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B10": {
+   "v": [
+    "s",
+    "胶水\nKeo FS-101"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C10": {
+   "v": [
+    "s",
+    "5KG"
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D10": {
+   "v": [
+    "n",
+    2.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E10": {
+   "v": [
+    "n",
+    170000.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    true
+   ],
+   "fmt": "[$VND]\\ #,##0"
+  },
+  "F10": {
+   "v": [
+    "n",
+    340000.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    true
+   ],
+   "fmt": "[$VND]\\ #,##0"
+  },
+  "G10": {
+   "v": [
+    "s",
+    "một can"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "H10": {
+   "v": [
+    "s",
+    "SP002|5KG|胶水\nKeo FS-101"
+   ],
+   "font": [
+    "Times New Roman",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "I10": {
+   "v": [
+    "s",
+    "Kho tổng 总仓: 1; Văn phòng 办公室: 1"
+   ],
+   "font": [
+    "Times New Roman",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A11": {
+   "v": [
+    "n",
+    2.0
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B11": {
+   "v": [
+    "s",
+    "防水涂料\nSơn chống thấm Xám"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "C11": {
+   "v": [
+    "s",
+    "20KG/thùng"
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D11": {
+   "v": [
+    "n",
+    2.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E11": {
+   "v": [
+    "n",
+    390000.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    true
+   ],
+   "fmt": "[$VND]\\ #,##0"
+  },
+  "F11": {
+   "v": [
+    "n",
+    780000.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    true
+   ],
+   "fmt": "[$VND]\\ #,##0"
+  },
+  "G11": {
+   "v": [
+    "s",
+    "thêm"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "H11": {
+   "v": [
+    "s",
+    "SP001|20KG/thùng|防水涂料\nSơn chống thấm Xám"
+   ],
+   "font": [
+    "Times New Roman",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "I11": {
+   "v": [
+    "s",
+    "Kho tổng 总仓: 2"
+   ],
+   "font": [
+    "Times New Roman",
+    11.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A12": {
+   "v": [
+    "s",
+    "总计大写\n (Tổng cộng viết bằng chữ)"
+   ],
+   "font": [
+    "宋体",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "B12": {
+   "v": [
+    "s",
+    "MỘT TRIỆU MỘT TRĂM HAI MƯƠI NGHÌN VIỆT NAM ĐỒNG"
+   ],
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D12": {
+   "v": [
+    "s",
+    "页小计 \n( Tổng số lượng ):\n4"
+   ],
+   "font": [
+    "宋体",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "E12": {
+   "v": null,
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "F12": {
+   "v": [
+    "n",
+    1120000.0
+   ],
+   "font": [
+    "Times New Roman",
+    18.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    false,
+    true
+   ],
+   "fmt": "[$VND]\\ #,##0"
+  },
+  "G12": {
+   "v": null,
+   "font": [
+    "Times New Roman",
+    15.0,
+    true
+   ],
+   "border": [
+    "thin",
+    "thin",
+    "thin",
+    "thin"
+   ],
+   "line": null,
+   "align": [
+    "center",
+    "center",
+    true,
+    false
+   ],
+   "fmt": "General"
+  },
+  "A13": {
+   "v": [
+    "s",
+    "送货单位及经手人（盖章）：Người giao hàng"
+   ],
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  },
+  "D13": {
+   "v": [
+    "s",
+    "收货单位及经手人（盖章）：Người nhận hàng"
+   ],
+   "font": [
+    "Times New Roman",
+    14.0,
+    true
+   ],
+   "border": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "line": null,
+   "align": [
+    "left",
+    "center",
+    false,
+    false
+   ],
+   "fmt": "General"
+  }
+ }
+}
