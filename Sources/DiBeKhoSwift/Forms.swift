@@ -308,9 +308,9 @@ struct NewProductEditor: View {
                     Text(t("col.category") + ":")
                     HStack {
                         TextField("", text: $p.category).textFieldStyle(.roundedBorder)
-                        Menu {
-                            ForEach(categories, id: \.self) { c in Button(c) { p.category = c } }
-                        } label: { Image(systemName: "chevron.down") }
+                        PopMenuButton(items: { categories.map { c in PopMenu.Item(c) { p.category = c } } }) {
+                            Image(systemName: "chevron.down")
+                        }
                         .fixedSize()
                     }
                 }
@@ -365,9 +365,7 @@ struct MergeCustomersEditor: View {
             HStack {
                 Text(t("cust.merge_name_label"))
                 TextField(t("cust.merge_name_placeholder"), text: $name).textFieldStyle(.roundedBorder)
-                Menu {
-                    ForEach(picked, id: \.id) { c in Button(c.name) { name = c.name } }
-                } label: {
+                PopMenuButton(items: { picked.map { c in PopMenu.Item(c.name) { name = c.name } } }) {
                     Image(systemName: "chevron.down")
                 }
                 .fixedSize()

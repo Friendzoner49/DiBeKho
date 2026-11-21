@@ -185,14 +185,15 @@ struct ReceiptFormView: View {
                 ForEach($rows) { $row in
                     GridRow {
                         FormRowNumber(number: (index(row.id) ?? -1) + 1)
-                        Menu {
-                            Button(t("receipt_form.pick_existing")) { pick(row.id) }
-                            Button(t("receipt_form.pick_new")) { newProduct(row.id, draft: nil) }
-                            if row.new != nil { Button(t("receipt_form.edit_new")) { newProduct(row.id, draft: row.new) } }
+                        PopMenuButton(items: {
+                            var items = [PopMenu.Item(t("receipt_form.pick_existing")) { pick(row.id) },
+                                         PopMenu.Item(t("receipt_form.pick_new")) { newProduct(row.id, draft: nil) }]
+                            if row.new != nil { items.append(PopMenu.Item(t("receipt_form.edit_new")) { newProduct(row.id, draft: row.new) }) }
                             if row.productId != nil || row.new != nil {
-                                Button(t("receipt_form.clear_row")) { setProduct(row.id, nil, nil, suggested: false) }
+                                items.append(PopMenu.Item(t("receipt_form.clear_row")) { setProduct(row.id, nil, nil, suggested: false) })
                             }
-                        } label: {
+                            return items
+                        }) {
                             Text(label(row).isEmpty ? t("receipt_form.pick") : label(row))
                                 .foregroundColor(label(row).isEmpty ? UI.hint : .primary)
                                 .lineLimit(1)

@@ -105,9 +105,9 @@ struct ProductEditor: View {
                     Text(t("col.category") + ":")
                     HStack {
                         TextField("", text: $v.category).textFieldStyle(.roundedBorder).frame(minWidth: 440)
-                        Menu {
-                            ForEach(categories, id: \.self) { c in Button(c) { v.category = c } }
-                        } label: { Image(systemName: "chevron.down") }
+                        PopMenuButton(items: { categories.map { c in PopMenu.Item(c) { v.category = c } } }) {
+                            Image(systemName: "chevron.down")
+                        }
                         .fixedSize()
                     }
                 }

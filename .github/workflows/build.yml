@@ -82,25 +82,17 @@ jobs:
           shoot stock product 17-product-detail
           shoot count trials 18-trials
           echo "the app opened and stayed open on every page: OK"
-      - name: Phiếu xuất kho fills an old customer (real clicks on ▾, then a typed name; see the screenshots)
+      - name: The dialogs work with real clicks and keys (see the screen-20-* screenshots)
         if: inputs.screens
         run: |
-          for mode in pick type; do
-            DIBEKHO_OPEN="$PWD/shop.sqlite" DIBEKHO_PAGE=stock DIBEKHO_WINDOW=issue \
-              "build/DiBeKho Swift.app/Contents/MacOS/DiBeKhoSwift" & pid=$!
-            sleep 7
-            # positions from screen-19-issue-*.png (1024×768): the arrow at the right end of the customer box
-            # (NSComboBox, just left of «Khách hàng mới…»), the customer box itself
-            if [ "$mode" = pick ]; then xy="786 194"; else xy="450 194"; fi
-            osascript -l JavaScript tools/ci_click.js $xy || echo "click failed"
-            sleep 1
-            screencapture -x "build/screen-19-issue-$mode-0.png" || true
-            osascript tools/ci_pick_customer.applescript "$mode" || echo "osascript $mode failed (no accessibility on this runner?)"
-            sleep 2
-            screencapture -x "build/screen-19-issue-$mode.png" || true
-            kill $pid || true
-            sleep 1
-          done
+          # Phiếu xuất kho: an old customer picked from the list (the arrow at the right end of the box), then typed
+          bash tools/ci_dialogs.sh issue customer-pick click 786 194 wait 1 shot 1 down return wait 1 shot 2
+          bash tools/ci_dialogs.sh issue customer-type click 450 194 paste "Khách Mẫu" tab wait 1 shot 1
+          # Phiếu xuất kho: row 1 → «Chọn mặt hàng có sẵn…» → the catalog window → SP002 found and Return
+          bash tools/ci_dialogs.sh issue product click 187 468 wait 1 shot 1 down return wait 2 shot 2 \
+            paste SP002 return wait 2 shot 3
+          # Hàng về: «Nhập vào» (a Picker) → the next place
+          bash tools/ci_dialogs.sh receipt place click 560 226 wait 1 shot 1 down return wait 1 shot 2
       - name: macOS draws the Excel files the app wrote (Quick Look thumbnails)
         if: inputs.screens
         run: |

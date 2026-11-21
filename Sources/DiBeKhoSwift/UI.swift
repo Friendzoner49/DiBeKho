@@ -303,3 +303,49 @@ struct AppButtonStyle: ButtonStyle {
     }
 }
 
+
+/// A button that pops up a menu of the Mac's own (NSMenu). SwiftUI's Menu never ran the item picked inside a dialog
+/// (Windows.show with modal: true runs NSApp.runModal, as QDialog.exec): picking «Chọn mặt hàng có sẵn…» or an old
+/// customer did nothing (user, 21–22/11/2026). An NSMenu item runs at once, inside the modal session too.
+struct PopMenuButton<Label: View>: View {
+    let items: () -> [PopMenu.Item]
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        Button(action: { PopMenu.show(items()) }, label: label)
+    }
+}
+
+@MainActor
+enum PopMenu {
+    struct Item {
+        let title: String
+        let run: () -> Void
+        init(_ title: String, _ run: @escaping () -> Void) {
+            self.title = title
+            self.run = run
+        }
+    }
+
+    private final class Target: NSObject {
+        let run: () -> Void
+        init(_ run: @escaping () -> Void) { self.run = run }
+        @objc func fire() { run() }
+    }
+
+    /// the menu opens where the mouse was pressed; returns once an item ran or the menu was dismissed
+    static func show(_ items: [Item]) {
+        guard !items.isEmpty, let window = NSApp.keyWindow, let view = window.contentView else { return }
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let targets = items.map { Target($0.run) }
+        for (item, target) in zip(items, targets) {
+            let entry = NSMenuItem(title: item.title, action: #selector(Target.fire), keyEquivalent: "")
+            entry.target = target
+            menu.addItem(entry)
+        }
+        let inWindow = NSApp.currentEvent?.locationInWindow ?? window.mouseLocationOutsideOfEventStream
+        menu.popUp(positioning: nil, at: view.convert(inWindow, from: nil), in: view)
+        withExtendedLifetime(targets) {}
+    }
+}
