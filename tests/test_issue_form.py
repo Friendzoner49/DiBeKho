@@ -1,5 +1,5 @@
 """The 'Phiếu xuất kho…' window, driven like a user: pick a customer and products, type numbers, save; the same product
-on two lines at two prices; prices typed in yuan while the ₫ | ¥ switch shows yuan (user, 15/11/2026)."""
+on two lines at two prices; a yuan note while the ₫ | ¥ switch shows yuan (user, 21/11/2026)."""
 
 import os
 from datetime import date, datetime
@@ -114,9 +114,15 @@ def test_the_same_product_on_two_lines_at_two_prices(app, ws, monkeypatch, lang)
     ctx.close()
 
 
-def test_prices_typed_in_yuan_are_saved_in_dong(app, ws, monkeypatch):
+def test_a_note_made_while_the_switch_shows_yuan_is_a_yuan_note(app, ws, monkeypatch):
+    """₫ | ¥ on ¥ (user, 21/11/2026): prices typed in yuan stay yuan in the data and in the Excel file (CNY), the rate
+    of the window is kept on the document; the next note suggests that yuan price; a dong note stays dong when
+    edited while the switch shows yuan."""
+    import openpyxl
+
     import dibekho.ui.issue_form as form_mod
     import dibekho.ui.pending_page as pending_mod
+    from dibekho.excel.delivery_note import read_delivery_note
 
     i18n.set_language("vi")
     asked = []
@@ -135,20 +141,36 @@ def test_prices_typed_in_yuan_are_saved_in_dong(app, ws, monkeypatch):
     form.customer.setCurrentText("Khách mới")
     form.rows[0].button.click()
     type_in(form.rows[0].qty_main, "2")
-    type_in(form.rows[0].price, "100")  # ¥100 = 385.000 ₫
-    assert form.table.cellWidget(0, form_mod.AMOUNT).text() == "¥200"
+    type_in(form.rows[0].price, "100.5")
+    assert form.table.cellWidget(0, form_mod.AMOUNT).text() == "¥201"
     form.save_btn.click()
-    assert "385.000" in asked[-2] and "¥100" in asked[-2]  # the question shows both
-    assert _lines(ctx.conn) == [(2, 385000, 770000)]
+    assert "¥201" in asked[-2] and "773.850" in asked[-2]  # the question shows the yuan and about how many dong
+    assert _lines(ctx.conn) == [(2, 100.5, 201)]
+    doc = ctx.conn.execute("SELECT * FROM documents WHERE kind = 'delivery'").fetchone()
+    assert doc["currency"] == "CNY" and doc["fx_rate"] == 3850.0
+    path = next((ws.output / "phieu-xuat").glob("PhieuXuat_A*.xlsx"))
+    assert read_delivery_note(path).currency == "CNY"
+    sheet = openpyxl.load_workbook(path).active
+    texts = [str(c.value) for row in sheet.iter_rows() for c in row if c.value is not None]
+    assert any("CNY" in x for x in texts) and any(x.endswith("NHÂN DÂN TỆ") for x in texts)
 
-    # the next note suggests that price: shown in yuan, saved in its exact dong when left as it is
+    # the next note suggests that price, in yuan, and keeps it as it is
     form = IssueForm(ctx)
     form.customer.setCurrentText("Khách mới")
     form._customer_picked()
     form.rows[0].button.click()
-    assert form.rows[0].price.value() == 100
+    assert form.rows[0].price.value() == 100.5
     type_in(form.rows[0].qty_main, "1")
-    assert form.data().filled()[0].unit_price == 385000
+    assert form.data().filled()[0].unit_price == 100.5 and form.data().currency == "CNY"
+
+    # a dong note edited while the switch shows yuan stays a dong note
+    fx.Display.currency = "vnd"
+    dong_doc, _ = issues.save(ctx.conn, ctx.ws, issues.IssueInput(
+        date(2026, 11, 16), "Công ty A", lines=[issues.IssueLineInput(paint, qty_main=1, unit_price=500000)]))
+    fx.Display.currency = "cny"
+    form = IssueForm(ctx, edit_doc=dong_doc)
+    assert not form.cny and "¥" not in form.table.horizontalHeaderItem(form_mod.PRICE).text()
+    assert form.data().filled()[0].unit_price == 500000 and form.data().currency == "VND"
     ctx.close()
 
 

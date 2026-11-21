@@ -487,3 +487,31 @@ def test_the_owner_corrects_a_web_issue_note_keeping_its_code_and_recounting_the
     assert issues.new_code(s) == "A79"
     with pytest.raises(PgError, match="còn hiệu lực"):
         call("web_issue_edit", p=({**edit, "replaces": _uid(s, "documents", _doc(s, "delivery", "76"))}, "jsonb"))
+
+
+def test_a_yuan_note_made_on_the_web_is_recorded_in_yuan(shop):
+    """cloud 022 (user, 21/11/2026): web_issue_money keeps the yuan prices and marks the note CNY with the window's
+    rate; web_issue_edit keeps the currency it is given; the staff cannot; web_api_version says 22."""
+    s, _, call, cloud = shop
+    a = _pid(s, "SP001")
+    assert call("web_api_version") == 22
+    p = {"doc_date": "2026-11-21", "customer": "Công ty A", "phone": "", "contact": "", "address": "", "tax_code": "",
+         "email": "", "currency": "CNY", "fx_rate": 3800, "lines": [
+             {"product_id": _uid(s, "products", a), "qty_main": 2, "qty_office": 0, "unit_price": 12.5, "note": ""}]}
+    with pytest.raises(PgError, match="chủ"):
+        call("web_issue_money", account=STAFF, p=(p, "jsonb"))
+    made = call("web_issue_money", p=(p, "jsonb"))
+    _pull(s, cloud)
+    doc = s.execute("SELECT * FROM documents WHERE code = ?", (made["code"],)).fetchone()
+    assert (doc["currency"], doc["fx_rate"], doc["note_total"]) == ("CNY", 3800, 25)
+    assert s.execute("SELECT unit_price, amount FROM document_lines WHERE document_id = ?", (doc["id"],)).fetchone()[:] == (12.5, 25)
+    edit = {**p, "replaces": made["id"], "lines": [{**p["lines"][0], "unit_price": 13}]}
+    again = call("web_issue_edit", p=(edit, "jsonb"))
+    assert again["code"] == made["code"]
+    _pull(s, cloud)
+    doc = s.execute("SELECT * FROM documents WHERE code = ? AND status = 'active'", (made["code"],)).fetchone()
+    assert (doc["currency"], doc["fx_rate"], doc["note_total"]) == ("CNY", 3800, 26)
+    dong = call("web_issue_edit", p=({**edit, "replaces": again["id"], "currency": "VND"}, "jsonb"))
+    _pull(s, cloud)
+    assert s.execute("SELECT currency, fx_rate FROM documents WHERE code = ? AND status = 'active'",
+                     (dong["code"],)).fetchone()[:] == ("VND", None)

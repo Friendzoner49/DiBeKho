@@ -773,7 +773,7 @@
   "fx.rate_short": "1 ¥ = {rate} ₫（{when}）",
   "issue.price_cny": "单价（¥）",
   "issue.amount_cny": "金额（¥）",
-  "issue.cny_hint": "当前以 ¥ 显示金额：单价请按人民币填写（1 ¥ = {rate} ₫）。单据文件仍以 ₫ 记录。",
+  "issue.cny_hint": "人民币单据：单价按人民币填写；单据及 Excel 文件均以 ¥ 记录（1 ¥ ≈ {rate} ₫）。",
   "login.title": "登录",
   "login.hint": "输入店主分配的账号和密码。登录后应用会自动连接云端共享数据（标准数据，与网页相同）。",
   "login.sign_in": "登录",

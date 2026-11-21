@@ -85,19 +85,23 @@ def test_the_rows_are_the_apps(conn, goods, tmp_path):
     assert [(r["places"], r["qty"]) for r in web] == [([[MAIN, 10], [OFFICE, 3]], 13), ([[MAIN, 2.5]], 2.5)]
 
 
-def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path):
+@pytest.mark.parametrize("currency", ["VND", "CNY"])
+def test_the_web_file_reads_like_the_apps_file(conn, goods, tmp_path, currency):
+    """A yuan note (user, 21/11/2026) too: CNY headers, the ¥ format, the words in NHÂN DÂN TỆ, read back as CNY."""
     paint, sand = goods
     data = _input(paint, sand)
     rows = issues.note_rows(conn, data)
     head = IssueHead("PX261114-093015", data.doc_date, data.customer_name, data.phone, data.contact, data.address,
-                     tax_code="0101234567", email="a@example.com", letterhead=["CÔNG TY MẪU 样本公司", "Số 1 Đường Mẫu"])
+                     tax_code="0101234567", email="a@example.com", letterhead=["CÔNG TY MẪU 样本公司", "Số 1 Đường Mẫu"],
+                     currency=currency)
     app_file = write_issue_note(tmp_path / "app.xlsx", head, rows)
     web_file = _web_file({"code": head.code, "doc_date": "2026-11-14", "customer": head.customer, "phone": head.phone,
                           "contact": head.contact, "address": head.address, "tax_code": head.tax_code,
-                          "email": head.email, "letterhead": head.letterhead},
+                          "email": head.email, "letterhead": head.letterhead, "currency": currency},
                          [dataclasses.asdict(r) for r in rows], tmp_path / "web.xlsx")
     app_note, web_note = read_delivery_note(app_file), read_delivery_note(web_file)
     assert web_note == app_note
+    assert web_note.currency == currency
     assert (web_note.tax_code, web_note.email) == ("0101234567", "a@example.com")
     assert (web_note.code, web_note.customer_name, web_note.doc_date) == ("PX261114-093015", "Công ty A", date(2026, 11, 14))
     assert [(ln.product_code, ln.places, ln.qty, ln.unit_price) for ln in web_note.lines] == [

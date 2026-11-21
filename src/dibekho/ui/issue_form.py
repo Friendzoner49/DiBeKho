@@ -5,9 +5,9 @@ Kho tổng and how many from Văn phòng (both may be filled), with the price (t
 The same product may stand on several lines: another quantity, another price (user, 15/11/2026).
 'Lưu phiếu' writes the Excel file (output/phieu-xuat/) and lowers the stock at once (core/issues.py).
 
-While the ₫ | ¥ switch shows yuan, the prices are typed in yuan (user, 15/11/2026) at the rate the window opened
-with; the note and the data keep dong: a typed price is turned into whole dong, a suggested price left untouched
-keeps its exact dong.
+While the ₫ | ¥ switch shows yuan, the note is a yuan note (user, 21/11/2026; before, the yuan typed were turned into
+dong): the prices are typed in yuan and the file and the data keep them in yuan (currency CNY), with the rate the
+window opened with only to show '≈ … ₫'. A note being edited keeps its own currency, whatever the switch shows.
 
 A row may be '★ Mặt hàng mới' (customer, 15/11/2026): a product not in the catalog yet, made on save (core/issues.py),
 its stock goes below zero until the goods come in (Hàng về).
@@ -74,7 +74,6 @@ class _Row:
         self.qty_office = _spin(1e7, 100)
         self.price = _spin(1e12, 120)
         self.price_typed = False  # typed by the user: the app no longer fills it in
-        self.price_vnd: float | None = None  # the price the app filled in, exact in dong (the box may show yuan)
         self.keep_price = False  # a note being edited: the price on it stays until the product changes
         self.note = QLineEdit()
         self.remove = QPushButton("✕")
@@ -106,13 +105,18 @@ class IssueForm(QDialog):
                     "SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone())
         self.customers = issues.customer_choices(ctx.conn)
         self.rows: list[_Row] = []
-        self.rate = fx.Display.rate if fx.Display.in_cny() else None  # prices typed in yuan at this rate
+        # a yuan note: new while the switch shows yuan, or an edited note recorded in yuan
+        self.cny = (self.old.currency == "CNY") if self.old else fx.Display.in_cny()
+        # dong for one yuan: only to show '≈ … ₫' (and to turn a last price of the other currency)
+        self.vnd_per_cny = (self.old.fx_rate if self.old and self.old.currency == "CNY" and self.old.fx_rate else None) \
+            or (fx.Display.rate.vnd_per_cny if fx.Display.rate else None)
 
         lay = QVBoxLayout(self)
         lay.addWidget(title_label(self.windowTitle()))
         lay.addWidget(hint_label(t("issue.edit_hint", code=self.edit_code) if edit_doc else t("issue.hint")))
-        if self.rate is not None:
-            lay.addWidget(hint_label(t("issue.cny_hint", rate=fmt_money(round(self.rate.vnd_per_cny)))))
+        if self.cny:
+            lay.addWidget(hint_label(t("issue.cny_hint", rate=fmt_money(round(self.vnd_per_cny))
+                                       if self.vnd_per_cny else "—")))
         form = QFormLayout()
         self.date = NoWheelDate()
         self.date.setCalendarPopup(True)
@@ -149,8 +153,8 @@ class IssueForm(QDialog):
         self.table.setHorizontalHeaderLabels([
             t("col.product"), t("col.spec"), t("col.unit"), t("issue.have", place=t("loc.main")),
             t("issue.take", place=t("loc.main")), t("issue.have", place=t("loc.office")),
-            t("issue.take", place=t("loc.office")), t("issue.price_cny" if self.rate else "issue.price"),
-            t("issue.amount_cny" if self.rate else "issue.amount"), t("col.note"), ""])
+            t("issue.take", place=t("loc.office")), t("issue.price_cny" if self.cny else "issue.price"),
+            t("issue.amount_cny" if self.cny else "issue.amount"), t("col.note"), ""])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(PRODUCT, QHeaderView.Stretch)
         for col, width in ((SPEC, 100), (UNIT, 60), (HAVE_MAIN, 80), (QTY_MAIN, 100), (HAVE_OFFICE, 80),
@@ -200,13 +204,12 @@ class IssueForm(QDialog):
             box.setText(value)
         for ln in old.lines:
             row = self.add_row()
-            row.product_id, row.keep_price, row.price_vnd = ln.product_id, True, ln.unit_price
+            row.product_id, row.keep_price = ln.product_id, True
             row.qty_main.setValue(ln.qty_main)
             row.qty_office.setValue(ln.qty_office)
             row.note.setText(ln.note)
             row.price.blockSignals(True)
-            row.price.setValue(((round(self.rate.to_cny(ln.unit_price), 2) if self.rate else ln.unit_price)
-                                if ln.unit_price else 0))
+            row.price.setValue(ln.unit_price or 0)
             row.price.blockSignals(False)
             self._show_row(row)
         self.add_row()
@@ -219,24 +222,16 @@ class IssueForm(QDialog):
             phone=self.phone.text(), contact=self.contact.text(), address=self.address.text(),
             tax_code=self.tax_code.text(), email=self.email.text(),
             lines=[IssueLineInput(r.product_id, r.qty_main.value(), r.qty_office.value(),
-                                  self._price_vnd(r), r.note.text(), new=r.new) for r in self.rows])
+                                  self._price(r), r.note.text(), new=r.new) for r in self.rows],
+            currency="CNY" if self.cny else "VND", fx_rate=self.vnd_per_cny if self.cny else None)
 
-    def _price_vnd(self, row: _Row) -> float | None:
-        """The row's price in dong, as it is saved."""
-        shown = row.price.value()
-        if not shown:
-            return None
-        if self.rate is None:
-            return shown
-        if not row.price_typed and row.price_vnd:
-            return row.price_vnd
-        return float(round(self.rate.to_vnd(shown)))
+    def _price(self, row: _Row) -> float | None:
+        """The row's price as typed and saved: dong, or yuan on a yuan note."""
+        return row.price.value() or None
 
-    def _money(self, vnd: float) -> str:
-        """An amount as this window shows it: dong, or yuan at the window's rate."""
-        if self.rate is None:
-            return fmt_money(vnd)
-        return fx.cny_text(self.rate.to_cny(vnd), i18n.language())
+    def _money(self, amount: float) -> str:
+        """An amount of this note: dong, or yuan on a yuan note."""
+        return fx.cny_text(amount, i18n.language()) if self.cny else fmt_money(amount)
 
     def _customer_picked(self):
         i = self.customer.currentData()
@@ -326,7 +321,7 @@ class IssueForm(QDialog):
         p = self.products.get(row.product_id) if row.product_id else None
         self.table.cellWidget(i, SPEC).setText(row.new.spec if row.new else (p["spec"] if p else ""))
         self.table.cellWidget(i, UNIT).setText(row.new.unit if row.new else (p["unit"] if p else ""))
-        price = self._price_vnd(row)
+        price = self._price(row)
         amount = row.qty() * price if price else None
         self.table.cellWidget(i, AMOUNT).setText(self._money(amount) if amount else "")
         self._show_stock()
@@ -356,10 +351,10 @@ class IssueForm(QDialog):
     def _fill_price(self, row: _Row):
         if row.price_typed or row.keep_price or not row.product_id:
             return
-        price = issues.last_price(self.ctx.conn, self.data().customer_name, row.product_id)
-        row.price_vnd = price or None
+        price = issues.last_price(self.ctx.conn, self.data().customer_name, row.product_id,
+                                  "CNY" if self.cny else "VND", self.vnd_per_cny)
         row.price.blockSignals(True)
-        row.price.setValue((round(self.rate.to_cny(price), 2) if self.rate else price) if price else 0)
+        row.price.setValue(price or 0)
         row.price.blockSignals(False)
         self._show_row(row)
 
@@ -454,9 +449,11 @@ class IssueForm(QDialog):
             text += "\n\n" + t("issue.confirm_new")
         return text
 
-    def _both(self, vnd: float) -> str:
-        """Before saving the user sees what is written: yuan as typed and the dong the note will carry."""
-        return fmt_money(vnd) if self.rate is None else f"{self._money(vnd)} = {fmt_money(vnd)} ₫"
+    def _both(self, amount: float) -> str:
+        """Before saving the user sees what is written: dong, or the yuan of the note and about how many dong."""
+        if not self.cny or not self.vnd_per_cny:
+            return self._money(amount)
+        return f"{self._money(amount)} ≈ {fmt_money(round(amount * self.vnd_per_cny))} ₫"
 
     def save(self):
         data = self.data()

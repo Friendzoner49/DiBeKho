@@ -15,6 +15,10 @@ packing, so a row retyped in Excel to another product is read by its new name) a
 note has neither and reads as before. Only plain values, never formulas: the reader opens files with
 data_only=True, and a formula saved by a program has no value until Excel opens it.
 
+A note priced in yuan (the ₫ | ¥ switch on ¥ while it is made, user 21/11/2026) keeps its yuan: the two price headers
+say CNY, the money cells carry a ¥ format with two decimals and the words end in NHÂN DÂN TỆ, the signs the reader
+(excel/delivery_note._currency) takes for a yuan note, so it is recorded with currency CNY.
+
 tests/test_web_issue.py compares this file with the web's cell by cell.
 """
 
@@ -40,6 +44,7 @@ LABELS = {
 }
 HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
            "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"]
+HEADERS_CNY = HEADERS[:4] + ["单 价\nCNY", "金 额\nCNY"] + HEADERS[6:]
 PLACES = {1: "Kho tổng 总仓", 2: "Văn phòng 办公室"}
 WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)"
 QTY_LABEL = "页小计 \n( Tổng số lượng ):\n"
@@ -52,6 +57,7 @@ HIDDEN = (8, 9)
 HEIGHTS = {1: 61.0, 2: 41.0, 3: 9.0, 4: 40.0, 5: 54.0, 6: 54.0, 7: 44.25, 8: 32.0, HEADER_ROW: 54.0}
 LINE_HEIGHT, TOTAL_HEIGHT, SIGN_HEIGHT = 152.0, 83.0, 43.75  # the template of 18/11/2026
 MONEY = '[$VND]\\ #,##0'
+MONEY_CNY = '[$¥]\\ #,##0.00'
 TNR = "Times New Roman"  # most cells, as the shop's note shows (Chinese falls back to a CJK font)
 SONG = "宋体"  # SimSun: the customer, the code, e-mail and date labels, the two total labels (the template's own)
 
@@ -83,6 +89,7 @@ class IssueHead:
     tax_code: str = ""
     email: str = ""
     letterhead: list[str] = field(default_factory=list)  # company name, address (from the shop's delivery notes)
+    currency: str = "VND"  # "CNY": the prices are yuan
 
 
 @dataclass
@@ -102,6 +109,7 @@ class Sheet:
     merges: list[str] = field(default_factory=list)
     heights: dict = field(default_factory=dict)
     last_row: int = 0
+    money_format: str = MONEY
 
 
 def product_name(name_vi: str, name_zh: str) -> str:
@@ -135,13 +143,10 @@ def _three(n: int, full: bool) -> list[str]:
     return words
 
 
-def vnd_words(amount: float) -> str:
-    """2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG', as the shop writes it (webapp/xlsx.js vndWords)."""
-    n = int(math.floor(amount + 0.5))
-    if n < 0:
-        return ""
+def _number_words(n: int) -> str:
+    """2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN' (n >= 0)."""
     if n == 0:
-        return "KHÔNG VIỆT NAM ĐỒNG"
+        return "KHÔNG"
     groups = []
     while True:
         groups.append(n % 1000)
@@ -155,7 +160,24 @@ def vnd_words(amount: float) -> str:
         words += _three(groups[i], bool(words))
         if _UNITS[i]:
             words.append(_UNITS[i])
-    return " ".join(words).upper() + " VIỆT NAM ĐỒNG"
+    return " ".join(words).upper()
+
+
+def vnd_words(amount: float) -> str:
+    """2376000 -> 'HAI TRIỆU BA TRĂM BẢY MƯƠI SÁU NGHÌN VIỆT NAM ĐỒNG', as the shop writes it (webapp/xlsx.js vndWords)."""
+    n = int(math.floor(amount + 0.5))
+    if n < 0:
+        return ""
+    return _number_words(n) + " VIỆT NAM ĐỒNG"
+
+
+def cny_words(amount: float) -> str:
+    """1250.5 -> 'MỘT NGHÌN HAI TRĂM NĂM MƯƠI NHÂN DÂN TỆ NĂM MƯƠI XU' (1 ¥ = 100 xu; webapp/xlsx.js cnyWords)."""
+    cents = int(math.floor(amount * 100 + 0.5))
+    if cents < 0:
+        return ""
+    whole, fen = divmod(cents, 100)
+    return _number_words(whole) + " NHÂN DÂN TỆ" + (f" {_number_words(fen)} XU" if fen else "")
 
 
 def _wrapped_lines(text: str, width: float, size: float) -> int:
@@ -170,7 +192,8 @@ def _wrapped_lines(text: str, width: float, size: float) -> int:
 
 def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
     """The cells of the note. webapp/xlsx.js issueSheet builds the same ones."""
-    sh = Sheet(heights=dict(HEIGHTS))
+    cny = head.currency == "CNY"
+    sh = Sheet(heights=dict(HEIGHTS), money_format=MONEY_CNY if cny else MONEY)
 
     def put(r, c, value, **style):
         sh.cells[(r, c)] = Cell(value, **style)
@@ -191,7 +214,7 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
     for c in range(2, 8):
         put(8, c, None, size=14, align="left", border="bottom")
     sh.merges += ["A1:G1", "A2:G2", "A3:G3", "A4:G4", "A5:B7", "C5:E5", "F5:G5", "C7:E7", "F7:G7", "A8:E8"]
-    for c, text in enumerate(HEADERS, start=1):
+    for c, text in enumerate(HEADERS_CNY if cny else HEADERS, start=1):
         put(HEADER_ROW, c, text, border=c <= 7)
     r = HEADER_ROW
     qty_total, money_total, priced = 0.0, 0.0, False
@@ -216,7 +239,7 @@ def issue_sheet(head: IssueHead, rows: list[IssueRow]) -> Sheet:
             priced = True
     r += 1
     put(r, 1, WORDS_LABEL, font=SONG, border=True)
-    put(r, 2, vnd_words(money_total) if priced else None, border=True)
+    put(r, 2, (cny_words(money_total) if cny else vnd_words(money_total)) if priced else None, border=True)
     put(r, 3, None, border=True)
     put(r, 4, QTY_LABEL + number_text(qty_total), font=SONG, border=True)
     put(r, 5, None, border=True)
@@ -251,7 +274,7 @@ def write_issue_note(path: Path, head: IssueHead, rows: list[IssueRow]) -> Path:
         if cell.border:
             x.border = under if cell.border == "bottom" else box
         if cell.money:
-            x.number_format = MONEY
+            x.number_format = sh.money_format
     for m in sh.merges:
         ws.merge_cells(m)
     for r, height in sh.heights.items():

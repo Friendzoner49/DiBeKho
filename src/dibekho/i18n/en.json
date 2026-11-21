@@ -773,7 +773,7 @@
   "fx.rate_short": "1 ¥ = {rate} ₫ ({when})",
   "issue.price_cny": "Unit price (¥)",
   "issue.amount_cny": "Amount (¥)",
-  "issue.cny_hint": "Amounts are shown in ¥: type the prices in yuan (1 ¥ = {rate} ₫). The note file stays in ₫.",
+  "issue.cny_hint": "Yuan note: type the prices in ¥; the note and its Excel file are in ¥ (1 ¥ ≈ {rate} ₫).",
   "login.title": "Sign in",
   "login.hint": "Type the account and password the owner gave you. The app then connects to the shared data on the Cloud (the reference copy, the same as the web page).",
   "login.sign_in": "Sign in",

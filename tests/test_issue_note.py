@@ -156,6 +156,39 @@ def test_problems_and_prices(conn, ws, goods):
     issues.save(conn, ws, note_for(paint, sand))
     assert issues.last_price(conn, "Công ty A", paint) == 500000
     assert issues.last_price(conn, "Khách khác", paint) == 500000
+    # in the other currency: at the rate given, else none
+    assert issues.last_price(conn, "Công ty A", paint, "CNY", 4000) == 125
+    assert issues.last_price(conn, "Công ty A", paint, "CNY") is None
+
+
+def test_a_yuan_note_is_written_and_recorded_in_yuan(conn, ws, goods):
+    """currency CNY (user, 21/11/2026): the prices as typed, the file says CNY / ¥ / NHÂN DÂN TỆ, the document is CNY
+    with the window's rate; a later dong note gets that price turned at the rate given; editing keeps the currency."""
+    import openpyxl
+
+    from dibekho.excel.delivery_note import read_delivery_note
+    from dibekho.excel.issue_note import MONEY_CNY
+
+    paint, sand = goods
+    data = IssueInput(date(2026, 11, 14), "Công ty A", currency="CNY", fx_rate=3800.0,
+                      lines=[IssueLineInput(paint, qty_main=3, unit_price=12.5), IssueLineInput(sand, qty_main=1)])
+    doc_id, path = issues.save(conn, ws, data)
+    note = read_delivery_note(path)
+    assert note.currency == "CNY"
+    sheet = openpyxl.load_workbook(path).active
+    money = [c for row in sheet.iter_rows() for c in row if isinstance(c.value, (int, float)) and c.number_format == MONEY_CNY]
+    assert [c.value for c in money] == [12.5, 37.5, 37.5]  # price, amount, total
+    assert "BA MƯƠI BẢY NHÂN DÂN TỆ NĂM MƯƠI XU" in [c.value for row in sheet.iter_rows() for c in row]
+    doc = conn.execute("SELECT currency, fx_rate FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    assert (doc["currency"], doc["fx_rate"]) == ("CNY", 3800.0)
+    assert conn.execute("SELECT unit_price, amount FROM document_lines WHERE document_id = ? AND product_id = ?",
+                        (doc_id, paint)).fetchone()[:] == (12.5, 37.5)
+    assert issues.last_price(conn, "Công ty A", paint, "VND", 4000) == 50000  # yuan at the rate given
+    assert issues.last_price(conn, "Công ty A", paint, "VND") == 47500  # else the note's own rate
+    code, loaded = issues.load(conn, doc_id)
+    assert (loaded.currency, loaded.fx_rate, loaded.lines[0].unit_price) == ("CNY", 3800.0, 12.5)
+    new_id, _ = issues.edit(conn, ws, doc_id, loaded)
+    assert conn.execute("SELECT code, currency FROM documents WHERE id = ?", (new_id,)).fetchone()[:] == (code, "CNY")
 
 
 def test_new_products_are_made_once_and_go_below_zero(conn, ws, goods):

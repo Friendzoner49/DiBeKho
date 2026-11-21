@@ -773,7 +773,7 @@
   "fx.rate_short": "1 ¥ = {rate} ₫ ({when})",
   "issue.price_cny": "Đơn giá (¥)",
   "issue.amount_cny": "Thành tiền (¥)",
-  "issue.cny_hint": "Đang hiện tiền bằng ¥: gõ đơn giá bằng nhân dân tệ (1 ¥ = {rate} ₫). File phiếu vẫn ghi bằng ₫.",
+  "issue.cny_hint": "Phiếu bằng nhân dân tệ: gõ đơn giá bằng ¥; phiếu và file Excel ghi bằng ¥ (1 ¥ ≈ {rate} ₫).",
   "login.title": "Đăng nhập",
   "login.hint": "Gõ tài khoản và mật khẩu do chủ cấp. Đăng nhập xong app tự nối với dữ liệu chung trên Cloud (bản chuẩn, giống trang web).",
   "login.sign_in": "Đăng nhập",
