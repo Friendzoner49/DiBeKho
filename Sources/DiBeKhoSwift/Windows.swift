@@ -43,6 +43,7 @@ enum Windows {
     @discardableResult
     static func show<V: View>(_ title: String, width: CGFloat, height: CGFloat, modal: Bool,
                               shouldClose: (() -> Bool)? = nil, content: (WindowBox) -> V) -> Bool {
+        FileHandle.standardError.write(Data("ui: window opens: \(title) (modal: \(modal))\n".utf8))  // seen in CI's log
         let box = WindowBox()
         box.modal = modal
         let host = NSHostingController(rootView: content(box).environmentObject(box)

@@ -330,7 +330,10 @@ enum PopMenu {
     private final class Target: NSObject {
         let run: () -> Void
         init(_ run: @escaping () -> Void) { self.run = run }
-        @objc func fire() { run() }
+        @objc func fire() {
+            FileHandle.standardError.write(Data("ui: menu item ran\n".utf8))  // seen in CI's log
+            run()
+        }
     }
 
     /// the menu opens where the mouse was pressed; returns once an item ran or the menu was dismissed
@@ -345,7 +348,8 @@ enum PopMenu {
             menu.addItem(entry)
         }
         let inWindow = NSApp.currentEvent?.locationInWindow ?? window.mouseLocationOutsideOfEventStream
-        menu.popUp(positioning: nil, at: view.convert(inWindow, from: nil), in: view)
+        let picked = menu.popUp(positioning: nil, at: view.convert(inWindow, from: nil), in: view)
+        FileHandle.standardError.write(Data("ui: menu closed, picked: \(picked)\n".utf8))  // seen in CI's log
         withExtendedLifetime(targets) {}
     }
 }
