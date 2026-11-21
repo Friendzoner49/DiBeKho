@@ -304,9 +304,11 @@ struct AppButtonStyle: ButtonStyle {
 }
 
 
-/// A button that pops up a menu of the Mac's own (NSMenu). SwiftUI's Menu never ran the item picked inside a dialog
-/// (Windows.show with modal: true runs NSApp.runModal, as QDialog.exec): picking «Chọn mặt hàng có sẵn…» or an old
-/// customer did nothing (user, 21–22/11/2026). An NSMenu item runs at once, inside the modal session too.
+/// A button that pops up a menu of the Mac's own (NSMenu). Inside a dialog (Windows.show with modal: true runs
+/// NSApp.runModal, as QDialog.exec) a menu item's action is sent after the menu closed, in a run-loop mode the modal
+/// session never runs, so it never came: SwiftUI's Menu did nothing there («Chọn mặt hàng có sẵn…», an old customer;
+/// user, 21–22/11/2026), and an NSMenu's action neither (CI log: "picked: true", the item never ran). The item
+/// highlighted when the menu closes is run here at once instead.
 struct PopMenuButton<Label: View>: View {
     let items: () -> [PopMenu.Item]
     @ViewBuilder let label: () -> Label
@@ -327,29 +329,30 @@ enum PopMenu {
         }
     }
 
-    private final class Target: NSObject {
-        let run: () -> Void
-        init(_ run: @escaping () -> Void) { self.run = run }
-        @objc func fire() {
-            FileHandle.standardError.write(Data("ui: menu item ran\n".utf8))  // seen in CI's log
-            run()
-        }
+    /// remembers the item under the mouse or the keyboard while the menu is open
+    private final class Watcher: NSObject, NSMenuDelegate {
+        var highlighted: Int?
+        func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) { highlighted = item.map { menu.index(of: $0) } }
+        /// the items' action: it only makes popUp say whether one was picked (it arrives late, if ever: does nothing)
+        @objc func picked(_ sender: Any?) {}
     }
 
-    /// the menu opens where the mouse was pressed; returns once an item ran or the menu was dismissed
+    /// the menu opens where the mouse was pressed; returns once the item picked ran or the menu was dismissed
     static func show(_ items: [Item]) {
         guard !items.isEmpty, let window = NSApp.keyWindow, let view = window.contentView else { return }
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let targets = items.map { Target($0.run) }
-        for (item, target) in zip(items, targets) {
-            let entry = NSMenuItem(title: item.title, action: #selector(Target.fire), keyEquivalent: "")
-            entry.target = target
+        let watcher = Watcher()
+        for item in items {
+            let entry = NSMenuItem(title: item.title, action: #selector(Watcher.picked(_:)), keyEquivalent: "")
+            entry.target = watcher
             menu.addItem(entry)
         }
+        menu.delegate = watcher
         let inWindow = NSApp.currentEvent?.locationInWindow ?? window.mouseLocationOutsideOfEventStream
         let picked = menu.popUp(positioning: nil, at: view.convert(inWindow, from: nil), in: view)
-        FileHandle.standardError.write(Data("ui: menu closed, picked: \(picked)\n".utf8))  // seen in CI's log
-        withExtendedLifetime(targets) {}
+        menu.delegate = nil
+        FileHandle.standardError.write(Data("ui: menu closed, picked: \(picked), item: \(watcher.highlighted ?? -1)\n".utf8))
+        if picked, let i = watcher.highlighted, items.indices.contains(i) { items[i].run() }
     }
 }
