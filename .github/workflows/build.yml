@@ -13,10 +13,14 @@ on:
         description: "The version stamped into the app (empty: the newest v* tag of this repository)"
         type: string
         default: ""
+      runner:
+        description: "The machine: macos-15 (the usual one) or macos-26, the owner's own macOS"
+        type: string
+        default: "macos-15"
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +32,7 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
       - name: Toolchain
-        run: swift --version && xcodebuild -version
+        run: sw_vers && swift --version && xcodebuild -version
       - name: Build and test
         run: DIBEKHO_XLSX_OUT="$PWD/xlsx-out" DIBEKHO_SHOP_OUT="$PWD/shop.sqlite" swift test 2>&1 | tee test.log
         shell: bash -o pipefail {0}
@@ -107,6 +111,15 @@ jobs:
           bash tools/ci_dialogs.sh issue product click 187 468 wait 1 shot 1 click 300 479 wait 2 shot 2 \
             paste SP002 return wait 2 shot 3
           bash tools/ci_dialogs.sh issue product-keys click 187 468 wait 1 return wait 2 shot 1
+          # the second item («Mặt hàng mới…»): the mouse goes over the first one on its way, as a hand does
+          bash tools/ci_dialogs.sh issue product-second click 187 468 wait 1 move 300 479 move 300 501 \
+            click 300 501 wait 2 shot 1
+          # over the items and back before picking the first one (a hand reading the menu)
+          bash tools/ci_dialogs.sh issue product-wander click 187 468 wait 1 move 300 479 move 300 501 move 300 479 \
+            click 300 479 wait 2 shot 1
+          # the catalog window: one click on a row, then Đồng ý; then the form takes a quantity for that row
+          bash tools/ci_dialogs.sh issue product-ok click 187 468 wait 1 click 300 479 wait 2 click 300 198 \
+            wait 1 shot 1 click 883 681 wait 2 shot 2 click 601 468 paste 3 tab wait 1 shot 3
           # the catalog window: a double click on its first row
           bash tools/ci_dialogs.sh issue product-dclick click 187 468 wait 1 click 300 479 wait 2 shot 1 \
             dclick 300 168 wait 2 shot 2
@@ -116,6 +129,11 @@ jobs:
           PAGE=count bash tools/ci_dialogs.sh - transfer-button click 791 252 wait 2 shot 1
           # Hàng về: «Nhập vào» (a Picker) → the next place
           bash tools/ci_dialogs.sh receipt place click 560 226 wait 1 shot 1 down return wait 1 shot 2
+          # Hàng về: «Nhà cung cấp» picked from the list (NSComboBox, the arrow at the right end)
+          bash tools/ci_dialogs.sh receipt supplier click 972 253 wait 1 shot 1 down return wait 1 shot 2
+          # Hàng về: row 1 → the product menu → «Mặt hàng mới…» (the second item, the mouse over the first on its way)
+          bash tools/ci_dialogs.sh receipt product click 262 462 wait 1 shot 1 move 380 473 move 380 495 \
+            click 380 495 wait 2 shot 2
       - name: macOS draws the Excel files the app wrote (Quick Look thumbnails)
         if: inputs.screens
         run: |

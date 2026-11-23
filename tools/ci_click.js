@@ -1,5 +1,5 @@
 // CI only (build.yml, screens): a real left click at screen point x y (CGEvent, like a hand on the mouse), or a double
-// click with a third argument 2:
+// click with a third argument 2, or only a move of the mouse with a 0 (menus follow the mouse):
 //   osascript -l JavaScript tools/ci_click.js 776 195
 //   osascript -l JavaScript tools/ci_click.js 300 120 2
 // System Events' "click at" does not press SwiftUI controls, so the dialog checks click this way.

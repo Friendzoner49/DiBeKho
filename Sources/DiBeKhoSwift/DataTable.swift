@@ -140,7 +140,9 @@ struct DataTable: NSViewRepresentable {
         var rowMenu: ((Int) -> [(String, () -> Void)])?
         private var menuActions: [() -> Void] = []
 
-        /// The right-click menu of the row under the mouse (orders_page._context_menu)
+        /// The right-click menu of the row under the mouse (orders_page._context_menu). Only in a plain window: an
+        /// NSMenuItem's action is not delivered inside a dialog's modal session (see PopMenu in UI.swift); a table
+        /// in a dialog needs the same watcher.
         func menuNeedsUpdate(_ menu: NSMenu) {
             menu.removeAllItems()
             menuActions = []

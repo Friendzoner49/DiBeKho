@@ -341,13 +341,44 @@ enum PopMenu {
         }
     }
 
-    /// remembers the item under the mouse or the keyboard while the menu is open
+    /// Watches one open menu and runs the item picked, whichever way the Mac tells us about it, exactly once:
+    /// the item's own action (sure, but inside a dialog it comes late or never), the item highlighted when the menu
+    /// closes (a menu on its way out says "nothing is highlighted": that nil must not wipe the item just picked),
+    /// or the action arriving long after popUp returned. ⚠ the owner's Mac (macOS 26, 23/11/2026) showed the menu
+    /// but the item never ran; CI (macOS 15) ran it, so which way works depends on the macOS version.
+    @MainActor
     private final class Watcher: NSObject, NSMenuDelegate {
+        var items: [Item] = []
+        /// the last item the mouse or the keyboard was on
         var highlighted: Int?
-        func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) { highlighted = item.map { menu.index(of: $0) } }
-        /// the items' action: it only makes popUp say whether one was picked (it arrives late, if ever: does nothing)
-        @objc func picked(_ sender: Any?) {}
+        /// the item whose action arrived
+        var ran: Int?
+        private var done = false
+
+        func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
+            guard let item else { return }
+            highlighted = menu.index(of: item)
+        }
+
+        @objc func picked(_ sender: Any?) {
+            guard let item = sender as? NSMenuItem, let menu = item.menu else { return }
+            ran = menu.index(of: item)
+            run(ran)
+        }
+
+        /// runs the item once, on the next turn of the run loop (it may open a dialog, which must not start inside
+        /// the menu's or the button's own handling)
+        func run(_ index: Int?) {
+            guard !done, let index, items.indices.contains(index) else { return }
+            done = true
+            let work = items[index].run
+            UI.later(work)
+        }
     }
+
+    /// the menu and its watcher of the last press: an NSMenuItem holds its target weakly, so an action arriving
+    /// after popUp returned would reach nobody
+    private static var keeper: (NSMenu, Watcher)?
 
     /// the menu opens where the mouse was pressed; returns once the item picked ran or the menu was dismissed
     static func show(_ items: [Item]) {
@@ -355,6 +386,8 @@ enum PopMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
         let watcher = Watcher()
+        watcher.items = items
+        keeper = (menu, watcher)  // alive until the next press: a late action still finds its target
         for item in items {
             let entry = NSMenuItem(title: item.title, action: #selector(Watcher.picked(_:)), keyEquivalent: "")
             entry.target = watcher
@@ -363,9 +396,11 @@ enum PopMenu {
         menu.delegate = watcher
         let inWindow = NSApp.currentEvent?.locationInWindow ?? window.mouseLocationOutsideOfEventStream
         let picked = menu.popUp(positioning: nil, at: view.convert(inWindow, from: nil), in: view)
-        menu.delegate = nil
-        FileHandle.standardError.write(Data("ui: menu closed, picked: \(picked), item: \(watcher.highlighted ?? -1)\n".utf8))
-        // on the next run-loop turn: the item may open a dialog, which must not start inside this button's handling
-        if picked, let i = watcher.highlighted, items.indices.contains(i) { UI.later(items[i].run) }
+        let note = "menu closed, picked: \(picked), action: \(watcher.ran ?? -1), highlighted: \(watcher.highlighted ?? -1)"
+        FileHandle.standardError.write(Data("ui: \(note)\n".utf8))
+        if picked { watcher.run(watcher.ran ?? watcher.highlighted) }
+        // nothing to run yet: the action may still arrive, so the menu and its watcher stay alive for it, and the
+        // log keeps the line (Cài đặt → Gửi nhật ký) in case the press really did nothing
+        if picked && watcher.ran == nil && watcher.highlighted == nil { ActivityLog.write("error", "menu: \(note)") }
     }
 }
