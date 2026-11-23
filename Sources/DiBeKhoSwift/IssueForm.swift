@@ -370,6 +370,9 @@ struct IssueFormView: View {
         if picked != nil || filledFrom != nil {  // no names in the log: only what happened
             ActivityLog.write("issue", "customer box: \(picked == nil ? "no longer an old customer" : "old customer filled")")
         }
+        if picked == nil {
+            FileHandle.standardError.write(Data("issue: customer box, no old customer of that name\n".utf8))
+        }
         guard let i = picked else {
             // typed on past an old customer's name («Đại lý Mẫu» → «Đại lý Mẫu Hai»): the boxes that customer filled
             // are emptied again, or the new customer would go out with the old one's phone (and be merged with them)
@@ -383,6 +386,7 @@ struct IssueFormView: View {
             return
         }
         let c = customers[i]
+        FileHandle.standardError.write(Data("issue: customer filled (phone: \(c.phone.isEmpty ? "none" : "set"))\n".utf8))
         filledFrom = c
         phone = c.phone
         contact = c.contact
