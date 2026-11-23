@@ -9,6 +9,10 @@ on:
         description: "Make the app, start it and keep screenshots (about 2 more minutes)"
         type: boolean
         default: false
+      version:
+        description: "The version stamped into the app (empty: the newest v* tag of this repository)"
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -16,6 +20,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the v* tags: the app is stamped with the newest one (the update check compares the two)
       - uses: actions/cache@v4
         with:
           path: .build
@@ -41,6 +47,14 @@ jobs:
             Package.resolved
             test.log
           if-no-files-found: ignore
+      - name: The version to stamp (the newest release tag, the same number as the Python app)
+        if: inputs.screens
+        run: |
+          V="${{ inputs.version }}"
+          [ -n "$V" ] || V="$(git tag -l 'v*' | sort -V | tail -1)"
+          [ -n "$V" ] || { echo "no v* tag and no version given"; exit 1; }
+          echo "DIBEKHO_VERSION=$V" >> "$GITHUB_ENV"
+          echo "the app is stamped ${V#v}"
       - name: Make the app
         if: inputs.screens
         run: bash scripts/make_app.sh
