@@ -132,7 +132,7 @@ jobs:
           # Hàng về: «Nhà cung cấp» picked from the list (NSComboBox, the arrow at the right end)
           bash tools/ci_dialogs.sh receipt supplier click 972 253 wait 1 shot 1 down return wait 1 shot 2
           # Hàng về: row 1 → the product menu → «Mặt hàng mới…» (the second item, the mouse over the first on its way)
-          bash tools/ci_dialogs.sh receipt product click 262 462 wait 1 shot 1 move 380 473 move 380 495 \
+          bash tools/ci_dialogs.sh receipt receipt-product click 262 462 wait 1 shot 1 move 380 473 move 380 495 \
             click 380 495 wait 2 shot 2
       - name: macOS draws the Excel files the app wrote (Quick Look thumbnails)
         if: inputs.screens

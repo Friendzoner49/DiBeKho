@@ -258,6 +258,7 @@ Cần thử trên Mac:
 2. Chọn một mặt hàng rồi bấm «Đồng ý» (và thử cả nháy đúp vào dòng): ô mặt hàng phải hiện tên, và gõ được số ở «Lấy ở Kho tổng».
 3. Bấm mục thứ hai «Mặt hàng mới (chưa có trong kho)…» và mục «Xoá dòng này» (có khi đã chọn hàng).
 4. Làm lại đúng các bước trên ở Hàng về (ô mặt hàng, ô «Nhà cung cấp», «Nhập vào»).
+5. Cùng một đoạn code chạy mọi menu kiểu này, nên thử nốt: ▾ «Nhóm hàng» trong hộp Mặt hàng mới và hộp Sửa mặt hàng (Tra cứu → Danh mục mặt hàng), và ▾ chọn tên giữ lại trong hộp «Gộp khách hàng…» (Khách hàng → chọn 2 khách → Gộp khách hàng…).
 
 Nếu còn chỗ nào bấm không ăn: mở Terminal, dán lệnh này rồi làm lại thao tác hỏng, xong chép mấy dòng `ui:` gửi lại.
 
