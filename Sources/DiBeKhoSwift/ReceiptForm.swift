@@ -565,12 +565,39 @@ private struct NativeCombo: NSViewRepresentable {
             box.addItems(withObjectValues: list)
         }
 
-        /// AppKit has no public way to open a combo box's list; this is the cell's own action, asked for by name
-        /// and only when it answers to it. Without it the names are still there: the ▾ shows the narrowed list.
+        /// opens the narrowed list under the box and watches what the user picks in it
         private func openList(_ box: NSComboBox, _ open: Bool) {
             // an open list must stay open: the cell's action is a toggle, so asking again on the next letter
             // would shut it
-            guard open, !box.isAccessibilityExpanded(), let cell = box.cell else { return }
+            guard open, !box.isAccessibilityExpanded() else { return }
+            toggleList(box)
+            watchList(box)
+        }
+
+        /// A list opened this way is not the box's own: picking a name in it changes the box's text without a word
+        /// to the delegate (CI 23/11/2026). So while it is open the text is watched, and what it ends up holding
+        /// is what the user picked.
+        private func watchList(_ box: NSComboBox) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak box] in
+                guard let box else { return }
+                if box.stringValue != self.parent.text {
+                    self.log("list", box)
+                    self.parent.text = box.stringValue
+                }
+                if box.isAccessibilityExpanded() { self.watchList(box) }
+            }
+        }
+
+        /// closes the list once a name has been picked with the keyboard (the same toggle)
+        func closeList(_ box: NSComboBox) {
+            guard box.isAccessibilityExpanded() else { return }
+            toggleList(box)
+        }
+
+        /// AppKit has no public way to open or close a combo box's list; this is the cell's own action, asked for
+        /// by name and only when it answers to it. Without it the names are still there: the ▾ shows the list.
+        private func toggleList(_ box: NSComboBox) {
+            guard let cell = box.cell else { return }
             let popUp = NSSelectorFromString("popUp:")
             if cell.responds(to: popUp) { _ = cell.perform(popUp, with: nil) }
         }
@@ -612,6 +639,7 @@ private struct NativeCombo: NSViewRepresentable {
                 keyIndex = nil
                 box.stringValue = item
                 if parent.text != item { parent.text = item }
+                closeList(box)  // the name is picked: the list has nothing more to show
                 log("return", box)
                 return true
             default:
