@@ -640,6 +640,7 @@ private struct NativeCombo: NSViewRepresentable {
                 box.stringValue = item
                 if parent.text != item { parent.text = item }
                 closeList(box)  // the name is picked: the list has nothing more to show
+                box.window?.makeFirstResponder(nil)  // ends the editing, which shuts that list for good
                 log("return", box)
                 return true
             default:
