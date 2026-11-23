@@ -474,9 +474,12 @@ struct ComboField: View {
     @Binding var text: String
     let placeholder: String
     let items: [String]
+    /// while a name is typed, the list keeps only what fits and opens itself (Phiếu xuất kho's customer box;
+    /// user's request 24/11/2026)
+    var suggests: Bool = false
 
     var body: some View {
-        NativeCombo(text: $text, placeholder: placeholder, items: items)
+        NativeCombo(text: $text, placeholder: placeholder, items: items, suggests: suggests)
             .frame(minWidth: 300 * UI.scale, maxWidth: .infinity)
     }
 }
@@ -485,6 +488,7 @@ private struct NativeCombo: NSViewRepresentable {
     @Binding var text: String
     let placeholder: String
     let items: [String]
+    var suggests: Bool = false
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -500,10 +504,11 @@ private struct NativeCombo: NSViewRepresentable {
     }
 
     func updateNSView(_ box: NSComboBox, context: Context) {
-        context.coordinator.parent = self
-        if (box.objectValues as? [String]) != items {
-            box.removeAllItems()
-            box.addItems(withObjectValues: items)
+        let coordinator = context.coordinator
+        coordinator.parent = self
+        if coordinator.all != items {  // the customers themselves changed: the whole list again
+            coordinator.all = items
+            coordinator.show(items, in: box)
         }
         if box.stringValue != text { box.stringValue = text }
         box.placeholderString = placeholder
@@ -511,19 +516,59 @@ private struct NativeCombo: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSComboBoxDelegate {
         var parent: NativeCombo
+        /// every name of the box, before the letters typed narrow it down
+        var all: [String] = []
+        private var shown: [String] = []
+        /// true while the list is being narrowed: a highlight AppKit makes then is its own, not the user's
+        private var filling = false
 
         init(_ parent: NativeCombo) { self.parent = parent }
 
         /// typed
         func controlTextDidChange(_ note: Notification) {
-            guard let box = note.object as? NSComboBox, parent.text != box.stringValue else { return }
-            parent.text = box.stringValue
+            guard let box = note.object as? NSComboBox else { return }
+            if parent.text != box.stringValue { parent.text = box.stringValue }
+            if parent.suggests { suggest(box) }
+        }
+
+        /// The names that fit what is being typed, shown under the box (Issues.suggestCustomers, the Python rule).
+        /// Nothing typed yet, nothing fitting, or the one name already typed in full: the list stays shut.
+        private func suggest(_ box: NSComboBox) {
+            // Telex: while a letter is being composed (dấu chưa đặt xong) nothing is touched, or «khach» never
+            // becomes «khách»
+            if let editor = box.currentEditor() as? NSTextView, editor.hasMarkedText() { return }
+            let typed = box.stringValue
+            let hits = Issues.suggestCustomers(all, typed).map { all[$0] }
+            filling = true
+            show(hits, in: box)
+            openList(box, hits.count > 0 && !TextRules.clean(typed).isEmpty && hits != [typed])
+            filling = false
+        }
+
+        func show(_ list: [String], in box: NSComboBox) {
+            guard shown != list else { return }
+            shown = list
+            box.removeAllItems()
+            box.addItems(withObjectValues: list)
+        }
+
+        /// AppKit has no public way to open a combo box's list; this is the cell's own action, asked for by name
+        /// and only when it answers to it. Without it the names are still there: the ▾ shows the narrowed list.
+        private func openList(_ box: NSComboBox, _ open: Bool) {
+            // an open list must stay open: the cell's action is a toggle, so asking again on the next letter
+            // would shut it
+            guard open, !box.isAccessibilityExpanded(), let cell = box.cell else { return }
+            let popUp = NSSelectorFromString("popUp:")
+            if cell.responds(to: popUp) { _ = cell.perform(popUp, with: nil) }
         }
 
         /// picked from the list (the box's own text is not updated yet when this arrives)
         func comboBoxSelectionDidChange(_ note: Notification) {
             guard let box = note.object as? NSComboBox, box.indexOfSelectedItem >= 0,
                   let item = box.itemObjectValue(at: box.indexOfSelectedItem) as? String else { return }
+            // the highlight AppKit itself makes while the list is being filled is not a choice: writing it into
+            // the box would type over the user (Phiếu xuất kho, «Khách» and one more letter)
+            if filling { return }
             box.stringValue = item
             if parent.text != item { parent.text = item }
         }

@@ -193,6 +193,16 @@ public enum Issues {
         return choices.firstIndex { fold($0.name) == name || fold(customerLabel($0)) == name }
     }
 
+    /// The customers to offer while a name is being typed (Python core/issues.suggest_customers, user's request
+    /// 24/11/2026), as positions in `labels` (customerLabel, in the list's order). The search boxes' rule: every
+    /// word typed must appear somewhere, in any order, accents and punctuation ignored, so «khach mau» finds
+    /// «Khách Mẫu» and «0911» finds the phone beside a name. Nothing typed: everyone.
+    public static func suggestCustomers(_ labels: [String], _ typed: String) -> [Int] {
+        let wanted = TextRules.clean(typed)
+        if wanted.isEmpty { return Array(labels.indices) }
+        return labels.indices.filter { TextRules.matchesWords(wanted, labels[$0]) }
+    }
+
     /// The boxes after the text stopped naming the customer who filled them: a box still holding that customer's value
     /// is emptied, one the user changed is kept.
     public static func unfilled(_ boxes: CustomerChoice, from c: CustomerChoice) -> CustomerChoice {

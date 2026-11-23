@@ -344,8 +344,9 @@ enum PopMenu {
     /// Watches one open menu and runs the item picked, whichever way the Mac tells us about it, exactly once:
     /// the item's own action (sure, but inside a dialog it comes late or never), the item highlighted when the menu
     /// closes (a menu on its way out says "nothing is highlighted": that nil must not wipe the item just picked),
-    /// or the action arriving long after popUp returned. ⚠ the owner's Mac (macOS 26, 23/11/2026) showed the menu
-    /// but the item never ran; CI (macOS 15) ran it, so which way works depends on the macOS version.
+    /// or the action arriving long after popUp returned. The owner's Mac (macOS 26, 23/11/2026) showed the menu but
+    /// never ran the item, while CI (macOS 15) ran it: which way works depends on the macOS version. The owner tried
+    /// this on macOS 26 on 24/11/2026 and the product menu works.
     @MainActor
     private final class Watcher: NSObject, NSMenuDelegate {
         var items: [Item] = []

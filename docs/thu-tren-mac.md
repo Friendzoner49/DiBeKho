@@ -250,7 +250,7 @@ Làm trên **dữ liệu đang dùng** (Cloud không chạy trên bản thử). 
   Mac chưa nhập được gói dữ liệu.».
 - Tiêu đề cửa sổ: «DiBeKho» (trước là «DiBeKho Swift (bản thử)»).
 
-## 23. Bấm ô mặt hàng ở Phiếu xuất kho trên macOS 26 (viết 23/11/2026; ⚠ chưa thử trên Mac thật)
+## 23. Bấm ô mặt hàng ở Phiếu xuất kho trên macOS 26 (viết 23/11/2026; chủ dự án đã thử OK 24/11/2026)
 Chủ dự án báo: menu hiện ra nhưng bấm «Chọn mặt hàng trong kho…» thì không có gì xảy ra (macOS 26). CI trên macOS 15 bấm được cùng chỗ đó, nên app giờ chạy mục được chọn theo ba đường khác nhau, đường nào tới trước thì chạy, và chỉ chạy một lần.
 
 Cần thử trên Mac:
@@ -267,3 +267,12 @@ Nếu còn chỗ nào bấm không ăn: mở Terminal, dán lệnh này rồi l�
 ```
 
 Ý nghĩa: `picked: true` mà `action: -1, highlighted: -1` là macOS không nói mục nào được chọn; `picked: false` là menu đóng mà không nhận lệnh chọn; không có dòng `menu closed` nào là cú bấm chưa tới được nút.
+
+## 24. Gợi ý khách hàng khi gõ ở Phiếu xuất kho (viết 24/11/2026 theo yêu cầu chủ dự án; ⚠ chưa thử trên Mac thật)
+Gõ vài chữ của tên khách thì ô khách hàng chỉ còn những khách hợp, và danh sách tự bật ra. Luật giống hệt ô tìm kiếm của app (và giống bản Python, bản web): không cần dấu, các chữ có thể đảo thứ tự, gõ mấy số điện thoại cũng ra.
+
+Cần thử trên Mac:
+1. Phiếu xuất kho → gõ `khach` vào ô Khách hàng: danh sách bật ra chỉ còn những khách hợp. Bấm ↓ rồi Enter: điện thoại, người liên hệ, địa chỉ, MST, email và đơn giá điền theo khách đó.
+2. **Gõ tiếng Việt kiểu Telex**: gõ `khachs` → phải ra `khách`, ô không được tự nhảy chữ hay thay chữ đang gõ. Gõ tiếp vài chữ nữa, chữ đang gõ phải giữ nguyên.
+3. Gõ tên khách cũ đầy đủ (có dấu) rồi Tab: các ô dưới tự điền như trước.
+4. Nếu danh sách **không tự bật ra** trên macOS 26 (app dùng lệnh riêng của hệ thống, có thể không còn): bấm ▾ xem có đúng chỉ còn những khách hợp không, rồi báo lại — khi đó tôi sẽ tự vẽ danh sách.

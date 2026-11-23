@@ -148,7 +148,8 @@ struct IssueFormView: View {
                     Text(t("issue.customer") + ":")
                     HStack {
                         ComboField(text: Binding(get: { customerText }, set: { typedCustomer($0) }),
-                                   placeholder: t("issue.customer_placeholder"), items: customers.map(customerLabel))
+                                   placeholder: t("issue.customer_placeholder"), items: customers.map(customerLabel),
+                                   suggests: true)
                         Button(t("issue.new_customer")) { UI.later { newCustomer() } }.help(t("issue.new_customer_tip"))
                     }
                 }
