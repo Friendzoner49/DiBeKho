@@ -521,14 +521,24 @@ private struct NativeCombo: NSViewRepresentable {
         private var shown: [String] = []
         /// true while the list is being narrowed: a highlight AppKit makes then is its own, not the user's
         private var filling = false
+        /// the name highlighted during that narrowing: ↓ and Return make it the user's choice after all
+        private var highlightedWhileFilling: String?
 
         init(_ parent: NativeCombo) { self.parent = parent }
 
         /// typed
         func controlTextDidChange(_ note: Notification) {
             guard let box = note.object as? NSComboBox else { return }
+            log("typed", box)
             if parent.text != box.stringValue { parent.text = box.stringValue }
             if parent.suggests { suggest(box) }
+        }
+
+        /// seen in CI's log and in the app's own window log: which way a name reached the form
+        private func log(_ what: String, _ box: NSComboBox) {
+            guard parent.suggests else { return }
+            FileHandle.standardError.write(Data(
+                "combo: \(what), box: \(box.stringValue), form: \(parent.text), selected: \(box.indexOfSelectedItem)\n".utf8))
         }
 
         /// The names that fit what is being typed, shown under the box (Issues.suggestCustomers, the Python rule).
@@ -567,14 +577,29 @@ private struct NativeCombo: NSViewRepresentable {
             guard let box = note.object as? NSComboBox, box.indexOfSelectedItem >= 0,
                   let item = box.itemObjectValue(at: box.indexOfSelectedItem) as? String else { return }
             // the highlight AppKit itself makes while the list is being filled is not a choice: writing it into
-            // the box would type over the user (Phiếu xuất kho, «Khách» and one more letter)
-            if filling { return }
+            // the box would type over the user (Phiếu xuất kho, «Khách» and one more letter). It is kept, though:
+            // ↓ then Return picks that very item, and then only the box's text says so.
+            if filling {
+                highlightedWhileFilling = item
+                return
+            }
+            log("picked", box)
             box.stringValue = item
             if parent.text != item { parent.text = item }
         }
 
         func controlTextDidEndEditing(_ note: Notification) {
-            guard let box = note.object as? NSComboBox, parent.text != box.stringValue else { return }
+            guard let box = note.object as? NSComboBox else { return }
+            log("done", box)
+            // ↓ and Return on the list of names: the box holds the name picked, and this is where the form hears
+            // of it (the choice itself landed while the list was being narrowed)
+            if parent.suggests, let picked = highlightedWhileFilling, box.stringValue == picked {
+                highlightedWhileFilling = nil
+                if parent.text != picked { parent.text = picked }
+                return
+            }
+            highlightedWhileFilling = nil
+            guard parent.text != box.stringValue else { return }
             parent.text = box.stringValue
         }
     }
