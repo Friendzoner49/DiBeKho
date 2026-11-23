@@ -305,6 +305,8 @@ class IssueForm(QDialog):
         i = self.customer.findText(label)
         if i >= 0:
             self.customer.setCurrentIndex(i)
+            # the same customer again (the box never left them): no index change, so nothing would be filled
+            self._customer_picked()
 
     def _customer_picked(self):
         i = self.customer.currentData()

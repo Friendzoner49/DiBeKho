@@ -571,3 +571,23 @@ def test_typing_on_past_an_old_name_clears_what_that_customer_filled(app, ws):
     assert (form.phone.text(), form.address.text()) == ("0999 999 999", "")
     close_form(form)
     ctx.close()
+
+
+def test_picking_the_same_customer_again_fills_again(app, ws):
+    """After typing past the name the boxes are empty; picking that same customer must fill them again."""
+    i18n.set_language("vi")
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, _paint = _shop(ws, "vi")
+    with db.transaction(ctx.conn):
+        catalog.upsert_customer(ctx.conn, "Khách Mẫu", "0900 000 002", "Chị C", "2 Đường Y")
+    form = IssueForm(ctx)
+    form._suggestion_picked("Khách Mẫu · 0900 000 002")
+    assert form.phone.text() == "0900 000 002"
+    type_customer(form, "x", more=True)
+    assert form.phone.text() == ""
+    type_customer(form, "khach")
+    form._suggestion_picked("Khách Mẫu · 0900 000 002")
+    assert form.phone.text() == "0900 000 002"
+    close_form(form)
+    ctx.close()
