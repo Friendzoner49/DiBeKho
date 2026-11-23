@@ -109,6 +109,9 @@ jobs:
           # Phiếu xuất kho: a few letters without accents bring up the customers that fit, then ↓ and Return pick one
           bash tools/ci_dialogs.sh issue customer-suggest click 450 194 paste khach wait 1 shot 1 down return \
             wait 1 shot 2
+          # the same by hand: the name clicked in the list
+          bash tools/ci_dialogs.sh issue customer-suggest-click click 450 194 paste khach wait 1 click 300 221 \
+            wait 1 shot 1
           # letter by letter, as a hand types: the list opens and stays open while it narrows
           bash tools/ci_dialogs.sh issue customer-letters click 450 194 paste k paste h paste a paste c paste h \
             wait 1 shot 1

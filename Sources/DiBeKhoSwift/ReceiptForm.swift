@@ -523,6 +523,8 @@ private struct NativeCombo: NSViewRepresentable {
         private var filling = false
         /// the name highlighted during that narrowing: ↓ and Return make it the user's choice after all
         private var highlightedWhileFilling: String?
+        /// which name the arrow keys are on
+        private var keyIndex: Int?
 
         init(_ parent: NativeCombo) { self.parent = parent }
 
@@ -531,6 +533,7 @@ private struct NativeCombo: NSViewRepresentable {
             guard let box = note.object as? NSComboBox else { return }
             log("typed", box)
             if parent.text != box.stringValue { parent.text = box.stringValue }
+            keyIndex = nil  // typing starts the keyboard walk again
             if parent.suggests { suggest(box) }
         }
 
@@ -586,6 +589,35 @@ private struct NativeCombo: NSViewRepresentable {
             log("picked", box)
             box.stringValue = item
             if parent.text != item { parent.text = item }
+        }
+
+        /// ↓ ↑ and Return on the list of names. A list opened by the app itself does not take the keyboard
+        /// (CI 23/11/2026: ↓ and Return sent nothing at all), so the keys are answered here.
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
+            guard parent.suggests, let box = control as? NSComboBox, box.numberOfItems > 0 else { return false }
+            switch command {
+            case #selector(NSResponder.moveDown(_:)), #selector(NSResponder.moveUp(_:)):
+                let step = command == #selector(NSResponder.moveDown(_:)) ? 1 : -1
+                let next = min(max((keyIndex ?? -1) + step, 0), box.numberOfItems - 1)
+                keyIndex = next
+                box.selectItem(at: next)  // the row lights up, and the box shows that name
+                if let item = box.itemObjectValue(at: next) as? String {
+                    box.stringValue = item
+                    if parent.text != item { parent.text = item }
+                }
+                log("key", box)
+                return true
+            case #selector(NSResponder.insertNewline(_:)):
+                guard let i = keyIndex, let item = box.itemObjectValue(at: i) as? String else { return false }
+                keyIndex = nil
+                box.stringValue = item
+                if parent.text != item { parent.text = item }
+                log("return", box)
+                return true
+            default:
+                keyIndex = nil
+                return false
+            }
         }
 
         func controlTextDidEndEditing(_ note: Notification) {
