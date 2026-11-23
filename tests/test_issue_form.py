@@ -40,6 +40,15 @@ def menu(monkeypatch):
     return choice
 
 
+def type_customer(form, text, more=False):
+    """Text typed into the customer box (insert: it sends textEdited like a keystroke; QTest.keyClicks
+    cannot type a Vietnamese letter). more=True goes on typing after what is there."""
+    form.customer.setFocus()
+    if not more:
+        form.customer.lineEdit().clear()
+    form.customer.lineEdit().insert(text)
+
+
 def type_in(box, text):
     box.setFocus()
     box.lineEdit().selectAll()
@@ -455,4 +464,110 @@ def test_a_draft_is_saved_opened_again_and_made_a_real_note(app, ws, monkeypatch
     assert ctx.conn.execute("SELECT code FROM documents WHERE id = ?", (doc,)).fetchone()[0] == "A1"
     assert stock_levels(ctx.conn, by_location=True)[(paint, MAIN)] == 46
     assert not draft.exists() and (issues.drafts_folder(ws) / "da-chot" / draft.name).exists()
+    ctx.close()
+
+
+def close_form(form):
+    """The list of names is a window of its own: left open, it outlives the test."""
+    form._customer_completer.popup().hide()
+    form.close()
+
+
+def test_typing_a_few_letters_offers_the_customers_that_fit(app, ws, monkeypatch):
+    """User's request 24/11/2026: letters typed in the customer box bring up the customers that fit, accents
+    and all; picking one fills its details, exactly as picking from the list does."""
+    i18n.set_language("vi")
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, _paint = _shop(ws, "vi")
+    with db.transaction(ctx.conn):
+        catalog.upsert_customer(ctx.conn, "Khách Mẫu", "0900 000 002", "Chị C", "2 Đường Y")
+    form = IssueForm(ctx)
+
+    form.customer.lineEdit().setText("khach")
+    form._customer_typed("khach")
+    assert form._suggestions.stringList() == ["Khách Mẫu · 0900 000 002"]
+
+    form.customer.lineEdit().setText("cong")
+    form._customer_typed("cong")
+    assert form._suggestions.stringList() == ["Công ty A · 0900 000 001"]
+
+    form._suggestion_picked("Khách Mẫu · 0900 000 002")
+    assert (form.customer.currentText(), form.phone.text(), form.contact.text(), form.address.text()) == (
+        "Khách Mẫu · 0900 000 002", "0900 000 002", "Chị C", "2 Đường Y")
+    close_form(form)
+    ctx.close()
+
+
+def test_the_box_offers_everyone_before_anything_is_typed(app, ws):
+    i18n.set_language("vi")
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, _paint = _shop(ws, "vi")
+    form = IssueForm(ctx)
+    form._customer_typed("")
+    assert form._suggestions.stringList() == ["Công ty A · 0900 000 001"]
+    close_form(form)
+    ctx.close()
+
+
+def test_typing_an_old_name_in_full_fills_the_details_without_picking_from_the_list(app, ws):
+    """Before the suggestions the box's own completion did this; the details must still fill (keystrokes, not calls)."""
+    i18n.set_language("vi")
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, _paint = _shop(ws, "vi")
+    form = IssueForm(ctx)
+    type_customer(form, "Công ty A")
+    assert (form.phone.text(), form.contact.text(), form.address.text()) == ("0900 000 001", "Anh B", "1 Đường X")
+
+    form.customer.lineEdit().clear()
+    form.phone.clear()
+    type_customer(form, "cong ty a")  # the same name typed without accents is not that customer
+    assert form.phone.text() == ""
+
+    form.customer.lineEdit().clear()
+    type_customer(form, "Công ty A · 0900 000 001")  # the whole label works too
+    assert form.phone.text() == "0900 000 001"
+    close_form(form)
+    ctx.close()
+
+
+def test_the_list_of_names_opens_while_typing(app, ws):
+    i18n.set_language("vi")
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, _paint = _shop(ws, "vi")
+    with db.transaction(ctx.conn):
+        catalog.upsert_customer(ctx.conn, "Khách Mẫu", "0900 000 002", "Chị C", "2 Đường Y")
+    form = IssueForm(ctx)
+    form.show()
+    type_customer(form, "khach")
+    assert form._suggestions.stringList() == ["Khách Mẫu · 0900 000 002"]
+    assert form._customer_completer.popup().isVisible()
+    form._suggestion_picked(form._suggestions.stringList()[0])
+    assert (form.customer.currentText(), form.phone.text()) == ("Khách Mẫu · 0900 000 002", "0900 000 002")
+    close_form(form)
+    ctx.close()
+
+
+def test_typing_on_past_an_old_name_clears_what_that_customer_filled(app, ws):
+    """Swift learned this on 21/11: 'Công ty A' -> 'Công ty AB' is a new customer, so the old phone must not ride
+    along (phones are how customers are recognised). A value the user changed by hand stays."""
+    i18n.set_language("vi")
+    from dibekho.ui.issue_form import IssueForm
+
+    ctx, _paint = _shop(ws, "vi")
+    form = IssueForm(ctx)
+    type_customer(form, "Công ty A")
+    assert form.phone.text() == "0900 000 001"
+    type_customer(form, "B", more=True)
+    assert (form.phone.text(), form.contact.text(), form.address.text()) == ("", "", "")
+
+    form.customer.lineEdit().clear()
+    type_customer(form, "Công ty A")
+    form.phone.setText("0999 999 999")  # the user's own value
+    type_customer(form, "B", more=True)
+    assert (form.phone.text(), form.address.text()) == ("0999 999 999", "")
+    close_form(form)
     ctx.close()

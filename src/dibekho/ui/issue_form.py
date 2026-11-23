@@ -16,8 +16,10 @@ its stock goes below zero until the goods come in (Hàng về).
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, QStringListModel, Qt
 from PySide6.QtWidgets import (
+    QComboBox,
+    QCompleter,
     QFileDialog,
     QDialog,
     QFormLayout,
@@ -116,6 +118,7 @@ class IssueForm(QDialog):
                 self.products[ln.product_id] = ctx.conn.execute("SELECT * FROM products WHERE id = ?",
                                                                 (ln.product_id,)).fetchone()
         self.customers = issues.customer_choices(ctx.conn)
+        self._filled_from = None  # the customer whose details are in the boxes under the name
         self.rows: list[_Row] = []
         # a yuan note: new while the switch shows yuan, or an edited note / a draft in yuan
         prefill = self.old or self.draft
@@ -139,12 +142,23 @@ class IssueForm(QDialog):
         form.addRow(t("issue.date") + ":", self.date)
         self.customer = NoWheelCombo()
         self.customer.setEditable(True)
+        self.customer.setInsertPolicy(QComboBox.NoInsert)  # a name typed is a new customer, not a new list entry
         self.customer.addItem("", None)
-        for i, c in enumerate(self.customers):
-            self.customer.addItem(" · ".join(x for x in (c["name"], c["phone"]) if x), i)
+        self._customer_labels = [issues.customer_label(c) for c in self.customers]
+        for i, label in enumerate(self._customer_labels):
+            self.customer.addItem(label, i)
         self.customer.lineEdit().setPlaceholderText(t("issue.customer_placeholder"))
         self.customer.setMinimumWidth(520)
         self.customer.currentIndexChanged.connect(lambda _: self._customer_picked())
+        # the customers that fit what is being typed, offered under the box (user's request 24/11/2026)
+        self._suggestions = QStringListModel([], self)
+        completer = QCompleter(self._suggestions, self)
+        completer.setCompletionMode(QCompleter.UnfilteredPopupCompletion)  # the list is filtered here, by core rule
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.activated[str].connect(self._suggestion_picked)
+        self.customer.setCompleter(completer)
+        self._customer_completer = completer
+        self.customer.lineEdit().textEdited.connect(self._customer_typed)
         customer_row = QHBoxLayout()
         customer_row.addWidget(self.customer, 1)
         self.new_customer_btn = QPushButton(t("issue.new_customer"))
@@ -259,12 +273,46 @@ class IssueForm(QDialog):
         """An amount of this note: dong, or yuan on a yuan note."""
         return fx.cny_text(amount, i18n.language()) if self.cny else fmt_money(amount)
 
+    def _customer_typed(self, text: str):
+        """Every letter typed in the customer box: the customers that fit go under it (issues.suggest_customers,
+        the rule of the search boxes: no accents needed, words in any order, the phone counts too)."""
+        hits = [self._customer_labels[i] for i in issues.suggest_customers(self._customer_labels, text)]
+        self._suggestions.setStringList(hits)
+        if hits and text.strip():
+            self._customer_completer.complete()
+        else:
+            self._customer_completer.popup().hide()
+        # the name typed in full is that customer, without picking from the list (what the box's own completion
+        # used to do before this list replaced it)
+        i = issues.picked_customer(text, self._customer_labels)
+        if i is not None:
+            self._show_customer(self.customers[i])
+            self._filled_from = self.customers[i]
+        elif self._filled_from is not None:
+            # typing on past that name ('Công ty A' -> 'Công ty AB'): its values go, what the user changed stays
+            boxes = {"phone": self.phone.text(), "contact": self.contact.text(), "address": self.address.text(),
+                     "tax_code": self.tax_code.text(), "email": self.email.text()}
+            left = issues.unfilled(boxes, self._filled_from)
+            for box, key in ((self.phone, "phone"), (self.contact, "contact"), (self.address, "address"),
+                             (self.tax_code, "tax_code"), (self.email, "email")):
+                box.setText(left[key])
+            self._filled_from = None
+        for row in self.rows:
+            self._fill_price(row)
+
+    def _suggestion_picked(self, label: str):
+        """One of the names offered was chosen: the box takes it and the customer's details follow."""
+        i = self.customer.findText(label)
+        if i >= 0:
+            self.customer.setCurrentIndex(i)
+
     def _customer_picked(self):
         i = self.customer.currentData()
         if i is None or self.customer.itemText(self.customer.currentIndex()) != self.customer.currentText():
             return
         c = self.customers[i]
         self._show_customer(c)
+        self._filled_from = c
         for row in self.rows:
             self._fill_price(row)
 

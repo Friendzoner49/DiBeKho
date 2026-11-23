@@ -32,7 +32,7 @@ from dibekho import db
 from dibekho.core import catalog
 from dibekho.core.receipts import NewProduct
 from dibekho.core.stock import MAIN, OFFICE, stock_levels
-from dibekho.core.text import clean, unaccent
+from dibekho.core.text import clean, matches_words, unaccent
 from dibekho.core.workspace import Workspace
 from dibekho.excel.issue_note import IssueHead, IssueRow, is_draft_title, write_issue_note
 
@@ -475,3 +475,48 @@ def edit(conn, ws: Workspace, doc_id: int, data: IssueInput) -> tuple[int, Path]
 
 def customer_choices(conn) -> list:
     return conn.execute("SELECT id, name, phone, contact, address, tax_code, email FROM customers ORDER BY name").fetchall()
+
+
+def customer_label(row) -> str:
+    """What the customer box of Phiếu xuất kho shows for one customer: 'name · phone', the name alone without one."""
+    return " · ".join(x for x in (row["name"], row["phone"]) if x)
+
+
+def picked_customer(typed: str, labels) -> int | None:
+    """The customer a typed text names, as a position in `labels` ('name · phone'), or None.
+
+    The whole label, or the name alone, letter case and extra spaces aside -- so the details of an old customer
+    fill in as soon as the name is typed in full, without picking from the list."""
+    fold = lambda s: " ".join(clean(s).split()).casefold()  # noqa: E731
+    wanted = fold(typed)
+    if not wanted:
+        return None
+    for i, label in enumerate(labels):
+        if fold(label) == wanted or fold(label.split(" · ")[0]) == wanted:
+            return i
+    return None
+
+
+CUSTOMER_BOXES = ("phone", "contact", "address", "tax_code", "email")
+
+
+def unfilled(boxes: dict, c) -> dict:
+    """The boxes under the customer's name after the text stopped naming the customer who filled them: a box still
+    holding that customer's value is emptied, one the user changed is kept. Without this, typing on past an old
+    name ('Công ty A' -> 'Công ty AB', a new customer) would send the old customer's phone with the new note, and
+    the phone is how customers are recognised."""
+    return {k: ("" if (boxes.get(k) or "") == ((c[k] if c is not None else "") or "") else boxes.get(k) or "")
+            for k in CUSTOMER_BOXES}
+
+
+def suggest_customers(labels, typed: str) -> list[int]:
+    """The customers to offer while a name is being typed in Phiếu xuất kho (user's request 24/11/2026), as
+    positions in `labels` (customer_label of customer_choices, in order).
+
+    Same rule as the search boxes (text.matches_words): every word typed must appear somewhere, in any order,
+    accents and punctuation ignored -- 'khach mau' finds 'Khách Mẫu', 'fs' finds nothing in a name but '0900'
+    finds the phone beside it. Nothing typed yet: every customer, so the arrow shows the whole list."""
+    typed = clean(typed)
+    if not typed:
+        return list(range(len(labels)))
+    return [i for i, label in enumerate(labels) if matches_words(typed, label)]
