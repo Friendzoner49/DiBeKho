@@ -397,3 +397,11 @@ ul.lines li.closed .line-name, ul.lines li.closed .line-fig { color: var(--muted
 
 /* Cài đặt → Nhật ký (maychinh) */
 .logtext { max-height: calc(60vh / var(--z, 1)); overflow: auto; background: var(--surface-hover); border-radius: 8px; padding: 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+
+/* Phiếu xuất kho: the customers that fit the letters typed (a <datalist> cannot ignore accents) */
+.suggest { position: relative; display: inline-flex; }
+.suggest > input { width: 100%; }
+.suggest-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; max-height: 240px; overflow: auto;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: 0 6px 18px rgb(0 0 0 / 0.12); }
+.suggest-list div { padding: 7px 10px; font-size: 15px; cursor: pointer; }
+.suggest-list div:hover { background: var(--surface-hover); }

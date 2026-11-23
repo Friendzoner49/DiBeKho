@@ -176,6 +176,11 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
     assert checks["issuePrice"] == "100" and checks["issueHave"] == ["32", "10"]  # 50 - 5 - 3 - 10 at Kho tổng
     assert checks["issueTotal"] == "Tiền hàng: 400" and checks["issueClosed"]
     assert checks["twice"] == "" and checks["twiceClosed"]  # the same product on two lines is allowed
+    # the customers offered while a name is typed (24/11/2026): accents ignored, picking one fills the boxes
+    assert checks["issueSuggest"] == ["Cong ty A · 0900 000 001"]
+    assert checks["issueSuggestPicked"] == ["Cong ty A", "0900 000 001", True]
+    assert checks["issueSuggestPhone"] == ["Cong ty A · 0900 000 001"]  # a phone typed without spaces
+    assert checks["issueSuggestNone"]  # nothing fits "xyz": no list
     made, _twice = out["files"]  # the second: the same product on two lines
     assert made["name"] == "PhieuXuat_W101.xlsx"  # the code the server handed out
     # the owner's note went to the cloud once (cloud 015 takes the stock), with what the window said

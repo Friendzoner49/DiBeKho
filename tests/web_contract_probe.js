@@ -100,6 +100,19 @@
     out.checks.twiceClosed = !$("dlg").open;
     if ($("dlg").open) dlg.close();
 
+    // the customers that fit the letters typed (user, 24/11/2026): accents need not match, picking one fills it in
+    $("issue-new").click(); await wait();
+    typeIn($("ix-customer"), "CÔNG");  // the shop's customer is written "Cong ty A"
+    out.checks.issueSuggest = [...$("ix-customer-sg").querySelectorAll("div")].map((d) => d.textContent);
+    $("ix-customer-sg").querySelector("div").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await wait();
+    out.checks.issueSuggestPicked = [$("ix-customer").value, $("ix-phone").value, $("ix-customer-sg").hidden];
+    typeIn($("ix-customer"), "0900000001");  // a phone typed without its spaces finds the customer too
+    out.checks.issueSuggestPhone = [...$("ix-customer-sg").querySelectorAll("div")].map((d) => d.textContent);
+    typeIn($("ix-customer"), "xyz");
+    out.checks.issueSuggestNone = $("ix-customer-sg").hidden;
+    if ($("dlg").open) dlg.close();
+
     // ₫ / ¥: the rate is fetched once and kept; every amount on screen turns into yuan, the issue window takes yuan
     try { localStorage.removeItem("dibekho_fx"); localStorage.removeItem("dibekho_currency"); } catch (e) { /* none */ }
     const priced = data.documents.find((d) => d.code === "7");

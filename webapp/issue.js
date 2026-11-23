@@ -130,7 +130,7 @@ function openIssueForm(editDoc = null, draft = null) {
     `<p class="hint">${esc(hint)}${issueCny ? " " + esc(tr("issue.cny_hint", { rate: issueRate ? Math.round(issueRate).toLocaleString("vi-VN") : "—" })) : ""}</p>
      <div class="form2">
        <label>${esc(tr("issue.date"))}</label><input id="ix-date" type="date" value="${esc(todayLocal())}">
-       <label>${esc(tr("col.customer"))}</label><div class="row"><input id="ix-customer" class="grow" list="customers-dl" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}"><button id="ix-new-customer" class="flat" title="${esc(tr("issue.new_customer_tip"))}">${esc(tr("issue.new_customer"))}</button></div>
+       <label>${esc(tr("col.customer"))}</label><div class="row"><span class="suggest grow"><input id="ix-customer" autocomplete="off" placeholder="${esc(tr("issue.customer_ph"))}"><div id="ix-customer-sg" class="suggest-list" hidden></div></span><button id="ix-new-customer" class="flat" title="${esc(tr("issue.new_customer_tip"))}">${esc(tr("issue.new_customer"))}</button></div>
        <label>${esc(tr("col.phone"))}</label><input id="ix-phone" autocomplete="off">
        <label>${esc(tr("col.contact"))}</label><input id="ix-contact" autocomplete="off">
        <label>${esc(tr("col.address"))}</label><input id="ix-address" autocomplete="off">
@@ -190,9 +190,36 @@ function openIssueForm(editDoc = null, draft = null) {
     $("ix-total").textContent = priced ? tr("issue.total", { money: issueMoney(total) }) : "";
   };
 
+  /* The customers that fit what is being typed (user's request 24/11/2026). A <datalist> cannot do this: the
+     browser filters the options by the letters typed as they stand, so "khach" would hide "Khách Mẫu". The rule
+     is the app's (core/issues.suggest_customers): words in any order, no accents needed, the phone counts. */
+  const customerLabel = (c) => [c.name, c.phone].filter(Boolean).join(" · ");
+  const hideSuggestions = () => { $("ix-customer-sg").hidden = true; };
+  const showSuggestions = (typed) => {
+    const box = $("ix-customer-sg");
+    const hits = data.customers.filter((c) => matches(typed, customerLabel(c))).slice(0, 20);
+    if (!typed.trim() || !hits.length) return hideSuggestions();
+    box.innerHTML = hits.map((c) => `<div data-name="${esc(c.name)}">${esc(customerLabel(c))}</div>`).join("");
+    box.hidden = false;
+  };
+  body.addEventListener("mousedown", (e) => {  // mousedown: before the box loses focus
+    const hit = e.target.closest("#ix-customer-sg div");
+    if (!hit) return;
+    e.preventDefault();
+    const c = data.customers.find((x) => x.name === hit.dataset.name);
+    hideSuggestions();
+    if (!c) return;
+    for (const [id, v] of [["ix-customer", c.name], ["ix-phone", c.phone], ["ix-contact", c.contact],
+                           ["ix-address", c.address], ["ix-tax", c.tax_code], ["ix-email", c.email]]) $(id).value = v || "";
+    for (const row of $("ix-lines").querySelectorAll("tr")) fillPrice(row);
+    refresh();
+  });
+  body.addEventListener("focusout", (e) => { if (e.target.id === "ix-customer") setTimeout(hideSuggestions, 150); });
+  body.addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target.id === "ix-customer") hideSuggestions(); });
   body.addEventListener("input", (e) => {
     const tr_ = e.target.closest("tr.ix-row");
     if (e.target.id === "ix-customer") {
+      showSuggestions(e.target.value);
       const c = data.customers.find((x) => x.name === e.target.value.replace(/\s+/g, " ").trim());
       if (c) for (const [id, v] of [["ix-phone", c.phone], ["ix-contact", c.contact], ["ix-address", c.address], ["ix-tax", c.tax_code], ["ix-email", c.email]]) if (!$(id).value.trim()) $(id).value = v || "";
       for (const row of $("ix-lines").querySelectorAll("tr")) fillPrice(row);

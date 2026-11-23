@@ -50,7 +50,10 @@ function unaccent(s) {
 }
 
 function matches(needle, hay) {
-  return unaccent(needle).split(/\s+/).filter(Boolean).every((w) => unaccent(hay).includes(w));
+  // the app's rule (core/text.matches_words): every word typed must be in the text, in any order, accents,
+  // spaces and punctuation ignored -- so "fs101" finds "FS-101" and "0900000001" finds "0900 000 001"
+  const bare = (s) => unaccent(s).replace(/[^\p{L}\p{N}]+/gu, "");
+  return unaccent(needle).split(/\s+/).filter(Boolean).every((w) => bare(hay).includes(bare(w)));
 }
 
 function fmtQty(n) {
