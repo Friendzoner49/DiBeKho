@@ -249,3 +249,20 @@ Làm trên **dữ liệu đang dùng** (Cloud không chạy trên bản thử). 
   «Khôi phục bản đã chọn», khung «Đặt lại dữ liệu» trong Cài đặt → Chung. Ở **Cần xử lý**, gói `.dibekho` hiện dòng «Bản
   Mac chưa nhập được gói dữ liệu.».
 - Tiêu đề cửa sổ: «DiBeKho» (trước là «DiBeKho Swift (bản thử)»).
+
+## 23. Bấm ô mặt hàng ở Phiếu xuất kho trên macOS 26 (viết 23/11/2026; ⚠ chưa thử trên Mac thật)
+Chủ dự án báo: menu hiện ra nhưng bấm «Chọn mặt hàng trong kho…» thì không có gì xảy ra (macOS 26). CI trên macOS 15 bấm được cùng chỗ đó, nên app giờ chạy mục được chọn theo ba đường khác nhau, đường nào tới trước thì chạy, và chỉ chạy một lần.
+
+Cần thử trên Mac:
+1. Phiếu xuất kho → bấm ô «— Bấm để chọn mặt hàng —» → bấm «Chọn mặt hàng trong kho…»: cửa sổ Chọn mặt hàng phải mở ra, có đủ danh sách.
+2. Chọn một mặt hàng rồi bấm «Đồng ý» (và thử cả nháy đúp vào dòng): ô mặt hàng phải hiện tên, và gõ được số ở «Lấy ở Kho tổng».
+3. Bấm mục thứ hai «Mặt hàng mới (chưa có trong kho)…» và mục «Xoá dòng này» (có khi đã chọn hàng).
+4. Làm lại đúng các bước trên ở Hàng về (ô mặt hàng, ô «Nhà cung cấp», «Nhập vào»).
+
+Nếu còn chỗ nào bấm không ăn: mở Terminal, dán lệnh này rồi làm lại thao tác hỏng, xong chép mấy dòng `ui:` gửi lại.
+
+```bash
+"/Applications/DiBeKho Swift.app/Contents/MacOS/DiBeKhoSwift" 2>&1 | grep "ui:"
+```
+
+Ý nghĩa: `picked: true` mà `action: -1, highlighted: -1` là macOS không nói mục nào được chọn; `picked: false` là menu đóng mà không nhận lệnh chọn; không có dòng `menu closed` nào là cú bấm chưa tới được nút.

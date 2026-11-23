@@ -349,6 +349,8 @@ enum PopMenu {
     @MainActor
     private final class Watcher: NSObject, NSMenuDelegate {
         var items: [Item] = []
+        /// the window the menu belongs to: an action arriving after it closed must not act on a window that is gone
+        weak var window: NSWindow?
         /// the last item the mouse or the keyboard was on
         var highlighted: Int?
         /// the item whose action arrived
@@ -370,6 +372,8 @@ enum PopMenu {
         /// the menu's or the button's own handling)
         func run(_ index: Int?) {
             guard !done, let index, items.indices.contains(index) else { return }
+            // a late action: its window may be closed by then (the user gave up and left the form)
+            guard window?.isVisible == true else { return }
             done = true
             let work = items[index].run
             UI.later(work)
@@ -387,6 +391,7 @@ enum PopMenu {
         menu.autoenablesItems = false
         let watcher = Watcher()
         watcher.items = items
+        watcher.window = window
         keeper = (menu, watcher)  // alive until the next press: a late action still finds its target
         for item in items {
             let entry = NSMenuItem(title: item.title, action: #selector(Watcher.picked(_:)), keyEquivalent: "")
