@@ -68,15 +68,6 @@ class IssueLineInput:
         """((location id, qty), ...) for the three places, in the order of the form."""
         return (MAIN, self.qty_main or 0.0), (OFFICE, self.qty_office or 0.0), (BAC_NINH, self.qty_bn or 0.0)
 
-    def set_place(self, loc: int, qty: float) -> None:
-        if loc == MAIN:
-            self.qty_main = qty
-        elif loc == OFFICE:
-            self.qty_office = qty
-        else:
-            self.qty_bn = qty
-
-
 @dataclass
 class IssueInput:
     doc_date: date
