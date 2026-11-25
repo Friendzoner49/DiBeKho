@@ -19,6 +19,7 @@ FROZEN = {
     "010_sync.sql": "acb4f316db957610",
     "011_currency.sql": "9d947730f299118d",
     "012_customer_tax_email.sql": "d7fbca49df64299c",
+    "013_bac_ninh_office.sql": "29ff9ce79b4e9eb6",
 }
 
 

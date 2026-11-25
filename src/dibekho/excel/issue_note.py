@@ -11,7 +11,7 @@ above the title of the shop's latest delivery note (core/deliveries.keep_letterh
 
 Two hidden columns (not seen, not printed) keep what the app needs to read the file back exactly: H 'Mã hàng' (the
 product, so a renamed one still matches: 'SP008|10KG|<name>', trusted only while the row still shows that name and
-packing, so a row retyped in Excel to another product is read by its new name) and I 'Lấy từ kho' ('Kho tổng 总仓: 3; Văn phòng 办公室: 2'). A customer
+packing, so a row retyped in Excel to another product is read by its new name) and I 'Lấy từ kho' ('Kho tổng 总仓: 3; Văn phòng Hà Nội 河内办公室: 2'). A customer
 note has neither and reads as before. Only plain values, never formulas: the reader opens files with
 data_only=True, and a formula saved by a program has no value until Excel opens it.
 
@@ -48,7 +48,8 @@ LABELS = {
 HEADERS = ["编 号\nSTT", "商 品 全 名\nTên hàng", "规格\nQUY CÁCH ", "数 量\nSố lượng", "单 价\nVND", "金 额\nVND",
            "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"]
 HEADERS_CNY = HEADERS[:4] + ["单 价\nCNY", "金 额\nCNY"] + HEADERS[6:]
-PLACES = {1: "Kho tổng 总仓", 2: "Văn phòng 办公室"}
+# 2 was written "Văn phòng 办公室" before 25/11/2026 (one office); the reader still takes that as Hà Nội
+PLACES = {1: "Kho tổng 总仓", 2: "Văn phòng Hà Nội 河内办公室", 3: "Văn phòng Bắc Ninh 北宁办公室"}
 WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)"
 QTY_LABEL = "页小计 \n( Tổng số lượng ):\n"
 SIGN_FROM = "送货单位及经手人（盖章）：Người giao hàng"

@@ -561,7 +561,8 @@ class ProductDialog(_Base):
         stock.setFont(font)
         form.addRow(t("col.stock") + ":", stock)
         form.addRow(t("prod.places") + ":", QLabel(t("prod.places_value", main=fmt_qty(p["stock_main"]),
-                                                     office=fmt_qty(p["stock_office"]), unit=p["unit"])))
+                                                     office=fmt_qty(p["stock_office"]), bn=fmt_qty(p["stock_bn"]),
+                                                     unit=p["unit"])))
         if p["stock_note"]:
             note = _selectable(p["stock_note"])
             note.setStyleSheet(f"color: {theme_color('warn')}; font-weight: bold;")

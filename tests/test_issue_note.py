@@ -364,7 +364,7 @@ def test_the_order_window_shows_both_places_of_a_split_line(ws):
         d = DocumentDialog(ctx, doc_id)
         headers = [d.table.horizontalHeaderItem(c).text() for c in range(d.table.columnCount())]
         place = headers.index(i18n.t("col.place"))
-        assert d.table.item(0, place).text() == "Kho tổng 10 · Văn phòng 3"
+        assert d.table.item(0, place).text() == "Kho tổng 10 · Văn phòng Hà Nội 3"
         assert d.table.item(1, place).text() == "Kho tổng"
         d.close()
     finally:

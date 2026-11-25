@@ -11,8 +11,8 @@ Layout (fixed, so the file reads back whatever the interface language was):
   customers: STT | name | phone | contact | address | orders (read-only, recomputed by the app) | MST | email
   (MST and email from 18/11/2026; an older file without them leaves the app's values as they are)
   sheet 3 = stock, like the customer's monthly stock sheet: code | name | category | variant | stock
-            (| Kho tổng | Văn phòng | note, from 0.4.0: the two places are shown only, the import reads the total
-            stock and the note).
+            (| Kho tổng | Văn phòng | note, from 0.4.0; | Kho tổng | Văn phòng Hà Nội | Văn phòng Bắc Ninh | note
+            from 0.6.7: the places are shown only, the import reads the total stock and the note).
             The customer may correct the stock there; importing the file sets the app's stock to it (a stock
             count). The stock sheet is the reference (the user's rule, 14/10/2026): sheet 1 is only used to find
             the product each stock row describes. Each stock row is tied to a row of sheet 1 (product_row):
@@ -36,7 +36,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from dibekho.core.stock import MAIN, OFFICE, stock_levels
+from dibekho.core.stock import BAC_NINH, MAIN, OFFICE, stock_levels
 from dibekho.core.text import clean, match_key, parse_number
 from dibekho.i18n import t
 
@@ -185,11 +185,12 @@ def export(path: Path, conn) -> Path:
     active = conn.execute("SELECT * FROM products WHERE active = 1 ORDER BY code")
     # the columns after Tồn are appended, so files from older versions (5 columns) are still read the same way
     rows = [[p["code"], _stock_name(p), p["category"], p["variant"], levels.get(p["id"], 0),
-             placed.get((p["id"], MAIN), 0), placed.get((p["id"], OFFICE), 0), p["stock_note"]] for p in active]
+             placed.get((p["id"], MAIN), 0), placed.get((p["id"], OFFICE), 0), placed.get((p["id"], BAC_NINH), 0),
+             p["stock_note"]] for p in active]
     _sheet(ws3, t("master.title_stock"),
            [t("col.code"), t("col.product"), t("col.category"), t("col.variant"), t("col.stock"), t("loc.main"),
-            t("loc.office"), t("col.stock_note")],
-           rows, [10, 52, 26, 22, 12, 12, 12, 40])
+            t("loc.office"), t("loc.office_bn"), t("col.stock_note")],
+           rows, [10, 52, 26, 22, 12, 12, 14, 14, 40])
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
@@ -286,16 +287,18 @@ def _read_stock(ws, products: list[MasterProduct]) -> list[MasterStock]:
     """Rows of the stock sheet, each tied to a row of sheet 1 (see the module docstring)."""
     header = [clean(c.value) for c in ws[HEADER_ROW]]
     with_code = len([h for h in header if h]) >= 5
-    with_note = with_code and len([h for h in header if h]) >= 8
+    named = len([h for h in header if h])
+    with_note = with_code and named >= 8
+    note_at = 8 if named >= 9 else 7  # a Văn phòng Bắc Ninh column before the note from 25/11/2026
     lines = []  # (row, code, name, category, variant, stock, note)
     for r, row in enumerate(ws.iter_rows(min_row=HEADER_ROW + 1, values_only=True), HEADER_ROW + 1):
-        row = list(row) + [None] * 8
+        row = list(row) + [None] * 9
         if not with_code:
             row = [None] + row
         code, name = clean(row[0]), clean(row[1])
         if code or name:
             lines.append((r, code, name, clean(row[2]), clean(row[3]), _stock_value(row[4]),
-                          clean(row[7]) if with_note else None))
+                          clean(row[note_at]) if with_note else None))
 
     active = [p for p in products if p.active]
     code_count: dict[str, int] = {}

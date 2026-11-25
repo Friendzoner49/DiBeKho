@@ -1,5 +1,6 @@
-"""'Kiểm kê': enter physical counts per place (Kho tổng, Văn phòng), the app records the differences.
-'Chuyển hàng…' moves goods from one place to the other."""
+"""'Kiểm kê': enter physical counts of one place at a time (Kho tổng, Văn phòng Hà Nội or Văn phòng Bắc Ninh, picked
+in 'Đếm ở'; user's choice 25/11/2026: each office counts its own goods), the app records the differences.
+'Chuyển hàng…' moves goods from one place to another."""
 
 from datetime import date
 
@@ -46,10 +47,8 @@ from dibekho.ui.common import (
 )
 from dibekho.ui.page import Page
 
-# in app: Kho tổng, Văn phòng, total; counted: Kho tổng, Văn phòng; difference; the stock note (as on Tồn kho)
-APP_MAIN, APP_OFFICE, APP_TOTAL, COUNT_MAIN, COUNT_OFFICE, DIFF_COL, NOTE_COL = range(6, 13)
-COUNT_COLS = {COUNT_MAIN: MAIN, COUNT_OFFICE: OFFICE}
-APP_COLS = {MAIN: APP_MAIN, OFFICE: APP_OFFICE}
+# in app at the place counted; counted there; difference; the stock note (as on Tồn kho)
+APP_COL, COUNT_COL, DIFF_COL, NOTE_COL = range(6, 10)
 
 
 def _parse(text: str):
@@ -84,6 +83,13 @@ class CountPage(Page):
         self.layout_.addLayout(bar)
 
         history = QHBoxLayout()
+        # the place counted: first on its own row, so the note box keeps its room on a small screen
+        history.addWidget(QLabel(t("count.place")))
+        self.place = location_combo(MAIN)
+        self.place.currentIndexChanged.connect(self._place_changed)
+        self._place_shown = MAIN
+        history.addWidget(self.place)
+        history.addSpacing(16)
         transfers_btn = QPushButton(t("count.transfers_btn"))
         transfers_btn.clicked.connect(lambda: self.open_history("transfer"))
         trials_btn = QPushButton(t("count.trials_btn"))
@@ -97,17 +103,11 @@ class CountPage(Page):
         self.layout_.addLayout(history)
         self._history_windows: dict[str, PageWindow] = {}
 
-        main, office = location_name(MAIN), location_name(OFFICE)
-        self.table = make_table([t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"),
-                                 t("col.unit"), t("count.in_app_at", place=main), t("count.in_app_at", place=office),
-                                 t("count.in_app"), t("count.counted_at", place=main),
-                                 t("count.counted_at", place=office), t("col.difference"), t("col.stock_note")],
-                                stretch=1)
+        self.table = make_table(self._headers(MAIN), stretch=1)
         self.table.setEditTriggers(self.table.EditTrigger.AllEditTriggers)
         self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectItems)
         self.table.itemChanged.connect(self._on_edit)
-        numeric_cell_delegate(self.table, COUNT_MAIN)
-        numeric_cell_delegate(self.table, COUNT_OFFICE)
+        numeric_cell_delegate(self.table, COUNT_COL)
         self.layout_.addWidget(self.table)
 
         bottom = QHBoxLayout()
@@ -124,21 +124,42 @@ class CountPage(Page):
             self._notes_changed = False
             self.ctx.notify()
 
+    @staticmethod
+    def _headers(loc: int) -> list[str]:
+        place = location_name(loc)
+        return [t("col.code"), t("col.product"), t("col.name_zh"), t("col.spec"), t("col.variant"), t("col.unit"),
+                t("count.in_app_at", place=place), t("count.counted_at", place=place), t("col.difference"),
+                t("col.stock_note")]
+
+    def _place_changed(self):
+        """Another place to count: its stock in the app; the numbers typed for the place before are dropped (asked)."""
+        loc = self.place.currentData()
+        if loc == self._place_shown:
+            return
+        if self._counted() and not ask(self, t("count.place_change", place=location_name(self._place_shown))):
+            self.place.blockSignals(True)
+            self.place.setCurrentIndex(max(self.place.findData(self._place_shown), 0))
+            self.place.blockSignals(False)
+            return
+        self.refresh()
+
     def refresh(self):
         self.rescan(quiet=True)  # notes dated before the count must be in first
+        loc = self.place.currentData()
+        self._place_shown = loc
+        self.table.setHorizontalHeaderLabels(self._headers(loc))
         on_hand = stock_levels(self.ctx.conn, as_of=from_qdate(self.date.date()), by_location=True)
         self.products = catalog.products(self.ctx.conn)
         self.table.blockSignals(True)
         rows = []
         for p in self.products:
-            main, office = on_hand.get((p["id"], MAIN), 0), on_hand.get((p["id"], OFFICE), 0)
-            rows.append([p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"], num_item(main),
-                         num_item(office), num_item(main + office), "", "", "", p["stock_note"]])
+            rows.append([p["code"], p["name_vi"], p["name_zh"], p["spec"], p["variant"], p["unit"],
+                         num_item(on_hand.get((p["id"], loc), 0)), "", "", p["stock_note"]])
         fill_table(self.table, rows, ids=[p["id"] for p in self.products])
         for r in range(self.table.rowCount()):
             for c in range(self.table.columnCount()):
                 item = self.table.item(r, c)
-                if c in COUNT_COLS:
+                if c == COUNT_COL:
                     item.setBackground(YELLOW)
                 elif c == NOTE_COL:
                     item.setToolTip(t("note.edit_tip"))
@@ -154,7 +175,7 @@ class CountPage(Page):
             save_stock_note(self.ctx, self.table.item(item.row(), 0).data(Qt.UserRole), item.text(), notify=False)
             self._notes_changed = True
             return
-        if item.column() not in COUNT_COLS:
+        if item.column() != COUNT_COL:
             return
         self.table.blockSignals(True)
         try:
@@ -162,14 +183,10 @@ class CountPage(Page):
         except ValueError:
             item.setText("")
         r = item.row()
-        diff, any_count = 0.0, False
-        for col, loc in COUNT_COLS.items():
-            counted = _parse(self.table.item(r, col).text())
-            if counted is not None:
-                diff += counted - self.table.item(r, APP_COLS[loc]).key
-                any_count = True
+        counted = _parse(self.table.item(r, COUNT_COL).text())
+        diff = 0.0 if counted is None else counted - self.table.item(r, APP_COL).key
         diff_item = self.table.item(r, DIFF_COL)
-        if not any_count:
+        if counted is None:
             diff_item.setText("")
             diff_item.setBackground(Qt.transparent)
         else:
@@ -179,16 +196,15 @@ class CountPage(Page):
         self._update_summary()
 
     def _counted(self) -> dict[tuple[int, int], float]:
-        """{(product_id, location_id): counted}; a place left empty is not counted."""
+        """{(product_id, location_id): counted} at the place shown; a row left empty is not counted."""
         result = {}
         for r in range(self.table.rowCount()):
-            for col, loc in COUNT_COLS.items():
-                try:
-                    value = _parse(self.table.item(r, col).text())
-                except ValueError:
-                    continue
-                if value is not None:
-                    result[(self.table.item(r, 0).data(Qt.UserRole), loc)] = value
+            try:
+                value = _parse(self.table.item(r, COUNT_COL).text())
+            except ValueError:
+                continue
+            if value is not None:
+                result[(self.table.item(r, 0).data(Qt.UserRole), self._place_shown)] = value
         return result
 
     def _update_summary(self):
@@ -202,7 +218,8 @@ class CountPage(Page):
             return
         d = from_qdate(self.date.date())
         products = {pid for pid, _ in counted}
-        if not ask(self, t("count.confirm", count=len(products), date=d.strftime("%d/%m/%Y"))):
+        if not ask(self, t("count.confirm_at", count=len(products), date=d.strftime("%d/%m/%Y"),
+                           place=location_name(self._place_shown))):
             return
         self.ctx.log_action("stock_count")
         with db.transaction(self.ctx.conn):

@@ -659,7 +659,7 @@ def pending_count(conn) -> int:
 
 
 def unplaced(conn):
-    """Recorded delivery notes whose place (Kho tổng / Văn phòng) the user has not chosen yet, oldest first."""
+    """Recorded delivery notes whose place (Kho tổng / an office) the user has not chosen yet, oldest first."""
     return conn.execute(
         "SELECT d.id, d.code, d.doc_date, COALESCE(c.name, '') AS customer, "
         "(SELECT COUNT(*) FROM document_lines x WHERE x.document_id = d.id) AS line_count, "

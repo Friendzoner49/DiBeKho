@@ -262,7 +262,7 @@ def problems(data: ReceiptInput) -> list[str]:
     return found
 
 
-_PLACE_WORDS = ("kho", "kho tong", "van phong", "office", "main warehouse")
+_PLACE_WORDS = ("kho", "kho tong", "van phong", "van phong ha noi", "van phong bac ninh", "office", "main warehouse")
 
 
 def looks_like_place(supplier_name: str) -> bool:

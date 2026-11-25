@@ -52,14 +52,16 @@ COLUMN_LABELS = {
 # price columns: the Vietnamese header often reads only 'VND' (单 价|VND, 金 额|VND), so the Chinese label
 # (spaces removed) is the reliable one
 # optional (hidden) columns of the stock issue notes DiBeKho writes itself (Phiếu xuất kho): the product code, read
-# before the name, and where the goods of each line are taken from ('Kho tổng 总仓: 3; Văn phòng 办公室: 2').
+# before the name, and where the goods of each line are taken from ('Kho tổng 总仓: 3; Văn phòng Hà Nội 河内办公室: 2').
 # Customer notes without them read as before.
 EXTRA_LABELS = {
     "code": ("ma hang", "货号"),
     "place": ("lay tu kho", "取货地点"),
 }
-# the place names of a 'Lấy từ kho' cell -> location id (1 Kho tổng, 2 Văn phòng)
+# the place names of a 'Lấy từ kho' cell -> location id (1 Kho tổng, 2 Văn phòng Hà Nội, 3 Văn phòng Bắc Ninh).
+# A bare 'Văn phòng 办公室' (notes written before 25/11/2026, one office) is Hà Nội; the city names say which office.
 PLACE_VALUES = {"kho tong": 1, "总仓": 1, "van phong": 2, "办公室": 2}
+OFFICE_CITIES = {"ha noi": 2, "河内": 2, "bac ninh": 3, "北宁": 3}
 PRICE_LABELS = {
     "price": ("don gia", "单价"),
     "amount": ("thanh tien", "金额"),
@@ -397,6 +399,10 @@ def _place(text: str) -> int | None:
     """'Kho tổng' / 'Văn phòng' / '总仓' / '办公室' (also 'Kho tổng 总仓') -> location id; '' or anything else -> None."""
     plain = unaccent(text)
     found = {loc for word, loc in PLACE_VALUES.items() if word in plain or word in text}
+    cities = {loc for word, loc in OFFICE_CITIES.items() if word in plain or word in text}
+    if cities:  # 'Văn phòng Bắc Ninh 北宁办公室': the city, not the bare 'văn phòng', names the place
+        found.discard(2)
+        found |= cities
     return found.pop() if len(found) == 1 else None
 
 

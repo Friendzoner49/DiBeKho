@@ -357,9 +357,9 @@ def test_stock_note_in_the_master_data_file_both_ways(conn, tmp_path):
         stock_count(conn, date(2026, 10, 1), {(p, MAIN): 9, (p, OFFICE): 1})
     path = master_data.export(tmp_path / "goc.xlsx", conn)
     row = list(openpyxl.load_workbook(path).worksheets[2].iter_rows(min_row=5, values_only=True))[0]
-    assert row[4:] == (10, 9, 1, "2 thùng móp")
+    assert row[4:] == (10, 9, 1, 0, "2 thùng móp")  # Kho tổng, Văn phòng Hà Nội, Văn phòng Bắc Ninh
     wb = openpyxl.load_workbook(path)
-    wb.worksheets[2].cell(row=5, column=8, value="hết móp")
+    wb.worksheets[2].cell(row=5, column=9, value="hết móp")  # the note after the three places
     wb.save(path)
     products, customers, stock = master_data.read(path)
     catalog.import_master(conn, products, customers, stock)
@@ -496,9 +496,9 @@ def test_screens_places_notes_and_alarm(app, ws, monkeypatch):
     app.processEvents()
     r = next(r for r in range(count.table.rowCount()) if count.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
     assert count.table.item(r, count_mod.NOTE_COL).text() == "2 thùng in lệch"  # the same note
-    count.table.item(r, count_mod.COUNT_MAIN).setText("39")
+    count.table.item(r, count_mod.COUNT_COL).setText("39")  # 'Đếm ở' starts at Kho tổng
     count.table.item(r, count_mod.NOTE_COL).setText("1 thùng hết hạn")
-    assert count.table.item(r, count_mod.COUNT_MAIN).text() == "39"  # the note did not wipe the counts typed
+    assert count.table.item(r, count_mod.COUNT_COL).text() == "39"  # the note did not wipe the counts typed
     count.save()
     assert places(ctx.conn, paint) == (39, -3)
 
@@ -901,14 +901,14 @@ def test_count_page_typed_value_survives_moving_to_another_cell(app, ws):
     app.processEvents()
     r = next(r for r in range(count.table.rowCount()) if count.table.item(r, 0).data(count_mod.Qt.UserRole) == paint)
 
-    app_main = count.table.item(r, count_mod.APP_MAIN).key
-    count.table.setCurrentCell(r, count_mod.COUNT_MAIN)  # AllEditTriggers: this alone opens the editor
+    app_main = count.table.item(r, count_mod.APP_COL).key
+    count.table.setCurrentCell(r, count_mod.COUNT_COL)  # AllEditTriggers: this alone opens the editor
     editor = count.table.viewport().findChild(QLineEdit)
     assert editor is not None
     QTest.keyClicks(editor, "1")
     count.table.setCurrentCell(r, count_mod.NOTE_COL)  # move away without pressing Enter
     app.processEvents()
-    assert count.table.item(r, count_mod.COUNT_MAIN).text() == "1"  # not doubled, not wiped
+    assert count.table.item(r, count_mod.COUNT_COL).text() == "1"  # not doubled, not wiped
     diff = 1 - app_main
     from dibekho.core.text import fmt_qty
 

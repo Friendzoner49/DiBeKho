@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 from dibekho import i18n
 from dibekho.core import activity, catalog, fx, issues
 from dibekho.core.issues import IssueInput, IssueLineInput
-from dibekho.core.stock import MAIN, OFFICE, stock_levels
+from dibekho.core.stock import BAC_NINH, MAIN, OFFICE, stock_levels
 from dibekho.core.text import fmt_money, fmt_qty
 from dibekho.i18n import t
 from dibekho.ui.common import (
@@ -56,7 +56,9 @@ from dibekho.ui.common import (
     to_qdate,
 )
 
-PRODUCT, SPEC, UNIT, HAVE_MAIN, QTY_MAIN, HAVE_OFFICE, QTY_OFFICE, PRICE, AMOUNT, NOTE, REMOVE = range(11)
+PRODUCT, SPEC, UNIT, HAVE_MAIN, QTY_MAIN, HAVE_OFFICE, QTY_OFFICE, HAVE_BN, QTY_BN, PRICE, AMOUNT, NOTE, REMOVE = range(13)
+# (place, its 'Đang có' column, its 'Lấy' column), in the order of the table
+PLACE_COLS = ((MAIN, HAVE_MAIN, QTY_MAIN), (OFFICE, HAVE_OFFICE, QTY_OFFICE), (BAC_NINH, HAVE_BN, QTY_BN))
 START_ROWS = 3
 
 
@@ -76,6 +78,7 @@ class _Row:
         self.button = QPushButton()
         self.qty_main = _spin(1e7, 100)
         self.qty_office = _spin(1e7, 100)
+        self.qty_bn = _spin(1e7, 100)
         self.price = _spin(1e12, 120)
         self.price_typed = False  # typed by the user: the app no longer fills it in
         self.keep_price = False  # a note being edited: the price on it stays until the product changes
@@ -83,8 +86,12 @@ class _Row:
         self.remove = QPushButton("✕")
         self.remove.setToolTip(t("receipt_form.remove_row"))
 
+    def boxes(self) -> dict[int, NoWheelSpin]:
+        """place -> the box of how many are taken there"""
+        return {MAIN: self.qty_main, OFFICE: self.qty_office, BAC_NINH: self.qty_bn}
+
     def qty(self) -> float:
-        return self.qty_main.value() + self.qty_office.value()
+        return sum(box.value() for box in self.boxes().values())
 
 
 class IssueForm(QDialog):
@@ -104,12 +111,12 @@ class IssueForm(QDialog):
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
         self.setWindowTitle(t("issue.edit_title", code=self.edit_code) if edit_doc
                             else t("issue.draft_title", code=self.draft_code) if self.draft else t("issue.title"))
-        fit_window(self, 1250, 760)
+        fit_window(self, 1500, 760)
         self.products = {p["id"]: p for p in catalog.products(ctx.conn)}
         self.levels = stock_levels(ctx.conn, by_location=True)
         if self.old:  # the note being edited has already taken its goods: they are free again for the new version
             for ln in self.old.filled():
-                for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
+                for loc, qty in ln.by_place():
                     self.levels[(ln.product_id, loc)] = self.levels.get((ln.product_id, loc), 0.0) + qty
                 self.products.setdefault(ln.product_id, ctx.conn.execute(
                     "SELECT * FROM products WHERE id = ?", (ln.product_id,)).fetchone())
@@ -177,16 +184,21 @@ class IssueForm(QDialog):
         lay.addLayout(form)
 
         lay.addWidget(QLabel(t("issue.step_lines")))
-        self.table = QTableWidget(0, 11)
+        self.table = QTableWidget(0, 13)
+        places = []
+        for loc, _, _ in PLACE_COLS:
+            places += [t("issue.have", place=location_name(loc)), t("issue.take", place=location_name(loc))]
         self.table.setHorizontalHeaderLabels([
-            t("col.product"), t("col.spec"), t("col.unit"), t("issue.have", place=t("loc.main")),
-            t("issue.take", place=t("loc.main")), t("issue.have", place=t("loc.office")),
-            t("issue.take", place=t("loc.office")), t("issue.price_cny" if self.cny else "issue.price"),
+            t("col.product"), t("col.spec"), t("col.unit"), *places,
+            t("issue.price_cny" if self.cny else "issue.price"),
             t("issue.amount_cny" if self.cny else "issue.amount"), t("col.note"), ""])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(PRODUCT, QHeaderView.Stretch)
-        for col, width in ((SPEC, 100), (UNIT, 60), (HAVE_MAIN, 80), (QTY_MAIN, 100), (HAVE_OFFICE, 80),
-                           (QTY_OFFICE, 100), (PRICE, 120), (AMOUNT, 110), (NOTE, 130), (REMOVE, 44)):
+        header.setDefaultAlignment(Qt.AlignCenter | Qt.TextWordWrap)  # 'Lấy ở / Văn phòng / Bắc Ninh': three lines
+        header.setMinimumHeight(header.fontMetrics().height() * 3 + 12)
+        for col, width in ((SPEC, 100), (UNIT, 60), (HAVE_MAIN, 80), (QTY_MAIN, 100), (HAVE_OFFICE, 128),
+                           (QTY_OFFICE, 128), (HAVE_BN, 128), (QTY_BN, 128), (PRICE, 120), (AMOUNT, 110), (NOTE, 130),
+                           (REMOVE, 44)):
             header.setSectionResizeMode(col, QHeaderView.Interactive)
             self.table.setColumnWidth(col, width)
         self.table.verticalHeader().setDefaultSectionSize(40)
@@ -247,6 +259,7 @@ class IssueForm(QDialog):
             row.product_id, row.new, row.keep_price = ln.product_id, ln.new, True
             row.qty_main.setValue(ln.qty_main)
             row.qty_office.setValue(ln.qty_office)
+            row.qty_bn.setValue(ln.qty_bn)
             row.note.setText(ln.note)
             row.price.blockSignals(True)
             row.price.setValue(ln.unit_price or 0)
@@ -262,7 +275,8 @@ class IssueForm(QDialog):
             phone=self.phone.text(), contact=self.contact.text(), address=self.address.text(),
             tax_code=self.tax_code.text(), email=self.email.text(),
             lines=[IssueLineInput(r.product_id, r.qty_main.value(), r.qty_office.value(),
-                                  self._price(r), r.note.text(), new=r.new) for r in self.rows],
+                                  self._price(r), r.note.text(), new=r.new, qty_bn=r.qty_bn.value())
+                   for r in self.rows],
             currency="CNY" if self.cny else "VND", fx_rate=self.vnd_per_cny if self.cny else None)
 
     def _price(self, row: _Row) -> float | None:
@@ -355,17 +369,17 @@ class IssueForm(QDialog):
         r = self.table.rowCount()
         self.table.insertRow(r)
         self.table.setCellWidget(r, PRODUCT, row.button)
-        self.table.setCellWidget(r, QTY_MAIN, row.qty_main)
-        self.table.setCellWidget(r, QTY_OFFICE, row.qty_office)
+        for loc, _, qty_col in PLACE_COLS:
+            self.table.setCellWidget(r, qty_col, row.boxes()[loc])
         self.table.setCellWidget(r, PRICE, row.price)
         self.table.setCellWidget(r, NOTE, row.note)
         self.table.setCellWidget(r, REMOVE, row.remove)
-        for col in (SPEC, UNIT, HAVE_MAIN, HAVE_OFFICE, AMOUNT):
+        for col in (SPEC, UNIT, HAVE_MAIN, HAVE_OFFICE, HAVE_BN, AMOUNT):
             self.table.setCellWidget(r, col, QLabel())
         row.button.clicked.connect(lambda: self._choose(row))
         row.remove.clicked.connect(lambda: self._remove(row))
         row.price.lineEdit().textEdited.connect(lambda _: setattr(row, "price_typed", True))
-        for box in (row.qty_main, row.qty_office, row.price):
+        for box in (*row.boxes().values(), row.price):
             box.valueChanged.connect(lambda _: self._show_row(row))
             box.installEventFilter(self)
             box.lineEdit().installEventFilter(self)
@@ -408,10 +422,10 @@ class IssueForm(QDialog):
         asked: dict[tuple, float] = {}
         for r in self.rows:
             if r.product_id:
-                for loc, box in ((MAIN, r.qty_main), (OFFICE, r.qty_office)):
+                for loc, box in r.boxes().items():
                     asked[(r.product_id, loc)] = asked.get((r.product_id, loc), 0.0) + box.value()
         for i, r in enumerate(self.rows):
-            for col, loc in ((HAVE_MAIN, MAIN), (HAVE_OFFICE, OFFICE)):
+            for loc, col, _ in PLACE_COLS:
                 label = self.table.cellWidget(i, col)
                 if label is None:
                     continue
@@ -419,7 +433,7 @@ class IssueForm(QDialog):
                 if r.new:
                     have = 0.0  # a new product has nothing yet
                 label.setText("" if have is None else fmt_qty(have))
-                taken = (r.qty_main if loc == MAIN else r.qty_office).value() if r.new else \
+                taken = r.boxes()[loc].value() if r.new else \
                     asked.get((r.product_id, loc), 0.0)
                 over = have is not None and taken > have
                 label.setStyleSheet(f"color: {RED.name()};" if over else "")
@@ -513,8 +527,7 @@ class IssueForm(QDialog):
             else:
                 p = self.products[ln.product_id]
                 name, unit = catalog.long_label(p), p["unit"]
-            parts = [f"{location_name(loc)} {fmt_qty(q)}" for loc, q in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office))
-                     if q]
+            parts = [f"{location_name(loc)} {fmt_qty(q)}" for loc, q in ln.by_place() if q]
             money = f" × {self._both(ln.unit_price)}" if ln.unit_price else ""
             lines.append(f"• {name}: {' + '.join(parts)} {unit}".rstrip() + money)
         total = sum(ln.qty * ln.unit_price for ln in data.filled() if ln.unit_price)

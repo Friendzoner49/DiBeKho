@@ -31,7 +31,7 @@ from pathlib import Path
 from dibekho import db
 from dibekho.core import catalog
 from dibekho.core.receipts import NewProduct
-from dibekho.core.stock import MAIN, OFFICE, stock_levels
+from dibekho.core.stock import BAC_NINH, LOCATIONS, MAIN, OFFICE, stock_levels
 from dibekho.core.text import clean, matches_words, unaccent
 from dibekho.core.workspace import Workspace
 from dibekho.excel.issue_note import IssueHead, IssueRow, is_draft_title, write_issue_note
@@ -58,10 +58,23 @@ class IssueLineInput:
     unit_price: float | None = None
     note: str = ""
     new: NewProduct | None = None  # not in the catalog yet: created on save (product_id stays None)
+    qty_bn: float = 0.0  # Văn phòng Bắc Ninh (25/11/2026); qty_office is Văn phòng Hà Nội
 
     @property
     def qty(self) -> float:
-        return (self.qty_main or 0) + (self.qty_office or 0)
+        return (self.qty_main or 0) + (self.qty_office or 0) + (self.qty_bn or 0)
+
+    def by_place(self) -> tuple[tuple[int, float], ...]:
+        """((location id, qty), ...) for the three places, in the order of the form."""
+        return (MAIN, self.qty_main or 0.0), (OFFICE, self.qty_office or 0.0), (BAC_NINH, self.qty_bn or 0.0)
+
+    def set_place(self, loc: int, qty: float) -> None:
+        if loc == MAIN:
+            self.qty_main = qty
+        elif loc == OFFICE:
+            self.qty_office = qty
+        else:
+            self.qty_bn = qty
 
 
 @dataclass
@@ -110,7 +123,7 @@ def problems(conn, data: IssueInput) -> list[tuple[str, dict]]:
     for ln in data.filled():
         if ln.new and not clean(ln.new.name_vi):
             found.append(("receipt_form.new_needs_name", {}))
-        elif (ln.qty_main or 0) < 0 or (ln.qty_office or 0) < 0 or (ln.unit_price or 0) < 0:
+        elif any(q < 0 for _, q in ln.by_place()) or (ln.unit_price or 0) < 0:
             found.append(("issue.negative", {"product": ln.new.label()} if ln.new else {"id": ln.product_id}))
     return found
 
@@ -135,13 +148,13 @@ def short_of(conn, data: IssueInput, old: IssueInput | None = None) -> list[tupl
     below zero (the app never blocks it, the row turns red). old: the note being replaced, its goods count as free."""
     levels = stock_levels(conn, by_location=True)
     for ln in (old.filled() if old else []):
-        for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
+        for loc, qty in ln.by_place():
             levels[(ln.product_id, loc)] = levels.get((ln.product_id, loc), 0.0) + qty
     asked: dict[tuple[int, int], float] = {}
     for ln in data.filled():
         if not ln.product_id:
             continue  # a new product has nothing in stock: it goes below zero, the user knows
-        for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)):
+        for loc, qty in ln.by_place():
             if qty:
                 asked[(ln.product_id, loc)] = asked.get((ln.product_id, loc), 0.0) + qty
     return [(pid, loc, qty, levels.get((pid, loc), 0.0)) for (pid, loc), qty in asked.items()
@@ -179,10 +192,10 @@ def _in_currency(row, currency: str, vnd_per_cny: float | None) -> float | None:
 
 def note_rows(conn, data: IssueInput) -> list[IssueRow]:
     """The table of the file: one row per line typed, like a delivery note (a product may come twice, at two
-    prices); where it is taken from (Kho tổng and/or Văn phòng) goes in the hidden 'Lấy từ kho' column."""
+    prices); where it is taken from (Kho tổng and/or the offices) goes in the hidden 'Lấy từ kho' column."""
     rows = []
     for ln in data.filled():
-        places = [(loc, qty) for loc, qty in ((MAIN, ln.qty_main), (OFFICE, ln.qty_office)) if qty and qty > 0]
+        places = [(loc, qty) for loc, qty in ln.by_place() if qty and qty > 0]
         amount = None if ln.unit_price is None else round(ln.qty * ln.unit_price, 2)
         if ln.product_id is None and ln.new:  # only on a draft: a real note creates its new products first
             n = ln.new
@@ -306,13 +319,15 @@ def load_draft(conn, path: Path) -> tuple[str, IssueInput]:
     for ln in note.lines:
         main = sum(q for loc, q in ln.places if loc == MAIN) if ln.places else ln.qty
         office = sum(q for loc, q in ln.places if loc == OFFICE) if ln.places else 0.0
+        bn = sum(q for loc, q in ln.places if loc == BAC_NINH) if ln.places else 0.0
         code = clean(ln.product_code)
         p = conn.execute("SELECT id FROM products WHERE code = ?", (code,)).fetchone() if code else None
         if p:
-            lines.append(IssueLineInput(p["id"], main, office, ln.unit_price, ln.note))
+            lines.append(IssueLineInput(p["id"], main, office, ln.unit_price, ln.note, qty_bn=bn))
         else:
             lines.append(IssueLineInput(None, main, office, ln.unit_price, ln.note,
-                                        new=NewProduct(clean(ln.name_vi or ln.raw_name), clean(ln.name_zh), clean(ln.spec))))
+                                        new=NewProduct(clean(ln.name_vi or ln.raw_name), clean(ln.name_zh), clean(ln.spec)),
+                                        qty_bn=bn))
     return note.code, IssueInput(note.doc_date, note.customer_name, note.phone, note.contact, note.address,
                                  note.tax_code, note.email, lines, currency="CNY" if note.currency == "CNY" else "VND")
 
@@ -398,8 +413,8 @@ def can_edit(doc) -> bool:
 
 
 def load(conn, doc_id: int) -> tuple[str, IssueInput]:
-    """A recorded issue note as the form shows it, to edit: (code, data). The split between the two places comes from
-    the stock movements (a line taken from both places has no place of its own)."""
+    """A recorded issue note as the form shows it, to edit: (code, data). The split between the places comes from
+    the stock movements (a line taken from several places has no place of its own)."""
     doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
     if doc is None or not can_edit(doc):
         raise ValueError("Chỉ sửa được phiếu xuất kho còn hiệu lực (mã A… hoặc W…).")
@@ -421,7 +436,7 @@ def load(conn, doc_id: int) -> tuple[str, IssueInput]:
     for r in rows:
         if r["id"] not in taken:
             split, left = {}, r["qty"]
-            for loc in (MAIN, OFFICE):
+            for loc in LOCATIONS:
                 part = min(left, max(pool.get((r["product_id"], loc), 0.0), 0.0))
                 if part:
                     split[loc] = part
@@ -432,7 +447,7 @@ def load(conn, doc_id: int) -> tuple[str, IssueInput]:
                 split[where] = split.get(where, 0.0) + left
             taken[r["id"]] = split
         out.append(IssueLineInput(r["product_id"], taken[r["id"]].get(MAIN, 0.0), taken[r["id"]].get(OFFICE, 0.0),
-                                  r["unit_price"], r["note"] or ""))
+                                  r["unit_price"], r["note"] or "", qty_bn=taken[r["id"]].get(BAC_NINH, 0.0)))
     data = IssueInput(date.fromisoformat(doc["doc_date"]), c["name"] if c else "",
                       phone=(c["phone"] if c else "") or "", contact=(c["contact"] if c else "") or "",
                       address=(c["address"] if c else "") or "", tax_code=(c["tax_code"] if c else "") or "",

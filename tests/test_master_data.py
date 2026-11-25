@@ -127,7 +127,7 @@ def test_export_has_a_stock_sheet_like_the_monthly_sheet(conn, ws, tmp_path):
     sheet = openpyxl.load_workbook(path).worksheets[2]
     # the places and the note are appended after Tồn, so files from older versions read the same way
     assert [c.value for c in sheet[4]] == ["Mã", "Mặt hàng", "Nhóm hàng", "Loại / màu", "Tồn", "Kho tổng",
-                                          "Văn phòng", "Ghi chú tồn kho"]
+                                          "Văn phòng Hà Nội", "Văn phòng Bắc Ninh", "Ghi chú tồn kho"]
     rows = {r[1].splitlines()[1]: r for r in sheet.iter_rows(min_row=5, values_only=True)}
     assert rows["背水涂"][4] == 50 and rows["背水涂"][0].startswith("SP")
     assert rows["固沙剂"][4] == -5  # never counted: 1 + 4 delivered
@@ -174,7 +174,7 @@ def test_old_stock_sheet_without_code_column_is_matched_by_name(conn, ws, tmp_pa
     path = master_data.export(tmp_path / "goc.xlsx", conn)
     wb = openpyxl.load_workbook(path)
     sheet = wb.worksheets[2]
-    sheet.delete_cols(6, 3)  # places and note (0.4.0)
+    sheet.delete_cols(6, 4)  # places and note (0.4.0; three places from 0.6.7)
     sheet.delete_cols(1)  # files exported before 14/10/2026: name | category | variant | stock
     sheet["A1"] = "DIBEKHO – BẢNG TỒN KHO"  # the title was in column A
     for row in sheet.iter_rows(min_row=5):
@@ -223,7 +223,7 @@ def old_file_with_stock(conn, path, stock_rows):
     master_data.export(path, conn)
     wb = openpyxl.load_workbook(path)
     sheet = wb.worksheets[2]
-    sheet.delete_cols(6, 3)  # places and note (0.4.0)
+    sheet.delete_cols(6, 4)  # places and note (0.4.0; three places from 0.6.7)
     sheet.delete_cols(1)
     sheet["A1"] = "DIBEKHO – BẢNG TỒN KHO"
     sheet.delete_rows(5, sheet.max_row)

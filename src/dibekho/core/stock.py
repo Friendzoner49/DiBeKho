@@ -1,7 +1,7 @@
 """Stock ledger: every change is a stock_movements row, current stock = SUM(qty).
 
-Every movement has a place (location_id): Kho tổng or Văn phòng. Stock of a place = SUM(qty) of its movements;
-the total ignores places. A transfer moves goods between the two (net zero per product).
+Every movement has a place (location_id): Kho tổng, Văn phòng Hà Nội or Văn phòng Bắc Ninh. Stock of a place =
+SUM(qty) of its movements; the total ignores places. A transfer moves goods between two places (net zero per product).
 
 All functions that write expect to be called inside `db.transaction(conn)`.
 """
@@ -25,9 +25,11 @@ _REVERSE = {
     "trial": "trial_reverse",
 }
 
-MAIN, OFFICE = 1, 2  # locations table; names through i18n loc.main / loc.office
-LOCATIONS = (MAIN, OFFICE)
-LOCATION_CODES = {MAIN: "main", OFFICE: "office"}
+# locations table; names through i18n loc.<code>. OFFICE (2) is Văn phòng Hà Nội, BAC_NINH (3) Văn phòng Bắc Ninh
+# (migration 013, 25/11/2026).
+MAIN, OFFICE, BAC_NINH = 1, 2, 3
+LOCATIONS = (MAIN, OFFICE, BAC_NINH)
+LOCATION_CODES = {MAIN: "main", OFFICE: "office", BAC_NINH: "office_bn"}
 
 
 @dataclass
@@ -41,7 +43,7 @@ class Line:
     unit_price: float | None = None  # delivery notes only; None = unknown
     amount: float | None = None
     location_id: int | None = None  # this line's own place (a stock issue note); None = the document's
-    # a stock issue note line taken from both places: ((location id, qty), ...) adding up to qty; () = one place
+    # a stock issue note line taken from several places: ((location id, qty), ...) adding up to qty; () = one place
     places: tuple = ()
 
 
@@ -248,7 +250,7 @@ def set_location(conn, doc_id: int, location_id: int) -> None:
     if doc is None or doc["kind"] not in _FORWARD or location_id not in LOCATIONS:
         raise ValueError("Không đổi được nơi lấy hàng của phiếu này.")
     if is_mixed(conn, doc_id):
-        raise ValueError("Phiếu này lấy hàng ở cả Kho tổng và Văn phòng: không đổi chung một nơi được. "
+        raise ValueError("Phiếu này lấy hàng ở nhiều nơi: không đổi chung một nơi được. "
                          "Muốn đổi, hãy huỷ phiếu rồi tạo lại phiếu xuất kho.")
     conn.execute("UPDATE stock_movements SET location_id = ? WHERE document_id = ?", (location_id, doc_id))
     conn.execute("UPDATE document_lines SET location_id = ? WHERE document_id = ? AND location_id IS NOT NULL",
@@ -259,7 +261,7 @@ def set_location(conn, doc_id: int, location_id: int) -> None:
 
 
 def is_mixed(conn, doc_id: int) -> bool:
-    """A document whose goods were taken from both places (a stock issue note)."""
+    """A document whose goods were taken from several places (a stock issue note)."""
     return conn.execute("SELECT COUNT(DISTINCT location_id) FROM stock_movements WHERE document_id = ?",
                         (doc_id,)).fetchone()[0] > 1
 
@@ -271,6 +273,7 @@ def stock_table(conn) -> list[sqlite3.Row]:
         SELECT p.*, COALESCE(SUM(m.qty), 0) AS stock,
                COALESCE(SUM(CASE WHEN m.location_id = {MAIN} THEN m.qty END), 0) AS stock_main,
                COALESCE(SUM(CASE WHEN m.location_id = {OFFICE} THEN m.qty END), 0) AS stock_office,
+               COALESCE(SUM(CASE WHEN m.location_id = {BAC_NINH} THEN m.qty END), 0) AS stock_bn,
                MAX(CASE WHEN m.kind = 'delivery_out' THEN m.occurred_on END) AS last_out
         FROM products p
         LEFT JOIN stock_movements m ON m.product_id = p.id
