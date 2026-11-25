@@ -53,6 +53,9 @@ function letterhead() {
   }
 }
 
+/** The places a Phiếu xuất kho takes from, in the order of the window: Kho tổng, Văn phòng Hà Nội, Văn phòng Bắc Ninh. */
+const ISSUE_PLACES = [1, 2, 3];
+
 function issueRowHtml() {
   return `<tr class="ix-row"><td><input class="ix-product" list="products-dl" placeholder="${esc(tr("issue.pick_ph"))}">` +
     `<div class="ix-newtag hint hidden">${esc(tr("issue.new_tag"))}</div>` +
@@ -61,6 +64,7 @@ function issueRowHtml() {
     `<td><span class="ix-unit"></span><input class="ix-new-unit hidden" placeholder="${esc(tr("col.unit"))}"></td>` +
     `<td class="num ix-have" data-place="1"></td><td class="yellow"><input class="qty ix-qty" data-place="1" inputmode="decimal"></td>` +
     `<td class="num ix-have" data-place="2"></td><td class="yellow"><input class="qty ix-qty" data-place="2" inputmode="decimal"></td>` +
+    `<td class="num ix-have" data-place="3"></td><td class="yellow"><input class="qty ix-qty" data-place="3" inputmode="decimal"></td>` +
     `<td><input class="qty ix-price" inputmode="decimal"></td><td class="num ix-amount"></td>` +
     `<td><input class="ix-note"></td><td><button class="flat ix-remove" title="${esc(tr("issue.remove"))}">✕</button></td></tr>`;
 }
@@ -70,31 +74,31 @@ const isIssueCode = (code) => /^\s*[AaWw]\d+\s*$/.test(String(code || ""));
 const canEditIssue = (d) => isOwner() && d.kind === "delivery" && d.status === "active" && isIssueCode(d.code);
 
 /** The lines of a recorded note as the window shows them, like the app's issues.load: where each line was taken from
-    comes from the stock movements (a line taken from both places has no place of its own). */
+    comes from the stock movements (a line taken from several places has no place of its own). */
 function issueLinesOf(d) {
   const pool = {};
   for (const m of data.movements) if (m.document_id === d.id) pool[`${m.product_id}|${m.location_id}`] = (pool[`${m.product_id}|${m.location_id}`] || 0) - m.qty;
   const lines = (linesByDoc[d.id] || []).filter((l) => l.product_id).slice().sort((a, b) => a.line_no - b.line_no);
   for (const l of lines) if (l.location_id) pool[`${l.product_id}|${l.location_id}`] = (pool[`${l.product_id}|${l.location_id}`] || 0) - l.qty;
   return lines.map((l) => {
-    const take = { 1: 0, 2: 0 };
+    const take = { 1: 0, 2: 0, 3: 0 };
     if (l.location_id) take[l.location_id] = l.qty;
     else {
       let left = l.qty;
-      for (const place of [1, 2]) {
+      for (const place of ISSUE_PLACES) {
         const part = Math.min(left, Math.max(pool[`${l.product_id}|${place}`] || 0, 0));
         take[place] = part; pool[`${l.product_id}|${place}`] = (pool[`${l.product_id}|${place}`] || 0) - part; left -= part;
       }
       if (left > 0) take[d.location_id || 1] += left;
     }
-    return { product_id: l.product_id, main: take[1], office: take[2], price: l.unit_price, note: l.note || "" };
+    return { product_id: l.product_id, main: take[1], office: take[2], bn: take[3], price: l.unit_price, note: l.note || "" };
   });
 }
 
 let issueEdit = null;  // {doc, lines} while the window corrects a recorded note, else null
 /** The goods the note being corrected holds are free again for its new version. */
 const issueGiven = (productId, place) => (issueEdit ? issueEdit.lines.reduce(
-  (a, l) => a + (l.product_id === productId ? (place === 1 ? l.main : l.office) : 0), 0) : 0);
+  (a, l) => a + (l.product_id === productId ? ({ 1: l.main, 2: l.office, 3: l.bn }[place] || 0) : 0), 0) : 0);
 const issueHave = (productId, place) => (stockOf(productId)[place] || 0) + issueGiven(productId, place);
 
 let issueCny = false;  // the open window makes a yuan note
@@ -117,9 +121,9 @@ function openIssueForm(editDoc = null, draft = null) {
   issueDraft = editDoc ? null : draft;
   issueCny = issueEdit ? isCny(editDoc) : issueDraft ? issueDraft.currency === "CNY" : moneyInCny();
   issueRate = (issueEdit && isCny(editDoc) && editDoc.fx_rate) || rateNow() || null;
-  const heads = [tr("col.product"), tr("col.spec"), tr("col.unit"), tr("issue.have", { place: tr("place.1") }),
-                 tr("issue.take", { place: tr("place.1") }), tr("issue.have", { place: tr("place.2") }),
-                 tr("issue.take", { place: tr("place.2") }), tr(issueCny ? "issue.price_cny" : "issue.price"),
+  const heads = [tr("col.product"), tr("col.spec"), tr("col.unit"),
+                 ...ISSUE_PLACES.flatMap((n) => [tr("issue.have", { place: tr(`place.${n}`) }), tr("issue.take", { place: tr(`place.${n}`) })]),
+                 tr(issueCny ? "issue.price_cny" : "issue.price"),
                  tr(issueCny ? "issue.amount_cny" : "issue.amount"), tr("col.note"), ""];
   const title = issueEdit ? tr("issue.edit_title", { code: editDoc.code })
     : issueDraft ? tr("issue.draft_title", { code: issueDraft.code }) : tr("issue.title");
@@ -160,7 +164,7 @@ function openIssueForm(editDoc = null, draft = null) {
     const taken = {};  // the rows of one product take from its stock together
     for (const tr_ of $("ix-lines").querySelectorAll("tr")) {
       const p = rowProduct(tr_);
-      for (const place of [1, 2]) {
+      for (const place of ISSUE_PLACES) {
         const asked = parseQty(tr_.querySelector(`.ix-qty[data-place="${place}"]`).value);
         if (p && asked > 0) taken[`${p.id}|${place}`] = (taken[`${p.id}|${place}`] || 0) + asked;
       }
@@ -172,7 +176,7 @@ function openIssueForm(editDoc = null, draft = null) {
       for (const sel of [".ix-newtag", ".ix-new-spec", ".ix-new-unit"]) tr_.querySelector(sel).classList.toggle("hidden", !isNew);
       tr_.querySelector(".ix-new-vi").classList.toggle("hidden", !(isNew && LANG === "zh"));
       let qty = 0;
-      for (const place of [1, 2]) {
+      for (const place of ISSUE_PLACES) {
         const have = tr_.querySelector(`.ix-have[data-place="${place}"]`);
         const box = tr_.querySelector(`.ix-qty[data-place="${place}"]`);
         const asked = parseQty(box.value);
@@ -262,6 +266,7 @@ function openIssueForm(editDoc = null, draft = null) {
       row.querySelector(".ix-product").value = p ? productLabel(p) : "";
       row.querySelector(".ix-qty[data-place='1']").value = l.main ? fmtQty(l.main) : "";
       row.querySelector(".ix-qty[data-place='2']").value = l.office ? fmtQty(l.office) : "";
+      row.querySelector(".ix-qty[data-place='3']").value = l.bn ? fmtQty(l.bn) : "";
       const price = row.querySelector(".ix-price");
       if (l.price !== null && l.price !== undefined) {
         price.value = fmtQty(l.price);
@@ -289,6 +294,7 @@ function openIssueForm(editDoc = null, draft = null) {
       }
       row.querySelector(".ix-qty[data-place='1']").value = l.qty_main ? fmtQty(l.qty_main) : "";
       row.querySelector(".ix-qty[data-place='2']").value = l.qty_office ? fmtQty(l.qty_office) : "";
+      row.querySelector(".ix-qty[data-place='3']").value = l.qty_bn ? fmtQty(l.qty_bn) : "";
       const price = row.querySelector(".ix-price");
       if (l.unit_price !== null && l.unit_price !== undefined) {
         price.value = fmtQty(l.unit_price);
@@ -348,9 +354,9 @@ function readIssueForm() {
   const lines = [];
   for (const tr_ of $("ix-lines").querySelectorAll("tr")) {
     const label = tr_.querySelector(".ix-product").value.trim();
-    const [main, office] = [".ix-qty[data-place='1']", ".ix-qty[data-place='2']"].map((s) => parseQty(tr_.querySelector(s).value));
+    const [main, office, bn] = ISSUE_PLACES.map((n) => parseQty(tr_.querySelector(`.ix-qty[data-place='${n}']`).value));
     const price = issuePrice(tr_.querySelector(".ix-price"));
-    if (!label && main === null && office === null) continue;
+    if (!label && main === null && office === null && bn === null) continue;
     if (!label) fail(tr("issue.unknown_product", { text: "?" }));
     const p = productFromLabel(label);
     const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
@@ -361,15 +367,15 @@ function readIssueForm() {
                                name_zh: zh ? clean(label) : "", spec: clean(tr_.querySelector(".ix-new-spec").value),
                                unit: clean(tr_.querySelector(".ix-new-unit").value) };
     const name = p ? productName(p) : "★ " + clean(label);
-    if (fresh && !fresh.name_vi && ((main || 0) + (office || 0) > 0)) {
+    if (fresh && !fresh.name_vi && ((main || 0) + (office || 0) + (bn || 0) > 0)) {
       tr_.querySelector(".ix-new-vi").focus();
       fail(tr("issue.need_vi_name", { product: clean(label) }));
     }
-    if ([main, office, price].some((v) => Number.isNaN(v))) fail(tr("issue.not_number", { product: name }));
-    if ([main, office, price].some((v) => v !== null && v < 0)) fail(tr("issue.negative", { product: name }));
-    if (!((main || 0) + (office || 0) > 0)) continue;
+    if ([main, office, bn, price].some((v) => Number.isNaN(v))) fail(tr("issue.not_number", { product: name }));
+    if ([main, office, bn, price].some((v) => v !== null && v < 0)) fail(tr("issue.negative", { product: name }));
+    if (!((main || 0) + (office || 0) + (bn || 0) > 0)) continue;
     lines.push({ product: p, product_id: p ? p.id : null, new: fresh, label: name, row: tr_, qty_main: main || 0,
-                 qty_office: office || 0, unit_price: price, note: tr_.querySelector(".ix-note").value });
+                 qty_office: office || 0, qty_bn: bn || 0, unit_price: price, note: tr_.querySelector(".ix-note").value });
   }
   if (!lines.length) fail(tr("issue.need_lines"));
   return { date, customer, phone: $("ix-phone").value.replace(/\s+/g, " ").trim(),
@@ -394,7 +400,7 @@ async function saveIssue() {
   const short = [], asked = new Map();  // the lines of one product count together
   for (const ln of f.lines) {
     if (!ln.product) continue;  // a new product has nothing yet: it goes below zero, the user was told
-    for (const [place, qty] of [[1, ln.qty_main], [2, ln.qty_office]]) {
+    for (const [place, qty] of [[1, ln.qty_main], [2, ln.qty_office], [3, ln.qty_bn]]) {
       if (!(qty > 0)) continue;
       const key = `${ln.product.id}|${place}`;
       asked.set(key, { product: ln.product, place, qty: ((asked.get(key) || {}).qty || 0) + qty });
@@ -416,6 +422,11 @@ async function saveIssue() {
     const { data: version, error: vErr } = await sb.rpc("web_api_version");
     if (vErr || !(Number(version) >= 22)) fail(tr("issue.cny_sql"));
   }
+  if (isOwner() && f.lines.some((ln) => ln.qty_bn > 0)) {
+    // Văn phòng Bắc Ninh needs cloud step 023: the older web_issue would drop those goods without a word
+    const { data: version, error: vErr } = await sb.rpc("web_api_version");
+    if (vErr || !(Number(version) >= 23)) fail(tr("issue.bn_sql"));
+  }
   const summary = rows.map((r, i) => `• ${r.code ? r.code + " " : ""}${f.lines[i].label}: ${fmtQty(r.qty)} ${r.unit} · ` +
     r.places.map(([place, qty]) => `${tr(`place.${place}`)} ${fmtQty(qty)}`).join(" + ") +
     (r.amount !== null ? ` · ${both(r.amount)}` : "")).join("\n");
@@ -425,7 +436,7 @@ async function saveIssue() {
   if (issueEdit) {
     // a note corrected (cloud 021): the old one is deleted and this one recorded with the same code, in one go
     const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
-                                         qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
+                                         qty_office: ln.qty_office, qty_bn: ln.qty_bn, unit_price: ln.unit_price, note: ln.note }));
     const { data: made, error } = await sb.rpc("web_issue_edit", { p: { replaces: issueEdit.doc.id, doc_date: f.date,
       customer: f.customer, phone: f.phone, contact: f.contact, address: f.address, tax_code: f.tax_code, email: f.email, lines,
       ...money } });
@@ -442,7 +453,7 @@ async function saveIssue() {
     // reference data); the server hands out the code (W + next order number) under the write lock, and makes the
     // new products (019)
     const lines = f.lines.map((ln) => ({ product_id: ln.product_id, new: ln.new || undefined, qty_main: ln.qty_main,
-                                         qty_office: ln.qty_office, unit_price: ln.unit_price, note: ln.note }));
+                                         qty_office: ln.qty_office, qty_bn: ln.qty_bn, unit_price: ln.unit_price, note: ln.note }));
     // a yuan note goes through web_issue_money (022), which also keeps its currency
     const args = { p: { doc_date: f.date, customer: f.customer, phone: f.phone, contact: f.contact, address: f.address,
                         tax_code: f.tax_code, email: f.email, lines, ...money } };

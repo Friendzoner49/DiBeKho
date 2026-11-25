@@ -28,7 +28,7 @@ const EMAIL_DOMAIN = "dibekho.local";
 const KIND_ORDER = ["delivery", "receipt", "stock_count", "transfer", "trial"];
 const kindName = (k) => tr(`kind.${k}`);
 const statusName = (s) => (s === "active" ? "" : tr(`status.${s}`));
-const placeName = (id) => (id === 1 || id === 2 ? tr(`place.${id}`) : "");
+const placeName = (id) => (id === 1 || id === 2 || id === 3 ? tr(`place.${id}`) : "");
 
 const $ = (id) => document.getElementById(id);
 const data = { products: [], customers: [], suppliers: [], documents: [], lines: [], movements: [], meta: {} };
@@ -152,7 +152,7 @@ function productLabel(p) {
   return [p.code, pn(p), p.spec, p.variant, pnOther(p)].filter(Boolean).join(" · ");
 }
 
-const stockOf = (id) => stockByProduct[id] || { total: 0, 1: 0, 2: 0 };
+const stockOf = (id) => stockByProduct[id] || { total: 0, 1: 0, 2: 0, 3: 0 };
 const activeProducts = () => data.products.filter((p) => p.active)
   .sort((a, b) => (a.category || "").localeCompare(b.category || "", "vi") || a.name_vi.localeCompare(b.name_vi, "vi") ||
                   (a.spec || "").localeCompare(b.spec || "", "vi"));
@@ -353,7 +353,7 @@ function setData(d) {
   }
   for (const l of data.lines) (linesByDoc[l.document_id] ||= []).push(l);
   for (const m of data.movements) {
-    const t = stockByProduct[m.product_id] ||= { total: 0, 1: 0, 2: 0, lastOut: "" };
+    const t = stockByProduct[m.product_id] ||= { total: 0, 1: 0, 2: 0, 3: 0, lastOut: "" };
     t.total += m.qty; t[m.location_id] = (t[m.location_id] || 0) + m.qty;
     if (m.kind === "delivery_out" && m.occurred_on > t.lastOut) t.lastOut = m.occurred_on;
   }
@@ -486,7 +486,7 @@ function renderStock() {
       const s = stockOf(p.id), cls = s.total < 0 ? " neg" : isLow(p) ? " low" : "";
       const sub = [p.code, p.spec, p.variant].filter(Boolean).map(esc).join(" · ");
       return `<div class="pcard${cls}"><div class="pc-main"><div class="pc-name">${esc(pn(p))}</div>` +
-        `<div class="pc-sub">${sub}</div><div class="pc-sub">${esc(tr("place.1"))} ${fmtQty(s[1])} · ${esc(tr("place.2"))} ${fmtQty(s[2])}</div></div>` +
+        `<div class="pc-sub">${sub}</div><div class="pc-sub">${esc(tr("place.1"))} ${fmtQty(s[1])} · ${esc(tr("place.2"))} ${fmtQty(s[2])} · ${esc(tr("place.3"))} ${fmtQty(s[3])}</div></div>` +
         `<div class="pc-total"><span>${fmtQty(s.total)}</span><small>${esc(p.unit || "")}</small></div></div>`;
     }).join("") + "</div>";
   } else buildTable("stock-table", [
@@ -501,6 +501,7 @@ function renderStock() {
     { label: tr("col.stock_note"), get: (p) => p.stock_note },
     { label: tr("place.1"), get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
     { label: tr("place.2"), get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
+    { label: tr("place.3"), get: (p) => stockOf(p.id)[3], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[3]) },
     { label: tr("col.last_out"), get: (p) => stockOf(p.id).lastOut || "" },
   ], items, {
     rowClass: (p) => (stockOf(p.id).total < 0 ? "neg" : isLow(p) ? "low" : ""),
@@ -697,6 +698,7 @@ function renderCount() {
     { label: tr("col.spec"), get: (p) => p.spec }, { label: tr("col.variant"), get: (p) => p.variant }, { label: tr("col.unit"), get: (p) => p.unit },
     { label: tr("count.app_main"), get: (p) => stockOf(p.id)[1], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[1]) },
     { label: tr("count.app_office"), get: (p) => stockOf(p.id)[2], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[2]) },
+    { label: tr("count.app_bn"), get: (p) => stockOf(p.id)[3], num: true, cls: "num", html: (p) => fmtQty(stockOf(p.id)[3]) },
     { label: tr("count.app_total"), get: (p) => stockOf(p.id).total, num: true, cls: "num strong", html: (p) => fmtQty(stockOf(p.id).total) },
     { label: tr("col.stock_note"), get: (p) => p.stock_note },
   ], activeProducts(), { select: "one", open: (p) => showProduct(p.id) });

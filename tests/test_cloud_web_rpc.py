@@ -494,7 +494,7 @@ def test_a_yuan_note_made_on_the_web_is_recorded_in_yuan(shop):
     rate; web_issue_edit keeps the currency it is given; the staff cannot; web_api_version says 22."""
     s, _, call, cloud = shop
     a = _pid(s, "SP001")
-    assert call("web_api_version") == 22
+    assert call("web_api_version") >= 22
     p = {"doc_date": "2026-11-21", "customer": "Công ty A", "phone": "", "contact": "", "address": "", "tax_code": "",
          "email": "", "currency": "CNY", "fx_rate": 3800, "lines": [
              {"product_id": _uid(s, "products", a), "qty_main": 2, "qty_office": 0, "unit_price": 12.5, "note": ""}]}
@@ -515,3 +515,40 @@ def test_a_yuan_note_made_on_the_web_is_recorded_in_yuan(shop):
     _pull(s, cloud)
     assert s.execute("SELECT currency, fx_rate FROM documents WHERE code = ? AND status = 'active'",
                      (dong["code"],)).fetchone()[:] == ("VND", None)
+
+
+def test_bac_ninh_on_the_web(shop):
+    """cloud 023 (user, 25/11/2026): place 3 = Văn phòng Bắc Ninh is taken by every web write, like the app;
+    web_issue takes qty_bn; a note from Bắc Ninh only is at Bắc Ninh; web_api_version says 23."""
+    s, twin, call, cloud = shop
+    assert call("web_api_version") == 23
+    a = _pid(twin, "SP001")
+    with db.transaction(twin):
+        stock.transfer(twin, date(2026, 11, 25), stock.MAIN, stock.BAC_NINH, [stock.Line(a, 4)])
+        stock.stock_count(twin, date(2026, 11, 25), {(a, stock.BAC_NINH): 3})
+    call("web_transfer", p=({"date": "2026-11-25", "from": 1, "to": 3, "lines": _lines(s, ("SP001", 4, ""))}, "jsonb"))
+    call("web_stock_count", p=({"count_date": "2026-11-25", "lines": [
+        {"product_id": _uid(s, "products", _pid(s, "SP001")), "location_id": 3, "qty": 3}]}, "jsonb"))
+    _same(s, twin, cloud)
+    pa = _uid(s, "products", _pid(s, "SP001"))
+    before = stock.stock_levels(s, by_location=True)
+    p = {"doc_date": "2026-11-25", "customer": "Công ty A", "phone": "", "contact": "", "address": "", "tax_code": "",
+         "email": "", "lines": [{"product_id": pa, "qty_main": 1, "qty_office": 0, "qty_bn": 2, "unit_price": 10, "note": ""}]}
+    mixed = call("web_issue", p=(p, "jsonb"))
+    only_bn = call("web_issue", p=({**p, "lines": [{**p["lines"][0], "qty_main": 0, "qty_bn": 1}]}, "jsonb"))
+    _pull(s, cloud)
+    sa = _pid(s, "SP001")
+    after = stock.stock_levels(s, by_location=True)
+    assert before[(sa, stock.MAIN)] - after[(sa, stock.MAIN)] == 1
+    assert before[(sa, stock.BAC_NINH)] - after[(sa, stock.BAC_NINH)] == 3
+    doc = lambda code: s.execute("SELECT * FROM documents WHERE code = ?", (code,)).fetchone()  # noqa: E731
+    assert doc(mixed["code"])["location_id"] == stock.MAIN and doc(only_bn["code"])["location_id"] == stock.BAC_NINH
+    line = s.execute("SELECT location_id, qty FROM document_lines WHERE document_id = ?", (doc(only_bn["code"])["id"],))
+    assert tuple(line.fetchone()) == (stock.BAC_NINH, 1)
+    from dibekho.core import issues
+    _, back = issues.load(s, doc(mixed["code"])["id"])
+    assert [(ln.qty_main, ln.qty_office, ln.qty_bn) for ln in back.lines] == [(1, 0, 2)]
+    call("web_set_location", p_doc=(_uid(s, "documents", doc(only_bn["code"])["id"]), "uuid"), p_location=(2, "integer"))
+    call("web_set_location", p_doc=(_uid(s, "documents", doc(only_bn["code"])["id"]), "uuid"), p_location=(3, "integer"))
+    with pytest.raises(PgError, match="không hợp lệ"):
+        call("web_trial", p=({"date": "2026-11-25", "location": 4, "lines": _lines(s, ("SP001", 1, ""))}, "jsonb"))

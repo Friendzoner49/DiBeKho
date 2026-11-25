@@ -173,7 +173,7 @@ def test_the_page_only_looks_and_makes_a_stock_issue_note_the_app_takes(cloud_sh
 
     # the issue window: phone of the customer filled in, price from the latest order (100), stock per place shown
     assert checks["issueTitle"] == "Phiếu xuất kho" and checks["issuePhone"] == "0900 000 001"
-    assert checks["issuePrice"] == "100" and checks["issueHave"] == ["32", "10"]  # 50 - 5 - 3 - 10 at Kho tổng
+    assert checks["issuePrice"] == "100" and checks["issueHave"] == ["32", "10", "0"]  # 50 - 5 - 3 - 10 at Kho tổng; Hà Nội; Bắc Ninh
     assert checks["issueTotal"] == "Tiền hàng: 400" and checks["issueClosed"]
     assert checks["twice"] == "" and checks["twiceClosed"]  # the same product on two lines is allowed
     # the customers offered while a name is typed (24/11/2026): accents ignored, picking one fills the boxes

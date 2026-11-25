@@ -113,7 +113,7 @@ const moveName = (k) => tr(`move.${k}`);
 
 /* ---------------------------------------------------------------- order detail (the app's Chi tiết đơn window) */
 
-/** The places a document's stock moved at: one, or both for a Phiếu xuất kho that took from Kho tổng and Văn phòng. */
+/** The places a document's stock moved at: one, or several for a Phiếu xuất kho that took from more than one place. */
 function docPlaces(d) {
   const places = new Set();
   for (const m of data.movements) if (m.document_id === d.id && m.location_id) places.add(m.location_id);
@@ -201,7 +201,7 @@ function productHistory(id) {
 function showProduct(id) {
   const p = productById[id];
   if (!p) return;
-  const st = stockByProduct[id] || { total: 0, 1: 0, 2: 0 };
+  const st = stockByProduct[id] || { total: 0, 1: 0, 2: 0, 3: 0 };
   const history = productHistory(id);
   const top = topCustomersOfProduct(id);
   const box = openDetail(
@@ -210,7 +210,8 @@ function showProduct(id) {
     `<dt>${esc(tr("col.unit"))}</dt><dd>${esc(p.unit)}</dd><dt>${esc(tr("col.stock_note"))}</dt><dd>${esc(p.stock_note)}</dd></dl>` +
     `<div class="cards"><div class="stat"><span>${esc(tr("col.stock"))}</span><b>${fmtQty(st.total)}</b></div>` +
     `<div class="stat"><span>${esc(tr("place.1"))}</span><b>${fmtQty(st[1])}</b></div>` +
-    `<div class="stat"><span>${esc(tr("place.2"))}</span><b>${fmtQty(st[2])}</b></div></div>` +
+    `<div class="stat"><span>${esc(tr("place.2"))}</span><b>${fmtQty(st[2])}</b></div>` +
+    `<div class="stat"><span>${esc(tr("place.3"))}</span><b>${fmtQty(st[3] || 0)}</b></div></div>` +
     `<h3>${esc(tr("product.history"))}</h3><div id="ph-table"></div>` +
     `<h3>${esc(tr("product.top_customers"))}</h3><div id="ph-top"></div>`);
   const newest = history.slice().reverse();

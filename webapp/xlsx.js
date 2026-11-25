@@ -31,7 +31,9 @@ const DBK_XLSX = (() => {
                    "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"];
   // a yuan note (the ₫ | ¥ switch on ¥, user 21/11/2026): the signs the app's reader takes for yuan (issue_note.HEADERS_CNY)
   const HEADERS_CNY = [...HEADERS.slice(0, 4), "单 价\nCNY", "金 额\nCNY", ...HEADERS.slice(6)];
-  const PLACES = { 1: "Kho tổng 总仓", 2: "Văn phòng 办公室" };
+  // as excel/issue_note.PLACES; 2 was written "Văn phòng 办公室" before 25/11/2026 (one office): still read as Hà Nội
+  const PLACES = { 1: "Kho tổng 总仓", 2: "Văn phòng Hà Nội 河内办公室", 3: "Văn phòng Bắc Ninh 北宁办公室" };
+  const PLACES_OLD = { 2: "Văn phòng 办公室" };
   const WORDS_LABEL = "总计大写\n (Tổng cộng viết bằng chữ)";
   const QTY_LABEL = "页小计 \n( Tổng số lượng ):\n";
   const SIGN_FROM = "送货单位及经手人（盖章）：Người giao hàng";
@@ -289,7 +291,7 @@ const DBK_XLSX = (() => {
   }
 
   /** The table of the file, as core/issues.note_rows: one row per product, like a delivery note; where it is taken
-      from goes in the hidden 'Lấy từ kho' column. lines [{product_id, qty_main, qty_office, unit_price (null = no
+      from goes in the hidden 'Lấy từ kho' column. lines [{product_id, qty_main, qty_office, qty_bn, unit_price (null = no
       price), note, new?}]. The unit is only for the window's summary, it is not in the file. A line whose product is not
       in the catalog yet carries new {name_vi, spec, unit} and no product_id: the row has no code, so the app reads it
       by name (Cần xử lý → Tạo mới) unless the owner's cloud call made the product first. */
@@ -297,8 +299,8 @@ const DBK_XLSX = (() => {
     return lines.map((ln) => {
       const p = (ln.product_id && productById[ln.product_id]) || ln.new;
       const nameVi = [p.name_vi, p.variant].filter(Boolean).join(" ");
-      const places = [[1, ln.qty_main], [2, ln.qty_office]].filter(([, q]) => q > 0);
-      const qty = (ln.qty_main || 0) + (ln.qty_office || 0);
+      const places = [[1, ln.qty_main], [2, ln.qty_office], [3, ln.qty_bn]].filter(([, q]) => q > 0);
+      const qty = (ln.qty_main || 0) + (ln.qty_office || 0) + (ln.qty_bn || 0);
       const amount = ln.unit_price === null || ln.unit_price === undefined ? null : Math.round(qty * ln.unit_price * 100) / 100;
       return { code: p.code || "", name_vi: nameVi, name_zh: p.name_zh || "", spec: p.spec || "", unit: p.unit || "", qty, places,
                unit_price: ln.unit_price ?? null, amount, note: String(ln.note || "").replace(/\s+/g, " ").trim() };
@@ -357,7 +359,7 @@ const DBK_XLSX = (() => {
   const isDraftTitle = (title) => String(title || "").toUpperCase().replace(/ \)/g, ")").replace(/\( /g, "(").includes(DRAFT_MARK);
 
   /** A draft file read back: {code, doc_date 'yyyy-mm-dd', customer, phone, contact, address, tax_code, email, currency,
-      lines [{code, name_vi, name_zh, spec, qty_main, qty_office, unit_price, note}]}. Throws when it is not a draft. */
+      lines [{code, name_vi, name_zh, spec, qty_main, qty_office, qty_bn, unit_price, note}]}. Throws when it is not a draft. */
   function readDraft(fflate, bytes) {
     let cells;
     try { cells = sheetCells(fflate, bytes); } catch (e) { throw new Error("not-xlsx"); }
@@ -377,9 +379,9 @@ const DBK_XLSX = (() => {
       const cjk = (x) => /[\u3400-\u9fff]/.test(x);
       const zh = parts.length > 1 && cjk(parts[0]) ? parts[0] : "";
       const vi = (zh ? parts.slice(1) : parts).join(" ");
-      const take = { 1: 0, 2: 0 };
+      const take = { 1: 0, 2: 0, 3: 0 };
       const said = String(at(r, 9) || "");
-      for (const [loc, label] of Object.entries(PLACES)) {
+      for (const [loc, label] of [...Object.entries(PLACES), ...Object.entries(PLACES_OLD)]) {
         const m = new RegExp(`${label}\\s*:\\s*([0-9.]+)`).exec(said);
         if (m) take[loc] = Number(m[1]);
       }
@@ -388,7 +390,7 @@ const DBK_XLSX = (() => {
       const price = at(r, 5);
       // the code column holds "SP001|spec|name": the code first
       lines.push({ code: String(at(r, 8) ?? "").split("|")[0].trim(), name_vi: vi, name_zh: zh, spec: String(at(r, 3) ?? "").trim(),
-                   qty_main: take[1], qty_office: take[2], unit_price: typeof price === "number" ? price : null,
+                   qty_main: take[1], qty_office: take[2], qty_bn: take[3], unit_price: typeof price === "number" ? price : null,
                    note: String(at(r, 7) ?? "").trim() });
     }
     return { code: after(5, 6, LABELS.code), doc_date, customer: after(5, 1, LABELS.customer), phone: after(5, 3, LABELS.phone),
