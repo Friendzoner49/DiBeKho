@@ -28,7 +28,8 @@ public enum IssueNote {
                           "备 注\nGhi chú", "货号\nMã hàng", "取货地点\nLấy từ kho"]
     /// a yuan note (the ₫ | ¥ switch on ¥, user 21/11/2026): the signs the reader takes for yuan (issue_note.HEADERS_CNY)
     static let headersCny = Array(headers[0..<4]) + ["单 价\nCNY", "金 额\nCNY"] + Array(headers[6...])
-    static let places: [Int64: String] = [1: "Kho tổng 总仓", 2: "Văn phòng 办公室"]
+    // 2 was written "Văn phòng 办公室" before 25/11/2026 (one office); the reader still takes that as Hà Nội
+    static let places: [Int64: String] = [1: "Kho tổng 总仓", 2: "Văn phòng Hà Nội 河内办公室", 3: "Văn phòng Bắc Ninh 北宁办公室"]
     static let wordsLabel = "总计大写\n (Tổng cộng viết bằng chữ)"
     static let qtyLabel = "页小计 \n( Tổng số lượng ):\n"
     static let signFrom = "送货单位及经手人（盖章）：Người giao hàng"

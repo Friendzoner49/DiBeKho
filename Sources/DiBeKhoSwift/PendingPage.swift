@@ -151,7 +151,7 @@ struct PendingPage: View {
             for d in list { try Ledger.setLocation(db, docId: d.id, locationId: chosen[d.id]!) }
         }
         guard done != nil else { return }
-        ActivityLog.write("places", list.map { "\($0.code) → \(chosen[$0.id]! == Ledger.office ? "office" : "main")" }.joined(separator: ", "))
+        ActivityLog.write("places", list.map { "\($0.code) → \(Ledger.locationCodes[chosen[$0.id]!] ?? "main")" }.joined(separator: ", "))
         places = [:]
         model.rescan()
     }

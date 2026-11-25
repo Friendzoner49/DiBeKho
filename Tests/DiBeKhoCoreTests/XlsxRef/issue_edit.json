@@ -809,7 +809,7 @@
   "I10": {
    "v": [
     "s",
-    "Kho tổng 总仓: 1; Văn phòng 办公室: 1"
+    "Kho tổng 总仓: 1; Văn phòng Hà Nội 河内办公室: 1"
    ],
    "font": [
     "Times New Roman",
@@ -909,7 +909,7 @@
   "D11": {
    "v": [
     "n",
-    2.0
+    3.0
    ],
    "font": [
     "Times New Roman",
@@ -959,7 +959,7 @@
   "F11": {
    "v": [
     "n",
-    780000.0
+    1170000.0
    ],
    "font": [
     "Times New Roman",
@@ -1034,7 +1034,7 @@
   "I11": {
    "v": [
     "s",
-    "Kho tổng 总仓: 2"
+    "Kho tổng 总仓: 2; Văn phòng Bắc Ninh 北宁办公室: 1"
    ],
    "font": [
     "Times New Roman",
@@ -1084,7 +1084,7 @@
   "B12": {
    "v": [
     "s",
-    "MỘT TRIỆU MỘT TRĂM HAI MƯƠI NGHÌN VIỆT NAM ĐỒNG"
+    "MỘT TRIỆU NĂM TRĂM MƯỜI NGHÌN VIỆT NAM ĐỒNG"
    ],
    "font": [
     "Times New Roman",
@@ -1109,7 +1109,7 @@
   "D12": {
    "v": [
     "s",
-    "页小计 \n( Tổng số lượng ):\n4"
+    "页小计 \n( Tổng số lượng ):\n5"
    ],
    "font": [
     "宋体",
@@ -1156,7 +1156,7 @@
   "F12": {
    "v": [
     "n",
-    1120000.0
+    1510000.0
    ],
    "font": [
     "Times New Roman",

@@ -71,9 +71,10 @@ public struct LedgerLine: Equatable {
 /// to run inside one write transaction (queue.write).
 public enum Ledger {
     public static let main: Int64 = 1
-    public static let office: Int64 = 2
-    public static let locations: [Int64] = [main, office]
-    static let locationCodes: [Int64: String] = [main: "main", office: "office"]
+    public static let office: Int64 = 2  // Văn phòng Hà Nội (Văn phòng until 0.6.6)
+    public static let bacNinh: Int64 = 3  // Văn phòng Bắc Ninh (migration 013, 25/11/2026)
+    public static let locations: [Int64] = [main, office, bacNinh]
+    public static let locationCodes: [Int64: String] = [main: "main", office: "office", bacNinh: "office_bn"]
 
     static let forward: [String: (String, Double)] = ["delivery": ("delivery_out", -1), "receipt": ("receipt_in", 1)]
     static let reverse: [String: String] = ["delivery": "delivery_reverse", "receipt": "receipt_reverse",
@@ -315,7 +316,7 @@ public enum Ledger {
             throw WriteError("Không đổi được nơi lấy hàng của phiếu này.")
         }
         if try isMixed(db, docId) {
-            throw WriteError("Phiếu này lấy hàng ở cả Kho tổng và Văn phòng: không đổi chung một nơi được. "
+            throw WriteError("Phiếu này lấy hàng ở nhiều nơi: không đổi chung một nơi được. "
                              + "Muốn đổi, hãy huỷ phiếu rồi tạo lại phiếu xuất kho.")
         }
         try db.execute(sql: "UPDATE stock_movements SET location_id = ? WHERE document_id = ?", arguments: [locationId, docId])

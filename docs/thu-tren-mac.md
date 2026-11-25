@@ -258,7 +258,7 @@ Cần thử trên Mac:
 2. Chọn một mặt hàng rồi bấm «Đồng ý» (và thử cả nháy đúp vào dòng): ô mặt hàng phải hiện tên, và gõ được số ở «Lấy ở Kho tổng».
 3. Bấm mục thứ hai «Mặt hàng mới (chưa có trong kho)…» và mục «Xoá dòng này» (có khi đã chọn hàng).
 4. Làm lại đúng các bước trên ở Hàng về (ô mặt hàng, ô «Nhà cung cấp», «Nhập vào»).
-5. Cùng một đoạn code chạy mọi menu kiểu này, nên thử nốt: ▾ «Nhóm hàng» trong hộp Mặt hàng mới và hộp Sửa mặt hàng (Tra cứu → Danh mục mặt hàng), và ▾ chọn tên giữ lại trong hộp «Gộp khách hàng…» (Khách hàng → chọn 2 khách → Gộp khách hàng…).
+6. Cùng một đoạn code chạy mọi menu kiểu này, nên thử nốt: ▾ «Nhóm hàng» trong hộp Mặt hàng mới và hộp Sửa mặt hàng (Tra cứu → Danh mục mặt hàng), và ▾ chọn tên giữ lại trong hộp «Gộp khách hàng…» (Khách hàng → chọn 2 khách → Gộp khách hàng…).
 
 Nếu còn chỗ nào bấm không ăn: mở Terminal, dán lệnh này rồi làm lại thao tác hỏng, xong chép mấy dòng `ui:` gửi lại.
 
@@ -275,4 +275,12 @@ Cần thử trên Mac:
 1. Phiếu xuất kho → gõ `khach` vào ô Khách hàng: danh sách bật ra chỉ còn những khách hợp. Bấm ↓ rồi Enter: điện thoại, người liên hệ, địa chỉ, MST, email và đơn giá điền theo khách đó.
 2. **Gõ tiếng Việt kiểu Telex**: gõ `khachs` → phải ra `khách`, ô không được tự nhảy chữ hay thay chữ đang gõ. Gõ tiếp vài chữ nữa, chữ đang gõ phải giữ nguyên.
 3. Gõ tên khách cũ đầy đủ (có dấu) rồi Tab: các ô dưới tự điền như trước.
-4. Nếu danh sách **không tự bật ra** trên macOS 26 (app dùng lệnh riêng của hệ thống, có thể không còn): bấm ▾ xem có đúng chỉ còn những khách hợp không, rồi báo lại — khi đó tôi sẽ tự vẽ danh sách.
+4. CI ngày 24/11 cho thấy: bấm chuột vào tên trong danh sách thì điền đủ và danh sách đóng lại; chọn bằng ↓ rồi Enter cũng điền đủ, nhưng danh sách có khi còn nằm lại trên màn hình thêm một lúc (bấm ra chỗ khác là mất). Bạn xem trên macOS 26 có bị vậy không.
+5. Nếu danh sách **không tự bật ra** trên macOS 26 (app dùng lệnh riêng của hệ thống, có thể không còn): bấm ▾ xem có đúng chỉ còn những khách hợp không, rồi báo lại — khi đó tôi sẽ tự vẽ danh sách.
+
+## 25. Văn phòng Bắc Ninh — nơi thứ ba (viết 25/11/2026 theo yêu cầu khách; ⚠ chưa biên dịch)
+1. **Tồn kho**: có thêm cột **Văn phòng Bắc Ninh**; cột Văn phòng cũ giờ tên **Văn phòng Hà Nội**, số giữ nguyên.
+2. **Kiểm kê**: hàng nút thứ hai có ô **Đếm ở:** (Kho tổng / Văn phòng Hà Nội / Văn phòng Bắc Ninh). Bảng chỉ còn một cột «Theo app» và một cột vàng «Đếm được» của nơi đã chọn. Gõ vài số rồi đổi **Đếm ở**: app phải hỏi, đồng ý thì các số biến mất; bấm Không thì ô chọn quay lại nơi cũ. Lưu: hộp xác nhận ghi đúng tên nơi; hai nơi còn lại không đổi.
+3. **Phiếu xuất kho**: mỗi dòng có Đang có / Lấy ở cho cả ba nơi; chữ «Văn phòng Bắc Ninh» trên tiêu đề cột không bị cắt. Lưu phiếu lấy ở Bắc Ninh rồi mở chi tiết đơn: ghi đúng nơi; đơn lấy nhiều nơi hiện «Nhiều nơi» trong danh sách đơn.
+4. **Chuyển hàng** Văn phòng Hà Nội → Văn phòng Bắc Ninh; **Hàng về** «Nhập vào» Bắc Ninh; **Dùng thử** ở Bắc Ninh: số từng nơi đổi đúng.
+5. Mở dữ liệu đang dùng của bản Python 0.6.6 (schema 12): app nâng lên schema 13, hàng ở Văn phòng cũ nằm ở Văn phòng Hà Nội.

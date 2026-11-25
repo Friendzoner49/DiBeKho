@@ -377,7 +377,8 @@ enum Details {
             (t("col.category"), text(p, "category")),
             (t("col.stock"), "\(Format.quantity(number(p, "stock"))) \(unit)"),
             (t("prod.places"), t("prod.places_value", ["main": Format.quantity(number(p, "stock_main")),
-                                                       "office": Format.quantity(number(p, "stock_office")), "unit": unit])),
+                                                       "office": Format.quantity(number(p, "stock_office")),
+                                                       "bn": Format.quantity(number(p, "stock_bn")), "unit": unit])),
         ]
         var emphasis: [Int: DetailData.Emphasis] = [3: .big]
         if !text(p, "stock_note").isEmpty {

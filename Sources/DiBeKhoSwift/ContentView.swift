@@ -161,10 +161,12 @@ struct StockPage: View {
                           Column(title: t("col.stock_note"), width: 160, editable: true, fixed: true),
                           Column(title: t("loc.main"), width: 80, numeric: true),
                           Column(title: t("loc.office"), width: 80, numeric: true),
+                          Column(title: t("loc.office_bn"), width: 80, numeric: true),
                           Column(title: t("col.last_out"), width: 100)],
                 rows: rows.map { r in
                     [r.code, r.nameVi, r.nameZh, r.spec, r.variant, r.category, r.unit, Format.quantity(r.stock),
-                     r.stockNote, Format.quantity(r.stockMain), Format.quantity(r.stockOffice), Format.date(r.lastOut)]
+                     r.stockNote, Format.quantity(r.stockMain), Format.quantity(r.stockOffice), Format.quantity(r.stockBn),
+                     Format.date(r.lastOut)]
                 },
                 tones: rows.map { r in r.stock < 0 ? .negative : StockQueries.isLow(r.stock, level) ? .low : .normal },
                 onOpen: { model.openProduct(rows[$0].id) },

@@ -452,7 +452,7 @@ public enum Receipts {
         return found
     }
 
-    static let placeWords: Set<String> = ["kho", "kho tong", "van phong", "office", "main warehouse"]
+    static let placeWords: Set<String> = ["kho", "kho tong", "van phong", "van phong ha noi", "van phong bac ninh", "office", "main warehouse"]
 
     /// A supplier typed as 'kho', 'kho tổng', 'văn phòng'… is usually where the goods are PUT: the form asks.
     public static func looksLikePlace(_ supplierName: String) -> Bool {

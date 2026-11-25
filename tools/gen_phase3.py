@@ -169,7 +169,7 @@ run("transfer_empty", tx(lambda: stock.transfer(conn, date(2026, 11, 14), OFFICE
 run("transfer_back", tx(lambda: stock.transfer(conn, date(2026, 11, 15), OFFICE, MAIN, [Line(2, 1)])))
 run("trial", tx(lambda: stock.record_trial_use(conn, date(2026, 11, 15), OFFICE, [Line(1, 1, note="thử màu")],
                                                note="khách xem")))
-run("trial_bad", tx(lambda: stock.record_trial_use(conn, date(2026, 11, 15), 3, [Line(1, 1)])))
+run("trial_bad", tx(lambda: stock.record_trial_use(conn, date(2026, 11, 15), 4, [Line(1, 1)])))  # 3 = Bắc Ninh from 0.6.7
 run("count_place", tx(lambda: stock.stock_count(conn, date(2026, 11, 15),
                                                 {(1, MAIN): 70, (2, OFFICE): 0, (3, OFFICE): 4.5}, note="đếm")))
 run("count_total", tx(lambda: stock.stock_count(conn, date(2026, 11, 16), {3: 30, 1: 999.25})))

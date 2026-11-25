@@ -519,14 +519,33 @@ struct StatsPeriodRow: View {
 
 // ---- Kiểm kê (ui/count_page.CountPage)
 
+/// One place at a time (user, 25/11/2026: each office counts its own goods): «Đếm ở» picks Kho tổng, Văn phòng Hà Nội
+/// or Văn phòng Bắc Ninh; one 'in the app' column and one yellow 'counted' column for that place.
 struct CountPage: View {
     @ObservedObject var model: AppModel
     @State private var date = Dates.today
     @State private var note = ""
-    /// typed counts, by product and place
-    @State private var counted: [Ledger.PlaceKey: String] = [:]
+    @State private var place = Ledger.main
+    /// typed counts at the place shown, by product
+    @State private var counted: [Int64: String] = [:]
 
-    static let countMain = 9, countOffice = 10, noteCol = 12
+    static let countCol = 7, diffCol = 8, noteCol = 9
+
+    /// Another place: the numbers typed for the place before are dropped (asked first), as count_page._place_changed.
+    private var placeBinding: Binding<Int64> {
+        Binding(get: { place }, set: { value in
+            guard value != place else { return }
+            let apply = {
+                counted = [:]
+                place = value
+                model.rescan(quiet: true)
+            }
+            guard counted.values.contains(where: { parseNumber($0) != nil }) else { return apply() }
+            // asked after the picker has finished with the click (a modal opened inside it misbehaves, notes 22/11)
+            let shown = UI.locationName(place)
+            UI.later { if UI.ask(t("count.place_change", ["place": shown])) { apply() } }
+        })
+    }
 
     var body: some View {
         _ = model.version
@@ -534,21 +553,18 @@ struct CountPage: View {
         let levels = model.read { try Ledger.levelsByPlace($0, asOf: date) } ?? [:]
         var red: Set<[Int]> = []
         let rows: [[String]] = products.enumerated().map { i, p in
-            let main = levels[.init(p.id, Ledger.main)] ?? 0, office = levels[.init(p.id, Ledger.office)] ?? 0
-            let cm = counted[.init(p.id, Ledger.main)] ?? "", co = counted[.init(p.id, Ledger.office)] ?? ""
-            var diff = 0.0, any = false
-            for (text, had) in [(cm, main), (co, office)] {
-                if let v = parseNumber(text) {
-                    diff += v - had
-                    any = true
-                }
+            let had = levels[.init(p.id, place)] ?? 0
+            let typed = counted[p.id] ?? ""
+            var diffText = ""
+            if let v = parseNumber(typed) {
+                let diff = v - had
+                if abs(diff) > 1e-9 { red.insert([i, Self.diffCol]) }
+                diffText = (diff > 0 ? "+" : "") + Format.quantity(diff)
             }
-            if any && abs(diff) > 1e-9 { red.insert([i, 11]) }
-            let diffText = any ? (diff > 0 ? "+" : "") + Format.quantity(diff) : ""
-            return [p.code, p.nameVi, p.nameZh, p.spec, p.variant, p.unit, Format.quantity(main), Format.quantity(office),
-                    Format.quantity(main + office), cm, co, diffText, p.stockNote]
+            return [p.code, p.nameVi, p.nameZh, p.spec, p.variant, p.unit, Format.quantity(had), typed, diffText, p.stockNote]
         }
-        let typed = Set(counted.filter { parseNumber($0.value) != nil }.keys.map(\.productId))
+        let typedCount = counted.values.filter { parseNumber($0) != nil }.count
+        let name = UI.locationName(place)
         return VStack(alignment: .leading, spacing: 6) {
             PageHeader(title: t("nav.count"), hint: t("count.hint"))
                 .onAppear { model.rescan(quiet: true) }  // notes dated before the count must be in first
@@ -561,21 +577,21 @@ struct CountPage: View {
                 Button(t("trial.button")) { UI.later { _ = Forms.trial(model) } }.help(t("trial.tip"))
             }
             HStack {
+                // the place counted: first on its own row, so the note box keeps its room (count_page.py)
+                Text(t("count.place"))
+                LocationPicker(selection: placeBinding)
+                Spacer().frame(width: 16)
                 Button(t("count.transfers_btn")) { Screens.history("transfer", model) }
                 Button(t("count.trials_btn")) { Screens.history("trial", model) }
                 Button(t("count.counts_btn")) { Screens.history("stock_count", model) }
                 Spacer()
             }
-            let main = UI.locationName(Ledger.main), office = UI.locationName(Ledger.office)
             DataTable(
                 columns: [Column(title: t("col.code"), width: 70), Column(title: t("col.product"), width: 200),
                           Column(title: t("col.name_zh"), width: 130), Column(title: t("col.spec"), width: 100),
                           Column(title: t("col.variant"), width: 90), Column(title: t("col.unit"), width: 60),
-                          Column(title: t("count.in_app_at", ["place": main]).replacingOccurrences(of: "\n", with: " "), width: 110, numeric: true),
-                          Column(title: t("count.in_app_at", ["place": office]).replacingOccurrences(of: "\n", with: " "), width: 110, numeric: true),
-                          Column(title: t("count.in_app"), width: 90, numeric: true),
-                          Column(title: t("count.counted_at", ["place": main]).replacingOccurrences(of: "\n", with: " "), width: 120, numeric: true, editable: true),
-                          Column(title: t("count.counted_at", ["place": office]).replacingOccurrences(of: "\n", with: " "), width: 120, numeric: true, editable: true),
+                          Column(title: t("count.in_app_at", ["place": name]).replacingOccurrences(of: "\n", with: " "), width: 150, numeric: true),
+                          Column(title: t("count.counted_at", ["place": name]).replacingOccurrences(of: "\n", with: " "), width: 160, numeric: true, editable: true),
                           Column(title: t("col.difference"), width: 90, numeric: true),
                           Column(title: t("col.stock_note"), width: 180, editable: true)],
                 rows: rows,
@@ -585,9 +601,8 @@ struct CountPage: View {
                         model.write("stock_note") { try Catalog.saveStockNote($0, productId: p.id, text: text) }
                         return
                     }
-                    let place = col == Self.countMain ? Ledger.main : Ledger.office
                     let clean = text.trimmingCharacters(in: .whitespaces)
-                    counted[.init(p.id, place)] = clean.isEmpty || parseNumber(clean) != nil ? clean : ""
+                    counted[p.id] = clean.isEmpty || parseNumber(clean) != nil ? clean : ""
                 },
                 redCells: red,
                 // count_page.py: columns as wide as their contents, Mặt hàng takes the room left, the table scrolls
@@ -595,7 +610,7 @@ struct CountPage: View {
                 fitWidth: false,
                 sortable: false)
             HStack {
-                Text(t("count.summary", ["counted": String(typed.count), "total": String(products.count)]))
+                Text(t("count.summary", ["counted": String(typedCount), "total": String(products.count)]))
                 Spacer()
                 Button(t("count.save")) { save(products) }
             }
@@ -605,13 +620,12 @@ struct CountPage: View {
     private func save(_ products: [Product]) {
         var lines: [Ledger.Counted] = []
         for p in products {
-            for place in Ledger.locations {
-                if let v = counted[.init(p.id, place)].flatMap(parseNumber) { lines.append(.init(p.id, place, v)) }
-            }
+            if let v = counted[p.id].flatMap(parseNumber) { lines.append(.init(p.id, place, v)) }
         }
         if lines.isEmpty { return UI.error(t("count.nothing")) }
         let count = Set(lines.map(\.productId)).count
-        guard UI.ask(t("count.confirm", ["count": String(count), "date": dmy(date)])) else { return }
+        let name = UI.locationName(place)
+        guard UI.ask(t("count.confirm_at", ["count": String(count), "date": dmy(date), "place": name])) else { return }
         let day = date, text = note.trimmingCharacters(in: .whitespaces)
         if model.write("stock_count", { try Ledger.stockCount($0, date: day, counted: lines, note: text) }) != nil {
             counted = [:]

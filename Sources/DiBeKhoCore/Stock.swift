@@ -15,6 +15,7 @@ public struct StockRow: Equatable {
     public let stock: Double
     public let stockMain: Double
     public let stockOffice: Double
+    public var stockBn: Double = 0  // Văn phòng Bắc Ninh
     public let lastOut: String?
 
     /// What the search box looks in (as the Python Tồn kho screen).
@@ -23,7 +24,8 @@ public struct StockRow: Equatable {
 
 public enum StockQueries {
     public static let main: Int64 = 1  // Kho tổng
-    public static let office: Int64 = 2  // Văn phòng
+    public static let office: Int64 = 2  // Văn phòng Hà Nội
+    public static let bacNinh: Int64 = 3  // Văn phòng Bắc Ninh
 
     private static func text(_ row: Row, _ column: String) -> String {
         let value: String? = row[column]
@@ -42,6 +44,7 @@ public enum StockQueries {
                    COALESCE(SUM(m.qty), 0) AS stock,
                    COALESCE(SUM(CASE WHEN m.location_id = 1 THEN m.qty END), 0) AS stock_main,
                    COALESCE(SUM(CASE WHEN m.location_id = 2 THEN m.qty END), 0) AS stock_office,
+                   COALESCE(SUM(CASE WHEN m.location_id = 3 THEN m.qty END), 0) AS stock_bn,
                    MAX(CASE WHEN m.kind = 'delivery_out' THEN m.occurred_on END) AS last_out
             FROM products p
             LEFT JOIN stock_movements m ON m.product_id = p.id
@@ -56,7 +59,7 @@ public enum StockQueries {
                             spec: text(row, "spec"), variant: text(row, "variant"), category: text(row, "category"),
                             unit: text(row, "unit"), stockNote: text(row, "stock_note"), stock: number(row, "stock"),
                             stockMain: number(row, "stock_main"), stockOffice: number(row, "stock_office"),
-                            lastOut: lastOut)
+                            stockBn: number(row, "stock_bn"), lastOut: lastOut)
         }
     }
 

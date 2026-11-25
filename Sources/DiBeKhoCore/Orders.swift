@@ -24,7 +24,7 @@ public struct OrderRow: Equatable {
 
 public enum OrderQueries {
     public static func placeName(_ id: Int64?) -> String {
-        id == StockQueries.office ? "Văn phòng" : "Kho tổng"
+        id == StockQueries.office ? "Văn phòng Hà Nội" : id == StockQueries.bacNinh ? "Văn phòng Bắc Ninh" : "Kho tổng"
     }
 
     public static func statusName(_ status: String) -> String {
@@ -68,7 +68,7 @@ public enum OrderQueries {
             let status: String? = row["status"]
             let file: String? = row["source_file"]
             let place = (places ?? 0) > 1
-                ? "Kho tổng + Văn phòng"
+                ? "Nhiều nơi"
                 : placeName(location) + ((locationSet ?? 1) != 0 ? "" : " (?)")
             return OrderRow(id: id, date: date ?? "", code: code ?? "", customer: customer ?? "", customerId: customerId, place: place,
                             lineCount: lines ?? 0, totalQty: qty ?? 0, goods: goods, fees: fees,

@@ -226,7 +226,7 @@ final class IssueTests: XCTestCase {
             date: "2026-11-15", customerName: "Đại lý Mới", phone: "0911 222 333", address: "Đà Nẵng", lines: [
                 Issues.LineInput(productId: 1, qtyMain: 0, qtyOffice: 2, unitPrice: 380000,
                                  note: String(repeating: "A very long note, ", count: 8)),
-                Issues.LineInput(productId: 3, qtyMain: 3, unitPrice: 1200000)]))
+                Issues.LineInput(productId: 3, qtyMain: 3, unitPrice: 1200000, qtyBn: 1)]))
         try levels("after_2")
         checks.append("customer_new=" + (try q.read { db in
             try Row.fetchAll(db, sql: "SELECT * FROM customers WHERE id > 3").map {
@@ -256,7 +256,7 @@ final class IssueTests: XCTestCase {
             [d.date, d.customerName, d.phone, d.contact, d.address, d.taxCode, d.email].joined(separator: "|")
         }
         func linesOf(_ d: Issues.Input) -> String {
-            d.lines.map { "\($0.productId.map(String.init) ?? "nil"):\(c.canon($0.qtyMain)):\(c.canon($0.qtyOffice)):\(c.canon($0.unitPrice)):\($0.note)" }
+            d.lines.map { "\($0.productId.map(String.init) ?? "nil"):\(c.canon($0.qtyMain)):\(c.canon($0.qtyOffice)):\(c.canon($0.qtyBn)):\(c.canon($0.unitPrice)):\($0.note)" }
                 .joined(separator: ",")
         }
         run("edit_load_shop_note") { String(try q.read { try Issues.load($0, docId: 2) }.code) }
@@ -267,7 +267,7 @@ final class IssueTests: XCTestCase {
         changed.email = "khach@example.com"
         changed.lines[0].unitPrice = 170000
         changed.lines[0].qtyMain = 1
-        changed.lines.append(Issues.LineInput(productId: 1, qtyMain: 2, qtyOffice: 0, unitPrice: 390000, note: "thêm"))
+        changed.lines.append(Issues.LineInput(productId: 1, qtyMain: 2, qtyOffice: 0, unitPrice: 390000, note: "thêm", qtyBn: 1))
         let toEdit = changed
         run("edit_shop_note") { String(try write { try Issues.edit($0, folders, docId: 2, toEdit).docId }) }
         let (doc4, path4) = try write { try Issues.edit($0, folders, docId: third, toEdit) }

@@ -27,17 +27,20 @@ public enum Issues {
     public struct LineInput {
         public var productId: Int64?
         public var qtyMain = 0.0
-        public var qtyOffice = 0.0
+        public var qtyOffice = 0.0  // Văn phòng Hà Nội
         public var unitPrice: Double?
         public var note = ""
         /// not in the catalog yet: created on save
         public var new: NewProduct?
+        public var qtyBn = 0.0  // Văn phòng Bắc Ninh (25/11/2026)
         public init(productId: Int64?, qtyMain: Double = 0, qtyOffice: Double = 0, unitPrice: Double? = nil,
-                    note: String = "", new: NewProduct? = nil) {
+                    note: String = "", new: NewProduct? = nil, qtyBn: Double = 0) {
             self.productId = productId; self.qtyMain = qtyMain; self.qtyOffice = qtyOffice
-            self.unitPrice = unitPrice; self.note = note; self.new = new
+            self.unitPrice = unitPrice; self.note = note; self.new = new; self.qtyBn = qtyBn
         }
-        public var qty: Double { qtyMain + qtyOffice }
+        public var qty: Double { qtyMain + qtyOffice + qtyBn }
+        /// (place, qty) for the three places, in the order of the form (Python IssueLineInput.by_place)
+        public var byPlace: [(Int64, Double)] { [(Ledger.main, qtyMain), (Ledger.office, qtyOffice), (Ledger.bacNinh, qtyBn)] }
     }
 
     public struct Input {
@@ -96,7 +99,7 @@ public enum Issues {
         for ln in data.filled {
             if let n = ln.new, TextRules.clean(n.nameVi).isEmpty {
                 found.append(("receipt_form.new_needs_name", [:]))
-            } else if ln.qtyMain < 0 || ln.qtyOffice < 0 || (ln.unitPrice ?? 0) < 0 {
+            } else if ln.byPlace.contains(where: { $0.1 < 0 }) || (ln.unitPrice ?? 0) < 0 {
                 found.append(("issue.negative", ln.new.map { ["product": $0.label] } ?? ["id": String(ln.productId ?? 0)]))
             }
         }
@@ -125,7 +128,7 @@ public enum Issues {
         var levels = try Ledger.levelsByPlace(db)
         for ln in old?.filled ?? [] {
             guard let pid = ln.productId else { continue }
-            for (loc, qty) in [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)] {
+            for (loc, qty) in ln.byPlace {
                 levels[Ledger.PlaceKey(pid, loc), default: 0] += qty
             }
         }
@@ -133,7 +136,7 @@ public enum Issues {
         var order: [Ledger.PlaceKey] = []  // the order the lines come in, as Python's dict keeps it
         for ln in data.filled {
             guard let pid = ln.productId else { continue }
-            for (loc, qty) in [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)] where qty != 0 {
+            for (loc, qty) in ln.byPlace where qty != 0 {
                 let key = Ledger.PlaceKey(pid, loc)
                 if asked[key] == nil { order.append(key) }
                 asked[key, default: 0] += qty
@@ -227,7 +230,7 @@ public enum Issues {
         var rows: [IssueNote.Row] = []
         for ln in data.filled {
             if ln.productId == nil, let n = ln.new {  // only on a draft: a real note creates its new products first
-                let places = [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)].filter { $0.1 > 0 }
+                let places = ln.byPlace.filter { $0.1 > 0 }
                 let name = [TextRules.clean(n.nameVi), TextRules.clean(n.variant)].filter { !$0.isEmpty }.joined(separator: " ")
                 rows.append(IssueNote.Row(code: "", nameVi: name, nameZh: TextRules.clean(n.nameZh), spec: TextRules.clean(n.spec),
                                           qty: ln.qty, places: places, unitPrice: ln.unitPrice,
@@ -236,7 +239,7 @@ public enum Issues {
             }
             guard let pid = ln.productId, let p = try Catalog.product(db, id: pid) else { continue }
             let name = [p.nameVi, p.variant].filter { !$0.isEmpty }.joined(separator: " ")
-            let places = [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)].filter { $0.1 > 0 }
+            let places = ln.byPlace.filter { $0.1 > 0 }
             let amount = ln.unitPrice.map { pythonRound2(ln.qty * $0) }
             rows.append(IssueNote.Row(code: p.code, nameVi: name, nameZh: p.nameZh, spec: p.spec, qty: ln.qty, places: places,
                                       unitPrice: ln.unitPrice, amount: amount, note: TextRules.clean(ln.note)))
@@ -299,13 +302,16 @@ public enum Issues {
         for ln in note.lines {
             let main = ln.places.isEmpty ? ln.qty : ln.places.filter { Int64($0.0) == Ledger.main }.reduce(0) { $0 + $1.1 }
             let office = ln.places.filter { Int64($0.0) == Ledger.office }.reduce(0) { $0 + $1.1 }
+            let bn = ln.places.filter { Int64($0.0) == Ledger.bacNinh }.reduce(0) { $0 + $1.1 }
             let code = TextRules.clean(ln.productCode)
             if !code.isEmpty, let pid = try Int64.fetchOne(db, sql: "SELECT id FROM products WHERE code = ?", arguments: [code]) {
-                lines.append(LineInput(productId: pid, qtyMain: main, qtyOffice: office, unitPrice: ln.unitPrice, note: ln.note))
+                lines.append(LineInput(productId: pid, qtyMain: main, qtyOffice: office, unitPrice: ln.unitPrice, note: ln.note,
+                                       qtyBn: bn))
             } else {
                 lines.append(LineInput(productId: nil, qtyMain: main, qtyOffice: office, unitPrice: ln.unitPrice, note: ln.note,
                                        new: NewProduct(TextRules.clean(ln.nameVi.isEmpty ? ln.rawName : ln.nameVi),
-                                                       nameZh: TextRules.clean(ln.nameZh), spec: TextRules.clean(ln.spec))))
+                                                       nameZh: TextRules.clean(ln.nameZh), spec: TextRules.clean(ln.spec)),
+                                       qtyBn: bn))
             }
         }
         return (note.code, Input(date: note.docDate, customerName: note.customerName, phone: note.phone, contact: note.contact,
@@ -479,7 +485,7 @@ public enum Issues {
             if taken[id] == nil {
                 var split: [Int64: Double] = [:]
                 var left: Double = r["qty"]
-                for loc in [Ledger.main, Ledger.office] {
+                for loc in Ledger.locations {
                     let part = min(left, max(pool[Ledger.PlaceKey(pid, loc)] ?? 0, 0))
                     if part != 0 {
                         split[loc] = part
@@ -495,7 +501,7 @@ public enum Issues {
             }
             out.append(LineInput(productId: pid, qtyMain: taken[id]?[Ledger.main] ?? 0,
                                  qtyOffice: taken[id]?[Ledger.office] ?? 0, unitPrice: r["unit_price"],
-                                 note: r["note"] ?? ""))
+                                 note: r["note"] ?? "", qtyBn: taken[id]?[Ledger.bacNinh] ?? 0))
         }
         let data = Input(date: doc["doc_date"] ?? "", customerName: c?["name"] ?? "", phone: c?["phone"] ?? "",
                          contact: c?["contact"] ?? "", address: c?["address"] ?? "", taxCode: c?["tax_code"] ?? "",

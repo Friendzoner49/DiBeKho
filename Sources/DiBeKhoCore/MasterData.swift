@@ -158,12 +158,13 @@ public enum MasterData {
                          .number(levels[id] ?? 0),
                          .number(placed[Ledger.PlaceKey(id, Ledger.main)] ?? 0),
                          .number(placed[Ledger.PlaceKey(id, Ledger.office)] ?? 0),
+                         .number(placed[Ledger.PlaceKey(id, Ledger.bacNinh)] ?? 0),
                          .text(p["stock_note"] ?? "")])
         }
         fill(&stock, title: t("master.title_stock"), note: note,
              headers: [t("col.code"), t("col.product"), t("col.category"), t("col.variant"), t("col.stock"), t("loc.main"),
-                       t("loc.office"), t("col.stock_note")],
-             rows: rows, widths: [10, 52, 26, 22, 12, 12, 12, 40], dateCol: nil)
+                       t("loc.office"), t("loc.office_bn"), t("col.stock_note")],
+             rows: rows, widths: [10, 52, 26, 22, 12, 12, 14, 14, 40], dateCol: nil)
 
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try XlsxWriter.write([products, customers, stock], to: url)
@@ -319,15 +320,16 @@ public enum MasterData {
         let count = headerCount(ws)
         let withCode = count >= 5
         let withNote = withCode && count >= 8
+        let noteAt = count >= 9 ? 8 : 7  // a Văn phòng Bắc Ninh column before the note from 25/11/2026
         var rows: [Stock] = []
-        for (r, raw) in dataRows(ws, 8) {
+        for (r, raw) in dataRows(ws, 9) {
             var row = raw
             if !withCode { row.insert(nil, at: 0) }
             let code = TextRules.clean(text(row[0])), name = TextRules.clean(text(row[1]))
             if code.isEmpty && name.isEmpty { continue }
             rows.append(Stock(row: r, code: code, name: name, stock: stockValue(row[4]), productRow: nil,
                               category: TextRules.clean(text(row[2])), variant: TextRules.clean(text(row[3])),
-                              matchedBy: "", note: withNote ? TextRules.clean(text(row[7])) : nil))
+                              matchedBy: "", note: withNote ? TextRules.clean(text(row[noteAt])) : nil))
         }
         let active = products.filter { $0.active }
         var codeCount: [String: Int] = [:]

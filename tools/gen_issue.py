@@ -187,7 +187,7 @@ levels("after_1")
 second = issue_save("issue_2", IssueInput(
     date(2026, 11, 15), "Đại lý Mới", "0911 222 333", "", "Đà Nẵng", "", "", [
         IssueLineInput(1, 0.0, 2.0, 380000.0, "A very long note, " * 8),
-        IssueLineInput(3, 3.0, 0.0, 1200000.0, "")]))
+        IssueLineInput(3, 3.0, 0.0, 1200000.0, "", qty_bn=1.0)]))  # Văn phòng Bắc Ninh (25/11/2026)
 levels("after_2")
 checks.append("customer_new=" + ",".join(f"{r['name']}|{r['phone']}|{r['phone_norm']}|{r['address']}"
                                          for r in conn.execute("SELECT * FROM customers WHERE id > 3")))
@@ -217,7 +217,7 @@ def head_of(data) -> str:
 
 
 def lines_of(data) -> str:
-    return ",".join(f"{ln.product_id}:{canon(ln.qty_main)}:{canon(ln.qty_office)}:{canon(ln.unit_price)}:{ln.note}"
+    return ",".join(f"{ln.product_id}:{canon(ln.qty_main)}:{canon(ln.qty_office)}:{canon(ln.qty_bn)}:{canon(ln.unit_price)}:{ln.note}"
                     for ln in data.lines)
 
 
@@ -227,7 +227,7 @@ checks.append(f"edit_load={code3}|{head_of(loaded)}|{lines_of(loaded)}")
 loaded.tax_code, loaded.email = "0100000002", "khach@example.com"
 loaded.lines[0].unit_price = 170000.0
 loaded.lines[0].qty_main = 1.0
-loaded.lines.append(IssueLineInput(1, 2.0, 0.0, 390000.0, "thêm"))
+loaded.lines.append(IssueLineInput(1, 2.0, 0.0, 390000.0, "thêm", qty_bn=1.0))
 run("edit_shop_note", lambda: issues.edit(conn, ws, 2, loaded))
 doc4, path4 = issues.edit(conn, ws, third, loaded)
 checks.append(f"issue_edit_file={path4.relative_to(ws.root).as_posix()}")

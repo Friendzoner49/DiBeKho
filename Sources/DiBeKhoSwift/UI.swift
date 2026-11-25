@@ -86,7 +86,7 @@ enum UI {
     }
 
     static func locationName(_ id: Int64?) -> String {
-        t(id == Ledger.office ? "loc.office" : "loc.main")
+        t(id == Ledger.office ? "loc.office" : id == Ledger.bacNinh ? "loc.office_bn" : "loc.main")
     }
 
     static func open(_ url: URL) { NSWorkspace.shared.open(url) }
@@ -261,7 +261,7 @@ struct TabBar: View {
     }
 }
 
-/// Kho tổng / Văn phòng.
+/// Kho tổng / Văn phòng Hà Nội / Văn phòng Bắc Ninh.
 struct LocationPicker: View {
     @Binding var selection: Int64
     /// the whole width of a form row (Nhập vào in Nhập hàng về, as the Qt combo box)

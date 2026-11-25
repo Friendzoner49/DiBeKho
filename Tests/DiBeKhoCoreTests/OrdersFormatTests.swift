@@ -83,7 +83,7 @@ final class OrderTests: XCTestCase {
         let yuan = try XCTUnwrap(byCode["161"])
         XCTAssertTrue(yuan.isYuan)
         XCTAssertEqual(Format.money(yuan.goods, currency: yuan.currency, rate: yuan.fxRate), "¥4.800 (≈ 17.520.000 ₫)")
-        XCTAssertEqual(byCode["A162"]?.place, "Kho tổng + Văn phòng")
+        XCTAssertEqual(byCode["A162"]?.place, "Nhiều nơi")
         XCTAssertEqual(byCode["163"]?.place, "Kho tổng (?)")
         XCTAssertNil(byCode["163"]?.goods)
     }
@@ -92,6 +92,6 @@ final class OrderTests: XCTestCase {
         let rows = try shop().read { try OrderQueries.deliveries($0, includeClosed: true) }
         let cancelled = try XCTUnwrap(rows.first { $0.code == "159" })
         XCTAssertEqual(OrderQueries.statusName(cancelled.status), "Đã huỷ")
-        XCTAssertEqual(cancelled.place, "Văn phòng")
+        XCTAssertEqual(cancelled.place, "Văn phòng Hà Nội")
     }
 }

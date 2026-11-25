@@ -75,6 +75,8 @@ public enum DeliveryNoteReader {
     ]
     static let extraLabels: [(String, String, String)] = [("code", "ma hang", "货号"), ("place", "lay tu kho", "取货地点")]
     static let placeValues: [(String, Int)] = [("kho tong", 1), ("总仓", 1), ("van phong", 2), ("办公室", 2)]
+    /// A bare 'Văn phòng 办公室' (notes before 25/11/2026, one office) is Hà Nội; the city names say which office.
+    static let officeCities: [(String, Int)] = [("ha noi", 2), ("河内", 2), ("bac ninh", 3), ("北宁", 3)]
     static let priceLabels: [(String, String, String)] = [("price", "don gia", "单价"), ("amount", "thanh tien", "金额")]
     static let endMarkers = ["tong cong", "nguoi giao hang"]
     static let optionalFields: Set<String> = ["phone", "contact", "address", "tax_code", "email"]
@@ -435,7 +437,12 @@ public enum DeliveryNoteReader {
     /// 'Kho tổng' / 'Văn phòng' / '总仓' / '办公室' -> location id
     static func placeOf(_ t: String) -> Int? {
         let plain = TextRules.unaccent(t)
-        let found = Set(placeValues.filter { plain.contains($0.0) || t.contains($0.0) }.map(\.1))
+        var found = Set(placeValues.filter { plain.contains($0.0) || t.contains($0.0) }.map(\.1))
+        let cities = Set(officeCities.filter { plain.contains($0.0) || t.contains($0.0) }.map(\.1))
+        if !cities.isEmpty {  // 'Văn phòng Bắc Ninh 北宁办公室': the city, not the bare 'văn phòng', names the place
+            found.remove(2)
+            found.formUnion(cities)
+        }
         return found.count == 1 ? found.first : nil
     }
 

@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 
 /// 'Phiếu xuất kho…' (ui/issue_form.py): goods out to a customer, typed in the app instead of written in Excel. The
 /// customer (picked from the list, or typed), the date, and the lines: each product says how many are taken from Kho
-/// tổng and how many from Văn phòng (both may be filled), with the price (the customer's last one is filled in). The
+/// tổng, Văn phòng Hà Nội and Văn phòng Bắc Ninh (any of them may be filled), with the price (the customer's last one is filled in). The
 /// same product may stand on several lines. 'Lưu phiếu' writes the Excel file (output/phieu-xuat/) and lowers the stock
 /// at once (Issues.save). A row may be '★ Mặt hàng mới': a product not in the catalog yet, made on save.
 /// While the ₫ | ¥ switch shows yuan, the note is a yuan note (as in Python, user 21/11/2026): prices typed and saved in
@@ -50,6 +50,7 @@ struct IssueFormRow: Identifiable {
     var new: NewProduct?
     var main = ""
     var office = ""
+    var bn = ""  // Văn phòng Bắc Ninh
     var price = ""
     /// typed by the user: the app no longer fills it in
     var priceTyped = false
@@ -57,7 +58,9 @@ struct IssueFormRow: Identifiable {
 
     var mainValue: Double { max(0, pythonRound2(parseNumber(main) ?? 0)) }
     var officeValue: Double { max(0, pythonRound2(parseNumber(office) ?? 0)) }
-    var qty: Double { mainValue + officeValue }
+    var bnValue: Double { max(0, pythonRound2(parseNumber(bn) ?? 0)) }
+    var qty: Double { mainValue + officeValue + bnValue }
+    func value(_ place: Int64) -> Double { place == Ledger.main ? mainValue : place == Ledger.office ? officeValue : bnValue }
     var priceValue: Double? {
         guard let v = IssueFormView.parsePrice(price), v > 0 else { return nil }
         return pythonRound2(v)
@@ -203,8 +206,10 @@ struct IssueFormView: View {
     // ui/issue_form.py column widths (px); the product takes the room left
     private enum W {
         static let spec: CGFloat = 100, unit: CGFloat = 60, have: CGFloat = 80, take: CGFloat = 100
+        /// the two offices' 'Đang có' / 'Lấy ở' columns: 'Văn phòng Bắc Ninh' fits on one line (issue_form.py, 25/11/2026)
+        static let office: CGFloat = 128
         static let price: CGFloat = 120, amount: CGFloat = 110, note: CGFloat = 130, remove: CGFloat = 44
-        static var all: CGFloat { FormTable.numberWidth + 200 * UI.scale + spec + unit + 2 * (have + take) + price + amount + note + remove + 12 }
+        static var all: CGFloat { FormTable.numberWidth + 200 * UI.scale + spec + unit + have + take + 4 * office + price + amount + note + remove + 12 }
     }
 
     private var lines: some View {
@@ -220,8 +225,10 @@ struct IssueFormView: View {
                     Text(t("col.unit")).formHeader(W.unit)
                     Text(t("issue.have", ["place": t("loc.main")])).formHeader(W.have)
                     Text(t("issue.take", ["place": t("loc.main")])).formHeader(W.take)
-                    Text(t("issue.have", ["place": t("loc.office")])).formHeader(W.have)
-                    Text(t("issue.take", ["place": t("loc.office")])).formHeader(W.take)
+                    Text(t("issue.have", ["place": t("loc.office")])).formHeader(W.office)
+                    Text(t("issue.take", ["place": t("loc.office")])).formHeader(W.office)
+                    Text(t("issue.have", ["place": t("loc.office_bn")])).formHeader(W.office)
+                    Text(t("issue.take", ["place": t("loc.office_bn")])).formHeader(W.office)
                     Text(t(cny ? "issue.price_cny" : "issue.price")).formHeader(W.price)
                     Text(t(cny ? "issue.amount_cny" : "issue.amount")).formHeader(W.amount)
                     Text(t("col.note")).formHeader(W.note)
@@ -252,8 +259,11 @@ struct IssueFormView: View {
                             .formCell(W.have, .trailing, grey: true)
                         StepField(text: $row.main).formCell(W.take, padded: false)
                         Text(haveText(row, Ledger.office)).foregroundColor(over(row, Ledger.office) ? Color.red : .primary)
-                            .formCell(W.have, .trailing, grey: true)
-                        StepField(text: $row.office).formCell(W.take, padded: false)
+                            .formCell(W.office, .trailing, grey: true)
+                        StepField(text: $row.office).formCell(W.office, padded: false)
+                        Text(haveText(row, Ledger.bacNinh)).foregroundColor(over(row, Ledger.bacNinh) ? Color.red : .primary)
+                            .formCell(W.office, .trailing, grey: true)
+                        StepField(text: $row.bn).formCell(W.office, padded: false)
                         StepField(text: Binding(get: { row.price }, set: { row.price = $0; row.priceTyped = true }),
                                   parse: { Self.parsePrice($0) })
                             .formCell(W.price, padded: false)
@@ -293,9 +303,9 @@ struct IssueFormView: View {
         guard let have = have(row, place) else { return false }
         let taken: Double
         if row.new != nil {
-            taken = place == Ledger.main ? row.mainValue : row.officeValue
+            taken = row.value(place)
         } else {
-            taken = rows.filter { $0.productId == row.productId }.reduce(0) { $0 + (place == Ledger.main ? $1.mainValue : $1.officeValue) }
+            taken = rows.filter { $0.productId == row.productId }.reduce(0) { $0 + $1.value(place) }
         }
         return taken > have
     }
@@ -433,7 +443,7 @@ struct IssueFormView: View {
                      taxCode: taxCode, email: email,
                      lines: rows.map { r in
                          Issues.LineInput(productId: r.productId, qtyMain: r.mainValue, qtyOffice: r.officeValue,
-                                          unitPrice: rowPrice(r), note: r.note, new: r.new)
+                                          unitPrice: rowPrice(r), note: r.note, new: r.new, qtyBn: r.bnValue)
                      },
                      currency: cny ? "CNY" : "VND", fxRate: cny ? vndPerCny : nil)
     }
@@ -445,7 +455,7 @@ struct IssueFormView: View {
         levels = model.read { try Ledger.levelsByPlace($0) } ?? [:]
         for ln in old?.filled ?? [] {  // the note being corrected has taken its goods: they are free again for the new one
             guard let pid = ln.productId else { continue }
-            for (loc, qty) in [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)] {
+            for (loc, qty) in ln.byPlace {
                 levels[Ledger.PlaceKey(pid, loc), default: 0] += qty
             }
         }
@@ -473,6 +483,7 @@ struct IssueFormView: View {
             r.new = ln.new
             r.main = ln.qtyMain == 0 ? "" : Self.plain(ln.qtyMain)
             r.office = ln.qtyOffice == 0 ? "" : Self.plain(ln.qtyOffice)
+            r.bn = ln.qtyBn == 0 ? "" : Self.plain(ln.qtyBn)
             r.price = ln.unitPrice.map { Self.plain($0) } ?? ""
             r.priceTyped = true
             r.note = ln.note
@@ -587,7 +598,7 @@ struct IssueFormView: View {
                 let p = ln.productId.flatMap { products[$0] }
                 (name, unit) = (p?.longLabel ?? "", p?.unit ?? "")
             }
-            let parts = [(Ledger.main, ln.qtyMain), (Ledger.office, ln.qtyOffice)].filter { $0.1 != 0 }
+            let parts = ln.byPlace.filter { $0.1 != 0 }
                 .map { "\(UI.locationName($0.0)) \(Format.quantity($0.1))" }
             let money = ln.unitPrice.map { $0 != 0 ? " × \(both($0))" : "" } ?? ""
             return "• \(name): \(parts.joined(separator: " + ")) \(unit)".trimmingCharacters(in: .whitespaces) + money

@@ -234,8 +234,9 @@ public enum Lookup {
         try Row.fetchOne(db, sql: """
             SELECT p.*, COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id), 0) AS stock,
             COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id AND location_id = 1), 0) AS stock_main,
-            COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id AND location_id = 2), 0)
-            AS stock_office FROM products p WHERE p.id = ?
+            COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id AND location_id = 2), 0) AS stock_office,
+            COALESCE((SELECT SUM(qty) FROM stock_movements WHERE product_id = p.id AND location_id = 3), 0)
+            AS stock_bn FROM products p WHERE p.id = ?
             """, arguments: [id])
     }
 

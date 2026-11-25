@@ -112,7 +112,7 @@ final class WritesTests: XCTestCase {
         write("transfer_back") { c.canon(try Ledger.transfer($0, date: "2026-11-15", from: 2, to: 1, lines: [LedgerLine(2, 1)])) }
         write("trial") { c.canon(try Ledger.trialUse($0, date: "2026-11-15", locationId: 2,
                                                       lines: [LedgerLine(1, 1, note: "thử màu")], note: "khách xem")) }
-        write("trial_bad") { c.canon(try Ledger.trialUse($0, date: "2026-11-15", locationId: 3, lines: [LedgerLine(1, 1)])) }
+        write("trial_bad") { c.canon(try Ledger.trialUse($0, date: "2026-11-15", locationId: 4, lines: [LedgerLine(1, 1)])) }  // 3 = Bắc Ninh from 0.6.7
         write("count_place") { c.canon(try Ledger.stockCount($0, date: "2026-11-15", counted: [
             .init(1, 1, 70), .init(2, 2, 0), .init(3, 2, 4.5)], note: "đếm")) }
         write("count_total") { c.canon(try Ledger.stockCount($0, date: "2026-11-16", counted: [.init(3, nil, 30), .init(1, nil, 999.25)])) }
