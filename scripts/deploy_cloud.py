@@ -26,7 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SQL_FILES = ["009_web_rpc.sql", "010_web_receipt_new_products.sql", "011_accounts.sql", "012_web_settings.sql",
-             "013_return_prices.sql", "014_drop_mirror.sql", "015_web_issue.sql", "016_staff_push.sql", "017_app_logs.sql", "018_currency.sql", "019_issue_new_products.sql", "020_customer_tax_email.sql", "021_web_issue_edit.sql", "022_web_issue_currency.sql"]  # each re-runs; 010 after 009
+             "013_return_prices.sql", "014_drop_mirror.sql", "015_web_issue.sql", "016_staff_push.sql", "017_app_logs.sql", "018_currency.sql", "019_issue_new_products.sql", "020_customer_tax_email.sql", "021_web_issue_edit.sql", "022_web_issue_currency.sql", "023_bac_ninh_office.sql"]  # each re-runs; 010 after 009
 ENV_FILE = Path.home() / ".dibekho-deploy.env"
 
 
