@@ -13,7 +13,7 @@ Hướng dẫn này đi từng bước, theo đúng tên nút trên màn hình. 
 4. [Xem tồn kho, hàng sắp hết, ghi chú](#4-xem-tồn-kho-hàng-sắp-hết-ghi-chú)
 5. [Hàng về](#5-hàng-về)
 6. [Kiểm kê từng nơi](#6-kiểm-kê-từng-nơi)
-7. [Chuyển hàng giữa Kho tổng và Văn phòng](#7-chuyển-hàng-giữa-kho-tổng-và-văn-phòng) · [Xuất dùng thử](#7b-xuất-dùng-thử)
+7. [Chuyển hàng giữa Kho tổng và các văn phòng](#7-chuyển-hàng-giữa-kho-tổng-và-các-văn-phòng) · [Xuất dùng thử](#7b-xuất-dùng-thử)
 8. [Khách hàng, doanh thu và giá bán](#8-khách-hàng-doanh-thu-và-giá-bán) · [Gộp khách hàng](#84-gộp-khách-hàng)
 9. [Đơn hàng](#9-đơn-hàng)
 10. [Thống kê và xuất Excel](#10-thống-kê-và-xuất-excel)
@@ -49,7 +49,7 @@ Phía trên cùng có các nút dùng chung:
 - **Đỏ**: tồn âm (app tính ra số nhỏ hơn 0, thường do thiếu phiếu hàng về hoặc chưa kiểm kê).
 - **Vàng**: ô để bạn gõ số vào (ở Kiểm kê, Chuyển hàng).
 
-**Hai nơi chứa hàng:** app chia số tồn theo **Kho tổng** và **Văn phòng**. Số "Tồn" là tổng của hai nơi.
+**Ba nơi chứa hàng:** app chia số tồn theo **Kho tổng**, **Văn phòng Hà Nội** và **Văn phòng Bắc Ninh**. Số "Tồn" là tổng của ba nơi.
 
 **Mẹo:**
 - Tên dài bị cắt? Rê chuột lên ô để xem đủ, hoặc kéo mép tiêu đề cột cho rộng ra.
@@ -78,9 +78,9 @@ Chỉ làm một lần, theo thứ tự.
 | File Excel thống kê tồn kho hằng tháng | Màn hình **Tồn kho** → **Nhập danh mục từ Excel…** → chọn file → xem bảng (nháy đúp ô để sửa, bỏ tick dòng không cần) → giữ tick **Ghi số tồn kho trong file… tính đến ngày**, chọn ngày → **Nhập các dòng đã chọn** |
 | Chưa có gì | Bỏ qua. Mặt hàng sẽ được tạo dần khi đọc phiếu giao hàng ([mục 3](#3-hằng-ngày-đọc-phiếu-giao-hàng)) |
 
-> Số tồn nhập từ file Excel được tính là ở **Kho tổng**. Nếu có hàng ở **Văn phòng**, làm thêm bước 3.
+> Số tồn nhập từ file Excel được tính là ở **Kho tổng**. Nếu có hàng ở **Văn phòng Hà Nội** hoặc **Văn phòng Bắc Ninh**, làm thêm bước 3.
 
-**Bước 3. Kiểm kê đầu kỳ.** Vào **Kiểm kê**, đếm hàng thật ở từng nơi và gõ vào 2 cột vàng ([mục 6](#6-kiểm-kê-từng-nơi)). Từ đây số trên app khớp với kho thật.
+**Bước 3. Kiểm kê đầu kỳ.** Vào **Kiểm kê**, đếm hàng thật từng nơi và gõ vào cột vàng của nơi đó ([mục 6](#6-kiểm-kê-từng-nơi)). Từ đây số trên app khớp với kho thật.
 
 **Bước 4. (Nên làm) Xem mức báo động.** Mặc định app báo khi tồn **dưới 30**. Nếu nhiều mặt hàng thường chỉ có vài thùng, hãy hạ mức này ([mục 12](#12-danh-mục-mặt-hàng-và-mức-báo-động)).
 
@@ -105,7 +105,7 @@ Phiếu không ghi hàng lấy ở đâu, nên mỗi đơn mới hiện trong **
 ![Cần xử lý](images/can-xu-ly.png)
 
 1. Mở mục **Cần xử lý**.
-2. Ở cột **Lấy hàng từ** của từng đơn, chọn **Kho tổng** hoặc **Văn phòng**.
+2. Ở cột **Lấy hàng từ** của từng đơn, chọn **Kho tổng**, **Văn phòng Hà Nội** hoặc **Văn phòng Bắc Ninh**.
 3. Bấm **Lưu nơi lấy hàng**.
 
 Trong lúc chưa chọn, hàng được **tạm trừ ở Kho tổng**, nên tổng tồn đã đúng ngay. Chọn nhầm? Mở đơn đó ([mục 9](#9-đơn-hàng)) và đổi ở ô **Lấy hàng từ**.
@@ -147,7 +147,7 @@ Dùng khi giao hàng cho khách mà chưa có file phiếu giao hàng: app tạo
 
 1. Bấm **📤 Phiếu xuất kho…** ở thanh trên cùng.
 2. Chọn khách trong danh sách (điện thoại, người liên hệ, địa chỉ, MST, email tự điền). Gõ vài chữ của tên khách — không dấu cũng được, gõ mấy số điện thoại cũng được — thì những khách hợp hiện ra ngay dưới ô để chọn. Hoặc bấm **＋ Khách hàng mới…** để nhập đủ thông tin của khách mới: tên, điện thoại, người liên hệ, địa chỉ, **MST**, **email**. Nếu trùng tên hoặc số điện thoại với khách đã có, app hỏi có chọn khách đó không. Khách mới vào danh sách khi lưu phiếu; MST và email được in lên phiếu.
-3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng** và/hoặc **Lấy ở Văn phòng** (lấy ở cả hai nơi thì ghi cả hai ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ. Một mặt hàng bán **hai mức giá** (số lượng khác nhau giá khác nhau)? Ghi nó ở **hai dòng**, mỗi dòng một giá. Hàng **chưa có trong danh mục**: bấm vào ô mặt hàng → **★ Mặt hàng mới (chưa có trong kho)…**, ghi tên, quy cách, đơn vị. Lưu phiếu thì mặt hàng được thêm vào danh mục và tồn của nó thành **số âm**; khi hàng về, nhập ở **Hàng về** (chọn đúng mặt hàng đó) là tồn tự cân lại. Nếu tên trông giống mặt hàng đã có, app hỏi có dùng mặt hàng đó không, để khỏi tạo trùng.
+3. Mỗi dòng: bấm để chọn mặt hàng, rồi ghi số **Lấy ở Kho tổng**, **Lấy ở Văn phòng Hà Nội** và/hoặc **Lấy ở Văn phòng Bắc Ninh** (lấy ở nhiều nơi thì ghi nhiều ô). Cột **Đang có** cho biết mỗi nơi còn bao nhiêu; lấy nhiều hơn số đang có thì số hiện màu đỏ. Một mặt hàng bán **hai mức giá** (số lượng khác nhau giá khác nhau)? Ghi nó ở **hai dòng**, mỗi dòng một giá. Hàng **chưa có trong danh mục**: bấm vào ô mặt hàng → **★ Mặt hàng mới (chưa có trong kho)…**, ghi tên, quy cách, đơn vị. Lưu phiếu thì mặt hàng được thêm vào danh mục và tồn của nó thành **số âm**; khi hàng về, nhập ở **Hàng về** (chọn đúng mặt hàng đó) là tồn tự cân lại. Nếu tên trông giống mặt hàng đã có, app hỏi có dùng mặt hàng đó không, để khỏi tạo trùng.
 4. **Đơn giá** tự điền theo đơn gần nhất của khách (khách mới: đơn gần nhất của mặt hàng đó). Sửa lại nếu giá khác. Công tắc góc trái dưới đang ở **¥** thì cột ghi **Đơn giá (¥)**: gõ giá bằng nhân dân tệ. Phiếu được lưu là **phiếu bằng nhân dân tệ**: file Excel ghi giá và tổng bằng ¥ (dòng bằng chữ ghi "… NHÂN DÂN TỆ"), doanh thu được cộng vào phần tiền tệ. Hộp hỏi trước khi lưu hiện số ¥ kèm số ₫ xấp xỉ. Áp dụng cho cả giao diện tiếng Việt lẫn tiếng Trung, chỉ cần công tắc ở **¥**. Sửa một phiếu đã lưu thì phiếu giữ đúng loại tiền lúc lưu, dù công tắc đang ở đâu.
 5. Bấm **Lưu phiếu** → xem lại → **Có**. Tồn kho bị trừ **ngay**, đơn có trong **Đơn hàng** và doanh thu của khách.
 
@@ -171,17 +171,17 @@ App tạo file Excel `output/phieu-xuat/PhieuXuat_A160.xlsx` để in hoặc g�
 
 ### 4.1. Đọc bảng Tồn kho
 
-Thứ tự cột: Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn, Ghi chú tồn kho, Kho tổng, Văn phòng, Xuất gần nhất.
+Thứ tự cột: Mã, Mặt hàng, Tên Trung, Quy cách, Loại/màu, Nhóm hàng, Đơn vị, Tồn, Ghi chú tồn kho, Kho tổng, Văn phòng Hà Nội, Văn phòng Bắc Ninh, Xuất gần nhất.
 
 | Cột | Ý nghĩa |
 |---|---|
-| **Tồn** | Tổng số hiện có (Kho tổng + Văn phòng) |
+| **Tồn** | Tổng số hiện có (Kho tổng + Văn phòng Hà Nội + Văn phòng Bắc Ninh) |
 | **Ghi chú tồn kho** | Ghi chú riêng của mặt hàng (thùng lỗi, in lệch, hết hạn…); cột hẹp, rê chuột để xem hết |
-| **Kho tổng**, **Văn phòng** | Số ở từng nơi |
+| **Kho tổng**, **Văn phòng Hà Nội**, **Văn phòng Bắc Ninh** | Số ở từng nơi |
 | **Xuất gần nhất** | Ngày giao hàng gần nhất |
 
 - Mặt hàng sắp hết (dưới mức báo động) tô **cam**; tồn âm tô **đỏ**. Dòng đầu trang cho biết có bao nhiêu mặt hàng sắp hết.
-- Cột **Tồn tự dính vào mép trái** khi kéo bảng sang ngang quá nó (kéo thanh cuộn dưới bảng để xem Kho tổng/Văn phòng/Xuất gần nhất mà vẫn thấy tổng tồn).
+- Cột **Tồn tự dính vào mép trái** khi kéo bảng sang ngang quá nó (kéo thanh cuộn dưới bảng để xem Kho tổng/Văn phòng Hà Nội/Văn phòng Bắc Ninh/Xuất gần nhất mà vẫn thấy tổng tồn).
 - Ô **Lọc theo tên…**: gõ để tìm nhanh (không dấu cũng được). Ô **Nhóm hàng**: chỉ xem một nhóm.
 
 ### 4.2. Lập danh sách cần đặt hàng
@@ -201,7 +201,7 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
 ### 4.4. Xem chi tiết một mặt hàng
 
 **Nháy đúp** vào một dòng (chỗ nào cũng được, trừ ô ghi chú). Cửa sổ chi tiết cho biết:
-- Tồn hiện tại và **Theo nơi: Kho tổng … + Văn phòng …**, ví dụ "Kho tổng 39 + Văn phòng 1".
+- Tồn hiện tại và **Theo nơi: Kho tổng … + Văn phòng Hà Nội … + Văn phòng Bắc Ninh …**, ví dụ "Kho tổng 39 + Văn phòng Hà Nội 1 + Văn phòng Bắc Ninh 0".
 - Ghi chú tồn kho (nếu có).
 - **Lịch sử nhập, xuất**: từng lần giao hàng, hàng về, kiểm kê, chuyển hàng, kèm nơi và số tồn sau mỗi lần. Nháy đúp một dòng để mở phiếu đó.
 - **Khách lấy nhiều nhất** mặt hàng này, kèm doanh thu.
@@ -217,7 +217,7 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
    - **Cửa khẩu / công ty mẹ**: gõ tên nhà cung cấp, hoặc chọn tên đã dùng.
    - **Khách hàng trả lại**: chọn khách, và mã đơn khách trả nếu biết. Cột **Đơn giá trả lại** tự điền giá khách đã mua (theo đơn đã chọn, không chọn đơn thì lấy lần mua gần nhất); sửa được nếu hoàn tiền khác giá, để trống thì không trừ doanh thu.
    - **Nhà cung cấp khác**: gõ tên nhà cung cấp, hoặc bấm một trong 3 tên dùng gần nhất hiện ngay bên dưới.
-3. Chọn **Ngày về** và **Nhập vào**: **Kho tổng** hoặc **Văn phòng**.
+3. Chọn **Ngày về** và **Nhập vào**: **Kho tổng**, **Văn phòng Hà Nội** hoặc **Văn phòng Bắc Ninh**.
 4. App gợi ý sẵn 3 mặt hàng (hàng hay về từ nhà cung cấp này, hoặc hàng sắp hết). Gõ **số lượng** cho từng dòng. Dòng để trống số lượng sẽ bị bỏ qua.
    - Đổi mặt hàng: bấm vào tên → **🔍 Chọn mặt hàng trong kho…**. Ô tìm nhận **vài từ bất kỳ, không cần dấu, không cần gạch nối**, ví dụ `fs101 xam 10kg`; bảng có cột riêng cho Quy cách, Loại/màu, Tên Trung và Tồn để phân biệt các mặt hàng cùng tên. Chỉ còn một mặt hàng khớp thì bấm Enter là chọn.
    - Hàng mới hoàn toàn: bấm vào tên → **★ Mặt hàng mới (chưa có trong kho)…**, điền tên, quy cách. Mặt hàng chỉ được tạo khi lưu phiếu.
@@ -243,16 +243,19 @@ Kiểm kê = đếm hàng thật rồi ghi vào app. App chỉ ghi **phần chê
 ![Kiểm kê](images/kiem-ke.png)
 
 1. Vào **Kiểm kê**. Chọn **Ngày kiểm kê** (ngày bạn đếm).
-2. Mỗi mặt hàng có:
+2. Ở ô **Đếm ở:** chọn nơi đang đếm: **Kho tổng**, **Văn phòng Hà Nội** hoặc **Văn phòng Bắc Ninh**. Mỗi nơi đếm riêng.
+3. Mỗi mặt hàng có:
    - Cột **Tên Trung** cạnh tên Việt, để phân biệt các mặt hàng trùng tên mà không nhớ mã SP.
-   - **Theo app: Kho tổng / Văn phòng** và **Tồn theo app**: số app đang tính.
-   - Hai cột vàng **Đếm được: Kho tổng** và **Đếm được: Văn phòng**: gõ số bạn đếm được.
-3. Chỉ gõ những nơi đã đếm. **Ô để trống thì nơi đó giữ nguyên.** Ví dụ hôm nay chỉ đếm Văn phòng: chỉ điền cột Văn phòng.
-4. Cột **Chênh lệch** hiện ngay: đỏ là lệch.
-5. (Tuỳ chọn) gõ **Ghi chú** cho lần kiểm kê, ví dụ "kiểm kê cuối tháng".
-6. Bấm **Lưu kiểm kê** và đồng ý.
+   - **Theo app: <nơi đang đếm>**: số app đang tính ở nơi đó.
+   - Cột vàng **Đếm được: <nơi đang đếm>**: gõ số bạn đếm được.
+4. Chỉ gõ những mặt hàng đã đếm. **Ô để trống thì mặt hàng đó giữ nguyên.**
+5. Cột **Chênh lệch** hiện ngay: đỏ là lệch.
+6. (Tuỳ chọn) gõ **Ghi chú** cho lần kiểm kê, ví dụ "kiểm kê cuối tháng".
+7. Bấm **Lưu kiểm kê** và đồng ý.
 
-**Ví dụ:** app ghi Kho tổng 25, Văn phòng 4. Bạn đếm được Kho tổng 20, Văn phòng 4. Gõ 20 và 4, lưu. App ghi −5 ở Kho tổng; tồn mới là 24 (20 + 4).
+Đổi **Đếm ở** khi đã gõ số mà chưa lưu? App hỏi có bỏ các số đó không (hộp hỏi ghi tên nơi). Bấm đồng ý thì các số đã gõ bị xoá.
+
+**Ví dụ:** app đang ghi Kho tổng 25. Chọn **Đếm ở:** Kho tổng, gõ 20, lưu. App ghi −5 ở Kho tổng; tồn Kho tổng mới là 20. Sau đó chọn **Đếm ở:** Văn phòng Bắc Ninh để đếm nơi đó.
 
 - Cột **Ghi chú tồn kho** ở cuối bảng giống hệt cột ở trang Tồn kho: nháy đúp để ghi thùng lỗi, hết hạn… trong lúc đếm. Ghi chú lưu ngay và **không** làm mất các số bạn đang gõ.
 - App tự quét phiếu giao hàng trước khi hiện số, để phiếu đã có không bị tính hai lần.
@@ -260,14 +263,14 @@ Kiểm kê = đếm hàng thật rồi ghi vào app. App chỉ ghi **phần chê
 
 ---
 
-## 7. Chuyển hàng giữa Kho tổng và Văn phòng
+## 7. Chuyển hàng giữa Kho tổng và các văn phòng
 
-Dùng khi mang hàng từ nơi này sang nơi kia, ví dụ chở 5 thùng sơn từ Kho tổng lên Văn phòng. **Tổng tồn không đổi**, chỉ đổi số ở từng nơi.
+Dùng khi mang hàng từ nơi này sang nơi kia, ví dụ chở 5 thùng sơn từ Kho tổng lên Văn phòng Hà Nội. **Tổng tồn không đổi**, chỉ đổi số ở từng nơi.
 
 ![Chuyển hàng](images/chuyen-hang.png)
 
 1. Vào **Kiểm kê**, bấm **Chuyển hàng…** (góc phải).
-2. Chọn **Ngày chuyển**, **Chuyển từ** và **Chuyển đến** (hai nơi luôn khác nhau).
+2. Chọn **Ngày chuyển**, **Chuyển từ** và **Chuyển đến** (hai nơi luôn khác nhau; có thể là hai trong ba nơi bất kỳ).
 3. Cột **Đang có ở nơi chuyển đi** cho biết số hiện có. Gõ số lượng vào cột vàng **Số lượng chuyển** cho từng mặt hàng mang đi. Bảng có thêm cột **Tên Trung** và **Nhóm hàng** để phân biệt các mặt hàng chỉ khác nhau ở tên Trung; hai cột **Đang có…** và **Số lượng chuyển** tự ghim bên phải khi kéo bảng sang ngang, tiện nhìn và nhập số.
 4. (Tuỳ chọn) gõ **Ghi chú**.
 5. Bấm **Lưu phiếu chuyển**, đọc tóm tắt và đồng ý. Phiếu có mã **CH001, CH002…**
@@ -281,7 +284,7 @@ Xem lại, sửa hoặc huỷ phiếu chuyển: **Kiểm kê → Phiếu chuyể
 Dùng khi mở hàng ra thử nghiệm/dùng nội bộ, **không bán cho khách** — thay cho việc tự lập một phiếu giao hàng khống để trừ tồn. Số lượng này **không** tính là xuất bán trong Thống kê.
 
 1. Vào **Kiểm kê**, bấm **Xuất dùng thử…** (cạnh nút Chuyển hàng).
-2. Chọn **Ngày xuất** và **Nơi xuất** (Kho tổng hoặc Văn phòng).
+2. Chọn **Ngày xuất** và **Nơi xuất** (Kho tổng, Văn phòng Hà Nội hoặc Văn phòng Bắc Ninh).
 3. Gõ số lượng vào cột vàng **Số lượng dùng thử** cho từng mặt hàng. (Tuỳ chọn) gõ **Ghi chú** lý do dùng thử.
 4. Bấm **Lưu phiếu dùng thử**, đọc tóm tắt và đồng ý. Phiếu có mã **DT001, DT002…**
 
@@ -351,7 +354,7 @@ Gộp rồi thì không tách lại được: xem kỹ trước khi bấm.
 ![Chi tiết đơn](images/chi-tiet-don.png)
 
 - Khách (bấm tên để mở khách), người liên hệ, số điện thoại, địa chỉ.
-- Ô **Lấy hàng từ**: đổi Kho tổng / Văn phòng nếu chọn nhầm. (Nếu đã kiểm kê sau ngày của đơn, đổi nơi sẽ làm số từng nơi lệch khỏi số đã đếm: kiểm kê lại nơi đó.)
+- Ô **Lấy hàng từ**: đổi Kho tổng / Văn phòng Hà Nội / Văn phòng Bắc Ninh nếu chọn nhầm. (Nếu đã kiểm kê sau ngày của đơn, đổi nơi sẽ làm số từng nơi lệch khỏi số đã đếm: kiểm kê lại nơi đó.)
 - Các dòng hàng với **Đơn giá**, **Thành tiền**; dòng "Tiền hàng · phí khác · tổng tiền" (tổng tiền khớp dòng "Tổng cộng" trên phiếu giấy).
 - Nút **Mở file gốc** (mở bản sao chỉ đọc của phiếu), **Đọc lại cả phiếu** (xem mục 12), **Huỷ phiếu** (trả lại tồn, giữ lịch sử).
 
@@ -430,8 +433,8 @@ File của bạn (phiếu giao hàng, `input/`, `output/`, sao lưu) **không ba
 2. Nạp gói: chép file vào thư mục `input/` → **Cần xử lý → Nhập dữ liệu**. ⚠ Dữ liệu chung của **mọi máy** bị thay **toàn bộ** bằng nội dung gói: chỉ tài khoản chủ làm được, app hỏi trước, sao lưu trước, cần có mạng.
 
 **Cách 2 — Dữ liệu gốc bằng Excel** (danh mục, khách hàng, số tồn, ghi chú; **không** có đơn hàng):
-- **Xuất dữ liệu gốc…** tạo file Excel 3 trang: Mặt hàng, Khách hàng, Tồn kho. Trang **Tồn kho** có các cột Tồn, Kho tổng, Văn phòng, Ghi chú tồn kho.
-- Sửa số **Tồn** hoặc **Ghi chú** trong trang Tồn kho nếu cần, rồi **Nhập dữ liệu gốc…**: mặt hàng giữ mã; tổng tồn trên app bằng số trong file (chênh lệch ghi ở Kho tổng); ghi chú được cập nhật. Cột Kho tổng / Văn phòng chỉ để xem.
+- **Xuất dữ liệu gốc…** tạo file Excel 3 trang: Mặt hàng, Khách hàng, Tồn kho. Trang **Tồn kho** có các cột Tồn, Kho tổng, Văn phòng Hà Nội, Văn phòng Bắc Ninh, Ghi chú tồn kho. File xuất từ bản cũ (một cột Văn phòng) vẫn nhập được.
+- Sửa số **Tồn** hoặc **Ghi chú** trong trang Tồn kho nếu cần, rồi **Nhập dữ liệu gốc…**: mặt hàng giữ mã; tổng tồn trên app bằng số trong file (chênh lệch ghi ở Kho tổng); ghi chú được cập nhật. Các cột Kho tổng, Văn phòng Hà Nội, Văn phòng Bắc Ninh chỉ để xem.
 - Khi app chưa chắc dòng tồn nào thuộc mặt hàng nào, app hiện hộp **Kiểm tra số tồn trước khi nhập**: dòng tô vàng cần bạn xem lại.
 
 ---

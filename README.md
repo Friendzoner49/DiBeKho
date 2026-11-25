@@ -25,11 +25,11 @@
 
 You drop Excel delivery notes into a folder. The app reads them, takes the goods off the stock, and records the orders and customers. Nothing has to be typed in again.
 
-- 📦 **See the stock** of every product, split between the **main warehouse** and the **office**; below 30 the row turns orange ("running low — order more"), negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
+- 📦 **See the stock** of every product, split between the **main warehouse**, the **Hanoi office** and the **Bac Ninh office**; below 30 the row turns orange ("running low — order more"), negative stock is red; a **note** per product (damaged, misprinted, expired boxes…).
 - 📥 **Enter goods in** in one window: from a border gate / parent company, or a customer return.
-- 📤 **Stock issue note:** pick the customer and the goods, taken from the Main warehouse, the Office or both; the stock goes down at once and an Excel file shaped like a delivery note is written. Not confirmed yet? **Save as draft** (no stock, no revenue), then **From a draft…** once the customer confirms ([details](docs/user-guide.md#35-stock-issue-note)).
+- 📤 **Stock issue note:** pick the customer and the goods, taken from the Main warehouse, the Hanoi office, the Bac Ninh office or several places; the stock goes down at once and an Excel file shaped like a delivery note is written. Not confirmed yet? **Save as draft** (no stock, no revenue), then **From a draft…** once the customer confirms ([details](docs/user-guide.md#35-stock-issue-note)).
 - 💱 **Amounts in dong or yuan:** the **₫ | ¥** switch at the bottom left shows every amount in yuan at today's market rate (statistics files stay in VND; a **stock issue note** made while ¥ is on takes its prices and writes its file in ¥). A note priced in yuan is recognised as a yuan order: its revenue is kept apart from the dong, with the approximate value in ₫ in brackets; in Orders, yuan orders have their own **Goods (CNY)** column.
-- 🔢 **Stock count** per place (main warehouse, office): type what you counted, the app records the difference. **Transfer** goods between the two.
+- 🔢 **Stock count** per place (main warehouse, Hanoi office, Bac Ninh office): type what you counted, the app records the difference. **Transfer** goods between any two places.
 - 🔎 **Search** products, customers, phone numbers and note numbers; accents are optional and Chinese works.
 - 💰 **Revenue per customer:** goods only (shipping apart), the products they buy most, every order with unit prices and amounts, for any period.
 - 📊 **Statistics** by day, month, quarter or year, and **export to Excel**.
@@ -135,7 +135,7 @@ Do these 4 steps once, in this order.
 
 > Scrolling with the mouse wheel **never** changes a choice or a number. When the same name is in several orders, choosing it in one sets the others too.
 
-6. A note does not say where the goods came from, so each new order shows in **To do → Orders without a place yet**. Choose **Main warehouse** or **Office** for each order and click **Save places**. Meanwhile the goods are taken from the main warehouse (the total is already right). Chose wrong? Change **Taken from** in the order window.
+6. A note does not say where the goods came from, so each new order shows in **To do → Orders without a place yet**. Choose **Main warehouse**, **Hanoi office** or **Bac Ninh office** for each order and click **Save places**. Meanwhile the goods are taken from the main warehouse (the total is already right). Chose wrong? Change **Taken from** in the order window.
 
 ### 2. Goods in
 
@@ -149,7 +149,7 @@ Do these 4 steps once, in this order.
    - To change a product, click its name → **🔍 Choose a product from the catalog…** (type any words, e.g. `fs101 xam 10kg`) or **★ New product (not in the catalog)…**.
    - After a quantity, **Enter** moves to the next row (Enter never saves).
    - For more rows, click **＋ Add row**.
-4. Choose **Put in**: main warehouse or office.
+4. Choose **Put in**: main warehouse, Hanoi office or Bac Ninh office.
 5. Click **Save goods in**, read the summary and agree. The stock goes up, the receipt gets a code (HV001, HV002…) and an Excel file of it is saved in `output/hang-ve/`.
 
 A mistake? Select the receipt in the list and click **Edit selected…**. The old receipt stays in the history as "replaced".
@@ -160,15 +160,15 @@ Goods-in files of the old kind (a filled template) can still be imported with **
 
 ### 3. Stock count
 
-Open **Stock count**, pick the date, type what you counted in the 2 yellow columns **Counted: Main warehouse** and **Counted: Office**, and click **Save count**. A place left empty stays as it is. The app only records the difference between your count and its own number, so the history stays clear. A **Chinese name** column helps tell apart products that share a name when you do not remember the product code.
+Open **Stock count**, pick the date and the place in the **Count at:** box, type what you counted in the yellow column **Counted: <place>**, and click **Save count**. Each place is counted on its own; a product left empty stays as it is. The app only records the difference between your count and its own number, so the history stays clear. A **Chinese name** column helps tell apart products that share a name when you do not remember the product code.
 
-- **Transfer…**: goods carried between the main warehouse and the office. Choose from and to, type the quantities (Chinese name and Category columns help tell similar products apart; the two quantity columns stay pinned on the right) and click **Save transfer**. The total does not change, only each place (transfers CH001, CH002…).
+- **Transfer…**: goods carried between the main warehouse and the offices (any two of the three places). Choose from and to, type the quantities (Chinese name and Category columns help tell similar products apart; the two quantity columns stay pinned on the right) and click **Save transfer**. The total does not change, only each place (transfers CH001, CH002…).
 - **Stock note** column (the same as on the Stock page): double-click to write, e.g. "3 boxes misprinted, 2 expire 12/2026". It is saved at once, goes with the data package to another computer and is in the Excel files.
 - Buttons **Transfers…** and **Stock counts…** list the past ones; double-click to view, and a transfer can be **Edit…**ed (reopens it to change products/quantities, the old one stays in the history).
 
 ### 4. Looking things up
 
-- **Stock:** columns **Main warehouse**, **Office** and the total (the **Stock** column sticks to the left edge once you scroll past it, so the running total stays visible). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Search → Product catalog → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
+- **Stock:** columns **Main warehouse**, **Hanoi office**, **Bac Ninh office** and the total (the **Stock** column sticks to the left edge once you scroll past it, so the running total stays visible). **Red** rows = negative stock (a goods in or a stock count is missing); **orange** rows = below the alert level (**30** by default, changed in **Search → Product catalog → Alert when stock is below**). Tick **Only low stock** for the list to order. Double-click the **Stock note** cell to write a note; double-click elsewhere for everything that came in and went out, and the stock at each place.
 - **Search** (**Ctrl+F**, on a Mac **⌘F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
 - **Order list**: the goods of dong orders and of yuan orders stand in two columns, **Goods (VND)** and **Goods (CNY)**; the **Currency** filter shows one kind only.
 - Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Reread the whole note** (right-click an order in the order list to do this straight from there), **Cancel document**.
@@ -288,8 +288,8 @@ DiBeKho/
     <td><img src="docs/images/en/chi-tiet-khach.png" alt="Customer details"><br><b>Customer details:</b> revenue, products they buy most, every order with its prices</td>
   </tr>
   <tr>
-    <td><img src="docs/images/en/kiem-ke.png" alt="Stock count"><br><b>Stock count:</b> per place, main warehouse and office</td>
-    <td><img src="docs/images/en/chuyen-hang.png" alt="Transfer"><br><b>Transfer:</b> between the main warehouse and the office</td>
+    <td><img src="docs/images/en/kiem-ke.png" alt="Stock count"><br><b>Stock count:</b> per place: main warehouse, Hanoi office and Bac Ninh office</td>
+    <td><img src="docs/images/en/chuyen-hang.png" alt="Transfer"><br><b>Transfer:</b> between the main warehouse and the offices</td>
   </tr>
 </table>
 

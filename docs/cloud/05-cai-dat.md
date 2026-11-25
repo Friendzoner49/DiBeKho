@@ -64,7 +64,7 @@ Khi máy chính đã **bật Dữ liệu chung** (app → Cài đặt → Cloud)
 - **Cài đặt → Sao lưu → Xuất dữ liệu** (vai trò `desktop`, không có trên điện thoại): tải toàn bộ dữ liệu chung thành gói `.dibekho` app mở được (không kèm file Excel phiếu gốc và nhật ký). Trình duyệt tự làm gói bằng `webapp/package.js` + `webapp/vendor/` (sql.js, fflate; MIT); cấu trúc CSDL lấy từ `webapp/schema.js`, sinh bằng `scripts/make_web_schema.py` — **thêm migration thì chạy lại script này** (test báo đỏ nếu quên). Gói schema 10 nên app 0.4.5 của khách không mở được.
 - **Cài đặt → Tài khoản** và cỡ giao diện: chỉ tài khoản `maychinh` (mục 5b).
 
-**Điện thoại** (màn hình cảm ứng có cạnh ngắn ≤ 760 px, kể cả khi xoay ngang; máy tính màn nhỏ vẫn có đủ trang): chỉ xem bảng Tồn kho (tên, tồn, Kho tổng, Văn phòng), không có menu. Máy tính bảng và máy tính có đủ trang.
+**Điện thoại** (màn hình cảm ứng có cạnh ngắn ≤ 760 px, kể cả khi xoay ngang; máy tính màn nhỏ vẫn có đủ trang): chỉ xem bảng Tồn kho (tên, tồn, Kho tổng, Văn phòng Hà Nội, Văn phòng Bắc Ninh), không có menu. Máy tính bảng và máy tính có đủ trang.
 
 Tất cả tài khoản đăng nhập xem được toàn bộ dữ liệu (tồn, giá, khách). Muốn hạn chế thì cần vai trò riêng — chưa làm.
 

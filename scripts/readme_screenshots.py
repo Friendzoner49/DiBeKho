@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dibekho import db, i18n  # noqa: E402
 from dibekho.core import catalog, deliveries, receipts  # noqa: E402
-from dibekho.core.stock import MAIN, OFFICE, Line, set_location, stock_count, transfer  # noqa: E402
+from dibekho.core.stock import BAC_NINH, MAIN, OFFICE, Line, set_location, stock_count, transfer  # noqa: E402
 from dibekho.core import workspace as _workspace  # noqa: E402
 from dibekho.core.workspace import Config, Workspace  # noqa: E402
 
@@ -128,6 +128,7 @@ with db.transaction(conn):
         set_location(conn, d["id"], OFFICE if d["code"] == "105" else MAIN)
     transfer(conn, date(2026, 9, 25), MAIN, OFFICE, [Line(ids[0], 4), Line(ids[4], 3), Line(ids[6], 4)],
              "Mang lên văn phòng")
+    transfer(conn, date(2026, 9, 26), MAIN, BAC_NINH, [Line(ids[0], 6), Line(ids[2], 5)], "Mang sang Bắc Ninh")
     catalog.update_product(conn, ids[0], stock_note="2 thùng móp vỏ")
     catalog.update_product(conn, ids[5], stock_note="1 thùng in lệch nhãn, 1 thùng hết hạn 11/2026")
 
@@ -170,10 +171,9 @@ app.processEvents()
 for r in range(count.table.rowCount()):
     pid = count.table.item(r, 0).data(Qt.UserRole)
     if pid == ids[0]:
-        count.table.item(r, count_page.COUNT_MAIN).setText("20")
-        count.table.item(r, count_page.COUNT_OFFICE).setText("4")
+        count.table.item(r, count_page.COUNT_COL).setText("20")  # 'Đếm ở: Kho tổng'
     elif pid == ids[2]:
-        count.table.item(r, count_page.COUNT_MAIN).setText("18")
+        count.table.item(r, count_page.COUNT_COL).setText("18")
 shot(win, "kiem-ke.png")
 dlg = count_page.TransferDialog(ctx, win)
 dlg.resize(980, 560)
