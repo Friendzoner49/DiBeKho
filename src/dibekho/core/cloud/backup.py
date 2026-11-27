@@ -160,14 +160,16 @@ def cloud_originals(client: CloudClient, token: str) -> set[str]:
 _UPLOADING = threading.Lock()  # the sync runner and 'Đồng bộ ngay' / closing must not send the same file at once
 
 
-def upload_originals(ws: Workspace, client: CloudClient, token: str, max_seconds: float | None = None) -> tuple[int, int]:
+def upload_originals(ws: Workspace, client: CloudClient, token: str, max_seconds: float | None = None,
+                     wait: float = 0) -> tuple[int, int]:
     """Upload the kept notes the bucket does not have yet, stopping after max_seconds (the rest go next time).
     -> (uploaded, still to upload). While another upload runs, nothing is sent: a file is never overwritten, so a
-    second sender would only get an error for what the first one is sending."""
+    second sender would only get an error for what the first one is sending. wait: s to wait for that other upload to
+    end first (closing the app would otherwise kill it half way and send nothing itself)."""
     local = transfer.original_files(ws)
     if not local:
         return 0, 0
-    if not _UPLOADING.acquire(blocking=False):
+    if not (_UPLOADING.acquire(timeout=wait) if wait > 0 else _UPLOADING.acquire(blocking=False)):
         return 0, 0
     try:
         return _upload(local, client, token, max_seconds)

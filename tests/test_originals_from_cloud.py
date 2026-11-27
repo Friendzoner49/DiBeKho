@@ -148,6 +148,31 @@ def test_only_one_upload_of_the_originals_at_a_time(ws):
     assert not cloud_backup._UPLOADING.locked()
 
 
+def test_closing_waits_for_an_upload_under_way_then_sends(ws):
+    """User, 27/11/2026: an order saved and the app closed at once must still send its file."""
+    import threading
+
+    from dibekho.core.cloud import backup as cloud_backup
+
+    ws.originals.mkdir(parents=True, exist_ok=True)
+    name = f"{hashlib.sha256(b'mot').hexdigest()}.xlsx"
+    (ws.originals / name).write_bytes(b"mot")
+    sent = []
+
+    class Cloud:
+        def storage_list(self, *a, **k):
+            return []
+
+        def storage_upload(self, path, data, token):
+            sent.append(path)
+
+    cloud_backup._UPLOADING.acquire()
+    other = threading.Timer(0.3, cloud_backup._UPLOADING.release)
+    other.start()
+    assert cloud_backup.upload_originals(ws, Cloud(), "tok", wait=5) == (1, 0) and sent == [f"phieu-goc/{name}"]
+    other.join()
+
+
 def test_the_order_list_downloads_the_chosen_orders(app, ws, monkeypatch):
     from dibekho.ui import orders_page, originals
     from tests.test_locations import window

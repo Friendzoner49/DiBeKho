@@ -66,7 +66,8 @@ def finish_push(conn, cfg, client: CloudClient, access_token: str, with_backup: 
         db.log(conn, "cloud_backup", name)
     if ws is not None:
         try:
-            sent, left = cloud_backup.upload_originals(ws, client, access_token, originals_seconds)
+            sent, left = cloud_backup.upload_originals(ws, client, access_token, originals_seconds,
+                                                       wait=originals_seconds or 0)
         except CloudError as exc:
             activity.log("error", f"cloud originals: {exc}")
             return str(exc)
