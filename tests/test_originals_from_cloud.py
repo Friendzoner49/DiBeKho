@@ -3,6 +3,7 @@
 uploads them), so the owner's window downloads every missing one in the background, and 'Mở file gốc' downloads the
 one it needs when it is still missing."""
 
+import hashlib
 import time
 
 import pytest
@@ -60,8 +61,18 @@ def test_the_owners_window_downloads_the_originals_of_decided_orders_too(app, ws
     win.deleteLater()
 
 
+def _wait(app, done):
+    for _ in range(300):
+        app.processEvents()
+        if done():
+            return
+        time.sleep(0.02)
+    raise AssertionError("the download did not finish")
+
+
 def test_open_original_downloads_the_missing_file_first(app, ws, monkeypatch):
     import dibekho.ui.details as details_mod
+    from dibekho.ui import originals
     from tests.test_locations import window
 
     ctx, win = window(ws)
@@ -70,32 +81,105 @@ def test_open_original_downloads_the_missing_file_first(app, ws, monkeypatch):
     opened, errors = [], []
     monkeypatch.setattr(details_mod, "open_path", opened.append)
     monkeypatch.setattr(details_mod, "error", lambda parent, text: errors.append(text))
-    monkeypatch.setattr(details_mod.cloud_sync, "session", lambda cfg, timeout=None: (cloud, "tok"))
+    monkeypatch.setattr(originals.cloud_sync, "session", lambda cfg, timeout=None: (cloud, "tok"))
     ctx.cfg.cloud_user = "maychinh"
 
     dlg = details_mod.DocumentDialog(ctx, yuan["id"], win)
+    assert not dlg.download_button.isHidden()
     dlg.open_original()
-    assert errors == [] and len(opened) == 1 and opened[0].read_bytes() == cloud.files[f"phieu-goc/{yuan['source_hash']}.xlsx"]
+    _wait(app, lambda: opened)
+    assert errors == [] and opened[0].read_bytes() == cloud.files[f"phieu-goc/{yuan['source_hash']}.xlsx"]
     assert deliveries.original_copy(ws, yuan["source_hash"]) is not None  # kept: the next open needs no network
+    assert dlg.download_button.isHidden()
     dlg.deleteLater()
 
-    # not on the cloud either (or offline): a plain message, nothing opened
+    # not on the cloud: said so (another machine has to send it), nothing opened
     deliveries.original_copy(ws, dong["source_hash"]).unlink()
     dlg = details_mod.DocumentDialog(ctx, dong["id"], win)
     dlg.open_original()
-    assert len(opened) == 1 and errors == [details_mod.t("doc.original_not_fetched")]
+    _wait(app, lambda: errors)
+    assert len(opened) == 1 and errors == [originals.t("originals.absent", codes=dong["code"])]
 
-    # not signed in to the cloud: the old message, no network tried
-    ctx.cfg.cloud_user = ""
+    # offline: the check-the-network message
+    def offline(cfg, timeout=None):
+        raise OSError("offline")
+
+    monkeypatch.setattr(originals.cloud_sync, "session", offline)
+    dlg.open_original()
+    _wait(app, lambda: len(errors) == 2)
+    assert errors[-1] == details_mod.t("doc.original_not_fetched")
+
+    # not signed in to the cloud, or a staff machine: the old message, no network tried, no download button
     asked = len(cloud.asked)
-    dlg.open_original()
-    assert errors[-1] == details_mod.t("doc.original_missing") and len(cloud.asked) == asked
+    for user, role in (("", ""), ("nhanvien", "editor")):
+        ctx.cfg.cloud_user, ctx.cfg.cloud_role = user, role
+        other = details_mod.DocumentDialog(ctx, dong["id"], win)
+        assert other.download_button.isHidden()
+        other.open_original()
+        assert errors[-1] == details_mod.t("doc.original_missing") and len(cloud.asked) == asked
+        other.deleteLater()
     dlg.deleteLater()
+    win.deleteLater()
 
-    # a staff machine cannot read the owner's backups: nothing tried
-    ctx.cfg.cloud_user, ctx.cfg.cloud_role = "nhanvien", "editor"
-    dlg = details_mod.DocumentDialog(ctx, dong["id"], win)
-    dlg.open_original()
-    assert errors[-1] == details_mod.t("doc.original_missing") and len(cloud.asked) == asked
-    dlg.deleteLater()
+
+def test_download_reports_progress_and_tells_not_on_cloud_from_failed(ws):
+    from dibekho.core.cloud import backup as cloud_backup
+
+    files = {f"{hashlib.sha256(t).hexdigest()}.xlsx": t for t in (b"mot", b"hai")}
+    good, broken = files
+    absent = f"{hashlib.sha256(b'ba').hexdigest()}.xlsx"
+    cloud = CopiesOnCloud({f"phieu-goc/{good}": files[good], f"phieu-goc/{broken}": b"damaged"})
+    seen = []
+    result = cloud_backup.download_originals(ws, cloud, "tok", [good, broken, absent],
+                                             progress=lambda done, total, name: seen.append((done, total, name)))
+    assert (result.got, result.failed, result.absent) == ([good], [broken], [absent])
+    assert seen == [(0, 2, good), (1, 2, broken)] and not result.cancelled
+    stopped = cloud_backup.download_originals(ws, cloud, "tok", [good], cancelled=lambda: True)
+    assert stopped.cancelled and stopped.got == []
+
+
+def test_the_order_list_downloads_the_chosen_orders(app, ws, monkeypatch):
+    from dibekho.ui import orders_page, originals
+    from tests.test_locations import window
+
+    ctx, win = window(ws)
+    yuan, dong = shop(ctx.conn, ws, monkeypatch)
+    cloud = CopiesOnCloud(_to_cloud(ws, yuan, dong))
+    told = []
+    monkeypatch.setattr(orders_page, "info", lambda parent, text: told.append(text))
+    monkeypatch.setattr(orders_page, "error", lambda parent, text: told.append(text))
+    monkeypatch.setattr(originals.cloud_sync, "session", lambda cfg, timeout=None: (cloud, "tok"))
+    ctx.cfg.cloud_user = "maychinh"
+    page = orders_page.OrdersPage(ctx)
+    page.all_time.setChecked(True)
+    page.refresh()
+    assert not page.download_button.isHidden()
+    page.download_selected()
+    assert told == [orders_page.t("originals.select_first")]
+    page.table.selectAll()
+    page.download_selected()
+    _wait(app, lambda: len(told) == 2)
+    assert told[-1] == orders_page.t("originals.got", n=2) and deliveries.missing_originals(ctx.conn, ws) == []
+    page.table.selectAll()
+    page.download_selected()
+    assert told[-1] == orders_page.t("originals.have_all")
+    page.deleteLater()
+    win.deleteLater()
+
+
+def test_a_sync_round_sends_the_new_original_files_up(app, ws, monkeypatch):
+    from dibekho.ui import sync_runner
+    from tests.test_locations import window
+
+    ctx, win = window(ws)
+    answers = [(1, 1), (0, 0)]
+    monkeypatch.setattr(sync_runner.cloud_backup, "upload_originals", lambda *a: answers.pop(0))
+    runner = sync_runner.SyncRunner(ctx, lambda: True, lambda text: None)
+    runner.timer.stop()
+    for left_to_send in (1, 0):  # one still to send: asked again after the next round
+        runner._send_originals("client", "tok")
+        _wait(app, lambda: not runner._originals_busy)
+        assert runner._originals_due is bool(left_to_send)
+    runner._send_originals("client", "tok")  # nothing new: not asked
+    assert answers == [] and not runner._originals_busy
     win.deleteLater()

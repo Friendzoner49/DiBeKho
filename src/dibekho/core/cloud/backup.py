@@ -184,6 +184,32 @@ def fetch_originals(ws: Workspace, client: CloudClient, token: str) -> tuple[int
     return fetch_named(ws, client, token, sorted(names - have))
 
 
+@dataclass
+class Download:
+    """What 'Tải file gốc từ Cloud' did, by file name."""
+    got: list[str]
+    absent: list[str]  # not on the cloud: the computer that made the order has not sent it yet
+    failed: list[str]  # on the cloud but did not arrive whole (the line dropped)
+    cancelled: bool = False
+
+
+def download_originals(ws: Workspace, client: CloudClient, token: str, names, progress=None, cancelled=None) -> Download:
+    """Download the kept notes the user asked for, one by one. progress(done, total) is called before each file;
+    cancelled() True stops before the next one. Raises CloudError when the cloud cannot be reached at all."""
+    on_cloud = cloud_originals(client, token)
+    result = Download([], [n for n in names if n not in on_cloud], [])
+    todo = [n for n in names if n in on_cloud]
+    for i, name in enumerate(todo):
+        if cancelled is not None and cancelled():
+            result.cancelled = True
+            break
+        if progress is not None:
+            progress(i, len(todo), name)
+        got, _ = fetch_named(ws, client, token, [name])
+        (result.got if got else result.failed).append(name)
+    return result
+
+
 def fetch_named(ws: Workspace, client: CloudClient, token: str, names, max_seconds: float | None = None) -> tuple[int, int]:
     """Download these kept notes (<sha256>.xlsx) into data/phieu-goc, stopping after max_seconds. A file whose content
     does not match its name, or that the bucket does not have, counts as failed. -> (downloaded, failed)."""

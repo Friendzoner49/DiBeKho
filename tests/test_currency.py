@@ -299,6 +299,9 @@ class CopiesOnCloud:
     def __init__(self, files):
         self.files, self.asked = files, []
 
+    def storage_list(self, token, bucket="backups", prefix="", limit=200, offset=0):
+        return [{"name": n.split("/", 1)[1]} for n in sorted(self.files) if n.startswith(prefix + "/")][offset:offset + limit]
+
     def storage_download(self, name, token):
         from dibekho.core.cloud.client import CloudError
 

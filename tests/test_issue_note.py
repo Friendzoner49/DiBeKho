@@ -294,6 +294,23 @@ def test_vnd_words():
     assert vnd_words(0) == "KHÔNG VIỆT NAM ĐỒNG"
 
 
+def test_the_company_lines_set_by_the_shop_stay_and_an_edited_note_takes_them(conn, ws, goods):
+    """User, 27/11/2026: 'tỉnh' became 'thành phố' in the address; set in Cài đặt, it must not come back from the
+    next delivery note, and saving an old note again prints it."""
+    import openpyxl
+
+    deliveries.set_letterhead(conn, "样本公司 \n CÔNG TY MẪU", "  Số 1, tỉnh Mẫu ")
+    assert deliveries.letterhead(conn) == ["样本公司\nCÔNG TY MẪU", "Số 1, tỉnh Mẫu"]
+    doc_id, _ = issues.save(conn, ws, note_for(*goods))
+    deliveries.set_letterhead(conn, "样本公司\nCÔNG TY MẪU", "Số 1, thành phố Mẫu")
+    _, data = issues.load(conn, doc_id)
+    _, path = issues.edit(conn, ws, doc_id, data)
+    cells = [str(c) for row in openpyxl.load_workbook(path).active.iter_rows(values_only=True) for c in row if c]
+    assert "Số 1, thành phố Mẫu" in cells and "Số 1, tỉnh Mẫu" not in cells
+    deliveries.set_letterhead(conn, "", "")
+    assert deliveries.letterhead(conn) == []
+
+
 def test_the_letterhead_comes_from_the_shops_notes_never_from_an_issue_note(conn, ws, goods):
     paint, sand = goods
     note = read_delivery_note(make_note(ws.deliveries / "phieu.xlsx"))

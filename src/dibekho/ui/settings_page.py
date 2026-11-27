@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QMenu,
+    QPlainTextEdit,
     QPushButton,
     QTabWidget,
     QTreeWidget,
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from dibekho import __version__, db
 from dibekho.core import activity, catalog, deliveries, reset, uninstall
-from dibekho.core.cloud import replica
+from dibekho.core.cloud import approval, replica
 from dibekho.core.text import fmt_qty
 from dibekho.core.workspace import Config
 from dibekho.i18n import LANGUAGES, t
@@ -123,6 +124,7 @@ class SettingsPage(Page):
         version_row.addStretch()
         form.addRow(t("settings.version") + ":", version_row)
         general_lay.addWidget(general)
+        general_lay.addWidget(self._company_box())
 
         learned = QGroupBox(t("settings.learned_title"))
         lay = QVBoxLayout(learned)
@@ -162,7 +164,47 @@ class SettingsPage(Page):
         general_lay.addWidget(danger)
         general_lay.addStretch()
 
+    def _company_box(self) -> QGroupBox:
+        """'Thông tin công ty': the lines printed on top of the stock issue notes (user, 27/11/2026). A staff account
+        only reads them: they are the shared data of the shop."""
+        box = QGroupBox(t("company.title"))
+        lay = QVBoxLayout(box)
+        lay.addWidget(hint_label(t("company.hint")))
+        form = QFormLayout()
+        self.company_name, self.company_address = QPlainTextEdit(), QPlainTextEdit()
+        staff = approval.is_staff(self.ctx.cfg)
+        for field, label in ((self.company_name, "company.name"), (self.company_address, "company.address")):
+            field.setTabChangesFocus(True)
+            field.setFixedHeight(field.fontMetrics().lineSpacing() * 2 + 16)  # two rows: Chinese above Vietnamese
+            field.setReadOnly(staff)
+            form.addRow(t(label) + ":", field)
+        lay.addLayout(form)
+        row = QHBoxLayout()
+        self.company_save = QPushButton(t("company.save"))
+        self.company_save.clicked.connect(self.save_company)
+        self.company_save.setEnabled(not staff)
+        row.addWidget(self.company_save)
+        row.addStretch()
+        lay.addLayout(row)
+        return box
+
+    def _fill_company(self):
+        lines = (deliveries.letterhead(self.ctx.conn) + ["", ""])[:2]
+        for field, text in zip((self.company_name, self.company_address), lines):
+            if not field.document().isModified():  # never over what is being typed
+                field.setPlainText(text)
+
+    def save_company(self):
+        deliveries.set_letterhead(self.ctx.conn, self.company_name.toPlainText(), self.company_address.toPlainText())
+        for field in (self.company_name, self.company_address):
+            field.document().setModified(False)
+        self.ctx.log_action("company")
+        self.ctx.notify()
+        self._fill_company()
+        info(self, t("company.saved"))
+
     def refresh(self):
+        self._fill_company()
         names = {p["id"]: catalog.long_label(p) for p in catalog.products(self.ctx.conn, include_inactive=True)}
         self._fill_learned(names)
         self.transfer.refresh()
@@ -233,8 +275,6 @@ class SettingsPage(Page):
         info(self, t("settings.restart_needed"))
 
     def reset_stock(self):
-        from dibekho.core.cloud import approval
-
         if approval.is_staff(self.ctx.cfg):  # it would rewrite every document of the shared data
             error(self, t("staff.not_for_staff"))
             return
@@ -251,8 +291,6 @@ class SettingsPage(Page):
         self.go_pending()  # notes are read again: what is known is recorded, the rest waits here
 
     def reset_all(self):
-        from dibekho.core.cloud import approval
-
         if approval.is_staff(self.ctx.cfg):
             error(self, t("staff.not_for_staff"))
             return

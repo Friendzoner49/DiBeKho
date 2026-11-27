@@ -4,7 +4,6 @@ from datetime import date, datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QDateEdit,
     QDialog,
@@ -21,13 +20,11 @@ from PySide6.QtWidgets import (
 
 from dibekho import db
 from dibekho.core import activity, deliveries, issues, queries, receipts
-from dibekho.core.cloud import approval
-from dibekho.core.cloud import backup as cloud_backup
-from dibekho.core.cloud import sync as cloud_sync
 from dibekho.excel import report
 from dibekho.core.stock import MAIN, close_document, is_mixed, set_location
 from dibekho.core.text import fmt_qty
 from dibekho.i18n import t
+from dibekho.ui import originals
 from dibekho.ui.common import (
     RED,
     AppContext,
@@ -217,6 +214,11 @@ class DocumentDialog(_Base):
             b = QPushButton(t("btn.open_original"))
             b.clicked.connect(self.open_original)
             buttons.addWidget(b)
+            self.download_button = QPushButton(t("btn.download_original"))
+            self.download_button.clicked.connect(lambda: self._download_original())
+            buttons.addWidget(self.download_button)
+            if not originals.allowed(ctx.cfg) or deliveries.original_copy(ctx.ws, head["source_hash"]) is not None:
+                self.download_button.hide()  # (setVisible(True) here would flash it as a window of its own)
         if head["status"] == "active" and head["source_hash"] and kind == "delivery":
             b = QPushButton(t("btn.reread_doc"))
             b.setToolTip(t("doc.reread_tip"))
@@ -265,36 +267,34 @@ class DocumentDialog(_Base):
     def open_original(self):
         source_hash, name = self.head["source_hash"], self.head["source_file"] or ""
         copy = deliveries.viewing_copy(self.ctx.ws, source_hash, name)
-        fetched = None
-        if copy is None:
-            fetched = self._fetch_original(source_hash)
-            if fetched:
-                copy = deliveries.viewing_copy(self.ctx.ws, source_hash, name)
-        if copy is None:
-            error(self, t("doc.original_not_fetched" if fetched is False else "doc.original_missing"))
-        else:
+        if copy is not None:
             open_path(copy)
+            return
+        if not source_hash or not originals.allowed(self.ctx.cfg):
+            error(self, t("doc.original_missing"))
+            return
+        # this computer lacks it (a new machine, or the order was made on another one): download it first
+        self._download_original(open_after=True)
 
-    def _fetch_original(self, source_hash: str) -> bool | None:
-        """This computer lacks the stored copy (a new machine, or the app was removed: the database came from the
-        cloud, the files did not): download it from the cloud backups first (user, 21/11/2026).
-        -> None: not signed in to the cloud as the owner, nothing tried; False: tried and failed."""
-        cfg = self.ctx.cfg
-        if not source_hash or approval.is_staff(cfg) or not cfg.cloud_user:
-            return None
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        try:
-            pair = cloud_sync.session(cfg, timeout=15)
-            if pair is None:
-                return False
-            got, _ = cloud_backup.fetch_named(self.ctx.ws, *pair, [f"{source_hash}.xlsx"])
-            activity.log("cloud", f"original fetched on open: {got}")
-            return got > 0
-        except Exception as exc:  # offline, signed out: the plain message below
-            activity.log("error", f"original fetch: {type(exc).__name__}: {exc}")
-            return False
-        finally:
-            QApplication.restoreOverrideCursor()
+    def _download_original(self, open_after: bool = False):
+        source_hash, name = self.head["source_hash"], self.head["source_file"] or ""
+        orders = [(source_hash, self.head["code"])]
+
+        def then(result):
+            if result is None or result.failed:
+                error(self, t("doc.original_not_fetched"))
+                return
+            if result.absent:
+                error(self, originals.summary(result, orders))
+                return
+            self.download_button.hide()
+            copy = deliveries.viewing_copy(self.ctx.ws, source_hash, name)
+            if copy is None:
+                error(self, t("doc.original_missing"))
+            elif open_after or ask(self, t("originals.open_now")):
+                open_path(copy)
+
+        originals.download(self, self.ctx, orders, then)
 
     def cancel_doc(self):
         if not ask(self, t("doc.confirm_cancel")):

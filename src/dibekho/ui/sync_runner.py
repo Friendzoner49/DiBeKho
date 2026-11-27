@@ -18,6 +18,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 from dibekho.core import activity, backup
 from dibekho.core.cloud import approval
+from dibekho.core.cloud import backup as cloud_backup
 from dibekho.core.cloud import inbox as cloud_inbox
 from dibekho.core.cloud import logs as cloud_logs
 from dibekho.core.cloud import replica, twoway
@@ -29,6 +30,7 @@ PERIOD = 60_000  # ms between rounds when nothing happens here
 AFTER_CHANGE = 5_000  # ms after a change here before it is sent (several quick edits travel together)
 RETRY_UNSAFE = 15_000  # ms: the user was busy on a page, try again soon
 CLOSE_TIMEOUT = 8  # s per request while closing
+ORIGINALS_SECONDS = 90  # s of original files sent per go; the rest after a later round
 
 
 class SyncRunner(QObject):
@@ -45,6 +47,10 @@ class SyncRunner(QObject):
         self.signed_out = False
         self.not_allowed = False  # the owner took this account's right to use the app away
         self.logs = cloud_logs.LogUploader()
+        # the original files not yet on the cloud: sent once after opening, then after each push of ours
+        self._originals_due = True
+        self._originals_busy = False
+        self._originals_error = ""
         self._done.connect(lambda then, result, err: then(result, err))
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.start)
@@ -172,6 +178,7 @@ class SyncRunner(QObject):
         if err is not None:
             return self._failed(err)
         if answer.get("ok"):
+            self._originals_due = True  # what was just sent may be a new order with its file
             twoway.finish(self.ctx.conn, seq, int(answer["max_rev"]), hold)
             self._confirm_requests(client, token)
             return self._owner_extras(client, token)
@@ -199,8 +206,34 @@ class SyncRunner(QObject):
         self._background(lambda: approval.send(client, token, device, base, batch, summary), then)
         return None
 
+    def _send_originals(self, client, token) -> None:
+        """The original files behind 'Mở file gốc' go to the cloud as soon as their orders do (user, 27/11/2026: they
+        went only on closing the app or 'Đồng bộ ngay', so an order made on a machine left open all day had no file
+        for the others). Beside the round, in its own thread: it never holds up the sync."""
+        if not self._originals_due or self._originals_busy:
+            return
+        self._originals_due, self._originals_busy = False, True
+        ws = self.ctx.ws
+
+        def then(result, err):
+            self._originals_busy = False
+            if err is not None:
+                self._originals_due = True  # again after the next round
+                if str(err) != self._originals_error:
+                    activity.log("error", f"cloud originals: {err}")
+                self._originals_error = str(err)
+                return
+            sent, left = result
+            self._originals_error = ""
+            self._originals_due = self._originals_due or bool(left)
+            if sent or left:
+                activity.log("cloud", f"originals: {sent} uploaded, {left} left for next time")
+
+        self._background(lambda: cloud_backup.upload_originals(ws, client, token, ORIGINALS_SECONDS), then)
+
     def _owner_extras(self, client, token) -> None:
-        """The owner's machine: the staff requests waiting, fetched after the round (Cần xử lý)."""
+        """The owner's machine: the original files not yet sent, and the staff requests waiting (Cần xử lý)."""
+        self._send_originals(client, token)
         def then(items, err):
             if err is None and items is not None:
                 before = [x.get("id") for x in getattr(self.ctx, "staff_pushes", [])]

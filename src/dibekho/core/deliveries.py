@@ -541,13 +541,23 @@ def note_places(note: DeliveryNote) -> bool:
 
 def keep_letterhead(conn, note: DeliveryNote) -> None:
     """The company name and address printed above the title of the shop's own delivery notes, kept in meta for the
-    stock issue notes (app and web) to print the same way. Never taken from an issue note, and never written in the
-    code: the repository is public."""
+    stock issue notes (app and web) to print the same way. Only while none is kept yet: after that it is the shop's to
+    change in 'Cài đặt' (set_letterhead), and a note still carrying the old lines must not undo it (user,
+    27/11/2026). Never taken from an issue note, and never written in the code: the repository is public."""
+    if letterhead(conn):
+        return
     if not note.letterhead or not any(m in unaccent(note.title) or m in note.title for m in ("phieu giao hang", "销售单")):
         return
-    value = json.dumps(note.letterhead[:3], ensure_ascii=False)
-    if db.get_meta(conn, LETTERHEAD_KEY, "") != value:
-        db.set_meta(conn, LETTERHEAD_KEY, value)
+    db.set_meta(conn, LETTERHEAD_KEY, json.dumps(note.letterhead[:3], ensure_ascii=False))
+
+
+def set_letterhead(conn, name: str, address: str) -> None:
+    """'Thông tin công ty' in Cài đặt: the two lines printed on the stock issue notes made from now on (each may hold
+    several rows, e.g. Chinese above Vietnamese). Both empty: forgotten, the next delivery note gives them again."""
+    lines = ["\n".join(clean(row) for row in (text or "").splitlines() if clean(row)) for text in (name, address)]
+    with db.transaction(conn):
+        db.set_meta(conn, LETTERHEAD_KEY, json.dumps(lines, ensure_ascii=False) if any(lines) else "")
+        db.touch(conn)
 
 
 def letterhead(conn) -> list[str]:

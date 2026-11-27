@@ -19,8 +19,9 @@ from PySide6.QtWidgets import (
 )
 
 from dibekho import db
-from dibekho.core import catalog, queries
+from dibekho.core import catalog, deliveries, queries
 from dibekho.i18n import t
+from dibekho.ui import originals
 from dibekho.ui.common import (
     GREY,
     ask,
@@ -130,10 +131,17 @@ class OrdersPage(Page):
             edit = QPushButton(t("transfer.edit_selected"))
             edit.clicked.connect(self.edit_transfer_selected)
             top.addWidget(edit)
+        # the original files of the chosen orders, from the cloud (user, 27/11/2026)
+        self.download_button = QPushButton(t("btn.download_original"))
+        self.download_button.setToolTip(t("originals.tip"))
+        self.download_button.clicked.connect(self.download_selected)
+        self.download_button.hide()  # _load shows it on the delivery list of a signed-in owner
+        top.addWidget(self.download_button)
         self.layout_.addLayout(top)
         self.table = make_table([t("col.date"), t("col.doc_code"), t("col.customer"), t("col.place"),
                                  t("col.lines"), t("col.total_qty"), t("col.goods_vnd"), t("col.goods_cny"), t("col.fees"),
                                  t("col.status"), t("col.file")], stretch=2)
+        self.table.setSelectionMode(self.table.SelectionMode.ExtendedSelection)  # several orders to download at once
         self.table.doubleClicked.connect(self.open_doc)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._context_menu)
@@ -174,6 +182,7 @@ class OrdersPage(Page):
             customer_id=self.customer.currentData(), product_id=self.product.currentData(),
             include_closed=self.closed.isChecked(), text=self.text.text().strip(),
         )
+        self.download_button.setVisible(self.kind.currentData() == "delivery" and originals.allowed(self.ctx.cfg))
         want = self.currency.currentData() if self.kind.currentData() == "delivery" else ""
         if want:
             docs = [d for d in docs if (d["currency"] == "CNY") == (want == "CNY")]
@@ -195,6 +204,32 @@ class OrdersPage(Page):
                 for c in range(self.table.columnCount()):
                     self.table.item(r, c).setForeground(color)
         self.count.setText(t("orders.count", count=len(docs)))
+
+    def download_selected(self):
+        ids = [row_id(self.table, i.row()) for i in sorted(self.table.selectionModel().selectedRows(),
+                                                           key=lambda i: i.row())]
+        if not ids:
+            error(self, t("originals.select_first"))
+            return
+        orders = {}
+        for doc_id in ids:
+            d = self.ctx.conn.execute("SELECT code, source_hash FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            if d["source_hash"] and deliveries.original_copy(self.ctx.ws, d["source_hash"]) is None:
+                orders.setdefault(d["source_hash"], d["code"])
+        if not orders:
+            info(self, t("originals.have_all"))
+            return
+        wanted = list(orders.items())
+
+        def then(result):
+            if result is None:
+                error(self, t("originals.offline"))
+            elif result.absent or result.failed:
+                error(self, originals.summary(result, wanted))
+            else:
+                info(self, originals.summary(result, wanted))
+
+        originals.download(self, self.ctx, wanted, then)
 
     def open_doc(self, idx):
         DocumentDialog(self.ctx, row_id(self.table, idx.row()), self).exec()
