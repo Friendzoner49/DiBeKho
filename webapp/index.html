@@ -229,6 +229,7 @@
         <button data-stab="transfer" class="stab only-owner" data-i18n="settings.backup"></button>
         <button data-stab="accounts" class="stab only-admin" data-i18n="settings.accounts"></button>
         <button data-stab="logs" class="stab only-admin" data-i18n="settings.logs"></button>
+        <button data-stab="company" class="stab only-owner" data-i18n="company.title"></button>
       </div>
       <div id="stab-general" class="spane">
         <dl class="info" id="settings-info"></dl>
@@ -241,18 +242,17 @@
           <select id="ui-scale"><option value="100" data-i18n="settings.scale_100"></option><option value="110" data-i18n="settings.scale_110"></option>
             <option value="120" data-i18n="settings.scale_120"></option></select>
         </div>
-        <div class="only-owner">
-          <h2 data-i18n="company.title"></h2>
-          <p class="hint" data-i18n="company.hint"></p>
-          <div class="company">
-            <label for="company-name" data-i18n="company.name"></label>
-            <textarea id="company-name" rows="2"></textarea>
-            <label for="company-address" data-i18n="company.address"></label>
-            <textarea id="company-address" rows="2"></textarea>
-          </div>
-          <button id="company-save" data-i18n="company.save"></button>
-        </div>
         <button id="logout" data-i18n="top.logout"></button>
+      </div>
+      <div id="stab-company" class="spane hidden only-owner">
+        <p class="hint" data-i18n="company.hint"></p>
+        <div class="company">
+          <label for="company-name" data-i18n="company.name"></label>
+          <textarea id="company-name" rows="2"></textarea>
+          <label for="company-address" data-i18n="company.address"></label>
+          <textarea id="company-address" rows="2"></textarea>
+        </div>
+        <button id="company-save" data-i18n="company.save"></button>
       </div>
       <div id="stab-transfer" class="spane hidden only-owner">
         <h2 data-i18n="pkg.title"></h2>

@@ -205,7 +205,7 @@ Open **Stock count**, pick the date and the place in the **Count at:** box, type
 
 The app backs up once a day when it starts, keeps the newest 10 copies in `sao-luu/`, and drops anything over 30 days old. **Settings → Data transfer and backups** has **Back up now**, **Restore selected**, and **Restore a deleted product…** (for a product deleted by mistake). The owner's computer also sends a backup to the Cloud whenever the app closes (**Settings → Cloud → Restore from cloud…**). Restoring a backup replaces the shared data for every computer (owner accounts only).
 
-**Settings → General → Company information**: edit the company name and address printed on stock issue notes, then **Save company information**.
+**Settings → Company information**: edit the company name and address printed on stock issue notes, then **Save company information**.
 
 ### 9. Starting over
 

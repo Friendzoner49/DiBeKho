@@ -203,7 +203,7 @@ Vào **Kiểm kê**, chọn ngày và nơi đang đếm ở ô **Đếm ở:**, 
 
 App tự sao lưu mỗi ngày khi mở, giữ 10 bản gần nhất trong thư mục `sao-luu/` và tự xoá bản quá 30 ngày. Trong **Cài đặt → Chuyển dữ liệu và sao lưu** có **Sao lưu ngay**, **Khôi phục bản đã chọn** và **Khôi phục mặt hàng đã xoá…** (lỡ xoá nhầm một mặt hàng). Máy của chủ còn gửi bản sao lưu lên Cloud mỗi khi tắt app (**Cài đặt → Cloud → Khôi phục từ Cloud…**). Khôi phục một bản sao lưu là thay dữ liệu chung cho mọi máy (chỉ tài khoản chủ).
 
-**Cài đặt → Chung → Thông tin công ty**: sửa tên và địa chỉ công ty in trên Phiếu xuất kho, rồi bấm **Lưu thông tin công ty**.
+**Cài đặt → Thông tin công ty**: sửa tên và địa chỉ công ty in trên Phiếu xuất kho, rồi bấm **Lưu thông tin công ty**.
 
 ### 9. Làm lại từ đầu
 

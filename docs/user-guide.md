@@ -399,7 +399,7 @@ The app has no Undo button any more. Fix a mistake where it is:
 - **Restore selected**: go back to that day's data. ⚠ It replaces the shared data for **every computer**: owner accounts only, internet needed (section 15).
 - **Restore a deleted product…**: deleted a product by mistake? The app looks through the backups for one no longer in the catalog (it must still be in a backup from the last 30 days). If it was already re-created by hand, the app offers to **merge them into one** (every document moves onto the smaller code) or **keep them separate**.
 
-**Company information:** **Settings → General → Company information** holds **Company name** and **Address**, printed on top of stock issue notes and draft orders. Edit, then **Save company information** (owner accounts only; shared by every computer and the web page). Notes made from now on use it. To change a note already made, open it, press **Edit stock issue note…** and save it again.
+**Company information:** **Settings → Company information** (its own tab) holds **Company name** and **Address**, printed on top of stock issue notes and draft orders. Edit, then **Save company information** (owner accounts only; shared by every computer and the web page). Notes made from now on use it. To change a note already made, open it, press **Edit stock issue note…** and save it again.
 
 **Start over:** **Settings → General → Reset data** (always backed up first; owner accounts only, applies to **every computer**):
 - **Reset stock (keep products)…**: keeps the catalog and learned names; clears notes, goods in, counts, customers; reads every note again. The orders read again need their **places chosen again**.

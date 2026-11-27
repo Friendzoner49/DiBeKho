@@ -65,6 +65,11 @@ class SettingsPage(Page):
         self.tabs.addTab(self.transfer, t("settings.tab_transfer"))
         self.cloud = CloudTab(ctx)
         self.tabs.addTab(self.cloud, t("settings.tab_cloud"))
+        company_tab = QWidget()  # a tab of its own: in 'Chung' it pushed the other boxes off the screen
+        company_lay = QVBoxLayout(company_tab)
+        company_lay.addWidget(self._company_box())
+        company_lay.addStretch()
+        self.tabs.addTab(company_tab, t("company.title"))
 
         general = QGroupBox(t("settings.general"))
         form = QFormLayout(general)
@@ -124,7 +129,6 @@ class SettingsPage(Page):
         version_row.addStretch()
         form.addRow(t("settings.version") + ":", version_row)
         general_lay.addWidget(general)
-        general_lay.addWidget(self._company_box())
 
         learned = QGroupBox(t("settings.learned_title"))
         lay = QVBoxLayout(learned)

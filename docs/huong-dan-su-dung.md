@@ -399,7 +399,7 @@ App không còn nút Hoàn tác. Làm nhầm thì sửa đúng chỗ:
 - **Khôi phục bản đã chọn**: quay về hẳn dữ liệu của ngày đó. ⚠ Thay dữ liệu chung cho **mọi máy**: chỉ tài khoản chủ, cần có mạng (mục 15).
 - **Khôi phục mặt hàng đã xoá…**: lỡ xoá nhầm một mặt hàng? App dò trong các bản sao lưu, liệt kê mặt hàng nào không còn trong danh mục hiện tại để bạn chọn khôi phục (còn trong bản sao lưu nào đó trong 30 ngày gần nhất). Nếu mặt hàng đó đã được tạo lại bằng tay, app sẽ hỏi có muốn **gộp thành 1** (chuyển mọi phiếu về mã nhỏ hơn) hay **giữ riêng**.
 
-**Thông tin công ty:** **Cài đặt → Chung → Thông tin công ty** có ô **Tên công ty** và **Địa chỉ**, in ở đầu Phiếu xuất kho và đơn nháp. Sửa rồi bấm **Lưu thông tin công ty** (chỉ tài khoản chủ; dùng chung mọi máy và trang web). Phiếu lập từ giờ in theo thông tin mới. Muốn đổi trên một phiếu đã lập (ví dụ A181): mở phiếu, bấm **Sửa phiếu xuất kho…** rồi **Lưu phiếu**.
+**Thông tin công ty:** **Cài đặt → Thông tin công ty** (tab riêng) có ô **Tên công ty** và **Địa chỉ**, in ở đầu Phiếu xuất kho và đơn nháp. Sửa rồi bấm **Lưu thông tin công ty** (chỉ tài khoản chủ; dùng chung mọi máy và trang web). Phiếu lập từ giờ in theo thông tin mới. Muốn đổi trên một phiếu đã lập (ví dụ A181): mở phiếu, bấm **Sửa phiếu xuất kho…** rồi **Lưu phiếu**.
 
 **Làm lại từ đầu:** **Cài đặt → Chung → Đặt lại dữ liệu** (app luôn sao lưu trước; chỉ tài khoản chủ, áp dụng cho **mọi máy**):
 - **Đặt lại tồn kho (giữ mặt hàng)…**: giữ danh mục và tên đã học; xoá phiếu, hàng về, kiểm kê, khách; đọc lại mọi phiếu ngay. Các đơn đọc lại phải **chọn nơi lấy hàng lại**.
