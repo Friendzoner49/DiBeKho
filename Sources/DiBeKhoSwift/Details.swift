@@ -37,8 +37,6 @@ struct DetailData: Identifiable {
     /// a delivery note's window: the file it came from, where its goods were taken from (and whether the user chose it),
     /// or both places at once (a stock issue note)
     var sourceHash = ""
-    /// the order's code, for the words about its original file
-    var docCode = ""
     var sourceFile = ""
     var docLocation: Int64?
     var docLocationSet = true
@@ -191,7 +189,6 @@ enum Details {
         var data = DetailData(title: title, info: info, tables: [table], docId: id, docKind: kind, docStatus: status)
         data.docCode = code
         data.sourceHash = text(head, "source_hash")
-        data.docCode = text(head, "code")
         data.sourceFile = text(head, "source_file")
         data.docLocation = location
         data.docLocationSet = ((head["location_set"] as Int?) ?? 1) != 0
