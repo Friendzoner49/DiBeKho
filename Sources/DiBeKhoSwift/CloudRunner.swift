@@ -39,12 +39,21 @@ final class CloudRunner: ObservableObject {
     private var soon: Timer?
     /// every stored copy this Mac lacks was asked from the cloud this run (fetchMissingOriginals)
     private var originalsDone = false
+    /// the original files not yet on the cloud: sent once after opening, then after each push of ours (sendOriginals)
+    private var originalsDue = true
+    private var sendingOriginals = false
+    private var originalsError = ""
+    /// the app is quitting: only send, no downloads, no waiting for a safe moment (flushBeforeQuit)
+    private var closing = false
+    /// s per request while quitting (Python CLOSE_TIMEOUT), and for the original files then
+    private static let closeTimeout: TimeInterval = 8
 
     /// true once the app is signed in and joined (start, firstRound); nothing here touches the network before
     private var active = false
 
     func start() {
         active = true
+        AppModel.running = model
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: Self.period, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.round() }
@@ -66,6 +75,31 @@ final class CloudRunner: ObservableObject {
     func changedHere() {
         guard active, !busy, model?.live == true else { return }
         schedule(after: Self.afterChange)
+    }
+
+    /// Is there a signed-in, running sync to say goodbye to?
+    var flushNeeded: Bool {
+        active && model?.live == true && model?.queue != nil && CloudConfig.load()?.hasSavedSession == true
+    }
+
+    /// Quitting: one last round for what is still queued, then (the owner) the original files the Cloud lacks. The
+    /// app delegate caps the whole wait. Python send_before_closing + _cloud_backup_on_close.
+    func flushBeforeQuit() async {
+        closing = true
+        timer?.invalidate()
+        soon?.invalidate()
+        ActivityLog.write("cloud", "quit: sending what is left")
+        while busy { try? await Task.sleep(nanoseconds: 200_000_000) }  // a round already on its way
+        await run(tries: 2)
+        guard CloudConfig.load()?.isStaff == false, let originals = model?.folders?.originals else { return }
+        while sendingOriginals { try? await Task.sleep(nanoseconds: 200_000_000) }
+        do {
+            guard let (client, token) = try await CloudAccount.session(timeout: Self.closeTimeout) else { return }
+            let (sent, left) = try await CloudBackup.uploadOriginals(originals, client, token, maxSeconds: Self.closeTimeout)
+            ActivityLog.write("cloud", "quit: originals \(sent) uploaded, \(left) left for next time")
+        } catch {
+            ActivityLog.write("error", "quit: originals: \(error)")
+        }
     }
 
     // ---- what the screens show
@@ -141,15 +175,17 @@ final class CloudRunner: ObservableObject {
         do {
             guard try await queue.read({ try Replica.enabled($0) }) else { busy = false; return }
             let after = try await queue.read { try TwoWay.cursor($0) }
-            guard let (client, token) = try await CloudAccount.session(timeout: 15) else { busy = false; return }
+            guard let (client, token) = try await CloudAccount.session(timeout: closing ? Self.closeTimeout : 15) else { busy = false; return }
             var request: [String: Any]?
             if staff { request = try await CloudApproval.mine(client, token, device: cfg.deviceId) }
             let pulled = try await CloudAccount.fetch(client, token, after: after)
-            await logs.maybeUpload(logFile: ActivityLog.file, deviceName: cfg.deviceName, deviceId: cfg.deviceId,
-                                   version: Self.version, sendLogs: cfg.sendLogs, client, token)
+            if !closing {
+                await logs.maybeUpload(logFile: ActivityLog.file, deviceName: cfg.deviceName, deviceId: cfg.deviceId,
+                                       version: Self.version, sendLogs: cfg.sendLogs, client, token)
+            }
             // the data was replaced meanwhile (restore, reset): this pull is stale
             guard model.queue === queue, try await queue.read({ try TwoWay.cursor($0) }) == after else { busy = false; return }
-            if !safe && !TwoWay.nothingNew(pulled) {  // rows from elsewhere wait until the user is not typing
+            if !closing && !safe && !TwoWay.nothingNew(pulled) {  // rows from elsewhere wait until the user is not typing
                 busy = false
                 schedule(after: Self.retryUnsafe)
                 return
@@ -174,6 +210,7 @@ final class CloudRunner: ObservableObject {
                 let answer = try await CloudAccount.send(client, token, device: cfg.deviceId, expected: expected, batch: batch)
                 if (answer["ok"] as? Bool) == true {
                     let rev = (answer["max_rev"] as? NSNumber)?.intValue ?? expected
+                    originalsDue = true  // what was just sent may be a new order with its file
                     try await queue.write { try TwoWay.finish($0, seq: seq, maxRev: rev, hold: hold) }
                     try await ownerExtras(client, token)
                 } else {  // someone wrote in between: pull again
@@ -182,7 +219,7 @@ final class CloudRunner: ObservableObject {
                     return
                 }
             }
-            if !staff { await fetchMissingOriginals(queue, client, token) }
+            if !staff && !closing { await fetchMissingOriginals(queue, client, token) }
             await finished()
         } catch {
             await failed(error)
@@ -201,18 +238,41 @@ final class CloudRunner: ObservableObject {
         if got + failed == names.count { originalsDone = true }  // the ones the cloud lacks are not asked again this run
     }
 
-    /// 'Mở file gốc' on an order whose stored copy this Mac lacks: download that one first (Python
-    /// DocumentDialog._fetch_original). -> nil: not signed in as the owner, nothing tried; false: tried and failed.
-    func fetchOriginal(hash: String) async -> Bool? {
-        guard let folders = model?.folders, let cfg = CloudConfig.load(), cfg.hasSavedSession, !cfg.isStaff else { return nil }
+    /// 'Mở file gốc' / 'Tải file gốc từ Cloud': the chosen files (<hash>.xlsx), with progress. nil: the cloud could not
+    /// be reached.
+    func downloadOriginals(_ names: [String], progress: @escaping @MainActor (Int, Int, String) -> Void) async -> OriginalsDownload? {
+        guard let folders = model?.folders else { return nil }
         do {
-            guard let (client, token) = try await CloudAccount.session(timeout: 15) else { return false }
-            let (got, _) = await CloudBackup.fetchNamed(folders.originals, client, token, ["\(hash).xlsx"])
-            ActivityLog.write("cloud", "original fetched on open: \(got)")
-            return got > 0
+            guard let (client, token) = try await CloudAccount.session(timeout: 15) else { return nil }
+            let result = try await CloudBackup.downloadOriginals(folders.originals, client, token, names, progress: progress)
+            ActivityLog.write("cloud", "originals asked: \(result.got.count) downloaded, \(result.absent.count) not on cloud, \(result.failed.count) failed")
+            return result
         } catch {
-            ActivityLog.write("error", "original fetch: \(error)")
-            return false
+            ActivityLog.write("error", "original download: \(error)")
+            return nil
+        }
+    }
+
+    /// The original files behind 'Mở file gốc' go to the cloud as soon as their orders do (user, 27/11/2026: they went
+    /// only on 'Đồng bộ ngay', so an order made on a machine left open all day had no file for the others). Beside the
+    /// round: it never holds up the sync. Python SyncRunner._send_originals.
+    private func sendOriginals(_ client: CloudClient, _ token: String) {
+        guard originalsDue, !sendingOriginals, let originals = model?.folders?.originals else { return }
+        originalsDue = false
+        sendingOriginals = true
+        Task { @MainActor in
+            defer { sendingOriginals = false }
+            do {
+                let (sent, left) = try await CloudBackup.uploadOriginals(originals, client, token, maxSeconds: Self.originalsSeconds)
+                if left > 0 { originalsDue = true }
+                originalsError = ""
+                if sent > 0 || left > 0 { ActivityLog.write("cloud", "originals: \(sent) uploaded, \(left) left for next time") }
+            } catch {
+                originalsDue = true  // again after the next round
+                let text = "\(error)"
+                if text != originalsError { ActivityLog.write("error", "cloud originals: \(text)") }
+                originalsError = text
+            }
         }
     }
 
@@ -228,6 +288,7 @@ final class CloudRunner: ObservableObject {
     /// The owner's machine, after a round: the web requests whose documents are now on the cloud are confirmed (or
     /// forgotten when undone), the ones recorded and then lost go back to pending, then the staff and web requests waiting.
     private func ownerExtras(_ client: CloudClient, _ token: String) async throws {
+        if !closing { sendOriginals(client, token) }  // quitting: flushBeforeQuit sends them and waits
         if let queue = model?.queue {
             do {
                 try await WebInbox.finishApplied(queue, client, token)
@@ -236,6 +297,7 @@ final class CloudRunner: ObservableObject {
                 ActivityLog.write("error", "web requests confirm: \(error)")
             }
         }
+        if closing { return }  // nothing is shown any more
         do {
             staffRequests = try await CloudApproval.pending(client, token)
         } catch {
@@ -291,7 +353,10 @@ final class CloudRunner: ObservableObject {
                 try Meta.set(db, "cloud_last_push_at", Self.iso(Date()))
                 try Meta.log(db, "cloud_backup", name)
             }
-            if let originals = model.folders?.originals {
+            // sendOriginals may be sending already (a second sender would only get "duplicate" for its files)
+            if !sendingOriginals, let originals = model.folders?.originals {
+                sendingOriginals = true
+                defer { sendingOriginals = false }
                 let (sent, left) = try await CloudBackup.uploadOriginals(originals, client, token, maxSeconds: Self.originalsSeconds)
                 if sent > 0 || left > 0 { ActivityLog.write("cloud", "originals: \(sent) uploaded, \(left) left for next time") }
             }
@@ -415,7 +480,7 @@ final class CloudRunner: ObservableObject {
         ActivityLog.write("click", "sign_out")
         do { try CloudAccount.signOut() } catch { UI.error((error as? CloudError)?.message ?? "\(error)"); return }
         UI.info(t("login.signed_out"))
-        NSApp.terminate(nil)
+        UI.quit()
     }
 
     /// login.other_queue: true when the user chose «Bỏ các thay đổi đó»; the safe answer is the default one.

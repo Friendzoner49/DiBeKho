@@ -11,6 +11,16 @@ public struct CloudBackupItem: Equatable {
     public let size: Int
 }
 
+/// What 'Tải file gốc từ Cloud' did, by file name (Python backup.Download).
+public struct OriginalsDownload: Sendable {
+    public var got: [String] = []
+    /// not on the cloud: the computer that made the order has not sent it yet
+    public var absent: [String] = []
+    /// on the cloud but did not arrive whole (the line dropped)
+    public var failed: [String] = []
+    public init() {}
+}
+
 /// Python core/cloud/backup.py, the restore side: list the backups, download one and check it, mark the notes of
 /// another machine as not missing here, and download the kept delivery notes this machine lacks.
 extension CloudBackup {
@@ -135,6 +145,23 @@ extension CloudBackup {
         }
         let have = Set(((try? FileManager.default.contentsOfDirectory(atPath: originals.path)) ?? []).filter(isOriginalName))
         return await fetchNamed(originals, client, token, names.subtracting(have).sorted())
+    }
+
+    /// 'Tải file gốc từ Cloud' (download_originals): the notes the user asked for, one by one; progress(done, total, name)
+    /// before each. Stops when the task is cancelled. Throws only when the cloud cannot be reached at all.
+    public static func downloadOriginals(_ originals: URL, _ client: CloudClient, _ token: String, _ names: [String],
+                                         progress: (@MainActor (Int, Int, String) -> Void)? = nil) async throws -> OriginalsDownload {
+        let onCloud = try await cloudOriginals(client, token)
+        var result = OriginalsDownload()
+        result.absent = names.filter { !onCloud.contains($0) }
+        let todo = names.filter { onCloud.contains($0) }
+        for (i, name) in todo.enumerated() {
+            if Task.isCancelled { break }
+            await progress?(i, todo.count, name)
+            let (got, _) = await fetchNamed(originals, client, token, [name])
+            if got > 0 { result.got.append(name) } else { result.failed.append(name) }
+        }
+        return result
     }
 
     /// Download these kept notes (<sha256>.xlsx) into data/phieu-goc, stopping after maxSeconds (the rest next time). A

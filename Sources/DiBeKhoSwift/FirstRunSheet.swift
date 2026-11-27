@@ -30,7 +30,7 @@ struct FirstRunSheet: View {
             Text(t("firstrun.folder_hint")).font(.caption).foregroundColor(.secondary)
             HStack {
                 Spacer()
-                Button(t("app.quit")) { NSApp.terminate(nil) }
+                Button(t("app.quit")) { UI.quit() }
                 Button(t("firstrun.start")) { start() }.keyboardShortcut(.defaultAction)
             }
         }

@@ -668,13 +668,23 @@ public enum Deliveries {
     // MARK: letterhead
 
     /// The company name and address printed above the title of the shop's own delivery notes, kept for the stock
-    /// issue notes to print the same way. Never taken from an issue note.
+    /// issue notes to print the same way. Only while none is kept yet: after that the shop changes them in Cài đặt
+    /// (setLetterhead), and a note still carrying the old lines must not undo it. Never taken from an issue note.
     static func keepLetterhead(_ db: Database, _ note: DeliveryNote) throws {
-        guard !note.letterhead.isEmpty,
+        guard try letterhead(db).isEmpty, !note.letterhead.isEmpty,
               ["phieu giao hang", "销售单"].contains(where: { TextRules.unaccent(note.title).contains($0) || note.title.contains($0) })
         else { return }
-        let value = jsonList(Array(note.letterhead.prefix(3)))
-        if try Meta.get(db, letterheadKey) != value { try Meta.set(db, letterheadKey, value) }
+        try Meta.set(db, letterheadKey, jsonList(Array(note.letterhead.prefix(3))))
+    }
+
+    /// 'Thông tin công ty' in Cài đặt (set_letterhead): the two lines on the stock issue notes made from now on, each
+    /// may hold several rows. Both empty: forgotten, the next delivery note gives them again.
+    public static func setLetterhead(_ db: Database, name: String, address: String) throws {
+        let lines = [name, address].map { text in
+            text.components(separatedBy: .newlines).map { TextRules.clean($0) }.filter { !$0.isEmpty }.joined(separator: "\n")
+        }
+        try Meta.set(db, letterheadKey, lines.contains { !$0.isEmpty } ? jsonList(lines) : "")
+        try Meta.touch(db)
     }
 
     /// Python json.dumps(list, ensure_ascii=False)

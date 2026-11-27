@@ -77,7 +77,7 @@ enum Updater {
                 return
             }
             UI.info(t("update.mac_steps"))
-            NSApp.terminate(nil)
+            UI.quit()
         } catch is CancellationError {
             return
         } catch {

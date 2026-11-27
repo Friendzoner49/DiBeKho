@@ -227,7 +227,7 @@ struct LoginView: View {
     var body: some View {
         LoginForm(cloud: model.cloud, problem: problem, cancelTitle: t("btn.cancel"), cancel: { box.close() }) { outcome in
             if outcome == .quit {
-                NSApp.terminate(nil)
+                UI.quit()
                 return
             }
             box.close(accepted: true)
@@ -248,7 +248,7 @@ struct LoginScreen: View {
             Spacer()
             AppLogo(size: 120)
             Text(t("app.name")).font(.system(size: UI.baseSize + 12, weight: .bold))
-            LoginForm(cloud: model.cloud, problem: problem, cancelTitle: t("app.quit"), cancel: { NSApp.terminate(nil) }) {
+            LoginForm(cloud: model.cloud, problem: problem, cancelTitle: t("app.quit"), cancel: { UI.quit() }) {
                 model.joined($0)
             }
             .padding(20)

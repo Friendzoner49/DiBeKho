@@ -41,7 +41,7 @@ enum GeneralSettings {
                 MainActor.assumeIsolated {
                     if moved {
                         UI.info(t("settings.uninstall_done_mac_auto", ["path": bundle.path]))
-                        NSApp.terminate(nil)
+                        UI.quit()
                     } else {
                         UI.info(t("settings.uninstall_done_mac"))
                     }
@@ -145,6 +145,63 @@ extension GeneralBox {
         } catch {
             UI.error(UI.message(error))
         }
+    }
+}
+
+/// "Thông tin công ty": the lines printed on top of the stock issue notes (settings_page._company_box). A staff account
+/// only reads them: they are the shared data of the shop.
+struct CompanyBox: View {
+    @ObservedObject var model: AppModel
+    @State private var name = ""
+    @State private var address = ""
+    /// what was last read from the data: a box that differs from it is being typed in and is left alone
+    @State private var read = ["", ""]
+
+    private var staff: Bool { CloudConfig.load()?.isStaff ?? false }
+
+    var body: some View {
+        GroupBox(t("company.title")) {
+            VStack(alignment: .leading, spacing: 8) {
+                Hint(t("company.hint"))
+                row(t("company.name"), $name)
+                row(t("company.address"), $address)
+                HStack {
+                    Button(t("company.save")) { save() }.disabled(staff || !model.writable)
+                    Spacer()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(6)
+        }
+        .onAppear { load() }
+        .onChange(of: model.version) { _ in load() }
+    }
+
+    private func row(_ label: String, _ text: Binding<String>) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(label + ":").frame(width: 170 * UI.scale, alignment: .leading)
+            // two rows: Chinese above Vietnamese
+            TextEditor(text: text)
+                .font(.system(size: UI.baseSize))
+                .frame(height: 44 * UI.scale)
+                .border(Color.secondary.opacity(0.4))
+                .disabled(staff || !model.writable)
+        }
+    }
+
+    private func load() {
+        let lines = (model.read { try Deliveries.letterhead($0) } ?? []) + ["", ""]
+        if name == read[0] { name = lines[0] }
+        if address == read[1] { address = lines[1] }
+        read = [lines[0], lines[1]]
+    }
+
+    private func save() {
+        let newName = name, newAddress = address
+        guard model.write("company", { try Deliveries.setLetterhead($0, name: newName, address: newAddress) }) != nil else { return }
+        read = [newName, newAddress]  // the boxes then take the cleaned lines
+        load()
+        UI.info(t("company.saved"))
     }
 }
 

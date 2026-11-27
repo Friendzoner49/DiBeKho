@@ -204,3 +204,9 @@ So mọi khoá chữ bản Python dùng ở `ui/*.py` và `app.py` với code Sw
 - Tồn kho: cột Văn phòng Bắc Ninh (`StockRow.stockBn`), chi tiết mặt hàng `stock_bn` (`Lookup.swift`); file Dữ liệu gốc trang Tồn kho thêm cột (ghi chú ở cột 9; file cũ 8 cột vẫn đọc, `MasterData.swift`).
 - `OrderQueries.placeName` = «Văn phòng Hà Nội» / «Văn phòng Bắc Ninh», đơn nhiều nơi = «Nhiều nơi» (OrdersFormatTests sửa theo).
 - ⚠ chưa biên dịch (Windows), chưa chạy CI; `swift_lint.py` và `check_golden_notes.py` sạch.
+
+## 27/11/2026: thông tin công ty sửa được, tải file gốc từ Cloud (Python; đã chép sang Swift)
+- Python/Swift: `keep_letterhead` chỉ điền khi `note_letterhead` còn trống; mới `set_letterhead` (tab Cài đặt → Thông tin công ty). Web sửa qua SQL 024 `web_letterhead_set`.
+- Phiếu gốc được gửi lên Storage sau mỗi vòng đồng bộ có gửi (trước chỉ khi tắt app / Đồng bộ ngay). «Tải file gốc từ Cloud» ở cửa sổ đơn và danh sách đơn (`Originals.swift`, `CloudBackup.downloadOriginals`); bỏ `CloudRunner.fetchOriginal`.
+- Đã sinh lại `Strings.swift`. ⚠ chưa biên dịch (Windows), chưa chạy CI; `swift_lint.py` và `check_golden_notes.py` sạch.
+- Chỉ Swift (27/11/2026): tắt app (cả nút ✕, vì đóng cửa sổ cuối giờ là thoát) thì đồng bộ vòng cuối và gửi file gốc rồi mới thoát, tối đa 15 giây (`AppDelegate` ở `App.swift`, `CloudRunner.flushBeforeQuit`); app tự thoát thì gọi `UI.quit()`.

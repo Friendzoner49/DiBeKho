@@ -354,17 +354,18 @@ struct SettingsPage: View {
     // DIBEKHO_SETTINGS_TAB: the tab shown first, for the screenshots of the build workflow
     @State private var tab = Int(ProcessInfo.processInfo.environment["DIBEKHO_SETTINGS_TAB"] ?? "") ?? 0
 
-    /// Four tabs as in the Python app: Chung, Mặt hàng, Chuyển dữ liệu, Cloud
+    /// Five tabs as in the Python app: Chung, Mặt hàng, Chuyển dữ liệu, Cloud, Thông tin công ty
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             PageHeader(title: t("nav.settings"))
             TabBar(titles: [t("settings.tab_general"), t("settings.learned_title"), t("settings.tab_transfer"),
-                            t("settings.tab_cloud")], selection: $tab)
+                            t("settings.tab_cloud"), t("company.title")], selection: $tab)
             switch tab {
             case 0: tabPage { general }
             case 1: productsTab.padding(8)
             case 2: tabPage { transferTab }
-            default: tabPage { cloudTab }
+            case 3: tabPage { cloudTab }
+            default: tabPage { CompanyBox(model: model) }  // a tab of its own: in Chung it took too much room
             }
         }
     }
@@ -419,6 +420,7 @@ struct DetailView: View {
     @ObservedObject var model: AppModel
     @EnvironmentObject var box: WindowBox
     @State private var place: Int64 = Ledger.main
+    @StateObject private var originals = OriginalsDownloader()
     /// customer window's date filter (ui/details.CustomerDialog): everything or from–to; `filtered` replaces `data` while on
     @State private var allTime = true
     @State private var from = Dates.iso(Calendar.current.date(from: DateComponents(year: Calendar.current.component(.year, from: Date()), month: 1, day: 1)) ?? Date())
@@ -445,6 +447,7 @@ struct DetailView: View {
             ForEach(Array(shown.footer.enumerated()), id: \.offset) { _, line in
                 if line.1 { Hint(line.0) } else { RichText(text: line.0) }
             }
+            OriginalsProgress(downloader: originals)
             if data.docId != nil { documentButtons }
             HStack {
                 Spacer()
@@ -564,6 +567,10 @@ struct DetailView: View {
         HStack {
             if let id = data.docId, data.docKind == "delivery", !data.sourceHash.isEmpty {
                 Button(t("btn.open_original")) { openOriginal() }
+                if OriginalsDownloader.allowed, let folders = model.folders,
+                   Deliveries.originalCopy(folders, data.sourceHash) == nil {
+                    Button(t("btn.download_original")) { downloadOriginal(openAfter: false) }.disabled(originals.running)
+                }
                 if data.docStatus == "active", model.writable {
                     Button(t("btn.reread_doc")) { reread(id) }.help(t("doc.reread_tip"))
                 }
@@ -627,15 +634,25 @@ struct DetailView: View {
     }
 
     /// Mở file gốc: a read-only copy of the stored original in the temp folder, never the stored file itself
-    /// A copy this Mac lacks (signed in for the first time, or the app was removed) is downloaded from the cloud first.
+    /// A copy this Mac lacks (a new machine, or the order was made on another one) is downloaded from the cloud first.
     private func openOriginal() {
         guard let folders = model.folders else { return UI.error(t("doc.original_missing")) }
+        if let copy = Deliveries.viewingCopy(folders, hash: data.sourceHash, name: data.sourceFile) { return UI.open(copy) }
+        guard OriginalsDownloader.allowed else { return UI.error(t("doc.original_missing")) }
+        downloadOriginal(openAfter: true)
+    }
+
+    private func downloadOriginal(openAfter: Bool) {
+        guard let folders = model.folders else { return }
         let hash = data.sourceHash, name = data.sourceFile
-        if let copy = Deliveries.viewingCopy(folders, hash: hash, name: name) { return UI.open(copy) }
-        Task { @MainActor in
-            let fetched = await model.cloud.fetchOriginal(hash: hash)
-            if fetched == true, let copy = Deliveries.viewingCopy(folders, hash: hash, name: name) { return UI.open(copy) }
-            UI.error(t(fetched == false ? "doc.original_not_fetched" : "doc.original_missing"))
+        let orders: [OriginalsDownloader.Order] = [(hash: hash, code: data.docCode)]
+        originals.start(model, orders) { result in
+            guard let result, result.failed.isEmpty else { return UI.error(t("doc.original_not_fetched")) }
+            if !result.absent.isEmpty { return UI.error(OriginalsDownloader.summary(result, orders)) }
+            guard let copy = Deliveries.viewingCopy(folders, hash: hash, name: name) else {
+                return UI.error(t("doc.original_missing"))
+            }
+            if openAfter || UI.ask(t("originals.open_now")) { UI.open(copy) }
         }
     }
 

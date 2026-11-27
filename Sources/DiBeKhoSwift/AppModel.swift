@@ -87,6 +87,9 @@ final class AppModel: ObservableObject {
 
     private(set) var queue: DatabaseQueue?
 
+    /// the model whose sync is running, for the upload on quit (kept even when its window has been closed)
+    static var running: AppModel?
+
     /// Background sync with the Cloud, from the moment the window opens
     let cloud = CloudRunner()
 
@@ -143,7 +146,7 @@ final class AppModel: ObservableObject {
             return
         }
         guard openLive() else {
-            NSApp.terminate(nil)
+            UI.quit()
             return
         }
         Task { await resume() }
@@ -181,12 +184,12 @@ final class AppModel: ObservableObject {
         case .problem(let text):
             stage = .login(text)
         case .quit:
-            NSApp.terminate(nil)
+            UI.quit()
         case .ready(let first):
             Task {
                 if first, let reason = await cloud.firstRound() {
                     UI.error(reason)
-                    NSApp.terminate(nil)
+                    UI.quit()
                     return
                 }
                 begin()

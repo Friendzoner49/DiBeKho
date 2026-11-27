@@ -34,6 +34,16 @@ final class OriginalsTests: XCTestCase {
         XCTAssertEqual([left.phone, left.contact, left.address, left.taxCode, left.email], ["", "", "Huế", "", ""])
     }
 
+    /// 'Thông tin công ty' (27/11/2026), as Python deliveries.set_letterhead: each row cleaned, both empty forgets
+    func testTheCompanyLinesSetByTheShop() throws {
+        let q = try DatabaseQueue(configuration: Store.configuration())
+        try Schema.migrate(q)
+        try q.write { try Deliveries.setLetterhead($0, name: "样本公司 \n\n CÔNG TY  MẪU", address: "  Số 1, thành phố Mẫu ") }
+        XCTAssertEqual(try q.read { try Deliveries.letterhead($0) }, ["样本公司\nCÔNG TY MẪU", "Số 1, thành phố Mẫu"])
+        try q.write { try Deliveries.setLetterhead($0, name: "", address: " ") }
+        XCTAssertEqual(try q.read { try Deliveries.letterhead($0) }, [])
+    }
+
     func testEveryMissingOriginalIsListedTheUndecidedOnesFirst() throws {
         let fm = FileManager.default
         let temp = fm.temporaryDirectory.appendingPathComponent("originals-\(UUID().uuidString)")

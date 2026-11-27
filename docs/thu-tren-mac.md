@@ -284,3 +284,10 @@ Cần thử trên Mac:
 3. **Phiếu xuất kho**: mỗi dòng có Đang có / Lấy ở cho cả ba nơi; chữ «Văn phòng Bắc Ninh» trên tiêu đề cột không bị cắt. Lưu phiếu lấy ở Bắc Ninh rồi mở chi tiết đơn: ghi đúng nơi; đơn lấy nhiều nơi hiện «Nhiều nơi» trong danh sách đơn.
 4. **Chuyển hàng** Văn phòng Hà Nội → Văn phòng Bắc Ninh; **Hàng về** «Nhập vào» Bắc Ninh; **Dùng thử** ở Bắc Ninh: số từng nơi đổi đúng.
 5. Mở dữ liệu đang dùng của bản Python 0.6.6 (schema 12): app nâng lên schema 13, hàng ở Văn phòng cũ nằm ở Văn phòng Hà Nội.
+
+## 26. Thông tin công ty và «Tải file gốc từ Cloud» (viết 27/11/2026; ⚠ chưa biên dịch)
+1. **Cài đặt → Thông tin công ty** (tab thứ năm): hai ô đã điền sẵn từ phiếu giao hàng. Đổi địa chỉ, bấm **Lưu thông tin công ty**; mở một phiếu xuất cũ, **Sửa phiếu xuất kho…** → Lưu: file Excel in địa chỉ mới.
+2. Đơn mà Mac chưa có file gốc: cửa sổ đơn có nút **Tải file gốc từ Cloud**; bấm thì hiện thanh tiến trình.
+3. Danh sách đơn hàng: chọn nhiều đơn (⌘ / Shift) → **Tải file gốc từ Cloud**: tiến trình «Đang tải i/n», xong báo số file.
+5. Lập một phiếu rồi **tắt app ngay** (nút ✕ đỏ, thử cả ⌘Q): app tự gửi rồi mới thoát (tối đa 15 giây; nhật ký có dòng `quit: originals … uploaded`). Mở lại: không bị đòi đăng nhập.
+4. Lập một phiếu trên Mac, đợi đồng bộ, rồi mở file gốc của phiếu đó ở máy Windows (không cần tắt app trên Mac).

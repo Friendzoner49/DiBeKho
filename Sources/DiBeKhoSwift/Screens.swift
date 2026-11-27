@@ -66,6 +66,9 @@ struct OrdersPage: View {
     @State private var includeClosed = false
     @State private var currency = ""
     @State private var selected: Int?
+    /// the orders chosen (their ids), to download several originals at once
+    @State private var chosen: [Int64] = []
+    @StateObject private var originals = OriginalsDownloader()
 
     static let kinds = ["delivery", "receipt", "stock_count", "transfer", "trial"]
 
@@ -121,7 +124,13 @@ struct OrdersPage: View {
                 if fixedKind == "transfer" {
                     Button(t("transfer.edit_selected")) { editSelected(docs) }
                 }
+                if downloads {
+                    Button(t("btn.download_original")) { downloadSelected(docs) }
+                        .help(t("originals.tip"))
+                        .disabled(originals.running)
+                }
             }
+            OriginalsProgress(downloader: originals)
             table(docs)
         }
     }
@@ -130,6 +139,31 @@ struct OrdersPage: View {
         guard let i = selected, i < docs.count else { return UI.error(t("orders.select_first")) }
         if Details.text(docs[i], "status") != "active" { return UI.error(t("orders.not_active")) }
         UI.later { _ = Forms.transfer(model, docId: docs[i]["id"]) }  // never inside the button's handling
+    }
+
+    /// The delivery list of a signed-in owner (orders_page.download_button)
+    private var downloads: Bool { kind == "delivery" && fixedKind == nil && OriginalsDownloader.allowed }
+
+    private func downloadSelected(_ docs: [Row]) {
+        let shown: [Int64] = docs.map { $0["id"] }
+        let ids = shown.filter { chosen.contains($0) }  // in the order of the table, none a filter has hidden since
+        guard !ids.isEmpty else { return UI.error(t("originals.select_first")) }
+        guard let folders = model.folders else { return }
+        let found: [OriginalsDownloader.Order] = model.read { db in
+            try ids.compactMap { id -> OriginalsDownloader.Order? in
+                guard let row = try Row.fetchOne(db, sql: "SELECT code, source_hash FROM documents WHERE id = ?",
+                                                 arguments: [id]) else { return nil }
+                return (hash: Details.text(row, "source_hash"), code: Details.text(row, "code"))
+            }
+        } ?? []
+        var seen: Set<String> = []
+        let wanted = found.filter { !$0.hash.isEmpty && Deliveries.originalCopy(folders, $0.hash) == nil && seen.insert($0.hash).inserted }
+        guard !wanted.isEmpty else { return UI.info(t("originals.have_all")) }
+        originals.start(model, wanted) { result in
+            guard let result else { return UI.error(t("originals.offline")) }
+            let text = OriginalsDownloader.summary(result, wanted)
+            if result.absent.isEmpty && result.failed.isEmpty { UI.info(text) } else { UI.error(text) }
+        }
     }
 
     private static func cells(_ d: Row, money: Bool) -> [String] {
@@ -165,12 +199,16 @@ struct OrdersPage: View {
         columns += [Column(title: t("col.status"), width: 110), Column(title: t("col.file"), width: 200)]
         let rows = docs.map { Self.cells($0, money: money) }
         let tones: [RowTone] = docs.map { Details.text($0, "status") == "active" ? .normal : .grey }
+        // several rows may be selected only where there is something to do with several: downloading
+        var pickMany: (([Int]) -> Void)? = nil
+        if downloads { pickMany = { picked in chosen = picked.filter { $0 < docs.count }.map { docs[$0]["id"] } } }
         return DataTable(
             columns: columns,
             rows: rows,
             tones: tones,
             onOpen: { i in model.openOrder(docs[i]["id"]) },
             onSelect: { selected = $0 },
+            onSelectMany: pickMany,
             stretch: 2,
             rowMenu: { i in menu(docs[i]) })
     }

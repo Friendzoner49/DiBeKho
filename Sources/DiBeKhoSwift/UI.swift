@@ -60,6 +60,13 @@ enum UI {
         RunLoop.main.perform(inModes: [.default, .modalPanel]) { work() }
     }
 
+    /// Every quit the app asks for itself goes through here: from the run loop, never from inside a Task, where the
+    /// wait of applicationShouldTerminate could not run the upload it waits for.
+    @MainActor
+    static func quit() {
+        later { NSApp.terminate(nil) }
+    }
+
     @MainActor
     static func info(_ text: String) {
         ActivityLog.write("info", text)
