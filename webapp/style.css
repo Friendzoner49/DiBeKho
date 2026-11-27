@@ -405,3 +405,7 @@ ul.lines li.closed .line-name, ul.lines li.closed .line-fig { color: var(--muted
   background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: 0 6px 18px rgb(0 0 0 / 0.12); }
 .suggest-list div { padding: 7px 10px; font-size: 15px; cursor: pointer; }
 .suggest-list div:hover { background: var(--surface-hover); }
+
+/* Cài đặt → Chung → Thông tin công ty */
+.company { display: grid; gap: 4px; max-width: 640px; margin-bottom: 10px; }
+.company textarea { font: inherit; padding: 6px 8px; resize: vertical; }

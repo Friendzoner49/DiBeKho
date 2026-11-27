@@ -357,6 +357,8 @@ A merge cannot be split again: check before clicking.
 - **Taken from**: change main warehouse / Hanoi office / Bac Ninh office if it was wrong. (If a count was made after the order's date, changing the place moves each place away from what was counted: count that place again.)
 - Lines with **Unit price**, **Amount**; the line "Goods · other fees · total" (the total matches "Tổng cộng" on the paper note).
 - **Open original file** (a read-only copy of the note), **Reread the whole note** (see section 12), **Cancel document** (gives the stock back, keeps the history).
+- If this computer lacks the original file (made on another computer, or a new computer), **Open original file** downloads it first, with a progress bar; or press **Download original from Cloud**. Several at once: in the **order list**, select the orders (Ctrl or Shift) and press **Download original from Cloud**. Owner accounts only.
+- **Not on the Cloud yet**: the computer that made the order has not sent the file. Open DiBeKho there, **Settings → Cloud → Sync now**, then download again. (The app also sends files after each sync.)
 
 > **Deleting a note file does not cancel it.** To drop an order, open it and click **Cancel document**.
 
@@ -396,6 +398,8 @@ The app has no Undo button any more. Fix a mistake where it is:
 - **Back up now**.
 - **Restore selected**: go back to that day's data. ⚠ It replaces the shared data for **every computer**: owner accounts only, internet needed (section 15).
 - **Restore a deleted product…**: deleted a product by mistake? The app looks through the backups for one no longer in the catalog (it must still be in a backup from the last 30 days). If it was already re-created by hand, the app offers to **merge them into one** (every document moves onto the smaller code) or **keep them separate**.
+
+**Company information:** **Settings → General → Company information** holds **Company name** and **Address**, printed on top of stock issue notes and draft orders. Edit, then **Save company information** (owner accounts only; shared by every computer and the web page). Notes made from now on use it. To change a note already made, open it, press **Edit stock issue note…** and save it again.
 
 **Start over:** **Settings → General → Reset data** (always backed up first; owner accounts only, applies to **every computer**):
 - **Reset stock (keep products)…**: keeps the catalog and learned names; clears notes, goods in, counts, customers; reads every note again. The orders read again need their **places chosen again**.

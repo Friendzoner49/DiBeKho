@@ -12,7 +12,7 @@ from datetime import date
 import pytest
 
 from dibekho import db
-from dibekho.core import catalog, receipts, stock
+from dibekho.core import catalog, deliveries, receipts, stock
 from dibekho.core.cloud import replica, twoway
 from tests.pgdb import WEB_FILES, FakeCloud, PgError, Session, needs_pg
 
@@ -552,3 +552,16 @@ def test_bac_ninh_on_the_web(shop):
     call("web_set_location", p_doc=(_uid(s, "documents", doc(only_bn["code"])["id"]), "uuid"), p_location=(3, "integer"))
     with pytest.raises(PgError, match="không hợp lệ"):
         call("web_trial", p=({"date": "2026-11-25", "location": 4, "lines": _lines(s, ("SP001", 1, ""))}, "jsonb"))
+
+
+def test_the_web_changes_the_company_lines_as_the_app_does(shop):
+    """cloud 024 (user, 27/11/2026): the owner changes the lines on top of a Phiếu xuất kho on the web; the app reads
+    them as its own after the next pull. Both empty: forgotten."""
+    s, twin, call, cloud = shop
+    call("web_letterhead_set", p_name=("样本公司 \n\n CÔNG TY  MẪU", "text"), p_address=(" Số 1, thành phố Mẫu ", "text"))
+    deliveries.set_letterhead(twin, "样本公司 \n\n CÔNG TY  MẪU", " Số 1, thành phố Mẫu ")
+    _pull(s, cloud)
+    assert deliveries.letterhead(s) == deliveries.letterhead(twin) == ["样本公司\nCÔNG TY MẪU", "Số 1, thành phố Mẫu"]
+    call("web_letterhead_set", p_name=("", "text"), p_address=(" ", "text"))
+    _pull(s, cloud)
+    assert deliveries.letterhead(s) == []

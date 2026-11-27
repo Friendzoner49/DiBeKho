@@ -170,6 +170,7 @@ Vào **Kiểm kê**, chọn ngày và nơi đang đếm ở ô **Đếm ở:**, 
 - **Tra cứu** (phím **Ctrl+F**, trên Mac **⌘F**): một ô tìm cho mặt hàng, khách, số điện thoại, mã phiếu, ghi chú. Các nút bên dưới mở **Danh sách đơn hàng**, **Danh sách khách hàng**, **Thống kê và xuất Excel**.
 - **Danh sách đơn hàng**: tiền hàng của đơn tiền Việt và đơn tệ nằm ở hai cột riêng **Tiền hàng (VND)** và **Tiền hàng (CNY)**; ô lọc **Loại tiền** để xem riêng từng loại.
 - Mở **một đơn hàng**: khách, các dòng hàng với **Đơn giá** và **Thành tiền**, tiền hàng + phí khác = tổng tiền, **Mở file gốc**, **Đọc lại cả phiếu** (nhấn chuột phải vào tên đơn ở danh sách đơn hàng để làm nhanh cho cả đơn), **Huỷ phiếu**.
+- **Tải file gốc từ Cloud** (trong đơn, hoặc chọn nhiều đơn ở danh sách): lấy file gốc về máy này, có thanh tiến trình.
 - Mở **một khách hàng**: **Doanh thu**, các mặt hàng khách hay mua (doanh thu, giá bán), và **từng đơn với giá đầy đủ bên dưới**. Bỏ tick **Mọi thời gian** rồi chọn **Từ … đến …** để xem khách mua gì, giá bao nhiêu trong khoảng thời gian đó. Bấm **Xuất Excel…** để lưu đúng nội dung đó (từng đơn với giá, các mặt hàng đã mua) ra file trong `output/`.
 - Giá lấy từ cột đơn giá / thành tiền trên phiếu. Phiếu không ghi giá thì ô đó để trống (—) và không tính vào doanh thu.
 
@@ -201,6 +202,8 @@ Vào **Kiểm kê**, chọn ngày và nơi đang đếm ở ô **Đếm ở:**, 
 ### 8. Sao lưu
 
 App tự sao lưu mỗi ngày khi mở, giữ 10 bản gần nhất trong thư mục `sao-luu/` và tự xoá bản quá 30 ngày. Trong **Cài đặt → Chuyển dữ liệu và sao lưu** có **Sao lưu ngay**, **Khôi phục bản đã chọn** và **Khôi phục mặt hàng đã xoá…** (lỡ xoá nhầm một mặt hàng). Máy của chủ còn gửi bản sao lưu lên Cloud mỗi khi tắt app (**Cài đặt → Cloud → Khôi phục từ Cloud…**). Khôi phục một bản sao lưu là thay dữ liệu chung cho mọi máy (chỉ tài khoản chủ).
+
+**Cài đặt → Chung → Thông tin công ty**: sửa tên và địa chỉ công ty in trên Phiếu xuất kho, rồi bấm **Lưu thông tin công ty**.
 
 ### 9. Làm lại từ đầu
 

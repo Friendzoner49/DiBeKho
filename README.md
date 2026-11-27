@@ -172,6 +172,7 @@ Open **Stock count**, pick the date and the place in the **Count at:** box, type
 - **Search** (**Ctrl+F**, on a Mac **⌘F**): one box for products, customers, phone numbers, note numbers and notes. The buttons under it open the **Order list**, the **Customer list** and **Statistics and Excel export**.
 - **Order list**: the goods of dong orders and of yuan orders stand in two columns, **Goods (VND)** and **Goods (CNY)**; the **Currency** filter shows one kind only.
 - Open **an order**: customer, lines with **Unit price** and **Amount**, goods + other fees = total, **Open original file**, **Reread the whole note** (right-click an order in the order list to do this straight from there), **Cancel document**.
+- **Download original from Cloud** (in an order, or on several orders selected in the list) brings the original files to this computer, with a progress bar.
 - Open **a customer**: **Revenue**, the products they buy most (revenue, selling price), and **every order with its prices underneath**. Untick **All time** and pick **From … to …** to see what they bought, and at what price, in that period. **Export to Excel…** saves exactly that (every order with its prices, the products bought) to a file in `output/`.
 - Prices come from the unit price / amount columns of the note. A note without a price leaves the cell empty (—) and it is not counted in revenue.
 
@@ -203,6 +204,8 @@ Open **Stock count**, pick the date and the place in the **Count at:** box, type
 ### 8. Backups
 
 The app backs up once a day when it starts, keeps the newest 10 copies in `sao-luu/`, and drops anything over 30 days old. **Settings → Data transfer and backups** has **Back up now**, **Restore selected**, and **Restore a deleted product…** (for a product deleted by mistake). The owner's computer also sends a backup to the Cloud whenever the app closes (**Settings → Cloud → Restore from cloud…**). Restoring a backup replaces the shared data for every computer (owner accounts only).
+
+**Settings → General → Company information**: edit the company name and address printed on stock issue notes, then **Save company information**.
 
 ### 9. Starting over
 

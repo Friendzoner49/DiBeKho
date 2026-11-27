@@ -463,7 +463,7 @@ document.addEventListener("touchcancel", () => { swipe = null; }, { passive: tru
 function renderAll() {
   const failed = [];
   const parts = [renderDashboard, renderStock, renderPendingUnplaced, renderSearch, renderOrders, renderCustomers,
-                 renderReceipts, renderCount, renderCatalog, renderSettingsInfo,
+                 renderReceipts, renderCount, renderCatalog, renderSettingsInfo, renderCompany,
                  function renderStatsPage() { if (!$("page-stats").dataset.ready) { initStats(); $("page-stats").dataset.ready = "1"; } else { syncStatsControls(); renderStats(); } }];
   for (const part of parts) {
     try { part(); } catch (e) { console.error(e); failed.push(`${part.name}: ${e.message || e}`); }
@@ -724,6 +724,26 @@ function renderSettingsInfo() {
     `<dt>${esc(tr("settings.data"))}</dt><dd>${esc($("freshness").textContent)}</dd>`;
 }
 
+/* Thông tin công ty (the lines on top of a Phiếu xuất kho, meta note_letterhead): the owner's role reads and writes
+   it here as in the app's Cài đặt (cloud step 024). Never over what is being typed. */
+function renderCompany() {
+  const lines = letterhead();
+  [$("company-name"), $("company-address")].forEach((box, i) => { if (!box.dataset.edited) box.value = lines[i] || ""; });
+}
+
+async function saveCompany() {
+  const boxes = [$("company-name"), $("company-address")];
+  const { error } = await sb.rpc("web_letterhead_set", { p_name: boxes[0].value, p_address: boxes[1].value });
+  if (error) {
+    const missing = error.code === "PGRST202" || /could not find the function/i.test(error.message || "");
+    alert(missing ? tr("company.sql") : tr("company.failed", { reason: error.message || error }));
+    return;
+  }
+  boxes.forEach((box) => { delete box.dataset.edited; });
+  await loadAll();
+  alert(tr("company.saved"));
+}
+
 /* ---------------------------------------------------------------- wiring */
 
 applyStatic();
@@ -772,6 +792,9 @@ $("ui-scale").addEventListener("change", async () => {
     $("ui-scale").value = String(uiScale());
   }
 });
+
+for (const id of ["company-name", "company-address"]) $(id).addEventListener("input", () => { $(id).dataset.edited = "1"; });
+$("company-save").addEventListener("click", saveCompany);
 
 // the name at the top right opens Cài đặt → Chung, where the Đăng xuất button is
 $("who").addEventListener("click", () => {
