@@ -241,17 +241,30 @@ struct TabBar: View {
     let titles: [String]
     @Binding var selection: Int
 
+    /// All the tabs in one line; closer together, or on two lines, when the window is too narrow for that: a bar wider
+    /// than the page pushed the whole window's content off both sides (the fifth Settings tab, 27/11/2026).
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            bar(titles.indices, padding: 16)
+            bar(titles.indices, padding: 8)
+            VStack(alignment: .leading, spacing: 4) {
+                bar(0..<(titles.count + 1) / 2, padding: 8)
+                bar((titles.count + 1) / 2..<titles.count, padding: 8)
+            }
+        }
+    }
+
+    private func bar(_ shown: Range<Int>, padding: CGFloat) -> some View {
         HStack(spacing: 0) {
-            ForEach(titles.indices, id: \.self) { i in
-                if i > 0 && selection != i && selection != i - 1 {
+            ForEach(Array(shown), id: \.self) { i in
+                if i > shown.lowerBound && selection != i && selection != i - 1 {
                     Rectangle().fill(Color.primary.opacity(0.2)).frame(width: 1, height: UI.buttonHeight * 0.6)
                 }
                 Button { selection = i } label: {
                     Text(titles[i])
                         .font(.system(size: ceil(UI.baseSize * 1.1), weight: selection == i ? .semibold : .regular))
                         .lineLimit(1)
-                        .padding(.horizontal, ceil(16 * UI.scale))
+                        .padding(.horizontal, ceil(padding * UI.scale))
                         .frame(height: ceil(UI.buttonHeight * 1.1))
                         .foregroundColor(selection == i ? .white : .primary)
                         .background(RoundedRectangle(cornerRadius: 6)

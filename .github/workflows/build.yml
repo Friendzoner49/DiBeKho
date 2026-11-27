@@ -95,6 +95,7 @@ jobs:
           shoot stock order 13-order
           shoot stock issue 14-issue
           DIBEKHO_SETTINGS_TAB=3 shoot settings "" 06d-settings-cloud
+          DIBEKHO_SETTINGS_TAB=4 shoot settings "" 06e-settings-company
           shoot search customers 15-customers
           shoot search customer 16-customer-detail
           shoot stock product 17-product-detail
