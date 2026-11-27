@@ -17,6 +17,7 @@ import hashlib
 import re
 import sqlite3
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -156,12 +157,25 @@ def cloud_originals(client: CloudClient, token: str) -> set[str]:
         offset += len(rows)
 
 
+_UPLOADING = threading.Lock()  # the sync runner and 'Đồng bộ ngay' / closing must not send the same file at once
+
+
 def upload_originals(ws: Workspace, client: CloudClient, token: str, max_seconds: float | None = None) -> tuple[int, int]:
     """Upload the kept notes the bucket does not have yet, stopping after max_seconds (the rest go next time).
-    -> (uploaded, still to upload)."""
+    -> (uploaded, still to upload). While another upload runs, nothing is sent: a file is never overwritten, so a
+    second sender would only get an error for what the first one is sending."""
     local = transfer.original_files(ws)
     if not local:
         return 0, 0
+    if not _UPLOADING.acquire(blocking=False):
+        return 0, 0
+    try:
+        return _upload(local, client, token, max_seconds)
+    finally:
+        _UPLOADING.release()
+
+
+def _upload(local, client: CloudClient, token: str, max_seconds: float | None) -> tuple[int, int]:
     have = cloud_originals(client, token)
     todo = [f for f in local if f.name not in have]
     started, done = time.monotonic(), 0
@@ -205,7 +219,10 @@ def download_originals(ws: Workspace, client: CloudClient, token: str, names, pr
             break
         if progress is not None:
             progress(i, len(todo), name)
-        got, _ = fetch_named(ws, client, token, [name])
+        try:
+            got = (ws.originals / name).exists() or fetch_named(ws, client, token, [name])[0]
+        except OSError:  # the background fetch was writing the same file
+            got = (ws.originals / name).exists()
         (result.got if got else result.failed).append(name)
     return result
 

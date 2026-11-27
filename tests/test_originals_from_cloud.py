@@ -138,6 +138,16 @@ def test_download_reports_progress_and_tells_not_on_cloud_from_failed(ws):
     assert stopped.cancelled and stopped.got == []
 
 
+def test_only_one_upload_of_the_originals_at_a_time(ws):
+    from dibekho.core.cloud import backup as cloud_backup
+
+    ws.originals.mkdir(parents=True, exist_ok=True)
+    (ws.originals / f"{hashlib.sha256(b'mot').hexdigest()}.xlsx").write_bytes(b"mot")
+    with cloud_backup._UPLOADING:  # another thread is sending: nothing is asked of the cloud, no error
+        assert cloud_backup.upload_originals(ws, None, "tok") == (0, 0)
+    assert not cloud_backup._UPLOADING.locked()
+
+
 def test_the_order_list_downloads_the_chosen_orders(app, ws, monkeypatch):
     from dibekho.ui import orders_page, originals
     from tests.test_locations import window
