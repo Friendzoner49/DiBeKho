@@ -27,7 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dibekho.core import activity, catalog, receipts
+from dibekho import i18n
+from dibekho.core import activity, catalog, fx, issues, receipts
 from dibekho.core.receipts import NAMED, OTHER, RETURN, SUPPLIER, NewProduct, ReceiptInput, ReceiptLineInput
 from dibekho.core.text import fmt_money, fmt_qty, unaccent
 from dibekho.i18n import t
@@ -50,7 +51,7 @@ from dibekho.ui.common import (
 )
 from dibekho.ui.catalog_page import ProductEditor
 
-PRODUCT, SPEC, UNIT, QTY, PRICE, NOTE, REMOVE = range(7)
+PRODUCT, SPEC, UNIT, QTY, LAST_PRICE, PRICE, NOTE, REMOVE = range(8)
 
 
 class NewProductDialog(ProductEditor):
@@ -193,12 +194,12 @@ class ReceiptForm(QDialog):
         # 2. lines
         lay.addWidget(QLabel(t("receipt_form.step_lines")))
         lay.addWidget(hint_label(t("receipt_form.lines_hint")))
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels([t("col.product"), t("col.spec"), t("col.unit"), t("col.qty"),
-                                              t("receipt_form.return_price"), t("col.note"), ""])
+                                              t("receipt_form.last_price"), t("receipt_form.return_price"), t("col.note"), ""])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(PRODUCT, QHeaderView.Stretch)
-        for col, width in ((SPEC, 120), (UNIT, 80), (QTY, 130), (PRICE, 150), (NOTE, 200), (REMOVE, 50)):
+        for col, width in ((SPEC, 120), (UNIT, 80), (QTY, 130), (LAST_PRICE, 190), (PRICE, 150), (NOTE, 200), (REMOVE, 50)):
             header.setSectionResizeMode(col, QHeaderView.Interactive)
             self.table.setColumnWidth(col, width)
         self.table.verticalHeader().setDefaultSectionSize(40)
@@ -319,8 +320,10 @@ class ReceiptForm(QDialog):
         row.price.lineEdit().textEdited.connect(lambda _: setattr(row, "price_typed", True))
         self.table.setCellWidget(r, NOTE, row.note)
         self.table.setCellWidget(r, REMOVE, row.remove)
-        for col in (SPEC, UNIT):
+        for col in (SPEC, UNIT, LAST_PRICE):
             self.table.setCellWidget(r, col, QLabel())
+        self.table.cellWidget(r, LAST_PRICE).setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.table.cellWidget(r, LAST_PRICE).setContentsMargins(4, 0, 6, 0)
         row.button.clicked.connect(lambda: self._choose(row))
         row.remove.clicked.connect(lambda: self._remove(row))
         row.qty.valueChanged.connect(lambda _: self._update_summary())
@@ -359,6 +362,17 @@ class ReceiptForm(QDialog):
         unit = row.new.unit if row.new else (p["unit"] if p else "")
         self.table.cellWidget(i, SPEC).setText(spec)
         self.table.cellWidget(i, UNIT).setText(unit)
+        self.table.cellWidget(i, LAST_PRICE).setText(self._last_price_text(row.product_id))
+
+    def _last_price_text(self, product_id: int | None) -> str:
+        """What the latest order sold this product for, in its own money: to look at only, nothing is saved."""
+        if not product_id:
+            return ""
+        found = issues.latest_price(self.ctx.conn, product_id)
+        if found is None:
+            return "—"
+        price, currency = found
+        return fx.cny_text(price, i18n.language()) if currency == "CNY" else fmt_money(price) + " ₫"
 
     def _fill_price(self, row: _Row):
         """The price this customer paid (the order named, else their latest purchase), unless the user typed one."""
@@ -436,6 +450,7 @@ class ReceiptForm(QDialog):
         for w in (self.customer, self.customer_label, self.order, self.order_label, self.price_hint):
             w.setVisible(ret)
         self.table.setColumnHidden(PRICE, not ret)
+        self.table.setColumnHidden(LAST_PRICE, ret)  # a return has its own price column: what this customer paid
 
     def _fill_suppliers(self):
         """The supplier list of the chosen source; 'Nhà cung cấp khác' starts empty (the user types or clicks)."""

@@ -9,7 +9,8 @@ import pytest
 from dibekho import db
 from dibekho.core import catalog, deliveries, issues, reset
 from dibekho.core.issues import IssueInput, IssueLineInput
-from dibekho.core.stock import MAIN, OFFICE, close_document, is_mixed, set_location, stock_count, stock_levels
+from dibekho.core.stock import (MAIN, OFFICE, Line, close_document, insert_document, is_mixed, set_location,
+                                stock_count, stock_levels)
 from dibekho.excel.delivery_note import read_delivery_note
 from tests.conftest import make_note
 
@@ -159,6 +160,33 @@ def test_problems_and_prices(conn, ws, goods):
     # in the other currency: at the rate given, else none
     assert issues.last_price(conn, "Công ty A", paint, "CNY", 4000) == 125
     assert issues.last_price(conn, "Công ty A", paint, "CNY") is None
+
+
+def test_latest_price_is_that_of_the_newest_priced_order_in_its_own_money(conn, goods):
+    """The reference column of Nhập hàng về: any customer, the note's currency, never converted."""
+    paint, sand = goods
+
+    def sold(day, price, currency="VND", code="1"):
+        with db.transaction(conn):
+            doc = insert_document(conn, "delivery", date(2026, 11, day), [Line(paint, 1, unit_price=price)],
+                                  code=code, code_norm=code)
+            conn.execute("UPDATE documents SET currency = ? WHERE id = ?", (currency, doc))
+        return doc
+
+    assert issues.latest_price(conn, paint) is None and issues.latest_price(conn, None) is None
+    sold(10, 500000)
+    assert issues.latest_price(conn, paint) == (500000, "VND")
+    yuan = sold(12, 12.5, "CNY", "2")
+    sold(11, 400000, code="3")  # entered later, dated earlier: not the latest
+    assert issues.latest_price(conn, paint) == (12.5, "CNY")
+    sold(13, None, code="4")  # no price on it: skipped
+    assert issues.latest_price(conn, paint) == (12.5, "CNY")
+    sold(12, 450000, code="5")  # the same day: the one recorded last
+    assert issues.latest_price(conn, paint) == (450000, "VND")
+    with db.transaction(conn):
+        conn.execute("UPDATE documents SET status = 'cancelled' WHERE kind = 'delivery' AND id <> ?", (yuan,))
+    assert issues.latest_price(conn, paint) == (12.5, "CNY")
+    assert issues.latest_price(conn, sand) is None
 
 
 def test_a_yuan_note_is_written_and_recorded_in_yuan(conn, ws, goods):

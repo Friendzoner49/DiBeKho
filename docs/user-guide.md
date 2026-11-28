@@ -224,6 +224,7 @@ This note is **shared** with the note column on the Stock count page, and shows 
    - More rows: **＋ Add row**. Remove a row: **✕** at its end.
    - After typing a quantity, **Enter** moves to the next row (Enter never saves).
    - Picking a product that is already on another row: the app says so at once and moves to that row.
+   - The **Price (latest order)** column shows what the newest order with this product sold it for, in that order's own money (₫ or ¥); **—** means it has never been sold with a price. To look at only: it is not saved with the receipt. A customer return has no such column (it has the **Refund unit price**).
 5. Click **Save goods in**, read the summary and agree.
    - The supplier box is **where the goods came from** (border gate, parent company), not "Main warehouse". **To correct a wrong stock figure, use Stock count**, not Goods in.
 

@@ -159,16 +159,30 @@ def last_price(conn, customer_name: str, product_id: int | None, currency: str =
     to two decimals, dong whole. None when it cannot be turned."""
     if not product_id:
         return None
-    base = ("SELECT l.unit_price, d.currency, d.fx_rate FROM document_lines l JOIN documents d ON d.id = l.document_id "
-            "LEFT JOIN customers c ON c.id = d.customer_id "
-            "WHERE d.kind = 'delivery' AND d.status = 'active' AND l.product_id = ? AND l.unit_price IS NOT NULL")
-    order = " ORDER BY d.doc_date DESC, d.id DESC, l.line_no LIMIT 1"
-    if clean(customer_name):
-        row = conn.execute(base + " AND c.name = ?" + order, (product_id, clean(customer_name))).fetchone()
-        if row:
-            return _in_currency(row, currency, vnd_per_cny)
-    row = conn.execute(base + order, (product_id,)).fetchone()
+    row = _latest_priced(conn, product_id, clean(customer_name)) if clean(customer_name) else None
+    row = row or _latest_priced(conn, product_id)
     return _in_currency(row, currency, vnd_per_cny) if row else None
+
+
+def latest_price(conn, product_id: int | None) -> tuple[float, str] | None:
+    """(price, 'VND' or 'CNY') of this product on the latest order that has a price for it, whoever bought it, in
+    that order's own currency (the reference column of Nhập hàng về; the owner, 28/11/2026). None: never sold with a
+    price."""
+    row = _latest_priced(conn, product_id) if product_id else None
+    return (row[0], "CNY" if row[1] == "CNY" else "VND") if row else None
+
+
+def _latest_priced(conn, product_id: int, customer_name: str = ""):
+    """(unit_price, currency, fx_rate) of the latest order in force with a price for this product (of this customer
+    when named)."""
+    sql = ("SELECT l.unit_price, d.currency, d.fx_rate FROM document_lines l JOIN documents d ON d.id = l.document_id "
+           "LEFT JOIN customers c ON c.id = d.customer_id "
+           "WHERE d.kind = 'delivery' AND d.status = 'active' AND l.product_id = ? AND l.unit_price IS NOT NULL")
+    args: list = [product_id]
+    if customer_name:
+        sql += " AND c.name = ?"
+        args.append(customer_name)
+    return conn.execute(sql + " ORDER BY d.doc_date DESC, d.id DESC, l.line_no LIMIT 1", args).fetchone()
 
 
 def _in_currency(row, currency: str, vnd_per_cny: float | None) -> float | None:

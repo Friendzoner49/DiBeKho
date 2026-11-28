@@ -224,6 +224,7 @@ Ghi chú này **dùng chung** với cột Ghi chú ở trang Kiểm kê, hiện 
    - Thêm dòng: **＋ Thêm dòng**. Xoá dòng: nút **✕** cuối dòng.
    - Gõ xong một số lượng, bấm **Enter** để xuống dòng dưới (Enter không lưu phiếu).
    - Chọn một mặt hàng đã có ở dòng khác: app báo ngay và đưa con trỏ tới dòng đó để sửa số lượng.
+   - Cột **Đơn giá (đơn gần nhất)** cho biết đơn mới nhất có mặt hàng này đã bán giá bao nhiêu, đúng loại tiền của đơn đó (₫ hoặc ¥); **—** là chưa bán lần nào có giá. Chỉ để xem, không lưu vào phiếu hàng về. Hàng khách trả lại thì không có cột này (đã có **Đơn giá trả lại**).
 5. Bấm **Lưu phiếu hàng về**, đọc bảng tóm tắt rồi đồng ý.
    - Ô nhà cung cấp là **nơi gửi hàng tới** (cửa khẩu, công ty mẹ), không phải "Kho tổng". **Muốn sửa số tồn bị sai thì dùng Kiểm kê**, không dùng Hàng về.
 

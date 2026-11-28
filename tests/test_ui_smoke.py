@@ -527,6 +527,8 @@ def test_goods_in_window(app, ws, monkeypatch):
     form = form_mod.ReceiptForm(ctx)
     assert form.supplier.currentText() == "Công ty mẹ"  # the last supplier
     assert len(form.rows) == 3 and {r.product_id for r in form.rows} == {a, c, d}
+    assert not form.table.isColumnHidden(form_mod.LAST_PRICE)
+    assert form.table.cellWidget(0, form_mod.LAST_PRICE).text() == "—"  # never sold with a price
     form.add_row()
     assert len(form.rows) == 4 and form.rows[3].product_id is None
 
@@ -570,6 +572,7 @@ def test_goods_in_window(app, ws, monkeypatch):
     # a customer return: the customer's order is suggested, nothing is saved without a customer
     return_form = form_mod.ReceiptForm(ctx)
     return_form.src_return.setChecked(True)
+    assert return_form.table.isColumnHidden(form_mod.LAST_PRICE)  # a return shows what the customer paid instead
     assert return_form.customer.isVisibleTo(return_form) and not return_form.supplier.isVisibleTo(return_form)
     errors = []
     monkeypatch.setattr(form_mod, "error", lambda parent, text: errors.append(text))

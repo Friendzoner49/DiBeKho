@@ -731,6 +731,7 @@
   "admin.what_package": "Nhập gói dữ liệu",
   "admin.what_delete_all": "Xoá toàn bộ dữ liệu",
   "money.returned": " · đã trừ hàng khách trả lại: {returned}",
+  "receipt_form.last_price": "Đơn giá (đơn gần nhất)",
   "receipt_form.return_price": "Đơn giá trả lại",
   "receipt_form.return_price_hint": "Hàng khách trả lại được trừ khỏi doanh thu theo Đơn giá trả lại (app điền sẵn giá khách đã mua; sửa được, để trống thì không trừ).",
   "receipt_form.source_other": "Nhà cung cấp khác",
