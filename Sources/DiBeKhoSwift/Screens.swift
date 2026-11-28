@@ -573,6 +573,7 @@ struct CountPage: View {
     private var placeBinding: Binding<Int64> {
         Binding(get: { place }, set: { value in
             guard value != place else { return }
+            UI.endTyping()  // a number still in its cell belongs to the place shown now
             let apply = {
                 counted = [:]
                 place = value
@@ -650,7 +651,7 @@ struct CountPage: View {
             HStack {
                 Text(t("count.summary", ["counted": String(typedCount), "total": String(products.count)]))
                 Spacer()
-                Button(t("count.save")) { save(products) }
+                Button(t("count.save")) { UI.afterTyping { save(products) } }
             }
         }
     }

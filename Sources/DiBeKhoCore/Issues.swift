@@ -156,18 +156,35 @@ public enum Issues {
     public static func lastPrice(_ db: Database, customerName: String, productId: Int64?, currency: String = "VND",
                                  vndPerCny: Double? = nil) throws -> Double? {
         guard let productId else { return nil }
-        let base = """
+        let name = TextRules.clean(customerName)
+        if !name.isEmpty, let row = try latestPriced(db, productId: productId, customerName: name) {
+            return inCurrency(row, currency, vndPerCny)
+        }
+        return try latestPriced(db, productId: productId).flatMap { inCurrency($0, currency, vndPerCny) }
+    }
+
+    /// (price, "VND" or "CNY") of this product on the latest order that has a price for it, whoever bought it, in
+    /// that order's own currency: the reference column of Nhập hàng về (issues.latest_price). nil: never sold with one.
+    public static func latestPrice(_ db: Database, productId: Int64?) throws -> (price: Double, currency: String)? {
+        guard let productId, let row = try latestPriced(db, productId: productId) else { return nil }
+        let price: Double = row["unit_price"]
+        return (price, (row["currency"] as String?) == "CNY" ? "CNY" : "VND")
+    }
+
+    /// (unit_price, currency, fx_rate) of the latest order in force with a price for this product (of this customer
+    /// when named).
+    private static func latestPriced(_ db: Database, productId: Int64, customerName: String = "") throws -> Row? {
+        var sql = """
             SELECT l.unit_price, d.currency, d.fx_rate FROM document_lines l JOIN documents d ON d.id = l.document_id
             LEFT JOIN customers c ON c.id = d.customer_id
             WHERE d.kind = 'delivery' AND d.status = 'active' AND l.product_id = ? AND l.unit_price IS NOT NULL
             """
-        let order = " ORDER BY d.doc_date DESC, d.id DESC, l.line_no LIMIT 1"
-        let name = TextRules.clean(customerName)
-        if !name.isEmpty,
-           let row = try Row.fetchOne(db, sql: base + " AND c.name = ?" + order, arguments: [productId, name]) {
-            return inCurrency(row, currency, vndPerCny)
+        var args: StatementArguments = [productId]
+        if !customerName.isEmpty {
+            sql += " AND c.name = ?"
+            args += [customerName]
         }
-        return try Row.fetchOne(db, sql: base + order, arguments: [productId]).flatMap { inCurrency($0, currency, vndPerCny) }
+        return try Row.fetchOne(db, sql: sql + " ORDER BY d.doc_date DESC, d.id DESC, l.line_no LIMIT 1", arguments: args)
     }
 
     static func inCurrency(_ row: Row, _ currency: String, _ vndPerCny: Double?) -> Double? {

@@ -124,6 +124,7 @@ struct MoveDialog: View {
                 GridRow {
                     Text(t(mode == .transfer ? "transfer.from" : "trial.location") + ":")
                     LocationPicker(selection: Binding(get: { from }, set: { value in
+                        UI.endTyping()  // before the table is drawn again for the other place
                         from = value
                         if mode == .transfer && to == value { to = Ledger.locations.first { $0 != value }! }
                     }), wide: true)
@@ -132,6 +133,7 @@ struct MoveDialog: View {
                     GridRow {
                         Text(t("transfer.to") + ":")
                         LocationPicker(selection: Binding(get: { to }, set: { value in
+                            UI.endTyping()
                             to = value
                             if from == value { from = Ledger.locations.first { $0 != value }! }
                         }), wide: true)
@@ -161,7 +163,7 @@ struct MoveDialog: View {
             HStack {
                 // Lưu phiếu… then Huỷ bỏ, at the right (count_page.py QDialogButtonBox)
                 Spacer()
-                Button(t(mode == .transfer ? "transfer.save" : "trial.save")) { save() }
+                Button(t(mode == .transfer ? "transfer.save" : "trial.save")) { UI.afterTyping { save() } }
                 Button(t("btn.cancel")) { box.close() }
             }
         }

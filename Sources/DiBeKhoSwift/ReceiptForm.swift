@@ -164,9 +164,9 @@ struct ReceiptFormView: View {
 
     // ui/receipt_form.py column widths (px); the product takes the room left
     private enum W {
-        static let spec: CGFloat = 120, unit: CGFloat = 80, qty: CGFloat = 130, price: CGFloat = 150
+        static let spec: CGFloat = 120, unit: CGFloat = 80, qty: CGFloat = 130, price: CGFloat = 150, last: CGFloat = 190
         static let note: CGFloat = 200, remove: CGFloat = 50
-        static var all: CGFloat { FormTable.numberWidth + 200 * UI.scale + spec + unit + qty + price + note + remove + 8 }
+        static var all: CGFloat { FormTable.numberWidth + 200 * UI.scale + spec + unit + qty + max(price, last) + note + remove + 8 }
     }
 
     private var lines: some View {
@@ -178,7 +178,11 @@ struct ReceiptFormView: View {
                     Text(t("col.spec")).formHeader(W.spec)
                     Text(t("col.unit")).formHeader(W.unit)
                     Text(t("col.qty")).formHeader(W.qty)
-                    if isReturn { Text(t("receipt_form.return_price")).formHeader(W.price) }
+                    if isReturn {
+                        Text(t("receipt_form.return_price")).formHeader(W.price)
+                    } else {
+                        Text(t("receipt_form.last_price")).formHeader(W.last)
+                    }
                     Text(t("col.note")).formHeader(W.note)
                     Text("").formHeader(W.remove)
                 }
@@ -207,6 +211,8 @@ struct ReceiptFormView: View {
                         if isReturn {
                             StepField(text: Binding(get: { row.price }, set: { row.price = $0; row.priceTyped = true }))
                                 .formCell(W.price, padded: false)
+                        } else {
+                            Text(lastPriceText(row)).lineLimit(1).formCell(W.last, .trailing)
                         }
                         TextField("", text: $row.note).textFieldStyle(.roundedBorder).formCell(W.note, padded: false)
                         Button("✕") { remove(row.id) }.help(t("receipt_form.remove_row")).formCell(W.remove, .center, padded: false)
@@ -224,6 +230,13 @@ struct ReceiptFormView: View {
 
     private func spec(_ row: ReceiptRow) -> String { row.new?.spec ?? row.productId.flatMap { products[$0]?.spec } ?? "" }
     private func unit(_ row: ReceiptRow) -> String { row.new?.unit ?? row.productId.flatMap { products[$0]?.unit } ?? "" }
+
+    /// What the latest order sold this product for, in its own money: to look at only, nothing is saved.
+    private func lastPriceText(_ row: ReceiptRow) -> String {
+        guard let pid = row.productId else { return "" }
+        guard let found = model.read({ try Issues.latestPrice($0, productId: pid) }) ?? nil else { return "—" }
+        return found.currency == "CNY" ? Format.yuan(found.price) : Format.dong(found.price) + " ₫"
+    }
 
     private func index(_ id: UUID) -> Int? { rows.firstIndex { $0.id == id } }
 

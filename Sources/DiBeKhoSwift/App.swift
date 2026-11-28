@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if flushing { return .terminateLater }
+        UI.endTyping()  // a note still in its cell is saved, and sent with the rest
         guard let cloud = AppModel.running?.cloud, cloud.flushNeeded else { return .terminateNow }
         flushing = true
         let cap = Timer(timeInterval: Self.quitCap, repeats: false) { [weak self] _ in

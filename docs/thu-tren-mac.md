@@ -291,3 +291,15 @@ Cần thử trên Mac:
 3. Danh sách đơn hàng: chọn nhiều đơn (⌘ / Shift) → **Tải file gốc từ Cloud**: tiến trình «Đang tải i/n», xong báo số file.
 5. Lập một phiếu rồi **tắt app ngay** (nút ✕ đỏ, thử cả ⌘Q): app tự gửi rồi mới thoát (tối đa 15 giây; nhật ký có dòng `quit: originals … uploaded`). Mở lại: không bị đòi đăng nhập.
 4. Lập một phiếu trên Mac, đợi đồng bộ, rồi mở file gốc của phiếu đó ở máy Windows (không cần tắt app trên Mac).
+
+## 27. Gõ số rồi bấm Lưu ngay (sửa 28/11/2026; ⚠ chưa biên dịch)
+Khách báo: Chuyển hàng đã gõ số mà vẫn báo «Chưa nhập số lượng nào». Thử **không bấm Tab / Enter** sau số cuối:
+1. **Chuyển hàng…**: gõ số vào một ô vàng → bấm **Lưu phiếu chuyển**: phải hỏi xác nhận, đúng số vừa gõ. Làm lại với **Xuất dùng thử…**.
+2. **Kiểm kê**: gõ số đếm cho 2 mặt hàng → bấm **Lưu kiểm kê**: hộp xác nhận ghi **2** mặt hàng (trước đây số cuối bị bỏ sót mà không báo).
+3. Nhập danh mục từ Excel: sửa số tồn ở một ô → bấm nút nhập ngay: số vừa sửa được dùng.
+4. Đang gõ dở trong ô vàng rồi đổi «Chuyển từ» (hoặc «Đếm ở»): số không bị mất ngầm / không nhảy sang nơi khác.
+
+## 28. Cột đơn giá ở Nhập hàng về (viết 28/11/2026; ⚠ chưa biên dịch)
+1. **Hàng về → ＋ Nhập hàng về…** (Cửa khẩu hoặc Nhà cung cấp khác): chọn mặt hàng đã bán có giá bằng đồng → cột **Đơn giá (đơn gần nhất)** hiện số kèm ₫; mặt hàng đơn mới nhất bán bằng tệ → hiện ¥; chưa bán lần nào có giá → «—».
+2. Chọn **Khách hàng trả lại**: cột này ẩn, còn **Đơn giá trả lại** như cũ.
+3. Đang gõ **Ghi chú tồn kho** rồi bấm sang trang khác ở cột trái (không bấm Enter): quay lại thì ghi chú còn.

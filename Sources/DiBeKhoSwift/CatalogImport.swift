@@ -148,7 +148,7 @@ struct CatalogImportView: View {
             Hint(t("catalog.stock_hint"))
             HStack {
                 Spacer()
-                Button(t("catalog.import_do")) { doImport() }.keyboardShortcut(.defaultAction)
+                Button(t("catalog.import_do")) { UI.afterTyping { doImport() } }.keyboardShortcut(.defaultAction)
                 Button(t("btn.cancel")) { box.close() }
             }
         }

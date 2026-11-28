@@ -34,7 +34,7 @@ struct ContentView: View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(AppModel.Page.allCases) { page in
-                    Button { model.page = page } label: {
+                    Button { UI.endTyping(); model.page = page } label: {
                         Text(t(page.key) + (page == .pending && model.pendingTotal > 0 ? "  (\(model.pendingTotal))" : ""))
                             .font(.system(size: UI.baseSize + 1))
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -65,7 +65,7 @@ struct ContentView: View {
                     }
                     Button(t("issue.button")) { IssueForm.open(model) }
                     // ⌘F: go to Tra cứu and type (ui/main_window.py, Ctrl+F)
-                    Button("") { model.page = .search; model.searchFocus += 1 }
+                    Button("") { UI.endTyping(); model.page = .search; model.searchFocus += 1 }
                         .keyboardShortcut("f", modifiers: .command)
                         .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
                     // «Lần quét gần nhất…» beside the buttons (main_window.py: top.addWidget(self.status, 1))

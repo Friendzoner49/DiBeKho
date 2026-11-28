@@ -137,6 +137,12 @@ jobs:
             dclick 300 168 wait 2 shot 2
           # Phiếu xuất kho: «Khách hàng mới…» opens its dialog, which takes typing
           bash tools/ci_dialogs.sh issue new-customer click 896 194 wait 2 paste "Khách Thử" wait 1 shot 1
+          # Chuyển hàng / Dùng thử: a quantity typed in its yellow cell, then the save button at once (no Tab, no
+          # Return): the question «Lưu phiếu…?» must come, not «Chưa nhập số lượng nào» (customer, 28/11/2026)
+          bash tools/ci_dialogs.sh transfer transfer-qty-then-save wait 1 shot 0 click 908 295 wait 1 click 908 295 wait 1 \
+            paste 3 wait 1 shot 1 click 819 658 wait 2 shot 2 return wait 2 shot 3
+          bash tools/ci_dialogs.sh trial trial-qty-then-save wait 1 shot 0 click 908 295 wait 1 click 908 295 wait 1 \
+            paste 3 wait 1 shot 1 click 819 658 wait 2 shot 2
           # a dialog opened by a button of a page (Kiểm kê → Chuyển…): its list and buttons alive
           PAGE=count bash tools/ci_dialogs.sh - transfer-button click 791 252 wait 2 shot 1
           # Hàng về: «Nhập vào» (a Picker) → the next place

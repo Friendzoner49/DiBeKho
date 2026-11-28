@@ -48,6 +48,22 @@ enum UI {
         return answer
     }
 
+    /// Leaves the cell being typed in, so the table hands its text to onEdit (DataTable.controlTextDidEndEditing). A
+    /// click on a button or a picker does not do that by itself on the Mac (it does in Qt): without this the number
+    /// just typed is not there yet.
+    @MainActor
+    static func endTyping() {
+        NSApp.keyWindow?.makeFirstResponder(nil)
+    }
+
+    /// For a button that saves what was typed in a table: the cell is left first, and the work runs on the next turn,
+    /// when what onEdit stored is read back.
+    @MainActor
+    static func afterTyping(_ work: @escaping () -> Void) {
+        endTyping()
+        later(work)
+    }
+
     /// On the next turn of the run loop, also inside a dialog's modal session. A dialog (Windows.show, modal) opened
     /// from inside a button's or a menu's own handling comes up dead: SwiftUI holds its updates until that handling
     /// returns, which is only when the new dialog closes (the catalog window of Phiếu xuất kho showed no products;
